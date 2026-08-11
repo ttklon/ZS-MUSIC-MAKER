@@ -18,8 +18,15 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from app.core.orchestrator import _timed
-from modules import mastering_pro, voice_cleaner, phonk_engine, beat_constructor
-
+from modules import (
+    mastering_pro,
+    voice_cleaner,
+    phonk_engine,
+    beat_constructor,
+    phonk_engine_v2,
+)
+from app.plugins.base import PluginChain
+from app.plugins.advanced import PhonkDistortion, AntiAINeuroObfuscator
 
 def _save_project_meta(project_id: str, data: dict, out_root: Path):
     meta_path = out_root / "project_meta.json"
@@ -62,16 +69,18 @@ def run_god_pipeline(
     stages.append(s1.__dict__ if hasattr(s1, "__dict__") else s1)
     beat_wav = (s1.output or {}).get("beat_path")
 
-    # 3. Если жанр Phonk - добавляем колокольчики
+    # 3. Если жанр Phonk - используем Phonk Engine V2 (GOD MODE)
     if "phonk" in genre.lower():
-        cowbell_wav = str(out_root / "cowbells.wav")
+        phonk_wav = str(out_root / "phonk_v2_master.wav")
+        engine_v2 = phonk_engine_v2.PhonkEngineV2()
         s2 = _timed(
-            "phonk_cowbell_synth",
-            lambda: phonk_engine.create_cowbell_melody(
-                [440, 0, 523, 0, 440, 392, 440], bpm, cowbell_wav
+            "phonk_engine_v2",
+            lambda: engine_v2.create_drift_track(
+                project_id, bpm, "A", "minor", phonk_wav
             ),
         )
         stages.append(s2.__dict__ if hasattr(s2, "__dict__") else s2)
+        beat_wav = phonk_wav  # Используем результат V2 как основной бит
 
     # 4. Очистка вокала (если есть)
     vocal_wav = wizard_state.get("vocal_input_path")

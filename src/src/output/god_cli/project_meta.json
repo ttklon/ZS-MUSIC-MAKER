@@ -2,7 +2,7 @@
   "project_id": "god_cli",
   "status": "completed",
   "god_mode": true,
-  "elapsed_sec": 0.81,
+  "elapsed_sec": 0.65,
   "stages": [
     {
       "name": "god_beat_generation",
@@ -10,7 +10,7 @@
       "fallback_used": false,
       "synthetic": false,
       "blocked": false,
-      "duration_sec": 0.256,
+      "duration_sec": 0.319,
       "output": {
         "ok": true,
         "beat_path": "/home/ubuntu/ZS-MUSIC-MAKER/src/src/modules/../output/beats/beat.wav",
@@ -80,13 +80,13 @@
       "reason": null
     },
     {
-      "name": "phonk_cowbell_synth",
+      "name": "phonk_engine_v2",
       "ok": true,
       "fallback_used": false,
       "synthetic": false,
       "blocked": false,
-      "duration_sec": 0.008,
-      "output": "/home/ubuntu/ZS-MUSIC-MAKER/src/src/output/god_cli/cowbells.wav",
+      "duration_sec": 0.196,
+      "output": "/home/ubuntu/ZS-MUSIC-MAKER/src/src/output/god_cli/phonk_v2_master.wav",
       "reason": null
     },
     {
@@ -95,12 +95,12 @@
       "fallback_used": false,
       "synthetic": false,
       "blocked": false,
-      "duration_sec": 0.549,
+      "duration_sec": 0.129,
       "output": {
         "ok": true,
         "path": "/home/ubuntu/ZS-MUSIC-MAKER/src/src/output/god_cli/masters/master_god.wav",
         "engine": "pedalboard_pro",
-        "input_lufs": -17.91,
+        "input_lufs": -13.13,
         "target_lufs": -12.0
       },
       "reason": null
