@@ -25,23 +25,34 @@ class PhonkEngineV2:
         self.chain.add(AntiAINeuroObfuscator(intensity=obfuscation))
 
     def generate_808(self, freq: float, duration: float, glide_to: float = None):
-        """Генерирует жирный 808 бас с возможным глайдом."""
+        """Генерирует жирный 808 бас с сатурацией и глайдом."""
         t = np.linspace(0, duration, int(self.sr * duration), endpoint=False)
         
         if glide_to:
-            # Линейное изменение частоты
             freqs = np.linspace(freq, glide_to, len(t))
             phase = 2 * np.pi * np.cumsum(freqs) / self.sr
             wave = np.sin(phase)
         else:
             wave = np.sin(2 * np.pi * freq * t)
             
-        # Добавляем гармоники для дисторшна
-        wave += 0.5 * np.sin(4 * np.pi * freq * t)
-        wave += 0.25 * np.sin(6 * np.pi * freq * t)
+        # GOD MODE: Добавляем сатурацию и шум для "грязного" Phonk звучания
+        # 1. Гармоники
+        wave += 0.4 * np.sin(4 * np.pi * freq * t)
+        wave += 0.2 * np.sin(6 * np.pi * freq * t)
         
-        # Огибающая
-        env = np.exp(-t * 5.0)
+        # 2. Сатурация (Soft Clip)
+        wave = np.tanh(wave * 2.5)
+        
+        # 3. Суб-шум для плотности
+        noise = (np.random.rand(len(t)) * 2 - 1) * 0.005
+        wave += noise
+        
+        # Огибающая (ADSR-подобная)
+        attack_len = int(self.sr * 0.01)
+        attack = np.linspace(0, 1, attack_len)
+        decay = np.exp(-np.linspace(0, 5, len(t) - attack_len))
+        env = np.concatenate([attack, decay])
+        
         return (wave * env).astype(np.float32)
 
     def create_drift_track(self, project_id: str, bpm: int, key_root: str, mode: str, out_path: str, duration_sec: float = 30.0):
@@ -74,14 +85,22 @@ class PhonkEngineV2:
             end = start + len(bass_stereo)
             track[start:end] += bass_stereo * 0.8
             
-            # Добавляем ковбелл на сильные доли
+            # Добавляем ковбелл с гуманизацией (GOD MODE)
             for j in range(4):
-                bell = generate_cowbell(440.0 * (1.2 ** j), duration_sec=0.3)
+                # Рандомизация частоты и громкости (Humanization)
+                freq_mod = 440.0 * (1.2 ** j) * (1.0 + np.random.uniform(-0.02, 0.02))
+                velocity = 0.5 * (1.0 + np.random.uniform(-0.1, 0.1))
+                
+                bell = generate_cowbell(freq_mod, duration_sec=0.3)
                 bell_stereo = np.stack([bell, bell], axis=1)
-                b_start = i + j * step_samples * 4
+                
+                # Микро-смещение по времени (Timing Jitter)
+                jitter = int(np.random.uniform(-0.005, 0.005) * self.sr)
+                b_start = i + j * step_samples * 4 + jitter
                 b_end = b_start + len(bell_stereo)
-                if b_end <= total_samples:
-                    track[b_start:b_end] += bell_stereo * 0.5
+                
+                if 0 <= b_start and b_end <= total_samples:
+                    track[b_start:b_end] += bell_stereo * velocity
 
         # 2. Применяем цепочку эффектов (GOD MODE)
         track = self.chain.process(track, self.sr)

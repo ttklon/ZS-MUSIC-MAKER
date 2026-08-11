@@ -169,7 +169,7 @@ def _try_launch_gui_pyside() -> bool:
         hw = probe()
         orch = RuntimeOrchestrator(log=log)
         w = Wizard(orch=orch, hw=hw, log=log)
-        w.setWindowTitle(f"ZS Music Maker v{VERSION} — Desktop Wizard")
+        w.setWindowTitle(f"ZS Music Maker v{ctx.version} — Desktop Wizard")
         w.show()
         rc = app.exec()
         raise SystemExit(rc)
@@ -312,7 +312,7 @@ def _cli_readiness() -> int:
 
 
 def _cli_version() -> int:
-    _safe_print(json.dumps({"version": VERSION, "build": BUILD}, ensure_ascii=False))
+    _safe_print(json.dumps({"version": ctx.version, "build": ctx.build}, ensure_ascii=False))
     return 0
 
 

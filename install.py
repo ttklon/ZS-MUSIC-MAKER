@@ -26,12 +26,19 @@ def setup():
     print(f"Detected OS: {os_name}")
 
     # 1. Зависимости
-    req_file = "requirements.txt"
     if os_name == "Linux":
+        print("Installing system libraries (Linux)...")
         run_cmd("sudo apt-get update && sudo apt-get install -y ffmpeg graphviz libsndfile1")
     
     print("Installing Python dependencies...")
-    run_cmd(f"{sys.executable} -m pip install -r {req_file}")
+    deps = [
+        "numpy", "scipy", "soundfile", "pedalboard", 
+        "audiomentations", "pyloudnorm", "essentia", 
+        "music21", "pyAudioAnalysis", "mingus", 
+        "pytest", "radon", "bandit", "requests", 
+        "tqdm", "colorama", "psutil"
+    ]
+    run_cmd(f"{sys.executable} -m pip install {' '.join(deps)}")
 
     # 2. Проверка GPU
     print("Checking for hardware acceleration...")
