@@ -69,27 +69,31 @@ def run_god_pipeline(
     
     pipe.add_stage("midi_generation", stage_midi)
 
-    # 3. Audio Generation
+    # 3. Pro Audio Generation using CyberSynth Engine for Cyberpunk & Modern Genres
     def stage_audio(ctx: PipelineContext):
         state = ctx.shared_data["state"]
         genre_name = state["genre"]
         bpm = state["bpm_override"]
         
-        if "phonk" in genre_name.lower():
-            phonk_wav = str(out_root / "phonk_v2_master.wav")
-            engine_v2 = phonk_engine_v2.PhonkEngineV2()
-            engine_v2.create_drift_track(ctx.project_id, bpm, "A", "minor", phonk_wav)
-            ctx.shared_data["beat_wav"] = phonk_wav
-            return phonk_wav
-        else:
-            out_name = str(out_root / "multi_beat.wav")
-            res = beat_constructor.construct_beat(
-                groove={}, samples=[], 
-                style_vector={"target_bpm": bpm, "target_mode": "minor"},
-                out_name=out_name
-            )
-            ctx.shared_data["beat_wav"] = res.get("beat_path")
-            return res
+        out_name = str(out_root / "multi_beat.wav")
+        try:
+            from modules.cyber_synth import CyberSynth
+            synth = CyberSynth(sample_rate=44100)
+            res = synth.synthesize_track(bpm=bpm, duration_sec=120, out_path=out_name)
+            if res.get("ok"):
+                ctx.shared_data["beat_wav"] = out_name
+                return out_name
+        except Exception as e:
+            print(f"[orchestrator_god] CyberSynth fallback due to: {e}")
+
+        # Fallback to beat_constructor if needed
+        res = beat_constructor.construct_beat(
+            groove={}, samples=[], 
+            style_vector={"target_bpm": bpm, "target_mode": "minor"},
+            out_name=out_name
+        )
+        ctx.shared_data["beat_wav"] = res.get("beat_path")
+        return res
             
     pipe.add_stage("audio_generation", stage_audio)
 

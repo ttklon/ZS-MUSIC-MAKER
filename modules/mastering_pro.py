@@ -31,12 +31,28 @@ except ImportError:
     HAS_PEDALBOARD = False
 
 
-def process_mastering(input_wav: str, output_wav: str, target_lufs: float = -14.0):
+def process_mastering(input_wav: str, output_wav: str, vocal_path: str = None, target_lufs: float = -14.0):
     """
     Профессиональный мастеринг трека с автоматическими фоллбеками.
+    Если передан vocal_path, вокал подмешивается к биту перед мастерингом.
     """
+    global HAS_PEDALBOARD, HAS_PYLOUDNORM
     if not os.path.exists(input_wav):
         raise FileNotFoundError(f"Input wav not found: {input_wav}")
+
+    # v26: Сведение вокала и бита если нужно
+    if vocal_path and os.path.exists(vocal_path):
+        try:
+            from pydub import AudioSegment
+            beat = AudioSegment.from_file(input_wav)
+            vocal = AudioSegment.from_file(vocal_path)
+            # Базовое сведение
+            combined = beat.overlay(vocal)
+            temp_mix = output_wav.replace(".wav", "_temp_mix.wav")
+            combined.export(temp_mix, format="wav")
+            input_wav = temp_mix
+        except Exception as e:
+            print(f"[mastering_pro] Mix failed: {e}")
 
     if HAS_PEDALBOARD:
         try:

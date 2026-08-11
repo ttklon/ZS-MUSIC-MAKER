@@ -2,12 +2,12 @@
   "project_id": "god_cli",
   "status": "completed",
   "god_mode": true,
-  "elapsed_sec": 0.63,
+  "elapsed_sec": 2.44,
   "stages": [
     {
       "name": "ai_arrangement",
       "ok": true,
-      "duration_sec": 0.0002770423889160156,
+      "duration_sec": 0.00039196014404296875,
       "output": [
         {
           "name": "intro",
@@ -51,37 +51,37 @@
     {
       "name": "midi_generation",
       "ok": true,
-      "duration_sec": 0.0006356239318847656,
+      "duration_sec": 0.0008907318115234375,
       "output": {
         "ok": true,
-        "drums": "output/midi/phonk_drums.mid",
-        "melody": "output/midi/phonk_melody.mid"
+        "drums": "output/midi/cyberpunk_soundtrack_drums.mid",
+        "melody": "output/midi/cyberpunk_soundtrack_melody.mid"
       },
       "reason": null
     },
     {
       "name": "audio_generation",
       "ok": true,
-      "duration_sec": 0.48734426498413086,
-      "output": "/home/ubuntu/ZS-MUSIC-MAKER/output/god_cli/phonk_v2_master.wav",
+      "duration_sec": 1.1770222187042236,
+      "output": "/home/ubuntu/ZS-MUSIC-MAKER/output/god_cli/multi_beat.wav",
       "reason": null
     },
     {
       "name": "vocal_cleaning",
       "ok": true,
-      "duration_sec": 0.0001361370086669922,
+      "duration_sec": 9.441375732421875e-05,
       "output": null,
       "reason": null
     },
     {
       "name": "god_mastering_pro",
       "ok": true,
-      "duration_sec": 0.1383686065673828,
+      "duration_sec": 1.2584176063537598,
       "output": {
         "ok": true,
         "path": "/home/ubuntu/ZS-MUSIC-MAKER/output/god_cli/masters/master_god.wav",
-        "engine": "pedalboard_pro",
-        "input_lufs": -14.29,
+        "engine": "pedalboard_pro_safe",
+        "input_lufs": -11.21,
         "target_lufs": -12.0
       },
       "reason": null
