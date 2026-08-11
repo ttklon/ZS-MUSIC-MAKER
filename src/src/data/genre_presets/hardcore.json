@@ -1,0 +1,32 @@
+{
+  "genre": "hardcore",
+  "bpm_range": [
+    170,
+    200
+  ],
+  "typical_keys": [
+    "Cm",
+    "Fm"
+  ],
+  "kick_pattern_family": "hardcore_kick",
+  "snare_family": "hardcore_snare",
+  "bass_family": "hardcore_bass",
+  "structure_templates": [
+    "intro-verse-hook-verse-hook-outro",
+    "intro-verse-prehook-hook-break-verse-hook-outro"
+  ],
+  "mood_tags": [
+    "extreme",
+    "hard"
+  ],
+  "lyric_themes_ru": [
+    "эпик"
+  ],
+  "lyric_themes_en": [],
+  "vocal_style": "hype",
+  "sidechain_intensity": 0.7,
+  "mastering_profile_default": "streaming",
+  "typical_length_sec": 120,
+  "typical_hook_start_sec": 30,
+  "reference_examples": []
+}

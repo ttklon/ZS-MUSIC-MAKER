@@ -1,0 +1,32 @@
+{
+  "genre": "memphis_rap",
+  "bpm_range": [
+    115,
+    135
+  ],
+  "typical_keys": [
+    "Am",
+    "Cm"
+  ],
+  "kick_pattern_family": "memphis_rap_kick",
+  "snare_family": "memphis_rap_snare",
+  "bass_family": "memphis_rap_bass",
+  "structure_templates": [
+    "intro-verse-hook-verse-hook-outro",
+    "intro-verse-prehook-hook-break-verse-hook-outro"
+  ],
+  "mood_tags": [
+    "raw",
+    "dark"
+  ],
+  "lyric_themes_ru": [
+    "трущобы"
+  ],
+  "lyric_themes_en": [],
+  "vocal_style": "hard",
+  "sidechain_intensity": 0.7,
+  "mastering_profile_default": "streaming",
+  "typical_length_sec": 120,
+  "typical_hook_start_sec": 30,
+  "reference_examples": []
+}

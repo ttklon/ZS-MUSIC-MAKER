@@ -1,0 +1,32 @@
+{
+  "genre": "trap",
+  "bpm_range": [
+    130,
+    170
+  ],
+  "typical_keys": [
+    "F#m",
+    "Cm"
+  ],
+  "kick_pattern_family": "trap_kick",
+  "snare_family": "trap_snare",
+  "bass_family": "trap_bass",
+  "structure_templates": [
+    "intro-verse-hook-verse-hook-outro",
+    "intro-verse-prehook-hook-break-verse-hook-outro"
+  ],
+  "mood_tags": [
+    "808",
+    "dark"
+  ],
+  "lyric_themes_ru": [
+    "деньги"
+  ],
+  "lyric_themes_en": [],
+  "vocal_style": "autotune",
+  "sidechain_intensity": 0.7,
+  "mastering_profile_default": "streaming",
+  "typical_length_sec": 120,
+  "typical_hook_start_sec": 30,
+  "reference_examples": []
+}

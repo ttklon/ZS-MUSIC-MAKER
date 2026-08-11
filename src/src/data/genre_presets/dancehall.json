@@ -1,0 +1,31 @@
+{
+  "genre": "dancehall",
+  "bpm_range": [
+    95,
+    110
+  ],
+  "typical_keys": [
+    "Am",
+    "Dm"
+  ],
+  "kick_pattern_family": "dancehall_kick",
+  "snare_family": "dancehall_snare",
+  "bass_family": "dancehall_bass",
+  "structure_templates": [
+    "intro-verse-hook-verse-hook-outro",
+    "intro-verse-prehook-hook-break-verse-hook-outro"
+  ],
+  "mood_tags": [
+    "caribbean"
+  ],
+  "lyric_themes_ru": [
+    "лето"
+  ],
+  "lyric_themes_en": [],
+  "vocal_style": "melodic",
+  "sidechain_intensity": 0.7,
+  "mastering_profile_default": "streaming",
+  "typical_length_sec": 120,
+  "typical_hook_start_sec": 30,
+  "reference_examples": []
+}

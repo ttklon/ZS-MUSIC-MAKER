@@ -1,0 +1,32 @@
+{
+  "genre": "cloud_rap",
+  "bpm_range": [
+    120,
+    150
+  ],
+  "typical_keys": [
+    "Am",
+    "Em"
+  ],
+  "kick_pattern_family": "cloud_rap_kick",
+  "snare_family": "cloud_rap_snare",
+  "bass_family": "cloud_rap_bass",
+  "structure_templates": [
+    "intro-verse-hook-verse-hook-outro",
+    "intro-verse-prehook-hook-break-verse-hook-outro"
+  ],
+  "mood_tags": [
+    "dreamy",
+    "reverb"
+  ],
+  "lyric_themes_ru": [
+    "облака"
+  ],
+  "lyric_themes_en": [],
+  "vocal_style": "melodic",
+  "sidechain_intensity": 0.7,
+  "mastering_profile_default": "streaming",
+  "typical_length_sec": 120,
+  "typical_hook_start_sec": 30,
+  "reference_examples": []
+}

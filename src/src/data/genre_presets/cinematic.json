@@ -1,0 +1,32 @@
+{
+  "genre": "cinematic",
+  "bpm_range": [
+    80,
+    140
+  ],
+  "typical_keys": [
+    "Cm",
+    "Am"
+  ],
+  "kick_pattern_family": "cinematic_kick",
+  "snare_family": "cinematic_snare",
+  "bass_family": "cinematic_bass",
+  "structure_templates": [
+    "intro-verse-hook-verse-hook-outro",
+    "intro-verse-prehook-hook-break-verse-hook-outro"
+  ],
+  "mood_tags": [
+    "epic",
+    "score"
+  ],
+  "lyric_themes_ru": [
+    "эпик"
+  ],
+  "lyric_themes_en": [],
+  "vocal_style": "epic",
+  "sidechain_intensity": 0.7,
+  "mastering_profile_default": "streaming",
+  "typical_length_sec": 120,
+  "typical_hook_start_sec": 30,
+  "reference_examples": []
+}

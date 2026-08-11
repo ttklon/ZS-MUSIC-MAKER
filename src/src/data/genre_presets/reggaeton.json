@@ -1,0 +1,32 @@
+{
+  "genre": "reggaeton",
+  "bpm_range": [
+    90,
+    105
+  ],
+  "typical_keys": [
+    "Am",
+    "Dm"
+  ],
+  "kick_pattern_family": "reggaeton_kick",
+  "snare_family": "reggaeton_snare",
+  "bass_family": "reggaeton_bass",
+  "structure_templates": [
+    "intro-verse-hook-verse-hook-outro",
+    "intro-verse-prehook-hook-break-verse-hook-outro"
+  ],
+  "mood_tags": [
+    "latin",
+    "dance"
+  ],
+  "lyric_themes_ru": [
+    "лето"
+  ],
+  "lyric_themes_en": [],
+  "vocal_style": "melodic",
+  "sidechain_intensity": 0.7,
+  "mastering_profile_default": "streaming",
+  "typical_length_sec": 120,
+  "typical_hook_start_sec": 30,
+  "reference_examples": []
+}

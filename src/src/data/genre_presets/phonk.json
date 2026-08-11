@@ -1,0 +1,36 @@
+{
+  "genre": "phonk",
+  "bpm_range": [
+    120,
+    150
+  ],
+  "typical_keys": [
+    "Am",
+    "F#m",
+    "Dm"
+  ],
+  "kick_pattern_family": "phonk_kick",
+  "snare_family": "phonk_snare",
+  "bass_family": "phonk_bass",
+  "structure_templates": [
+    "intro-verse-hook-verse-hook-outro",
+    "intro-verse-prehook-hook-break-verse-hook-outro"
+  ],
+  "mood_tags": [
+    "dark",
+    "aggressive",
+    "drift"
+  ],
+  "lyric_themes_ru": [
+    "тачки",
+    "ночь",
+    "город"
+  ],
+  "lyric_themes_en": [],
+  "vocal_style": "aggressive",
+  "sidechain_intensity": 0.7,
+  "mastering_profile_default": "streaming",
+  "typical_length_sec": 120,
+  "typical_hook_start_sec": 30,
+  "reference_examples": []
+}

@@ -1,0 +1,10 @@
+# Prompt: slang_extraction
+# Placeholders: {corpus_text}
+
+Из текста ниже извлеки уникальные сленговые слова и фразы,
+характерные для молодёжной культуры (phonk/trap/rap), с переводом
+на нейтральный русский.
+
+{corpus_text}
+
+Формат ответа: JSON [{slang, translation, register}].

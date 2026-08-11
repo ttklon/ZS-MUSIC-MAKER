@@ -1,0 +1,32 @@
+{
+  "genre": "industrial",
+  "bpm_range": [
+    120,
+    140
+  ],
+  "typical_keys": [
+    "Cm",
+    "Gm"
+  ],
+  "kick_pattern_family": "industrial_kick",
+  "snare_family": "industrial_snare",
+  "bass_family": "industrial_bass",
+  "structure_templates": [
+    "intro-verse-hook-verse-hook-outro",
+    "intro-verse-prehook-hook-break-verse-hook-outro"
+  ],
+  "mood_tags": [
+    "heavy",
+    "machine"
+  ],
+  "lyric_themes_ru": [
+    "завод"
+  ],
+  "lyric_themes_en": [],
+  "vocal_style": "hard",
+  "sidechain_intensity": 0.7,
+  "mastering_profile_default": "streaming",
+  "typical_length_sec": 120,
+  "typical_hook_start_sec": 30,
+  "reference_examples": []
+}

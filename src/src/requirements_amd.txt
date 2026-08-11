@@ -1,0 +1,3 @@
+# ZS Music Maker v6 — AMD-ветка (DirectML)
+# Ставится ПОВЕРХ requirements.txt на машинах с AMD/Intel iGPU без CUDA.
+torch-directml>=0.2.1.dev240521

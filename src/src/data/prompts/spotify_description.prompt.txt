@@ -1,0 +1,5 @@
+# Prompt: spotify_description
+# Placeholders: {title} {artist} {genre} {theme}
+
+Короткое описание для About на Spotify (до 300 символов).
+Формат: обычный текст.

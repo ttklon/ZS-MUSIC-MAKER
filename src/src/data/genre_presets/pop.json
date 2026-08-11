@@ -1,0 +1,32 @@
+{
+  "genre": "pop",
+  "bpm_range": [
+    100,
+    130
+  ],
+  "typical_keys": [
+    "C",
+    "G",
+    "Am"
+  ],
+  "kick_pattern_family": "pop_kick",
+  "snare_family": "pop_snare",
+  "bass_family": "pop_bass",
+  "structure_templates": [
+    "intro-verse-hook-verse-hook-outro",
+    "intro-verse-prehook-hook-break-verse-hook-outro"
+  ],
+  "mood_tags": [
+    "catchy"
+  ],
+  "lyric_themes_ru": [
+    "любовь"
+  ],
+  "lyric_themes_en": [],
+  "vocal_style": "melodic",
+  "sidechain_intensity": 0.7,
+  "mastering_profile_default": "streaming",
+  "typical_length_sec": 120,
+  "typical_hook_start_sec": 30,
+  "reference_examples": []
+}

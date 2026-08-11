@@ -1,0 +1,32 @@
+{
+  "genre": "uk_drill",
+  "bpm_range": [
+    140,
+    150
+  ],
+  "typical_keys": [
+    "Cm",
+    "Gm"
+  ],
+  "kick_pattern_family": "uk_drill_kick",
+  "snare_family": "uk_drill_snare",
+  "bass_family": "uk_drill_bass",
+  "structure_templates": [
+    "intro-verse-hook-verse-hook-outro",
+    "intro-verse-prehook-hook-break-verse-hook-outro"
+  ],
+  "mood_tags": [
+    "dark",
+    "UK"
+  ],
+  "lyric_themes_ru": [
+    "улица"
+  ],
+  "lyric_themes_en": [],
+  "vocal_style": "hard",
+  "sidechain_intensity": 0.7,
+  "mastering_profile_default": "streaming",
+  "typical_length_sec": 120,
+  "typical_hook_start_sec": 30,
+  "reference_examples": []
+}

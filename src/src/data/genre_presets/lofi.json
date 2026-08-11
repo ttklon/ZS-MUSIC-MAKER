@@ -1,0 +1,33 @@
+{
+  "genre": "lofi",
+  "bpm_range": [
+    70,
+    95
+  ],
+  "typical_keys": [
+    "Am",
+    "F",
+    "C"
+  ],
+  "kick_pattern_family": "lofi_kick",
+  "snare_family": "lofi_snare",
+  "bass_family": "lofi_bass",
+  "structure_templates": [
+    "intro-verse-hook-verse-hook-outro",
+    "intro-verse-prehook-hook-break-verse-hook-outro"
+  ],
+  "mood_tags": [
+    "chill",
+    "vinyl"
+  ],
+  "lyric_themes_ru": [
+    "чай"
+  ],
+  "lyric_themes_en": [],
+  "vocal_style": "soft",
+  "sidechain_intensity": 0.7,
+  "mastering_profile_default": "streaming",
+  "typical_length_sec": 120,
+  "typical_hook_start_sec": 30,
+  "reference_examples": []
+}

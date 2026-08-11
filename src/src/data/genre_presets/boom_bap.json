@@ -1,0 +1,32 @@
+{
+  "genre": "boom_bap",
+  "bpm_range": [
+    85,
+    95
+  ],
+  "typical_keys": [
+    "Am",
+    "Dm"
+  ],
+  "kick_pattern_family": "boom_bap_kick",
+  "snare_family": "boom_bap_snare",
+  "bass_family": "boom_bap_bass",
+  "structure_templates": [
+    "intro-verse-hook-verse-hook-outro",
+    "intro-verse-prehook-hook-break-verse-hook-outro"
+  ],
+  "mood_tags": [
+    "oldschool",
+    "boom"
+  ],
+  "lyric_themes_ru": [
+    "улица"
+  ],
+  "lyric_themes_en": [],
+  "vocal_style": "flow",
+  "sidechain_intensity": 0.7,
+  "mastering_profile_default": "streaming",
+  "typical_length_sec": 120,
+  "typical_hook_start_sec": 30,
+  "reference_examples": []
+}

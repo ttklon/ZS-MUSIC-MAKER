@@ -1,0 +1,32 @@
+{
+  "genre": "rage",
+  "bpm_range": [
+    140,
+    180
+  ],
+  "typical_keys": [
+    "Gm",
+    "Dm"
+  ],
+  "kick_pattern_family": "rage_kick",
+  "snare_family": "rage_snare",
+  "bass_family": "rage_bass",
+  "structure_templates": [
+    "intro-verse-hook-verse-hook-outro",
+    "intro-verse-prehook-hook-break-verse-hook-outro"
+  ],
+  "mood_tags": [
+    "distorted",
+    "aggressive"
+  ],
+  "lyric_themes_ru": [
+    "ярость"
+  ],
+  "lyric_themes_en": [],
+  "vocal_style": "hard",
+  "sidechain_intensity": 0.7,
+  "mastering_profile_default": "streaming",
+  "typical_length_sec": 120,
+  "typical_hook_start_sec": 30,
+  "reference_examples": []
+}

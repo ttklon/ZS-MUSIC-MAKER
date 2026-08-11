@@ -1,0 +1,32 @@
+{
+  "genre": "house",
+  "bpm_range": [
+    120,
+    128
+  ],
+  "typical_keys": [
+    "Am",
+    "Em"
+  ],
+  "kick_pattern_family": "house_kick",
+  "snare_family": "house_snare",
+  "bass_family": "house_bass",
+  "structure_templates": [
+    "intro-verse-hook-verse-hook-outro",
+    "intro-verse-prehook-hook-break-verse-hook-outro"
+  ],
+  "mood_tags": [
+    "groovy",
+    "club"
+  ],
+  "lyric_themes_ru": [
+    "дом"
+  ],
+  "lyric_themes_en": [],
+  "vocal_style": "soulful",
+  "sidechain_intensity": 0.7,
+  "mastering_profile_default": "streaming",
+  "typical_length_sec": 120,
+  "typical_hook_start_sec": 30,
+  "reference_examples": []
+}

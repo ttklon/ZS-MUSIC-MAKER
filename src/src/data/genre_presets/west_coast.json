@@ -1,0 +1,31 @@
+{
+  "genre": "west_coast",
+  "bpm_range": [
+    90,
+    105
+  ],
+  "typical_keys": [
+    "Am",
+    "Dm"
+  ],
+  "kick_pattern_family": "west_coast_kick",
+  "snare_family": "west_coast_snare",
+  "bass_family": "west_coast_bass",
+  "structure_templates": [
+    "intro-verse-hook-verse-hook-outro",
+    "intro-verse-prehook-hook-break-verse-hook-outro"
+  ],
+  "mood_tags": [
+    "g-funk"
+  ],
+  "lyric_themes_ru": [
+    "Калифорния"
+  ],
+  "lyric_themes_en": [],
+  "vocal_style": "flow",
+  "sidechain_intensity": 0.7,
+  "mastering_profile_default": "streaming",
+  "typical_length_sec": 120,
+  "typical_hook_start_sec": 30,
+  "reference_examples": []
+}

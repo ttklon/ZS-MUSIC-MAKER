@@ -1,0 +1,6 @@
+# Prompt: hashtags_insta
+# Placeholders: {title} {genre} {mood_tags} {language}
+
+Дай 15 хэштегов для Instagram / Reels под трек "{title}" ({genre}).
+Смешай популярные (#music) и жанровые (#phonk, #trap).
+Формат: одна строка, теги через пробел, с #.

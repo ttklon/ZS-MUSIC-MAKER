@@ -1,0 +1,5 @@
+# Prompt: hashtags_youtube
+# Placeholders: {title} {genre} {mood_tags} {language}
+
+Дай 5 хэштегов для YouTube Shorts под трек "{title}" в жанре {genre}.
+Формат: одна строка через пробел, с #.

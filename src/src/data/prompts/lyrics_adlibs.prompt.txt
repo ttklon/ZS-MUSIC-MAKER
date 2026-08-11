@@ -1,0 +1,6 @@
+# Prompt: lyrics_adlibs
+# Placeholders: {genre} {language}
+
+Список коротких адлибов (yeah, uh, ay, woo и т.п.) в стилистике {genre}
+на языке {language}. Дай 10 штук, по одному в строке.
+Формат ответа: только адлибы, без нумерации.

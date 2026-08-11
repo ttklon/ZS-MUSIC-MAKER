@@ -1,0 +1,7 @@
+# Prompt: track_description_long
+# Placeholders: {title} {genre} {bpm} {key} {theme} {mood_tags} {language}
+
+Опиши трек "{title}" развёрнуто на языке {language}: контекст,
+настроение, для кого, где слушать (клуб/тачка/наушники).
+Длина: 200-500 символов. Включи BPM ({bpm}) и тональность ({key}).
+Формат: только описание, без заголовков.

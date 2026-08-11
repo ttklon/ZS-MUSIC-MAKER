@@ -1,0 +1,6 @@
+# Prompt: track_description_short
+# Placeholders: {title} {genre} {bpm} {theme} {language}
+
+Опиши трек "{title}" в 1-2 предложениях на языке {language}. Указать
+жанр {genre}, BPM {bpm}, тему {theme}. Длина: до 150 символов.
+Формат: только текст описания.

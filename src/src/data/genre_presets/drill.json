@@ -1,0 +1,32 @@
+{
+  "genre": "drill",
+  "bpm_range": [
+    140,
+    160
+  ],
+  "typical_keys": [
+    "Cm",
+    "Fm"
+  ],
+  "kick_pattern_family": "drill_kick",
+  "snare_family": "drill_snare",
+  "bass_family": "drill_bass",
+  "structure_templates": [
+    "intro-verse-hook-verse-hook-outro",
+    "intro-verse-prehook-hook-break-verse-hook-outro"
+  ],
+  "mood_tags": [
+    "dark",
+    "percussion"
+  ],
+  "lyric_themes_ru": [
+    "улица"
+  ],
+  "lyric_themes_en": [],
+  "vocal_style": "hard",
+  "sidechain_intensity": 0.7,
+  "mastering_profile_default": "streaming",
+  "typical_length_sec": 120,
+  "typical_hook_start_sec": 30,
+  "reference_examples": []
+}

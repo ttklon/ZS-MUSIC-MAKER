@@ -1,0 +1,34 @@
+{
+  "genre": "drift_phonk",
+  "bpm_range": [
+    140,
+    160
+  ],
+  "typical_keys": [
+    "Am",
+    "F#m"
+  ],
+  "kick_pattern_family": "drift_phonk_kick",
+  "snare_family": "drift_phonk_snare",
+  "bass_family": "drift_phonk_bass",
+  "structure_templates": [
+    "intro-verse-hook-verse-hook-outro",
+    "intro-verse-prehook-hook-break-verse-hook-outro"
+  ],
+  "mood_tags": [
+    "dark",
+    "night",
+    "car"
+  ],
+  "lyric_themes_ru": [
+    "тачки",
+    "движ"
+  ],
+  "lyric_themes_en": [],
+  "vocal_style": "aggressive",
+  "sidechain_intensity": 0.7,
+  "mastering_profile_default": "streaming",
+  "typical_length_sec": 120,
+  "typical_hook_start_sec": 30,
+  "reference_examples": []
+}

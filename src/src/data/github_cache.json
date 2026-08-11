@@ -1,0 +1,437 @@
+{
+  "scanned_at": "2026-08-08T20:13:27",
+  "topics": {
+    "rvc": [
+      {
+        "name": "Retrieval-based-Voice-Conversion-WebUI",
+        "full_name": "RVC-Project/Retrieval-based-Voice-Conversion-WebUI",
+        "url": "https://github.com/RVC-Project/Retrieval-based-Voice-Conversion-WebUI",
+        "description": "Easily train a good VC model with voice data <= 10 mins!",
+        "stars": 37245,
+        "updated": "2026-08-08T20:03:20Z",
+        "language": "Python",
+        "is_new_since_last_scan": false
+      },
+      {
+        "name": "Applio",
+        "full_name": "IAHispano/Applio",
+        "url": "https://github.com/IAHispano/Applio",
+        "description": "A simple, high-quality voice conversion tool focused on ease of use and performance.",
+        "stars": 3567,
+        "updated": "2026-08-08T15:22:24Z",
+        "language": "Python",
+        "is_new_since_last_scan": false
+      },
+      {
+        "name": "TTS-Audio-Suite",
+        "full_name": "diodiogod/TTS-Audio-Suite",
+        "url": "https://github.com/diodiogod/TTS-Audio-Suite",
+        "description": "A ComfyUI custom node integration for local multi-engine multi-language Text-to-Speech and Voice Conversion. Supports: RVC, Echo-TTS, Qwen3-TTS, Cozy Voice 3, Step Audio EditX, IndexTTS-2, Chatterbox ",
+        "stars": 1143,
+        "updated": "2026-08-08T12:54:33Z",
+        "language": "Python",
+        "is_new_since_last_scan": false
+      },
+      {
+        "name": "rvc-webui",
+        "full_name": "ddPn08/rvc-webui",
+        "url": "https://github.com/ddPn08/rvc-webui",
+        "description": "liujing04/Retrieval-based-Voice-Conversion-WebUI reconstruction project",
+        "stars": 522,
+        "updated": "2026-07-27T23:20:54Z",
+        "language": "Python",
+        "is_new_since_last_scan": false
+      },
+      {
+        "name": "Retrieval-based-Voice-Conversion-WebUI",
+        "full_name": "fumiama/Retrieval-based-Voice-Conversion-WebUI",
+        "url": "https://github.com/fumiama/Retrieval-based-Voice-Conversion-WebUI",
+        "description": "Easily train a good VC model with voice data <= 10 mins!",
+        "stars": 431,
+        "updated": "2026-08-06T09:29:37Z",
+        "language": "Python",
+        "is_new_since_last_scan": false
+      }
+    ],
+    "musicgen": [
+      {
+        "name": "audiocraft",
+        "full_name": "facebookresearch/audiocraft",
+        "url": "https://github.com/facebookresearch/audiocraft",
+        "description": "Audiocraft is a library for audio processing and generation with deep learning. It features the state-of-the-art EnCodec audio compressor / tokenizer, along with MusicGen, a simple and controllable mu",
+        "stars": 23546,
+        "updated": "2026-08-08T18:09:46Z",
+        "language": "Jupyter Notebook",
+        "is_new_since_last_scan": false
+      },
+      {
+        "name": "infinifi",
+        "full_name": "kennethnym/infinifi",
+        "url": "https://github.com/kennethnym/infinifi",
+        "description": "infinifi plays gentle lofi music in the background indefinitely",
+        "stars": 344,
+        "updated": "2026-08-08T18:04:44Z",
+        "language": "Python",
+        "is_new_since_last_scan": false
+      },
+      {
+        "name": "audiocraft-webui",
+        "full_name": "CoffeeVampir3/audiocraft-webui",
+        "url": "https://github.com/CoffeeVampir3/audiocraft-webui",
+        "description": "Quick webui for audiocraft",
+        "stars": 172,
+        "updated": "2026-07-26T13:06:48Z",
+        "language": "Python",
+        "is_new_since_last_scan": false
+      },
+      {
+        "name": "audiocraft-infinity-webui",
+        "full_name": "1aienthusiast/audiocraft-infinity-webui",
+        "url": "https://github.com/1aienthusiast/audiocraft-infinity-webui",
+        "description": "",
+        "stars": 172,
+        "updated": "2026-07-13T20:20:23Z",
+        "language": "Python",
+        "is_new_since_last_scan": false
+      },
+      {
+        "name": "VisionCrafter",
+        "full_name": "diStyApps/VisionCrafter",
+        "url": "https://github.com/diStyApps/VisionCrafter",
+        "description": "Craft your visions",
+        "stars": 151,
+        "updated": "2026-07-24T19:24:03Z",
+        "language": "Python",
+        "is_new_since_last_scan": false
+      }
+    ],
+    "demucs": [
+      {
+        "name": "MISST",
+        "full_name": "Frikallo/MISST",
+        "url": "https://github.com/Frikallo/MISST",
+        "description": "A local GUI music source separation tool built on Tkinter and demucs serving as a free and open source Stem Player",
+        "stars": 177,
+        "updated": "2026-06-29T15:02:06Z",
+        "language": "Python",
+        "is_new_since_last_scan": false
+      },
+      {
+        "name": "streamstem",
+        "full_name": "otonomee/streamstem",
+        "url": "https://github.com/otonomee/streamstem",
+        "description": "Implements ML audio separation algorithm on audio from YouTube or Spotify resulting in \"stems\" for download (e.g. vocals, drums, bass) in MP3, WAV or FLAC. ",
+        "stars": 39,
+        "updated": "2026-05-02T05:05:33Z",
+        "language": "Python",
+        "is_new_since_last_scan": false
+      },
+      {
+        "name": "StemSplitter-Audio-Separation-Server",
+        "full_name": "jinoAlgon/StemSplitter-Audio-Separation-Server",
+        "url": "https://github.com/jinoAlgon/StemSplitter-Audio-Separation-Server",
+        "description": "StemSplitter is an innovative audio processing server designed to separate music tracks into individual stems, such as vocals, drums, and instruments. Built with a combination of cutting-edge technolo",
+        "stars": 32,
+        "updated": "2026-05-10T00:12:35Z",
+        "language": "Python",
+        "is_new_since_last_scan": false
+      },
+      {
+        "name": "demucs-mlx",
+        "full_name": "ssmall256/demucs-mlx",
+        "url": "https://github.com/ssmall256/demucs-mlx",
+        "description": "Split any song into stems — vocals, drums, bass, and more. Fast music source separation for Apple Silicon, powered by MLX.",
+        "stars": 32,
+        "updated": "2026-07-01T09:12:44Z",
+        "language": "Python",
+        "is_new_since_last_scan": false
+      },
+      {
+        "name": "OpenKara",
+        "full_name": "thedavidweng/OpenKara",
+        "url": "https://github.com/thedavidweng/OpenKara",
+        "description": "A desktop karaoke app that transforms your local music library into sing-along tracks using on-device AI stem separation and online synced lyrics, making karaoke affordable and reusable with the songs",
+        "stars": 21,
+        "updated": "2026-08-08T07:01:17Z",
+        "language": "Rust",
+        "is_new_since_last_scan": false
+      }
+    ],
+    "samples": [],
+    "mastering": [
+      {
+        "name": "audio-mastering-tool-",
+        "full_name": "aliasalhaj17-cmd/audio-mastering-tool-",
+        "url": "https://github.com/aliasalhaj17-cmd/audio-mastering-tool-",
+        "description": "An AI-based audio cleaning and mastering tool using DeepFilterNet and Pedalboard.",
+        "stars": 0,
+        "updated": "2026-05-31T23:00:31Z",
+        "language": "Python",
+        "is_new_since_last_scan": false
+      },
+      {
+        "name": "Sovereign-DSP",
+        "full_name": "G3need/Sovereign-DSP",
+        "url": "https://github.com/G3need/Sovereign-DSP",
+        "description": "Autonomous Audio Mastering & Phase-Linear Signal Processing Suite. Multiband M/S Phase Lock, Bandwidth Extension, ITU-R BS.1770-4 LUFS & True Peak Limiting.",
+        "stars": 0,
+        "updated": "2026-07-28T16:38:57Z",
+        "language": "Python",
+        "is_new_since_last_scan": false
+      },
+      {
+        "name": "ai-vocal-mixer",
+        "full_name": "mikehub182-alt/ai-vocal-mixer",
+        "url": "https://github.com/mikehub182-alt/ai-vocal-mixer",
+        "description": "AI-powered vocal mastering web app with real DSP audio processing pipeline: FFmpeg, Pedalboard EQ/compression/reverb/limiter, LUFS loudness normalization, AI-driven mixing decisions, upload/process/do",
+        "stars": 0,
+        "updated": "2026-07-01T08:18:23Z",
+        "language": "TypeScript",
+        "is_new_since_last_scan": false
+      },
+      {
+        "name": "loudly",
+        "full_name": "avilesxd/loudly",
+        "url": "https://github.com/avilesxd/loudly",
+        "description": "Aplicación de escritorio para masterizar tracks musicales. EQ de 4 bandas, control LUFS, auto-master por referencia y exportación WAV/FLAC.",
+        "stars": 0,
+        "updated": "2026-07-21T15:59:16Z",
+        "language": "Python",
+        "is_new_since_last_scan": false
+      }
+    ],
+    "hit_score": [
+      {
+        "name": "hitmusicnet",
+        "full_name": "dmgutierrez/hitmusicnet",
+        "url": "https://github.com/dmgutierrez/hitmusicnet",
+        "description": "An end-to-end architecture for Music Popularity Prediction",
+        "stars": 10,
+        "updated": "2026-04-16T00:04:28Z",
+        "language": "Python",
+        "is_new_since_last_scan": false
+      },
+      {
+        "name": "Hit_Song_Science-Music_Popularity_Prediction",
+        "full_name": "ranjeetabh/Hit_Song_Science-Music_Popularity_Prediction",
+        "url": "https://github.com/ranjeetabh/Hit_Song_Science-Music_Popularity_Prediction",
+        "description": "Project aimed at building a predictive model for popular music. ",
+        "stars": 1,
+        "updated": "2019-12-21T13:51:45Z",
+        "language": "Jupyter Notebook",
+        "is_new_since_last_scan": false
+      },
+      {
+        "name": "Music-Popularity-Prediction",
+        "full_name": "Zain9548/Music-Popularity-Prediction",
+        "url": "https://github.com/Zain9548/Music-Popularity-Prediction",
+        "description": "Given the audio features of a new song, my model predicts whether the track is likely to become a hit. It analyzes technical attributes like energy, tempo, danceability, and mood to estimate the song’",
+        "stars": 1,
+        "updated": "2026-02-11T07:36:18Z",
+        "language": "Python",
+        "is_new_since_last_scan": false
+      },
+      {
+        "name": "Spotify-hit-project",
+        "full_name": "Arumugam1718/Spotify-hit-project",
+        "url": "https://github.com/Arumugam1718/Spotify-hit-project",
+        "description": "The Spotify Hit Song Prediction Using Machine Learning project is designed to analyze Spotify song data and identify the factors that contribute to a song’s popularity. With the rapid growth of music ",
+        "stars": 1,
+        "updated": "2026-06-10T07:14:36Z",
+        "language": null,
+        "is_new_since_last_scan": false
+      },
+      {
+        "name": "Predicting-Song-Popularity-using-Million-Song-Dataset-",
+        "full_name": "Ajay6140/Predicting-Song-Popularity-using-Million-Song-Dataset-",
+        "url": "https://github.com/Ajay6140/Predicting-Song-Popularity-using-Million-Song-Dataset-",
+        "description": "Abstract     The project aims to classify whether a song will be a hit or not, and will it reach Top-Charts based on several music and artist attributes as predictor variables. It will be crucial for ",
+        "stars": 1,
+        "updated": "2021-11-25T08:28:06Z",
+        "language": "R",
+        "is_new_since_last_scan": false
+      }
+    ],
+    "tts": [
+      {
+        "name": "spellbook-docker",
+        "full_name": "noco-ai/spellbook-docker",
+        "url": "https://github.com/noco-ai/spellbook-docker",
+        "description": "AI stack for interacting with LLMs, Stable Diffusion, Whisper, xTTS and many other AI models",
+        "stars": 171,
+        "updated": "2026-07-02T23:23:24Z",
+        "language": "Shell",
+        "is_new_since_last_scan": false
+      },
+      {
+        "name": "bark-piper-coqui-tts-local-tts",
+        "full_name": "RoomDelegateKink/bark-piper-coqui-tts-local-tts",
+        "url": "https://github.com/RoomDelegateKink/bark-piper-coqui-tts-local-tts",
+        "description": "Bark — piper tts, coqui tts, local text to speech, free tts ai.",
+        "stars": 0,
+        "updated": "2026-06-27T03:51:32Z",
+        "language": null,
+        "is_new_since_last_scan": false
+      }
+    ],
+    "accel": [
+      {
+        "name": "TensorStack",
+        "full_name": "saddam213/TensorStack",
+        "url": "https://github.com/saddam213/TensorStack",
+        "description": "C# Generative AI SDK - Text, Image, Video and Audio supported",
+        "stars": 40,
+        "updated": "2026-07-29T22:43:53Z",
+        "language": "C#",
+        "is_new_since_last_scan": false
+      },
+      {
+        "name": "vc-rs",
+        "full_name": "shirohata/vc-rs",
+        "url": "https://github.com/shirohata/vc-rs",
+        "description": "Real-time RVC voice changer in Rust: standalone GUI, CLI, and VST3 plugin running ONNX models on Windows ML or TensorRT",
+        "stars": 10,
+        "updated": "2026-08-07T14:27:26Z",
+        "language": "Rust",
+        "is_new_since_last_scan": false
+      },
+      {
+        "name": "reaper-audio-tag",
+        "full_name": "dennech/reaper-audio-tag",
+        "url": "https://github.com/dennech/reaper-audio-tag",
+        "description": "Local ONNX PANNs audio tagging for REAPER with ReaPack install, first-run model download, and compact in-DAW reports.",
+        "stars": 1,
+        "updated": "2026-06-26T07:55:54Z",
+        "language": "Lua",
+        "is_new_since_last_scan": false
+      },
+      {
+        "name": "port-audiosr-onnx",
+        "full_name": "santiquiroz/port-audiosr-onnx",
+        "url": "https://github.com/santiquiroz/port-audiosr-onnx",
+        "description": "First known ONNX/DirectML port of AudioSR — diffusion audio super-resolution on any DX12 GPU (AMD/Intel/NVIDIA), no CUDA required",
+        "stars": 0,
+        "updated": "2026-07-18T18:35:36Z",
+        "language": "Python",
+        "is_new_since_last_scan": false
+      },
+      {
+        "name": "OnnxBpmScanner",
+        "full_name": "alarmclock-kisser/OnnxBpmScanner",
+        "url": "https://github.com/alarmclock-kisser/OnnxBpmScanner",
+        "description": "Precise AI model using ONNX Runtime on GPU + CPU via DirectML on Audio Files (wav, mp3, flac)",
+        "stars": 0,
+        "updated": "2026-05-17T21:12:30Z",
+        "language": "C#",
+        "is_new_since_last_scan": false
+      }
+    ],
+    "stt": [
+      {
+        "name": "meetily",
+        "full_name": "Zackriya-Solutions/meetily",
+        "url": "https://github.com/Zackriya-Solutions/meetily",
+        "description": "Privacy first, AI meeting assistant with 4x faster Parakeet/Whisper live transcription, speaker diarization, and Ollama summarization built on Rust. 100% local processing. no cloud required. Meetily (",
+        "stars": 28483,
+        "updated": "2026-08-08T19:59:56Z",
+        "language": "Rust",
+        "is_new_since_last_scan": false
+      },
+      {
+        "name": "faster-whisper",
+        "full_name": "SYSTRAN/faster-whisper",
+        "url": "https://github.com/SYSTRAN/faster-whisper",
+        "description": "Faster Whisper transcription with CTranslate2",
+        "stars": 24814,
+        "updated": "2026-08-08T16:12:59Z",
+        "language": "Python",
+        "is_new_since_last_scan": false
+      },
+      {
+        "name": "voice-pro",
+        "full_name": "abus-aikorea/voice-pro",
+        "url": "https://github.com/abus-aikorea/voice-pro",
+        "description": "Gradio WebUI for creators and developers, featuring key TTS (Edge-TTS, kokoro) and zero-shot Voice Cloning (E2 & F5-TTS, CosyVoice), with Whisper audio processing, YouTube download, Demucs vocal isola",
+        "stars": 12126,
+        "updated": "2026-08-08T19:14:48Z",
+        "language": "Python",
+        "is_new_since_last_scan": false
+      },
+      {
+        "name": "MoneyPrinterPlus",
+        "full_name": "ddean2009/MoneyPrinterPlus",
+        "url": "https://github.com/ddean2009/MoneyPrinterPlus",
+        "description": "AI一键批量生成各类短视频,自动批量混剪短视频,自动把视频发布到抖音,快手,小红书,视频号上,赚钱从来没有这么容易过! 支持本地语音模型chatTTS,fasterwhisper,GPTSoVITS,支持云语音：Azure,阿里云,腾讯云。支持Stable diffusion,comfyUI直接AI生图。Generate short videos with one click using AI L",
+        "stars": 6796,
+        "updated": "2026-08-08T11:04:26Z",
+        "language": "Python",
+        "is_new_since_last_scan": false
+      },
+      {
+        "name": "SmartSub",
+        "full_name": "buxuku/SmartSub",
+        "url": "https://github.com/buxuku/SmartSub",
+        "description": "视频转字幕、字幕翻译、AI 配音与声音克隆、字幕烧录——免费开源的一站式桌面工具。基于 Whisper / FunASR 等本地模型离线语音转文字，批量处理 + 全平台 GPU 加速，跨 Windows / macOS / Linux。Free, open-source desktop app to generate, translate, dub & burn video subtitles —",
+        "stars": 4490,
+        "updated": "2026-08-08T16:11:14Z",
+        "language": "TypeScript",
+        "is_new_since_last_scan": false
+      }
+    ],
+    "dataset": [
+      {
+        "name": "OnAir-Music-Dataset",
+        "full_name": "sevagh/OnAir-Music-Dataset",
+        "url": "https://github.com/sevagh/OnAir-Music-Dataset",
+        "description": ":musical_note: a new stem dataset for Music Demixing research, from the OnAir royalty-free music project",
+        "stars": 37,
+        "updated": "2026-01-20T02:34:00Z",
+        "language": null,
+        "is_new_since_last_scan": false
+      },
+      {
+        "name": "venues",
+        "full_name": "cashmusic/venues",
+        "url": "https://github.com/cashmusic/venues",
+        "description": "The CASH Music \"bobo\" venue database. A free and open dataset of venue information with open API search access.",
+        "stars": 15,
+        "updated": "2025-06-25T21:22:49Z",
+        "language": "PHP",
+        "is_new_since_last_scan": false
+      },
+      {
+        "name": "ExploringFreeMusicArchiveDataset",
+        "full_name": "MiningMyBusiness/ExploringFreeMusicArchiveDataset",
+        "url": "https://github.com/MiningMyBusiness/ExploringFreeMusicArchiveDataset",
+        "description": "Using tensorflow to classify musical genre and predict popularity of songs in the Free Music Archive dataset",
+        "stars": 7,
+        "updated": "2026-01-23T09:00:56Z",
+        "language": "Python",
+        "is_new_since_last_scan": false
+      },
+      {
+        "name": "App-Rating-Prediction",
+        "full_name": "zvdas/App-Rating-Prediction",
+        "url": "https://github.com/zvdas/App-Rating-Prediction",
+        "description": "Objective: Make a model to predict the app rating, with other information about the app provided. Problem Statement: Google Play Store team is about to launch a new feature wherein, certain apps that ",
+        "stars": 5,
+        "updated": "2026-01-24T06:47:46Z",
+        "language": "Jupyter Notebook",
+        "is_new_since_last_scan": false
+      },
+      {
+        "name": "mono-midi-transposition-dataset",
+        "full_name": "sebasgverde/mono-midi-transposition-dataset",
+        "url": "https://github.com/sebasgverde/mono-midi-transposition-dataset",
+        "description": "Dataset for monophonic music with two variations to achieve free transposition representation of music",
+        "stars": 3,
+        "updated": "2024-12-14T01:37:50Z",
+        "language": "Python",
+        "is_new_since_last_scan": false
+      }
+    ]
+  },
+  "new_repos": [],
+  "errors": [],
+  "offline_fallback": false
+}

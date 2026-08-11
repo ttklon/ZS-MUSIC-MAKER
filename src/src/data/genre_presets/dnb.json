@@ -1,0 +1,32 @@
+{
+  "genre": "dnb",
+  "bpm_range": [
+    170,
+    175
+  ],
+  "typical_keys": [
+    "Am",
+    "Fm"
+  ],
+  "kick_pattern_family": "dnb_kick",
+  "snare_family": "dnb_snare",
+  "bass_family": "dnb_bass",
+  "structure_templates": [
+    "intro-verse-hook-verse-hook-outro",
+    "intro-verse-prehook-hook-break-verse-hook-outro"
+  ],
+  "mood_tags": [
+    "fast",
+    "bass"
+  ],
+  "lyric_themes_ru": [
+    "движ"
+  ],
+  "lyric_themes_en": [],
+  "vocal_style": "melodic",
+  "sidechain_intensity": 0.7,
+  "mastering_profile_default": "streaming",
+  "typical_length_sec": 120,
+  "typical_hook_start_sec": 30,
+  "reference_examples": []
+}

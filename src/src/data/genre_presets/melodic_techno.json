@@ -1,0 +1,32 @@
+{
+  "genre": "melodic_techno",
+  "bpm_range": [
+    122,
+    128
+  ],
+  "typical_keys": [
+    "Cm",
+    "Gm"
+  ],
+  "kick_pattern_family": "melodic_techno_kick",
+  "snare_family": "melodic_techno_snare",
+  "bass_family": "melodic_techno_bass",
+  "structure_templates": [
+    "intro-verse-hook-verse-hook-outro",
+    "intro-verse-prehook-hook-break-verse-hook-outro"
+  ],
+  "mood_tags": [
+    "deep",
+    "melodic"
+  ],
+  "lyric_themes_ru": [
+    "ночь"
+  ],
+  "lyric_themes_en": [],
+  "vocal_style": "ambient",
+  "sidechain_intensity": 0.7,
+  "mastering_profile_default": "streaming",
+  "typical_length_sec": 120,
+  "typical_hook_start_sec": 30,
+  "reference_examples": []
+}

@@ -1,0 +1,8 @@
+# Prompt: cover_art_prompt
+# Placeholders: {title} {genre} {mood_tags} {theme}
+
+Составь prompt (на английском) для генератора обложек (SDXL / Pollinations)
+для трека "{title}" в жанре {genre}, тема {theme}, настроение
+{mood_tags}. Обязательно: 1:1 aspect, high detail, minimal text,
+suitable for streaming cover. Не указывай водяные знаки, лица людей.
+Формат: одна строка English prompt, без кавычек.

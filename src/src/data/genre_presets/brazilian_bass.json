@@ -1,0 +1,32 @@
+{
+  "genre": "brazilian_bass",
+  "bpm_range": [
+    122,
+    128
+  ],
+  "typical_keys": [
+    "Fm",
+    "Cm"
+  ],
+  "kick_pattern_family": "brazilian_bass_kick",
+  "snare_family": "brazilian_bass_snare",
+  "bass_family": "brazilian_bass_bass",
+  "structure_templates": [
+    "intro-verse-hook-verse-hook-outro",
+    "intro-verse-prehook-hook-break-verse-hook-outro"
+  ],
+  "mood_tags": [
+    "bass",
+    "latin"
+  ],
+  "lyric_themes_ru": [
+    "пляж"
+  ],
+  "lyric_themes_en": [],
+  "vocal_style": "chops",
+  "sidechain_intensity": 0.7,
+  "mastering_profile_default": "streaming",
+  "typical_length_sec": 120,
+  "typical_hook_start_sec": 30,
+  "reference_examples": []
+}

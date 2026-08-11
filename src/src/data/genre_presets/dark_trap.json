@@ -1,0 +1,32 @@
+{
+  "genre": "dark_trap",
+  "bpm_range": [
+    130,
+    160
+  ],
+  "typical_keys": [
+    "Cm",
+    "Gm"
+  ],
+  "kick_pattern_family": "dark_trap_kick",
+  "snare_family": "dark_trap_snare",
+  "bass_family": "dark_trap_bass",
+  "structure_templates": [
+    "intro-verse-hook-verse-hook-outro",
+    "intro-verse-prehook-hook-break-verse-hook-outro"
+  ],
+  "mood_tags": [
+    "dark",
+    "heavy"
+  ],
+  "lyric_themes_ru": [
+    "тень"
+  ],
+  "lyric_themes_en": [],
+  "vocal_style": "hard",
+  "sidechain_intensity": 0.7,
+  "mastering_profile_default": "streaming",
+  "typical_length_sec": 120,
+  "typical_hook_start_sec": 30,
+  "reference_examples": []
+}

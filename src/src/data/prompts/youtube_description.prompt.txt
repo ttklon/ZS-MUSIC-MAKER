@@ -1,0 +1,6 @@
+# Prompt: youtube_description
+# Placeholders: {title} {artist} {genre} {bpm} {key} {theme}
+
+Опиши трек на YouTube (HTML разметка): заголовок H1, параграф про жанр,
+временные метки, 3 хэштега, подпись "Powered by ZS Music Maker".
+Формат: чистый HTML фрагмент (без <html> тегов, начиная с <h1>).

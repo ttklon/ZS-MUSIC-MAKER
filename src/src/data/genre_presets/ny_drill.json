@@ -1,0 +1,32 @@
+{
+  "genre": "ny_drill",
+  "bpm_range": [
+    145,
+    160
+  ],
+  "typical_keys": [
+    "Cm",
+    "Dm"
+  ],
+  "kick_pattern_family": "ny_drill_kick",
+  "snare_family": "ny_drill_snare",
+  "bass_family": "ny_drill_bass",
+  "structure_templates": [
+    "intro-verse-hook-verse-hook-outro",
+    "intro-verse-prehook-hook-break-verse-hook-outro"
+  ],
+  "mood_tags": [
+    "dark",
+    "NY"
+  ],
+  "lyric_themes_ru": [
+    "улица"
+  ],
+  "lyric_themes_en": [],
+  "vocal_style": "hard",
+  "sidechain_intensity": 0.7,
+  "mastering_profile_default": "streaming",
+  "typical_length_sec": 120,
+  "typical_hook_start_sec": 30,
+  "reference_examples": []
+}

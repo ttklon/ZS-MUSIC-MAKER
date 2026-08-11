@@ -1,0 +1,6 @@
+# Prompt: hashtags_tiktok
+# Placeholders: {title} {genre} {mood_tags} {language}
+
+Дай 8 хэштегов для TikTok под трек "{title}" в жанре {genre}.
+Смесь ~50% языка трека и ~50% мировых трендов (#fyp, #viral).
+Формат: одна строка, теги через пробел, с #.

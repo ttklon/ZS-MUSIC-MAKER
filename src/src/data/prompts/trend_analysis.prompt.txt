@@ -1,0 +1,7 @@
+# Prompt: trend_analysis
+# Placeholders: {region} {days}
+
+Проанализируй тренды в TikTok / X / VK за последние {days} дней в
+регионе {region}. Дай список из 10 фраз/сленга, которые сейчас на
+подъёме. По каждой: {phrase, source, why_trending, expected_lifetime_days}.
+Формат ответа: JSON-массив объектов.

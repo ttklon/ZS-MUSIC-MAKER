@@ -1,0 +1,26 @@
+{
+  "cpu": {
+    "logical": 6,
+    "arch": "x86_64",
+    "system": "Linux",
+    "release": "6.1.102",
+    "ram_gb": 0.0
+  },
+  "gpu": {
+    "kind": "cpu",
+    "name": "CPU only",
+    "vram_gb": 0.0,
+    "ok": true
+  },
+  "mode": "lite",
+  "reason": "CPU only / малый VRAM",
+  "ts": 1786469139.8704143,
+  "recommendations": {
+    "musicgen": "small (CPU) + опционально MusicGen-melody-only",
+    "rvc": "только inference, training только ночью на CPU",
+    "voice_synth": "Silero v4 (CPU)",
+    "windows_len_sec": 8,
+    "queue_parallelism": 1,
+    "quality_mode": "quality"
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "genre": "jersey_club",
+  "bpm_range": [
+    130,
+    150
+  ],
+  "typical_keys": [
+    "Am",
+    "Em"
+  ],
+  "kick_pattern_family": "jersey_club_kick",
+  "snare_family": "jersey_club_snare",
+  "bass_family": "jersey_club_bass",
+  "structure_templates": [
+    "intro-verse-hook-verse-hook-outro",
+    "intro-verse-prehook-hook-break-verse-hook-outro"
+  ],
+  "mood_tags": [
+    "bounce",
+    "club"
+  ],
+  "lyric_themes_ru": [
+    "танец"
+  ],
+  "lyric_themes_en": [],
+  "vocal_style": "chops",
+  "sidechain_intensity": 0.7,
+  "mastering_profile_default": "streaming",
+  "typical_length_sec": 120,
+  "typical_hook_start_sec": 30,
+  "reference_examples": []
+}

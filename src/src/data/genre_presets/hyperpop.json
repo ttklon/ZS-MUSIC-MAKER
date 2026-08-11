@@ -1,0 +1,32 @@
+{
+  "genre": "hyperpop",
+  "bpm_range": [
+    140,
+    180
+  ],
+  "typical_keys": [
+    "C",
+    "Am"
+  ],
+  "kick_pattern_family": "hyperpop_kick",
+  "snare_family": "hyperpop_snare",
+  "bass_family": "hyperpop_bass",
+  "structure_templates": [
+    "intro-verse-hook-verse-hook-outro",
+    "intro-verse-prehook-hook-break-verse-hook-outro"
+  ],
+  "mood_tags": [
+    "glitch",
+    "bright"
+  ],
+  "lyric_themes_ru": [
+    "цифра"
+  ],
+  "lyric_themes_en": [],
+  "vocal_style": "pitched",
+  "sidechain_intensity": 0.7,
+  "mastering_profile_default": "streaming",
+  "typical_length_sec": 120,
+  "typical_hook_start_sec": 30,
+  "reference_examples": []
+}

@@ -1,0 +1,32 @@
+{
+  "genre": "plugg",
+  "bpm_range": [
+    130,
+    160
+  ],
+  "typical_keys": [
+    "F#m",
+    "Bm"
+  ],
+  "kick_pattern_family": "plugg_kick",
+  "snare_family": "plugg_snare",
+  "bass_family": "plugg_bass",
+  "structure_templates": [
+    "intro-verse-hook-verse-hook-outro",
+    "intro-verse-prehook-hook-break-verse-hook-outro"
+  ],
+  "mood_tags": [
+    "808",
+    "bounce"
+  ],
+  "lyric_themes_ru": [
+    "деньги"
+  ],
+  "lyric_themes_en": [],
+  "vocal_style": "melodic",
+  "sidechain_intensity": 0.7,
+  "mastering_profile_default": "streaming",
+  "typical_length_sec": 120,
+  "typical_hook_start_sec": 30,
+  "reference_examples": []
+}

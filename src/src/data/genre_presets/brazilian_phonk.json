@@ -1,0 +1,32 @@
+{
+  "genre": "brazilian_phonk",
+  "bpm_range": [
+    125,
+    150
+  ],
+  "typical_keys": [
+    "Am",
+    "Em"
+  ],
+  "kick_pattern_family": "brazilian_phonk_kick",
+  "snare_family": "brazilian_phonk_snare",
+  "bass_family": "brazilian_phonk_bass",
+  "structure_templates": [
+    "intro-verse-hook-verse-hook-outro",
+    "intro-verse-prehook-hook-break-verse-hook-outro"
+  ],
+  "mood_tags": [
+    "latin",
+    "dark"
+  ],
+  "lyric_themes_ru": [
+    "пляж"
+  ],
+  "lyric_themes_en": [],
+  "vocal_style": "hard",
+  "sidechain_intensity": 0.7,
+  "mastering_profile_default": "streaming",
+  "typical_length_sec": 120,
+  "typical_hook_start_sec": 30,
+  "reference_examples": []
+}

@@ -1,0 +1,32 @@
+{
+  "genre": "amapiano",
+  "bpm_range": [
+    110,
+    118
+  ],
+  "typical_keys": [
+    "Am",
+    "Em"
+  ],
+  "kick_pattern_family": "amapiano_kick",
+  "snare_family": "amapiano_snare",
+  "bass_family": "amapiano_bass",
+  "structure_templates": [
+    "intro-verse-hook-verse-hook-outro",
+    "intro-verse-prehook-hook-break-verse-hook-outro"
+  ],
+  "mood_tags": [
+    "afro",
+    "piano"
+  ],
+  "lyric_themes_ru": [
+    "лето"
+  ],
+  "lyric_themes_en": [],
+  "vocal_style": "soulful",
+  "sidechain_intensity": 0.7,
+  "mastering_profile_default": "streaming",
+  "typical_length_sec": 120,
+  "typical_hook_start_sec": 30,
+  "reference_examples": []
+}
