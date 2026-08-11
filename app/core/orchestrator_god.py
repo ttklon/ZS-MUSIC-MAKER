@@ -103,14 +103,35 @@ def run_god_pipeline(
             
     pipe.add_stage("audio_generation", stage_audio)
 
-    # 4. Vocal Cleaning
+    # 4. Vocal Synthesis & Cleaning (Generates speech/singing if no input vocal)
     def stage_vocal(ctx: PipelineContext):
+        state = ctx.shared_data["state"]
         vocal_wav = ctx.config.get("vocal_input_path")
+        
         if vocal_wav and os.path.exists(vocal_wav):
             clean_vocal_wav = str(out_root / "vocal_cleaned.wav")
             voice_cleaner.clean_vocal(vocal_wav, clean_vocal_wav)
             ctx.shared_data["vocal_wav"] = clean_vocal_wav
             return clean_vocal_wav
+        else:
+            # v26: Автоматически генерируем текст и озвучиваем его через gTTS для настоящего вокала в миксе!
+            try:
+                from modules import lyrics_gen, voice_synth
+                lyric_res = lyrics_gen.generate_lyrics(theme=state.get("theme", "Владимирский централ"), style_vector={"target_bpm": state.get("bpm_override", 96)})
+                text_content = lyric_res.get("lyrics", "Владимирский централ, ветер северный")
+                
+                vocal_draft = str(out_root / "vocal_draft.wav")
+                os.makedirs(os.path.dirname(vocal_draft), exist_ok=True)
+                
+                # Используем voice_synth.synth для генерации аудио с русского текста
+                synth_path = voice_synth.synth(text_content[:200], out_name=str(vocal_draft))
+                if synth_path and os.path.exists(synth_path):
+                    vocal_draft = synth_path
+                    ctx.shared_data["vocal_wav"] = vocal_draft
+                    return vocal_draft
+            except Exception as e:
+                print(f"[orchestrator_god] Auto-vocal synthesis error: {e}")
+                
         return None
 
     pipe.add_stage("vocal_cleaning", stage_vocal)

@@ -2,12 +2,12 @@
   "project_id": "god_cli",
   "status": "completed",
   "god_mode": true,
-  "elapsed_sec": 2.98,
+  "elapsed_sec": 6.17,
   "stages": [
     {
       "name": "ai_arrangement",
       "ok": true,
-      "duration_sec": 0.00039458274841308594,
+      "duration_sec": 0.0006070137023925781,
       "output": [
         {
           "name": "intro",
@@ -51,7 +51,7 @@
     {
       "name": "midi_generation",
       "ok": true,
-      "duration_sec": 0.0008518695831298828,
+      "duration_sec": 0.0012483596801757812,
       "output": {
         "ok": true,
         "drums": "output/midi/chanson_drums.mid",
@@ -62,26 +62,26 @@
     {
       "name": "audio_generation",
       "ok": true,
-      "duration_sec": 1.662672758102417,
+      "duration_sec": 1.7034339904785156,
       "output": "/home/ubuntu/ZS-MUSIC-MAKER/output/god_cli/multi_beat.wav",
       "reason": null
     },
     {
       "name": "vocal_cleaning",
       "ok": true,
-      "duration_sec": 9.942054748535156e-05,
-      "output": null,
+      "duration_sec": 2.6145153045654297,
+      "output": "/home/ubuntu/ZS-MUSIC-MAKER/output/god_cli/vocal_draft.wav",
       "reason": null
     },
     {
       "name": "god_mastering_pro",
       "ok": true,
-      "duration_sec": 1.3191399574279785,
+      "duration_sec": 1.8526630401611328,
       "output": {
         "ok": true,
         "path": "/home/ubuntu/ZS-MUSIC-MAKER/output/god_cli/masters/master_god.wav",
         "engine": "pedalboard_pro_safe",
-        "input_lufs": -11.8,
+        "input_lufs": -11.21,
         "target_lufs": -12.0
       },
       "reason": null

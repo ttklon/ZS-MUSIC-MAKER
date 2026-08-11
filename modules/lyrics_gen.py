@@ -129,13 +129,28 @@ def _pick_punches(theme: str, count: int = 4) -> list[str]:
     """Собираем панчи по темам из строки-запроса."""
     theme_lower = (theme or "").lower()
     collected = []
+    
+    # Если это шансон или тюремная/жизненная лирика
+    if "шансон" in theme_lower or "централ" in theme_lower or "ветер" in theme_lower or "жиган" in theme_lower:
+        collected.extend([
+            "Владимирский централ, ветер северный,",
+            "Этапный путь до тюрьмы, до каторги.",
+            "Кольщик, наколо мне купола да кресты,",
+            "Чтобы память жила до черты.",
+            "А на воле весна, магаданский туман,",
+            "Облака плывут в океан.",
+            "Жиган-монпансье, воля вольная,",
+            "Душа моя больная, доля горькая."
+        ])
+        
     for key, punches in PUNCHES_RU.items():
         if key in theme_lower:
             collected.extend(punches)
+            
     if not collected:
-        # Дефолт — микс всего
         for punches in PUNCHES_RU.values():
             collected.extend(punches)
+            
     random.shuffle(collected)
     return collected[:count]
 
