@@ -225,7 +225,11 @@ def _register_patches() -> None:
 
 
 def _cli_smoke() -> int:
+    """Runs the most recent smoke test (v26) with fallback to older versions."""
     for name in (
+        "tools.smoke_v26",
+        "tools.smoke_v25",
+        "tools.smoke_v24",
         "tools.smoke_v21",
         "tools.smoke_v17",
         "tools.smoke_v15",
@@ -236,13 +240,9 @@ def _cli_smoke() -> int:
             return int(mod.main() or 0)
         except Exception as e:
             _safe_print(f"[main --smoke] {name} failed: {e}")
-    try:
-        import legacy.smoke.smoke_v13 as sm
-
-        return int(sm.main() or 0)
-    except Exception as e2:
-        _safe_print(f"[main --smoke] legacy smoke_v13 failed: {e2}")
-        return 2
+    
+    _safe_print("[main --smoke] No valid smoke tests found.")
+    return 2
 
 
 def _cli_dry_run() -> int:
