@@ -62,10 +62,17 @@ class ProAudioDSP:
 
         current_rms = float(np.sqrt(np.mean(saturated**2)) + 1e-12)
         target_rms = float(10.0 ** (target_lufs / 20.0))
-        gain = min(target_rms / current_rms, 4.0)
+        # Ensure we always gain up if needed, but respect clipping limits
+        gain = target_rms / current_rms
 
         normalized = saturated * gain
-        final_audio = np.clip(normalized, -0.99, 0.99)
+
+        # Safe normalization to prevent clipping while maximizing volume
+        max_val = np.max(np.abs(normalized))
+        if max_val > 0.99:
+            normalized = normalized * (0.99 / max_val)
+
+        final_audio = np.clip(normalized, -0.999, 0.999)
 
         sf.write(output_path, final_audio, sr, format="WAV", subtype="PCM_16")
 
