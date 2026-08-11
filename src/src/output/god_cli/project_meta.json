@@ -1,0 +1,110 @@
+{
+  "project_id": "god_cli",
+  "status": "completed",
+  "god_mode": true,
+  "elapsed_sec": 0.81,
+  "stages": [
+    {
+      "name": "god_beat_generation",
+      "ok": true,
+      "fallback_used": false,
+      "synthetic": false,
+      "blocked": false,
+      "duration_sec": 0.256,
+      "output": {
+        "ok": true,
+        "beat_path": "/home/ubuntu/ZS-MUSIC-MAKER/src/src/modules/../output/beats/beat.wav",
+        "duration_sec": 120.0,
+        "bpm": 130,
+        "key": "A minor",
+        "sections": [
+          {
+            "name": "intro",
+            "bars": 4,
+            "start_sec": 0.0,
+            "duration_sec": 7.38
+          },
+          {
+            "name": "verse",
+            "bars": 8,
+            "start_sec": 7.38,
+            "duration_sec": 14.77
+          },
+          {
+            "name": "pre_chorus",
+            "bars": 4,
+            "start_sec": 22.15,
+            "duration_sec": 7.38
+          },
+          {
+            "name": "hook",
+            "bars": 8,
+            "start_sec": 29.54,
+            "duration_sec": 14.77
+          },
+          {
+            "name": "verse",
+            "bars": 8,
+            "start_sec": 44.31,
+            "duration_sec": 14.77
+          },
+          {
+            "name": "pre_chorus",
+            "bars": 4,
+            "start_sec": 59.08,
+            "duration_sec": 7.38
+          },
+          {
+            "name": "hook",
+            "bars": 8,
+            "start_sec": 66.46,
+            "duration_sec": 14.77
+          },
+          {
+            "name": "outro",
+            "bars": 4,
+            "start_sec": 81.23,
+            "duration_sec": 7.38
+          }
+        ],
+        "total_bars": 48,
+        "samples_used": {
+          "kicks": 0,
+          "snares": 0,
+          "hihats": 0,
+          "bass": 0,
+          "melody": 0,
+          "fx": 0
+        }
+      },
+      "reason": null
+    },
+    {
+      "name": "phonk_cowbell_synth",
+      "ok": true,
+      "fallback_used": false,
+      "synthetic": false,
+      "blocked": false,
+      "duration_sec": 0.008,
+      "output": "/home/ubuntu/ZS-MUSIC-MAKER/src/src/output/god_cli/cowbells.wav",
+      "reason": null
+    },
+    {
+      "name": "god_mastering_pro",
+      "ok": true,
+      "fallback_used": false,
+      "synthetic": false,
+      "blocked": false,
+      "duration_sec": 0.549,
+      "output": {
+        "ok": true,
+        "path": "/home/ubuntu/ZS-MUSIC-MAKER/src/src/output/god_cli/masters/master_god.wav",
+        "engine": "pedalboard_pro",
+        "input_lufs": -17.91,
+        "target_lufs": -12.0
+      },
+      "reason": null
+    }
+  ],
+  "master_path": "/home/ubuntu/ZS-MUSIC-MAKER/src/src/output/god_cli/masters/master_god.wav"
+}

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 ZS Music Maker v14 — sidechain.py (настоящий sidechain, TZ 19.5, P0.04)
 ========================================================================
@@ -20,10 +19,11 @@ import json
 import math
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 try:
     import pedalboard as _pb  # type: ignore
+
     PB_OK = True
 except Exception:
     _pb = None
@@ -32,17 +32,22 @@ except Exception:
 try:
     import numpy as _np
     import soundfile as _sf
+
     NP_OK = True
 except Exception:
-    _np = None; _sf = None
+    _np = None
+    _sf = None
     NP_OK = False
 
 # v18 FIX: scipy вынесен из общего try — без него numpy-DSP должен работать.
 try:
-    from scipy.signal import butter as _butter, sosfilt as _sosfilt
+    from scipy.signal import butter as _butter
+    from scipy.signal import sosfilt as _sosfilt
+
     SCIPY_OK = True
 except Exception:
-    _butter = None; _sosfilt = None
+    _butter = None
+    _sosfilt = None
     SCIPY_OK = False
 
 
@@ -56,12 +61,12 @@ class SidechainResult:
     bus_before_rms_db: float
     bus_after_rms_db: float
     ducking_db: float
-    reason: Optional[str] = None
+    reason: str | None = None
 
 
-def _envelope_from_kick(kick_y, sr: int,
-                        attack_ms: float = 5.0,
-                        release_ms: float = 120.0):
+def _envelope_from_kick(
+    kick_y, sr: int, attack_ms: float = 5.0, release_ms: float = 120.0
+):
     if _np is None:
         return None
     x = _np.abs(kick_y)
@@ -82,8 +87,7 @@ def _envelope_from_kick(kick_y, sr: int,
     return env
 
 
-def _bandpass_numpy(kick_y, sr: int,
-                    lo_hz: float = 30.0, hi_hz: float = 200.0):
+def _bandpass_numpy(kick_y, sr: int, lo_hz: float = 30.0, hi_hz: float = 200.0):
     """v18: честный numpy-only bandpass 30-200 Гц без scipy.
 
     FFT brick-wall фильтр: обнуляем частоты вне полосы кика и делаем
@@ -121,7 +125,7 @@ def _detect_kick_onsets(kick_y, sr: int):
         min_gap = int(sr * 0.08)
         last = -min_gap
         for i in range(1, len(env) - 1):
-            if env[i] > thr and env[i] > env[i-1] and env[i] >= env[i+1]:
+            if env[i] > thr and env[i] > env[i - 1] and env[i] >= env[i + 1]:
                 if i - last > min_gap:
                     onsets.append(i)
                     last = i
@@ -130,19 +134,33 @@ def _detect_kick_onsets(kick_y, sr: int):
         return []
 
 
-def _numpy_dsp(bus_wav: str, kick_wav: str, out_wav: str,
-               intensity: float, ratio: float = 4.0,
-               attack_ms: float = 5.0, release_ms: float = 120.0) -> SidechainResult:
+def _numpy_dsp(
+    bus_wav: str,
+    kick_wav: str,
+    out_wav: str,
+    intensity: float,
+    ratio: float = 4.0,
+    attack_ms: float = 5.0,
+    release_ms: float = 120.0,
+) -> SidechainResult:
     if not NP_OK:
-        return SidechainResult(ok=False, engine="none", out_wav="",
-                               intensity=intensity, kick_rms_db=-100,
-                               bus_before_rms_db=-100, bus_after_rms_db=-100,
-                               ducking_db=0.0, reason="numpy/soundfile unavailable")
+        return SidechainResult(
+            ok=False,
+            engine="none",
+            out_wav="",
+            intensity=intensity,
+            kick_rms_db=-100,
+            bus_before_rms_db=-100,
+            bus_after_rms_db=-100,
+            ducking_db=0.0,
+            reason="numpy/soundfile unavailable",
+        )
     try:
         bus, sr_b = _sf.read(bus_wav, always_2d=True)
         kick, sr_k = _sf.read(kick_wav, always_2d=True)
         if sr_k != sr_b:
             import scipy.signal as ss
+
             kick_mono = kick[:, 0] if kick.ndim > 1 else kick
             n = int(len(kick_mono) * sr_b / sr_k)
             kick_mono = ss.resample(kick_mono, n)
@@ -160,12 +178,14 @@ def _numpy_dsp(bus_wav: str, kick_wav: str, out_wav: str,
         # Защита от ложных дакингов на вокал/hi-hat, если по ошибке в kick_wav
         # пришёл bus/mix. Реальная бочка обычно 30-200 Гц.
         try:
-            kick_hp = _bandpass_numpy(kick.astype("float32"), sr_b,
-                                      lo_hz=30.0, hi_hz=200.0)
+            kick_hp = _bandpass_numpy(
+                kick.astype("float32"), sr_b, lo_hz=30.0, hi_hz=200.0
+            )
         except Exception:
             kick_hp = kick.astype("float32")
-        env = _envelope_from_kick(kick_hp, sr_b,
-                                  attack_ms=attack_ms, release_ms=release_ms)
+        env = _envelope_from_kick(
+            kick_hp, sr_b, attack_ms=attack_ms, release_ms=release_ms
+        )
         env_max = float(_np.max(env) + 1e-9)
         env_n = env / env_max
 
@@ -182,24 +202,33 @@ def _numpy_dsp(bus_wav: str, kick_wav: str, out_wav: str,
         Path(out_wav).parent.mkdir(parents=True, exist_ok=True)
         _sf.write(out_wav, bus_ducked, sr_b)
 
-        kick_rms = float(_np.sqrt(_np.mean(kick ** 2)) + 1e-9)
-        bus_rms_b = float(_np.sqrt(_np.mean(bus ** 2)) + 1e-9)
-        bus_rms_a = float(_np.sqrt(_np.mean(bus_ducked ** 2)) + 1e-9)
+        kick_rms = float(_np.sqrt(_np.mean(kick**2)) + 1e-9)
+        bus_rms_b = float(_np.sqrt(_np.mean(bus**2)) + 1e-9)
+        bus_rms_a = float(_np.sqrt(_np.mean(bus_ducked**2)) + 1e-9)
         ducking = measure_ducking_effect(bus, bus_ducked, kick, sr_b)
 
         return SidechainResult(
-            ok=True, engine="numpy_dsp_real_sidechain",
-            out_wav=out_wav, intensity=intensity,
+            ok=True,
+            engine="numpy_dsp_real_sidechain",
+            out_wav=out_wav,
+            intensity=intensity,
             kick_rms_db=20 * math.log10(kick_rms),
             bus_before_rms_db=20 * math.log10(bus_rms_b),
             bus_after_rms_db=20 * math.log10(bus_rms_a),
             ducking_db=ducking,
         )
     except Exception as e:
-        return SidechainResult(ok=False, engine="none", out_wav="",
-                               intensity=intensity, kick_rms_db=-100,
-                               bus_before_rms_db=-100, bus_after_rms_db=-100,
-                               ducking_db=0.0, reason=str(e))
+        return SidechainResult(
+            ok=False,
+            engine="none",
+            out_wav="",
+            intensity=intensity,
+            kick_rms_db=-100,
+            bus_before_rms_db=-100,
+            bus_after_rms_db=-100,
+            ducking_db=0.0,
+            reason=str(e),
+        )
 
 
 def measure_ducking_effect(bus_before, bus_after, kick, sr: int) -> float:
@@ -226,21 +255,35 @@ def measure_ducking_effect(bus_before, bus_after, kick, sr: int) -> float:
         return 0.0
 
 
-def apply_sidechain(bus_wav: str, kick_wav: str, out_wav: str,
-                    intensity: float = 0.5, ratio: float = 4.0,
-                    attack_ms: float = 5.0,
-                    release_ms: float = 120.0) -> Dict[str, Any]:
-    r = _numpy_dsp(bus_wav, kick_wav, out_wav, intensity,
-                   ratio=ratio, attack_ms=attack_ms,
-                   release_ms=release_ms)
+def apply_sidechain(
+    bus_wav: str,
+    kick_wav: str,
+    out_wav: str,
+    intensity: float = 0.5,
+    ratio: float = 4.0,
+    attack_ms: float = 5.0,
+    release_ms: float = 120.0,
+) -> dict[str, Any]:
+    r = _numpy_dsp(
+        bus_wav,
+        kick_wav,
+        out_wav,
+        intensity,
+        ratio=ratio,
+        attack_ms=attack_ms,
+        release_ms=release_ms,
+    )
     return r.__dict__
 
 
-def capability_report() -> Dict[str, Any]:
-    return {"pedalboard": PB_OK, "numpy_soundfile": NP_OK,
-            "scipy": SCIPY_OK,
-            "onset_detector": "scipy_butter" if SCIPY_OK else "numpy_fft",
-            "real_sidechain_possible": NP_OK}
+def capability_report() -> dict[str, Any]:
+    return {
+        "pedalboard": PB_OK,
+        "numpy_soundfile": NP_OK,
+        "scipy": SCIPY_OK,
+        "onset_detector": "scipy_butter" if SCIPY_OK else "numpy_fft",
+        "real_sidechain_possible": NP_OK,
+    }
 
 
 if __name__ == "__main__":

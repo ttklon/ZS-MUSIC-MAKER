@@ -1,19 +1,20 @@
-# -*- coding: utf-8 -*-
 """Тёмная тема Qt в стиле «phonk night». Без внешних QSS-файлов."""
+
+
 def apply_dark(app):
     try:
-        from PySide6.QtGui import QPalette, QColor
+        from PySide6.QtGui import QColor, QPalette
     except Exception:
         return
     p = QPalette()
-    p.setColor(QPalette.Window,       QColor(15, 15, 18))
-    p.setColor(QPalette.WindowText,   QColor(230, 230, 235))
-    p.setColor(QPalette.Base,         QColor(22, 22, 27))
-    p.setColor(QPalette.AlternateBase,QColor(28, 28, 34))
-    p.setColor(QPalette.Text,         QColor(232, 232, 235))
-    p.setColor(QPalette.Button,       QColor(30, 30, 36))
-    p.setColor(QPalette.ButtonText,   QColor(240, 240, 240))
-    p.setColor(QPalette.Highlight,    QColor(255, 90, 40))
+    p.setColor(QPalette.Window, QColor(15, 15, 18))
+    p.setColor(QPalette.WindowText, QColor(230, 230, 235))
+    p.setColor(QPalette.Base, QColor(22, 22, 27))
+    p.setColor(QPalette.AlternateBase, QColor(28, 28, 34))
+    p.setColor(QPalette.Text, QColor(232, 232, 235))
+    p.setColor(QPalette.Button, QColor(30, 30, 36))
+    p.setColor(QPalette.ButtonText, QColor(240, 240, 240))
+    p.setColor(QPalette.Highlight, QColor(255, 90, 40))
     p.setColor(QPalette.HighlightedText, QColor(20, 20, 20))
     app.setPalette(p)
     app.setStyleSheet("""

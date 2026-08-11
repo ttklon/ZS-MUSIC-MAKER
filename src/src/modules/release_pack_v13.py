@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 ZS Music Maker v13 — release_pack_v13.py
 ========================================
@@ -30,10 +29,9 @@ import json
 import re
 import time
 from collections import OrderedDict
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional
-
+from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -41,31 +39,32 @@ ROOT = Path(__file__).resolve().parents[1]
 @dataclass
 class TrackMeta:
     """Минимальная мета, нужная дистрибуторам (ISO + Spotify-стандарт)."""
+
     artist: str = "Unknown Artist"
     title: str = "Untitled Track"
-    version: str = ""              # remix/edit/etc
+    version: str = ""  # remix/edit/etc
     language: str = "ru"
-    isrc: str = ""                 # 12 chars (например 'RU-A0B-26-00001')
-    upc: str = ""                  # 12-13 chars
+    isrc: str = ""  # 12 chars (например 'RU-A0B-26-00001')
+    upc: str = ""  # 12-13 chars
     iswc: str = ""
     copyright_year: str = "2026"
     copyright_owner: str = ""
-    p_line: str = ""               # (P) 2026 Owner
-    c_line: str = ""               # (C) 2026 Owner
-    genres: List[str] = field(default_factory=list)
-    subgenres: List[str] = field(default_factory=list)
-    moods: List[str] = field(default_factory=list)
+    p_line: str = ""  # (P) 2026 Owner
+    c_line: str = ""  # (C) 2026 Owner
+    genres: list[str] = field(default_factory=list)
+    subgenres: list[str] = field(default_factory=list)
+    moods: list[str] = field(default_factory=list)
     descripton_short: str = ""
     description_long: str = ""
     lyrics_ru: str = ""
     lyrics_en_hook: str = ""
     bpm: int = 0
-    key: str = ""                  # e.g. "F#m"
+    key: str = ""  # e.g. "F#m"
     explicit: bool = False
-    release_date: str = ""         # YYYY-MM-DD
+    release_date: str = ""  # YYYY-MM-DD
     track_length_ms: int = 0
-    tags: List[str] = field(default_factory=list)
-    cover_path: str = ""           # relative
+    tags: list[str] = field(default_factory=list)
+    cover_path: str = ""  # relative
     wav_path: str = ""
     mp3_path: str = ""
     flac_path: str = ""
@@ -73,13 +72,14 @@ class TrackMeta:
     acapella_path: str = ""
     tiktok_hook_path: str = ""
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return asdict(self)
 
 
 # ---------------------------------------------------------------------------
 #  Утилиты
 # ---------------------------------------------------------------------------
+
 
 def _md_to_sanitized_html(md: str) -> str:
     """
@@ -89,23 +89,37 @@ def _md_to_sanitized_html(md: str) -> str:
     """
     if not md:
         return ""
-    out: List[str] = []
+    out: list[str] = []
     for line in md.splitlines():
         safe = html.escape(line, quote=False)
-        safe = re.sub(r"\[([^\]]+)\]\(([^\)]+)\)",
-                      lambda m: f'<a href="{html.escape(m.group(2))}">'
-                                f'{m.group(1)}</a>', safe)
+        safe = re.sub(
+            r"\[([^\]]+)\]\(([^\)]+)\)",
+            lambda m: f'<a href="{html.escape(m.group(2))}">' f"{m.group(1)}</a>",
+            safe,
+        )
         safe = re.sub(r"\*\*([^\*]+)\*\*", r"<b>\1</b>", safe)
         safe = re.sub(r"_([^_]+)_", r"<i>\1</i>", safe)
         out.append(safe)
     return "\n".join(out)
 
 
-def _hashtags(tags: List[str], mood_count: int = 15) -> List[str]:
+def _hashtags(tags: list[str], mood_count: int = 15) -> list[str]:
     base = [
-        "#phonk", "#drift", "#car", "#turkey", "#summer",
-        "#hit", "#club", "#tiktok", "#russia", "#neon",
-        "#vibe", "#bass", "#beat", "#night", "#edit",
+        "#phonk",
+        "#drift",
+        "#car",
+        "#turkey",
+        "#summer",
+        "#hit",
+        "#club",
+        "#tiktok",
+        "#russia",
+        "#neon",
+        "#vibe",
+        "#bass",
+        "#beat",
+        "#night",
+        "#edit",
     ]
     for t in tags:
         if t and not t.startswith("#"):
@@ -115,7 +129,7 @@ def _hashtags(tags: List[str], mood_count: int = 15) -> List[str]:
     seen = OrderedDict()
     for x in base:
         seen[x] = True
-    return list(seen.keys())[:max(8, mood_count)]
+    return list(seen.keys())[: max(8, mood_count)]
 
 
 # ---------------------------------------------------------------------------
@@ -130,9 +144,7 @@ DISTROKID_XML_FOOTER = "</track>\n"
 
 
 def _xml_field(name: str, text: str, indent: str = "    ") -> str:
-    safe = (text.replace("&", "&amp;")
-                 .replace("<", "&lt;")
-                 .replace(">", "&gt;"))
+    safe = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
     return f"{indent}<{name}>{safe}</{name}>\n"
 
 
@@ -140,11 +152,11 @@ def build_distrokid_xml(meta: TrackMeta) -> str:
     """DistroKid принимает XML-submission с полями ниже."""
     xml = DISTROKID_XML_HEADER
     xml += _xml_field("artist", meta.artist)
-    xml += _xml_field("title", meta.title + (f" ({meta.version})"
-                                              if meta.version else ""))
+    xml += _xml_field(
+        "title", meta.title + (f" ({meta.version})" if meta.version else "")
+    )
     xml += _xml_field("language", meta.language)
-    xml += _xml_field("primaryGenre", meta.genres[0] if meta.genres
-                                       else "Hip-Hop/Rap")
+    xml += _xml_field("primaryGenre", meta.genres[0] if meta.genres else "Hip-Hop/Rap")
     if len(meta.genres) > 1:
         xml += _xml_field("secondaryGenre", meta.genres[1])
     if meta.isrc:
@@ -152,9 +164,10 @@ def build_distrokid_xml(meta: TrackMeta) -> str:
     if meta.upc:
         xml += _xml_field("upc", meta.upc)
     if meta.copyright_year or meta.copyright_owner:
-        xml += _xml_field("copyright",
-                          f"{meta.c_line} {meta.copyright_year} "
-                          f"{meta.copyright_owner}")
+        xml += _xml_field(
+            "copyright",
+            f"{meta.c_line} {meta.copyright_year} " f"{meta.copyright_owner}",
+        )
     if meta.p_line:
         xml += _xml_field("pLine", meta.p_line)
     xml += _xml_field("explicit", "yes" if meta.explicit else "no")
@@ -175,10 +188,14 @@ def build_distrokid_xml(meta: TrackMeta) -> str:
 #  YouTube HTML description
 # ---------------------------------------------------------------------------
 
+
 def build_youtube_description(meta: TrackMeta) -> str:
     md = []
-    md.append(f"**{meta.artist} — {meta.title}"
-              + (f" ({meta.version})" if meta.version else "") + "**")
+    md.append(
+        f"**{meta.artist} — {meta.title}"
+        + (f" ({meta.version})" if meta.version else "")
+        + "**"
+    )
     md.append("")
     if meta.descripton_short:
         md.append(meta.descripton_short)
@@ -206,11 +223,13 @@ def build_youtube_description(meta: TrackMeta) -> str:
 #  VK Client pre-fill (txt для copy-paste в форму VK Music)
 # ---------------------------------------------------------------------------
 
+
 def build_vk_client_prefill(meta: TrackMeta) -> str:
-    lines: List[str] = []
+    lines: list[str] = []
     lines.append(f"Исполнитель: {meta.artist}")
-    lines.append(f"Название: {meta.title}"
-                 + (f" ({meta.version})" if meta.version else ""))
+    lines.append(
+        f"Название: {meta.title}" + (f" ({meta.version})" if meta.version else "")
+    )
     lines.append(f"Жанр: {', '.join(meta.genres) or 'Hip-Hop/Rap'}")
     if meta.bpm:
         lines.append(f"BPM: {meta.bpm}")
@@ -241,6 +260,7 @@ def build_vk_client_prefill(meta: TrackMeta) -> str:
 #  Shazam Kit JSON-LD
 # ---------------------------------------------------------------------------
 
+
 def build_shazam_jsonld(meta: TrackMeta) -> str:
     """Формат Apple Shazam Kit Music Catalog Feed."""
     payload = {
@@ -255,11 +275,10 @@ def build_shazam_jsonld(meta: TrackMeta) -> str:
         "upc": meta.upc,
         "duration_ms": meta.track_length_ms,
         "explicit": meta.explicit,
-        "lyrics": meta.lyrics_ru + ("\n---\n" + meta.lyrics_en_hook
-                                      if meta.lyrics_en_hook else ""),
+        "lyrics": meta.lyrics_ru
+        + ("\n---\n" + meta.lyrics_en_hook if meta.lyrics_en_hook else ""),
         "copyright": f"© {meta.copyright_year} {meta.copyright_owner}",
-        "phonographic": f"℗ {meta.copyright_year} "
-                          f"{meta.copyright_owner}",
+        "phonographic": f"℗ {meta.copyright_year} " f"{meta.copyright_owner}",
     }
     return json.dumps(payload, ensure_ascii=False, indent=2)
 
@@ -268,13 +287,14 @@ def build_shazam_jsonld(meta: TrackMeta) -> str:
 #  Все 4 файла разом
 # ---------------------------------------------------------------------------
 
-def build_all(meta: TrackMeta, out_dir: Path) -> Dict[str, str]:
+
+def build_all(meta: TrackMeta, out_dir: Path) -> dict[str, str]:
     """
     Генерирует все 4 файла в указанную папку.
     Возвращает dict {имя_файла: путь}.
     """
     out_dir.mkdir(parents=True, exist_ok=True)
-    files: Dict[str, str] = {}
+    files: dict[str, str] = {}
 
     dk = build_distrokid_xml(meta)
     p1 = out_dir / "distrokid_feed.xml"
@@ -316,18 +336,17 @@ def demo_meta() -> TrackMeta:
         moods=["energetic", "driving", "summer"],
         descripton_short="Phonk-трек про лето, тачки и ночной драйв.",
         description_long="Жёсткий 808-й бас, женский бэк-вокал, "
-                         "рюкзак-мотив хука 'summer drift'. "
-                         "Длина 2:30, BPM 138, тональность F#m.",
+        "рюкзак-мотив хука 'summer drift'. "
+        "Длина 2:30, BPM 138, тональность F#m.",
         lyrics_ru="[Куплет]\nВ ночь уходим мы в драйв\n"
-                  "Фары режут темноту\n[Припев]\nSummer Drift!",
+        "Фары режут темноту\n[Припев]\nSummer Drift!",
         lyrics_en_hook="[Hook]\nSummer Drift!",
         bpm=138,
         key="F#m",
         explicit=False,
         release_date="2026-08-15",
         track_length_ms=150000,
-        tags=["summer", "drift", "phonk", "car", "turkey",
-              "russia", "edit", "club"],
+        tags=["summer", "drift", "phonk", "car", "turkey", "russia", "edit", "club"],
         cover_path="cover.png",
         wav_path="track.wav",
         mp3_path="track.mp3",

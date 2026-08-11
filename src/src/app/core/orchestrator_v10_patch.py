@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 ZS Music Maker v10 — Orchestrator Patch
 =========================================
@@ -7,19 +6,21 @@ ZS Music Maker v10 — Orchestrator Patch
 
 Порядок применения патчей: v7 base → v8 patch → v9 patch → v10 patch.
 """
+
 from __future__ import annotations
+
 import json
 import logging
 import time
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Any
 
 log = logging.getLogger("zsmm.orchestrator_v10")
 
 VERSION = "v10.0.0-chart-killer-pro"
 
 
-def apply_v10_patch(orchestrator: Any) -> Dict[str, Any]:
+def apply_v10_patch(orchestrator: Any) -> dict[str, Any]:
     """
     Регистрирует новые стадии v10 в оркестраторе.
     """
@@ -28,6 +29,7 @@ def apply_v10_patch(orchestrator: Any) -> Dict[str, Any]:
     # 1. Essentia advanced analyzer
     try:
         from modules import essentia_analyzer
+
         orchestrator.essentia = essentia_analyzer
         added.append("essentia_analyzer")
     except Exception as e:
@@ -36,6 +38,7 @@ def apply_v10_patch(orchestrator: Any) -> Dict[str, Any]:
     # 2. Freesound client
     try:
         from modules import freesound_client
+
         orchestrator.freesound = freesound_client
         added.append("freesound_client")
     except Exception as e:
@@ -44,6 +47,7 @@ def apply_v10_patch(orchestrator: Any) -> Dict[str, Any]:
     # 3. Matchering wrapper
     try:
         from modules import matchering_master
+
         orchestrator.matchering = matchering_master
         added.append("matchering_master")
     except Exception as e:
@@ -52,6 +56,7 @@ def apply_v10_patch(orchestrator: Any) -> Dict[str, Any]:
     # 4. Cover art
     try:
         from modules import cover_art_gen
+
         orchestrator.cover_gen = cover_art_gen
         added.append("cover_art_gen")
     except Exception as e:
@@ -60,6 +65,7 @@ def apply_v10_patch(orchestrator: Any) -> Dict[str, Any]:
     # 5. Phoneme coverage
     try:
         from modules import phoneme_coverage
+
         orchestrator.phoneme_cov = phoneme_coverage
         added.append("phoneme_coverage")
     except Exception as e:
@@ -68,6 +74,7 @@ def apply_v10_patch(orchestrator: Any) -> Dict[str, Any]:
     # 6. DirectML detector
     try:
         from modules import hw_directml
+
         orchestrator.hw_directml = hw_directml
         prof = hw_directml.save_profile()
         orchestrator.hw_v10 = prof
@@ -78,6 +85,7 @@ def apply_v10_patch(orchestrator: Any) -> Dict[str, Any]:
     # 7. Anti-neuro polish v10
     try:
         from modules import anti_neuro_v10
+
         orchestrator.anti_neuro_v10 = anti_neuro_v10
         added.append("anti_neuro_v10")
     except Exception as e:
@@ -86,6 +94,7 @@ def apply_v10_patch(orchestrator: Any) -> Dict[str, Any]:
     # 8. Lyric Vault v10
     try:
         from modules import lyric_vault_v10
+
         orchestrator.lyric_vault_v10 = lyric_vault_v10
         added.append("lyric_vault_v10")
     except Exception as e:
@@ -94,6 +103,7 @@ def apply_v10_patch(orchestrator: Any) -> Dict[str, Any]:
     # 9. Karaoke engine
     try:
         from modules import karaoke_engine
+
         orchestrator.karaoke_v10 = karaoke_engine
         added.append("karaoke_engine")
     except Exception as e:
@@ -102,6 +112,7 @@ def apply_v10_patch(orchestrator: Any) -> Dict[str, Any]:
     # 10. Onboarding tour
     try:
         from modules import onboarding_tour
+
         orchestrator.tour = onboarding_tour
         added.append("onboarding_tour")
     except Exception as e:
@@ -111,12 +122,16 @@ def apply_v10_patch(orchestrator: Any) -> Dict[str, Any]:
     return {"ok": True, "version": VERSION, "added": added, "count": len(added)}
 
 
-def full_v10_pipeline(orchestrator: Any, project_id: str,
-                       vocal_wav: str, beat_wav: str,
-                       reference_wav: Optional[str] = None,
-                       polish_preset: str = "standard",
-                       track_title: str = "Untitled",
-                       artist: str = "ZS") -> Dict[str, Any]:
+def full_v10_pipeline(
+    orchestrator: Any,
+    project_id: str,
+    vocal_wav: str,
+    beat_wav: str,
+    reference_wav: str | None = None,
+    polish_preset: str = "standard",
+    track_title: str = "Untitled",
+    artist: str = "ZS",
+) -> dict[str, Any]:
     """
     Оркестрирует полный v10 pipeline после v9-стадий.
       → anti_neuro_v10 → matchering (car/club/streaming/tiktok) →
@@ -129,8 +144,9 @@ def full_v10_pipeline(orchestrator: Any, project_id: str,
     # 1. Anti-neuro polish v10
     polished = str(project_dir / "vocal_polished_v10.wav")
     try:
-        r = orchestrator.anti_neuro_v10.polish_vocal(vocal_wav, polished,
-                                                     preset=polish_preset)
+        r = orchestrator.anti_neuro_v10.polish_vocal(
+            vocal_wav, polished, preset=polish_preset
+        )
         steps["anti_neuro_v10"] = r
     except Exception as e:
         steps["anti_neuro_v10"] = {"ok": False, "reason": str(e)}
@@ -138,9 +154,11 @@ def full_v10_pipeline(orchestrator: Any, project_id: str,
     # 2. Mixdown (использует существующий mixdown.py)
     try:
         from modules import mixdown
+
         mix_out = str(project_dir / "master.wav")
-        mixdown.mix(beat_wav, polished if Path(polished).exists() else vocal_wav,
-                    mix_out)
+        mixdown.mix(
+            beat_wav, polished if Path(polished).exists() else vocal_wav, mix_out
+        )
         steps["mixdown"] = {"ok": True, "out": mix_out}
     except Exception as e:
         steps["mixdown"] = {"ok": False, "reason": str(e)}
@@ -151,7 +169,8 @@ def full_v10_pipeline(orchestrator: Any, project_id: str,
     try:
         if reference_wav and Path(reference_wav).exists():
             r_ref = orchestrator.matchering.match_to_reference(
-                mix_out, reference_wav, str(project_dir / "master_matched.wav"))
+                mix_out, reference_wav, str(project_dir / "master_matched.wav")
+            )
             steps["matchering_ref"] = r_ref
         r_stands = orchestrator.matchering.master_all_stands(mix_out, stands_dir)
         steps["stands"] = r_stands
@@ -189,13 +208,19 @@ def full_v10_pipeline(orchestrator: Any, project_id: str,
     )
     steps["manifest"] = {"ok": True, "path": str(project_dir / "manifest_v10.json")}
 
-    return {"ok": True, "version": VERSION, "project_dir": str(project_dir),
-            "steps": steps}
+    return {
+        "ok": True,
+        "version": VERSION,
+        "project_dir": str(project_dir),
+        "steps": steps,
+    }
 
 
 if __name__ == "__main__":
+
     class Dummy:
         pass
+
     d = Dummy()
     r = apply_v10_patch(d)
     print(json.dumps(r, ensure_ascii=False, indent=2))

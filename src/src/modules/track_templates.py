@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 [v8] track_templates.py — сохранение и запуск «Шаблонов трека».
 
@@ -7,16 +6,21 @@
 
 Работает поверх recipe.json. Хранит в data/templates/*.json.
 """
+
 from __future__ import annotations
-import os, json, time, uuid
+
+import json
+import time
+import uuid
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-TPL_DIR   = ROOT / "data" / "templates"
+TPL_DIR = ROOT / "data" / "templates"
 HIST_FILE = ROOT / "data" / "history.json"
 # v22: ленивое создание (не при импорте)
 
 # v22: ленивое создание (не при импорте)
+
 
 def _load_history() -> list[dict]:
     if HIST_FILE.exists():
@@ -28,21 +32,23 @@ def _load_history() -> list[dict]:
 
 
 def _save_history(items: list[dict]) -> None:
-    HIST_FILE.write_text(json.dumps(items[-100:], ensure_ascii=False, indent=2),
-                         encoding="utf-8")
+    HIST_FILE.write_text(
+        json.dumps(items[-100:], ensure_ascii=False, indent=2), encoding="utf-8"
+    )
 
 
 # ------------------------------------------------------- templates
 def save_template(name: str, recipe: dict) -> str:
     tid = uuid.uuid4().hex[:10]
     data = {
-        "id":   tid,
+        "id": tid,
         "name": name,
         "created_at": time.time(),
         "recipe": recipe,
     }
     (TPL_DIR / f"{tid}.json").write_text(
-        json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+        json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
     return tid
 
 
@@ -70,7 +76,8 @@ def load_template(tid: str) -> dict | None:
 def delete_template(tid: str) -> bool:
     f = TPL_DIR / f"{tid}.json"
     if f.exists():
-        f.unlink(); return True
+        f.unlink()
+        return True
     return False
 
 

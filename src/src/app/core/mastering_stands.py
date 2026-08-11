@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 [v7] mastering_stands.py — три виртуальных стенда прослушивания.
 
@@ -9,10 +8,11 @@
 
 Возвращает {stand_name: path_to_wav}.
 """
+
 from __future__ import annotations
+
 import os
 from pathlib import Path
-from typing import Optional
 
 ROOT = Path(__file__).resolve().parents[2]
 OUT = ROOT / "output" / "stands"
@@ -23,8 +23,9 @@ def _apply_eq(y, sr: int, stand: str):
     """Простая EQ через FFT. Не для боевого DSP — только приблизительно."""
     try:
         import numpy as np
+
         Y = np.fft.rfft(y)
-        freqs = np.fft.rfftfreq(len(y), 1/sr)
+        freqs = np.fft.rfftfreq(len(y), 1 / sr)
         gain = np.ones_like(freqs, dtype="float32")
         if stand == "car":
             gain[(freqs >= 30) & (freqs <= 80)] *= 1.6
@@ -44,7 +45,7 @@ def _apply_eq(y, sr: int, stand: str):
         return y
 
 
-def render_stands(master_path: str, stands: Optional[list] = None) -> dict:
+def render_stands(master_path: str, stands: list | None = None) -> dict:
     """
     Из мастер-WAV делает 3 варианта под стенды.
     stands — список из ['car','club','streaming']; None = все три.
@@ -55,6 +56,7 @@ def render_stands(master_path: str, stands: Optional[list] = None) -> dict:
     result = {}
     try:
         import soundfile as sf
+
         y, sr = sf.read(master_path, always_2d=False)
         # монодаунмикс если стерео (для простоты EQ)
         if hasattr(y, "ndim") and y.ndim > 1:

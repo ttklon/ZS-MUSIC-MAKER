@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 ZS Music Maker v13 — recording_v13.py
 ======================================
@@ -34,11 +33,10 @@ from __future__ import annotations
 
 import json
 import struct
-import time
 import wave
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -47,6 +45,7 @@ ROOT = Path(__file__).resolve().parents[1]
 #  Модели
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class VoiceActivity:
     start_ms: int
@@ -54,7 +53,7 @@ class VoiceActivity:
     rms_db: float = -100.0
     peak: float = 0.0
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return asdict(self)
 
 
@@ -66,13 +65,13 @@ class Take:
     source_path: str = ""
     rms_db: float = -100.0
     peak: float = 0.0
-    clip_pct: float = 0.0           # доля сэмплов близких к 1.0
+    clip_pct: float = 0.0  # доля сэмплов близких к 1.0
     snr_estimate_db: float = 0.0
     matched_word_pct: float = -1.0  # -1 = не считали
     punch_in_ok: bool = False
-    notes: List[str] = field(default_factory=list)
+    notes: list[str] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return asdict(self)
 
 
@@ -80,7 +79,8 @@ class Take:
 #  PCM-чтение без librosa
 # ---------------------------------------------------------------------------
 
-def load_pcm(path: Path) -> Tuple[List[float], int, int]:
+
+def load_pcm(path: Path) -> tuple[list[float], int, int]:
     """
     Читает WAV (PCM 16/24/32-bit). Возвращает (samples_mono_norm, sr, n_channels).
     samples_mono_norm — float32 в диапазоне [-1, 1].
@@ -106,7 +106,7 @@ def load_pcm(path: Path) -> Tuple[List[float], int, int]:
         n = len(raw) // 3
         samples = []
         for i in range(n):
-            triplet = raw[i*3:(i+1)*3]
+            triplet = raw[i * 3 : (i + 1) * 3]
             val = triplet[0] | (triplet[1] << 8) | (triplet[2] << 16)
             if val & 0x800000:
                 val -= 0x1000000
@@ -123,23 +123,24 @@ def load_pcm(path: Path) -> Tuple[List[float], int, int]:
         mono = []
         step = n_channels
         for i in range(0, len(samples), step):
-            chunk = samples[i:i + step]
+            chunk = samples[i : i + step]
             mono.append(sum(chunk) / len(chunk))
         samples = mono
     return samples, sr, n_channels
 
 
-def _rms_dbfs(samples: List[float]) -> float:
+def _rms_dbfs(samples: list[float]) -> float:
     if not samples:
         return -100.0
     sq = sum(s * s for s in samples) / len(samples)
     if sq <= 0:
         return -100.0
     import math
+
     return 20.0 * math.log10(max(sq, 1e-12) ** 0.5)
 
 
-def _peak(samples: List[float]) -> float:
+def _peak(samples: list[float]) -> float:
     if not samples:
         return 0.0
     return max(abs(s) for s in samples)
@@ -149,21 +150,25 @@ def _peak(samples: List[float]) -> float:
 #  VAD + Take splitter
 # ---------------------------------------------------------------------------
 
-def voice_activity_detector(samples: List[float], sr: int,
-                             frame_ms: int = 30,
-                             threshold_db: float = -45.0,
-                             silence_min_ms: int = 250) -> List[VoiceActivity]:
+
+def voice_activity_detector(
+    samples: list[float],
+    sr: int,
+    frame_ms: int = 30,
+    threshold_db: float = -45.0,
+    silence_min_ms: int = 250,
+) -> list[VoiceActivity]:
     """
     RMS-гейт. Возвращает список сегментов активности.
     threshold_db:    уровень ниже которого считаем тишиной
     silence_min_ms:  минимальная длительность тишины для разрыва сегмента
     """
     frame_size = max(1, int(sr * frame_ms / 1000.0))
-    raw_segments: List[Tuple[int, int, float, float]] = []
+    raw_segments: list[tuple[int, int, float, float]] = []
     i = 0
     n = len(samples)
     while i + frame_size <= n:
-        frame = samples[i:i + frame_size]
+        frame = samples[i : i + frame_size]
         db = _rms_dbfs(frame)
         pk = _peak(frame)
         if db > threshold_db:
@@ -171,7 +176,7 @@ def voice_activity_detector(samples: List[float], sr: int,
         i += frame_size
 
     # объединяем соседние фреймы
-    out: List[VoiceActivity] = []
+    out: list[VoiceActivity] = []
     if not raw_segments:
         return out
     cur_s, cur_e, cur_db_acc, cur_pk_acc = raw_segments[0]
@@ -183,32 +188,41 @@ def voice_activity_detector(samples: List[float], sr: int,
             cur_pk_acc = max(cur_pk_acc, pk)
             db_frames += 1
         else:
-            out.append(VoiceActivity(
-                start_ms=int(cur_s / sr * 1000),
-                end_ms=int(cur_e / sr * 1000),
-                rms_db=cur_db_acc / db_frames,
-                peak=cur_pk_acc))
+            out.append(
+                VoiceActivity(
+                    start_ms=int(cur_s / sr * 1000),
+                    end_ms=int(cur_e / sr * 1000),
+                    rms_db=cur_db_acc / db_frames,
+                    peak=cur_pk_acc,
+                )
+            )
             cur_s, cur_e, cur_db_acc, cur_pk_acc = s, e, db, pk
             db_frames = 1
-    out.append(VoiceActivity(
-        start_ms=int(cur_s / sr * 1000),
-        end_ms=int(cur_e / sr * 1000),
-        rms_db=cur_db_acc / db_frames,
-        peak=cur_pk_acc))
+    out.append(
+        VoiceActivity(
+            start_ms=int(cur_s / sr * 1000),
+            end_ms=int(cur_e / sr * 1000),
+            rms_db=cur_db_acc / db_frames,
+            peak=cur_pk_acc,
+        )
+    )
     return out
 
 
-def split_takes(samples: List[float], sr: int,
-                segments: List[VoiceActivity],
-                min_take_ms: int = 800,
-                max_take_ms: int = 60000,
-                silence_min_ms: int = 600) -> List[Take]:
+def split_takes(
+    samples: list[float],
+    sr: int,
+    segments: list[VoiceActivity],
+    min_take_ms: int = 800,
+    max_take_ms: int = 60000,
+    silence_min_ms: int = 600,
+) -> list[Take]:
     """
     Делит сегменты VAD на take'ы (chunks ≥min_take_ms).
     Тишина ≥silence_min_ms между сегментами = разделитель.
     Если активный участок длится > max_take_ms — режем.
     """
-    takes: List[Take] = []
+    takes: list[Take] = []
     if not segments:
         return takes
     take_id = 1
@@ -219,21 +233,22 @@ def split_takes(samples: List[float], sr: int,
         seg_len = s.end_ms - s.start_ms
         if gap >= silence_min_ms or (cur_end - cur_start + seg_len) > max_take_ms:
             if cur_end - cur_start >= min_take_ms:
-                takes.append(_take_from_segment(take_id, cur_start, cur_end,
-                                                samples, sr))
+                takes.append(
+                    _take_from_segment(take_id, cur_start, cur_end, samples, sr)
+                )
                 take_id += 1
             cur_start = s.start_ms
             cur_end = s.end_ms
         else:
             cur_end = max(cur_end, s.end_ms)
     if cur_end - cur_start >= min_take_ms:
-        takes.append(_take_from_segment(take_id, cur_start, cur_end,
-                                        samples, sr))
+        takes.append(_take_from_segment(take_id, cur_start, cur_end, samples, sr))
     return takes
 
 
-def _take_from_segment(take_id: int, start_ms: int, end_ms: int,
-                       samples: List[float], sr: int) -> Take:
+def _take_from_segment(
+    take_id: int, start_ms: int, end_ms: int, samples: list[float], sr: int
+) -> Take:
     s_i = int(start_ms * sr / 1000)
     e_i = int(end_ms * sr / 1000)
     s_i = max(0, min(s_i, len(samples) - 1))
@@ -249,12 +264,16 @@ def _take_from_segment(take_id: int, start_ms: int, end_ms: int,
     )
 
 
-def analyze_take(take: Take, samples: List[float], sr: int,
-                 wordmap: Optional[List[Dict[str, Any]]] = None) -> Take:
+def analyze_take(
+    take: Take,
+    samples: list[float],
+    sr: int,
+    wordmap: list[dict[str, Any]] | None = None,
+) -> Take:
     """Считает SNR, проверяет punch-in (запись стартовала после markup)."""
     s_i = int(take.start_ms * sr / 1000)
     e_i = int(take.end_ms * sr / 1000)
-    seg = samples[max(0, s_i):min(len(samples), e_i)]
+    seg = samples[max(0, s_i) : min(len(samples), e_i)]
     if not seg:
         return take
     take.rms_db = _rms_dbfs(seg)
@@ -263,15 +282,17 @@ def analyze_take(take: Take, samples: List[float], sr: int,
     # SNR estimate: разница между верхними 10% и нижними 10% RMS
     rmses = sorted([abs(s) for s in seg])
     if len(rmses) > 20:
-        top = sum(rmses[-len(rmses)//10:]) / max(1, len(rmses)//10)
-        bot = sum(rmses[:len(rmses)//10]) / max(1, len(rmses)//10)
+        top = sum(rmses[-len(rmses) // 10 :]) / max(1, len(rmses) // 10)
+        bot = sum(rmses[: len(rmses) // 10]) / max(1, len(rmses) // 10)
         if bot > 0:
             import math
+
             take.snr_estimate_db = 20 * math.log10(top / bot)
     # Punch-in marks (если wordmap передан)
     if wordmap:
-        hit_words = [w for w in wordmap
-                     if take.start_ms <= w.get("start_ms", 0) <= take.end_ms]
+        hit_words = [
+            w for w in wordmap if take.start_ms <= w.get("start_ms", 0) <= take.end_ms
+        ]
         expected = len(wordmap)
         if expected:
             take.matched_word_pct = min(100.0, len(hit_words) * 100.0 / expected)
@@ -280,8 +301,10 @@ def analyze_take(take: Take, samples: List[float], sr: int,
                 take.notes.append("попадание в слова < 50%")
     # Простые рекомендации
     if take.clip_pct > 0.01:
-        take.notes.append(f"⚠ клиппинг {take.clip_pct*100:.1f}% — "
-                          "отойди от микрофона или снизь gain")
+        take.notes.append(
+            f"⚠ клиппинг {take.clip_pct*100:.1f}% — "
+            "отойди от микрофона или снизь gain"
+        )
     if take.rms_db < -25:
         take.notes.append("тихо — поднеси микрофон ближе")
     if take.rms_db > -3:
@@ -299,12 +322,14 @@ def feedback_for_take(take: Take) -> str:
         verdict = "хорошо"
     else:
         verdict = "не тот момент"
-    head = (f"Take {take.take_id} ({take.start_ms//1000}s—{take.end_ms//1000}s): "
-            f"{verdict}\n"
-            f"  · RMS {take.rms_db:.1f} dBFS\n"
-            f"  · peak {take.peak:.2f}\n"
-            f"  · клиппинг {take.clip_pct*100:.2f}%\n"
-            f"  · SNR ~{take.snr_estimate_db:.1f} dB")
+    head = (
+        f"Take {take.take_id} ({take.start_ms//1000}s—{take.end_ms//1000}s): "
+        f"{verdict}\n"
+        f"  · RMS {take.rms_db:.1f} dBFS\n"
+        f"  · peak {take.peak:.2f}\n"
+        f"  · клиппинг {take.clip_pct*100:.2f}%\n"
+        f"  · SNR ~{take.snr_estimate_db:.1f} dB"
+    )
     if take.notes:
         head += "\n  · " + "\n  · ".join(take.notes)
     if take.matched_word_pct >= 0:
@@ -312,18 +337,21 @@ def feedback_for_take(take: Take) -> str:
     return head
 
 
-def record_session_from_wav(wav_path: Path,
-                            wordmap: Optional[List[Dict[str, Any]]] = None,
-                            min_take_ms: int = 800,
-                            silence_min_ms: int = 600) -> Dict[str, Any]:
+def record_session_from_wav(
+    wav_path: Path,
+    wordmap: list[dict[str, Any]] | None = None,
+    min_take_ms: int = 800,
+    silence_min_ms: int = 600,
+) -> dict[str, Any]:
     """
     Главная точка модуля. Принимает путь к WAV-файлу записи,
     возвращает dict с take'ами и человеческим резюме.
     """
     samples, sr, _ = load_pcm(wav_path)
     segs = voice_activity_detector(samples, sr, silence_min_ms=silence_min_ms)
-    takes = split_takes(samples, sr, segs, min_take_ms=min_take_ms,
-                        silence_min_ms=silence_min_ms)
+    takes = split_takes(
+        samples, sr, segs, min_take_ms=min_take_ms, silence_min_ms=silence_min_ms
+    )
     enriched = [analyze_take(t, samples, sr, wordmap=wordmap) for t in takes]
     return {
         "source_wav": str(wav_path),
@@ -335,14 +363,14 @@ def record_session_from_wav(wav_path: Path,
     }
 
 
-def save_takes_summary(result: Dict[str, Any], out_json: Path) -> None:
+def save_takes_summary(result: dict[str, Any], out_json: Path) -> None:
     out_json.parent.mkdir(parents=True, exist_ok=True)
     out_json.write_text(
-        json.dumps(result, ensure_ascii=False, indent=2),
-        encoding="utf-8")
+        json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
 
 
-def demo() -> Dict[str, Any]:
+def demo() -> dict[str, Any]:
     """
     Демо-режим: генерирует синтетический 6-секундный wav
     (2 активных куска + тишина), прогоняет пайплайн, печатает feedback.
@@ -351,8 +379,10 @@ def demo() -> Dict[str, Any]:
     sr = 22050
     dur = 6.0
     n = int(dur * sr)
-    import math, random
-    samples: List[float] = []
+    import math
+    import random
+
+    samples: list[float] = []
     for i in range(n):
         t = i / sr
         if 0.7 <= t <= 2.7 or 4.0 <= t <= 5.4:
@@ -365,11 +395,11 @@ def demo() -> Dict[str, Any]:
         samples.append(s)
 
     segs = voice_activity_detector(samples, sr, silence_min_ms=300)
-    takes = split_takes(samples, sr, segs, min_take_ms=500,
-                        silence_min_ms=400)
+    takes = split_takes(samples, sr, segs, min_take_ms=500, silence_min_ms=400)
     enriched = [analyze_take(t, samples, sr) for t in takes]
     return {
-        "sr": sr, "duration_ms": int(dur * 1000),
+        "sr": sr,
+        "duration_ms": int(dur * 1000),
         "segments": [s.as_dict() for s in segs],
         "takes": [t.as_dict() for t in enriched],
         "feedback": [feedback_for_take(t) for t in enriched],

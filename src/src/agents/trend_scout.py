@@ -1,14 +1,20 @@
-# -*- coding: utf-8 -*-
 """
 Agent: TrendScout v2 (НОВЫЙ)
 Ищет в интернете тренды, сленг, мемы, популярные выражения.
 Источники: DuckDuckGo, Google Trends (опционально), Reddit.
 Работает опционально — если интернета нет, возвращает локальный кэш.
 """
-import os, json, requests, re, time
-from pathlib import Path
 
-CACHE_FILE = os.path.join(os.path.dirname(__file__), "..", "lyric_vault", "trends_cache.json")
+import json
+import os
+import re
+import time
+
+import requests
+
+CACHE_FILE = os.path.join(
+    os.path.dirname(__file__), "..", "lyric_vault", "trends_cache.json"
+)
 os.makedirs(os.path.dirname(CACHE_FILE), exist_ok=True)
 
 
@@ -37,6 +43,7 @@ def scout_trends(query: str, max_results: int = 10) -> list:
     # 2. Дополняем локальным словарём
     try:
         from modules.lyrics_gen import load_slang_dictionary
+
         trends.extend(load_slang_dictionary()[:10])
     except Exception:
         pass
@@ -65,7 +72,7 @@ def _duckduckgo_search(query: str) -> list:
     # Очищаем от HTML
     clean = []
     for s in snippets:
-        text = re.sub(r'<[^>]+>', '', s).strip()
+        text = re.sub(r"<[^>]+>", "", s).strip()
         if text and len(text) > 10:
             clean.append(text)
     return clean[:5]
@@ -74,10 +81,29 @@ def _duckduckgo_search(query: str) -> list:
 def _fallback_trends(query: str) -> list:
     """Локальный fallback если интернет недоступен."""
     return [
-        "движ", "качает", "поднимает", "тачка", "бабки", "лям",
-        "движуха", "залетело", "чек", "стайл", "флоу", "вайб",
-        "огонь", "краш", "флекс", "хайп", "имба", "база",
-        "на волне", "в теме", "по кайфу", "разрыв", "убойный",
+        "движ",
+        "качает",
+        "поднимает",
+        "тачка",
+        "бабки",
+        "лям",
+        "движуха",
+        "залетело",
+        "чек",
+        "стайл",
+        "флоу",
+        "вайб",
+        "огонь",
+        "краш",
+        "флекс",
+        "хайп",
+        "имба",
+        "база",
+        "на волне",
+        "в теме",
+        "по кайфу",
+        "разрыв",
+        "убойный",
     ]
 
 
@@ -91,7 +117,9 @@ def _load_cache() -> dict:
 
 
 def _save_cache(data: dict):
-    json.dump(data, open(CACHE_FILE, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+    json.dump(
+        data, open(CACHE_FILE, "w", encoding="utf-8"), ensure_ascii=False, indent=2
+    )
 
 
 def get_hot_topics() -> list:

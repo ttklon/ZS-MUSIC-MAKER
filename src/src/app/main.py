@@ -1,5 +1,5 @@
-# -*- coding: utf-8 -*-
 """Современная точка входа desktop-режима."""
+
 from __future__ import annotations
 
 import sys
@@ -11,6 +11,7 @@ sys.path.insert(0, str(ROOT))
 
 def main() -> int:
     import main as root_main
+
     return int(root_main.main() or 0)
 
 

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 [v8] lyrics_gen_v8.py — надстройка над lyrics_gen v7.
 
@@ -16,18 +15,28 @@ API:
       → {'text': str, 'chorus_lines': list[str],
          'used_slang': list[str], 'author_style_used': bool}
 """
-from __future__ import annotations
-import re, random
-from typing import Optional
 
-from modules import lyrics_gen  # v7, оставляем как есть
-from modules import author_ref_lyrics
+from __future__ import annotations
+
+import random
+import re
+
+from modules import (
+    author_ref_lyrics,
+    lyrics_gen,  # v7, оставляем как есть
+)
 
 
 def _split_blocks(text: str) -> dict[str, list[str]]:
     """Парсим блоки [Куплет 1] / [Припев] / [Куплет 2] / [Аутро]."""
-    blocks = {"intro": [], "verse1": [], "chorus": [],
-              "verse2": [], "bridge": [], "outro": []}
+    blocks = {
+        "intro": [],
+        "verse1": [],
+        "chorus": [],
+        "verse2": [],
+        "bridge": [],
+        "outro": [],
+    }
     current = "verse1"
     for raw_line in text.splitlines():
         line = raw_line.strip()
@@ -35,19 +44,26 @@ def _split_blocks(text: str) -> dict[str, list[str]]:
             continue
         low = line.lower()
         if low.startswith("[") and low.endswith("]"):
-            if "интро" in low or "intro" in low: current = "intro"
-            elif "припев" in low or "chorus" in low or "hook" in low: current = "chorus"
-            elif "куплет 1" in low or "verse 1" in low: current = "verse1"
-            elif "куплет 2" in low or "verse 2" in low: current = "verse2"
-            elif "бридж" in low or "bridge" in low: current = "bridge"
-            elif "аутро" in low or "outro" in low: current = "outro"
+            if "интро" in low or "intro" in low:
+                current = "intro"
+            elif "припев" in low or "chorus" in low or "hook" in low:
+                current = "chorus"
+            elif "куплет 1" in low or "verse 1" in low:
+                current = "verse1"
+            elif "куплет 2" in low or "verse 2" in low:
+                current = "verse2"
+            elif "бридж" in low or "bridge" in low:
+                current = "bridge"
+            elif "аутро" in low or "outro" in low:
+                current = "outro"
             continue
         blocks[current].append(line)
     return blocks
 
 
-def _validate_rhythm(lines: list[str], target_avg: float = 9.0,
-                     tol: float = 0.3) -> list[str]:
+def _validate_rhythm(
+    lines: list[str], target_avg: float = 9.0, tol: float = 0.3
+) -> list[str]:
     """Отсекаем строки, которые слишком короткие/длинные (≥±30% от target)."""
     kept = []
     for l in lines:
@@ -58,13 +74,15 @@ def _validate_rhythm(lines: list[str], target_avg: float = 9.0,
     return kept or lines
 
 
-def generate_lyrics_v8(theme: str,
-                       user_words: list[str] | None = None,
-                       bpm: int = 130,
-                       author: Optional[str] = None,
-                       target_lines: int = 16,
-                       want_female_backing: bool = False,
-                       lang_mix: str = "ru+en") -> dict:
+def generate_lyrics_v8(
+    theme: str,
+    user_words: list[str] | None = None,
+    bpm: int = 130,
+    author: str | None = None,
+    target_lines: int = 16,
+    want_female_backing: bool = False,
+    lang_mix: str = "ru+en",
+) -> dict:
     """
     Главная точка входа v8. Возвращает готовый текст + мета.
     """
@@ -72,6 +90,7 @@ def generate_lyrics_v8(theme: str,
     # 1) актуальный сленг на сегодня
     try:
         from agents.trend_scout_v3 import actual_slang_for_prompt
+
         slang = actual_slang_for_prompt(theme, n_words=15)
     except Exception:
         slang = []
@@ -88,9 +107,12 @@ def generate_lyrics_v8(theme: str,
                 profile = author_ref_lyrics.get_style_profile(author)
             if profile:
                 style_prompt = author_ref_lyrics.build_style_prompt(
-                    author=author, theme=theme,
-                    user_words=user_words + slang[:6], bpm=bpm,
-                    target_lines=target_lines)
+                    author=author,
+                    theme=theme,
+                    user_words=user_words + slang[:6],
+                    bpm=bpm,
+                    target_lines=target_lines,
+                )
                 author_style_used = True
         except Exception:
             style_prompt = ""
@@ -101,14 +123,16 @@ def generate_lyrics_v8(theme: str,
         seed += " — " + ", ".join(user_words)
     if slang:
         seed += " · слэнг: " + ", ".join(slang[:8])
-    seed_user_lyrics = user_words   # v7 гарантирует их появление
+    seed_user_lyrics = user_words  # v7 гарантирует их появление
 
     try:
         raw = lyrics_gen.generate_lyrics(
-            theme=seed, bpm=bpm,
+            theme=seed,
+            bpm=bpm,
             user_lyrics_lines=seed_user_lyrics,
             style_prompt=style_prompt or None,
-            target_lines=target_lines)
+            target_lines=target_lines,
+        )
     except TypeError:
         # v7 может не поддерживать все kwargs — деградируем к базовому вызову
         try:
@@ -131,6 +155,7 @@ def generate_lyrics_v8(theme: str,
         if not has_en:
             try:
                 from agents.trend_scout_v3 import scout
+
                 hook_en = random.choice(scout(theme)["hooks_en"])
                 blocks["chorus"].append(hook_en)
             except Exception:
@@ -140,8 +165,12 @@ def generate_lyrics_v8(theme: str,
     parts = []
     if blocks["intro"]:
         parts.append("[Интро]\n" + "\n".join(blocks["intro"]))
-    parts.append("[Куплет 1]\n" + "\n".join(blocks["verse1"] or ["город спит, а мотор рычит"]))
-    parts.append("[Припев]\n" + "\n".join(blocks["chorus"] or ["night ride, we don't stop"]))
+    parts.append(
+        "[Куплет 1]\n" + "\n".join(blocks["verse1"] or ["город спит, а мотор рычит"])
+    )
+    parts.append(
+        "[Припев]\n" + "\n".join(blocks["chorus"] or ["night ride, we don't stop"])
+    )
     parts.append("[Куплет 2]\n" + "\n".join(blocks["verse2"] or blocks["verse1"] or []))
     parts.append("[Припев]\n" + "\n".join(blocks["chorus"] or []))
     if blocks["bridge"]:

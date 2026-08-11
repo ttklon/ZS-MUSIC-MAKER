@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 [v8] theme_v8.py — современная тёмная тема QSS, продажный вид, без «нейроношности».
 
@@ -12,22 +11,23 @@
 Neon-cyan (ассоциации с автомобилями/ночью), плавные hover-переходы, крупный
 типографический ритм, никаких лишних эмоджи в UI-элементах.
 """
+
 from __future__ import annotations
 
 # Палитра v8: «Night Drive»
 COLORS = {
-    "bg":        "#0d0f14",   # почти чёрный, чуть синий подтон
-    "surface":   "#141821",
+    "bg": "#0d0f14",  # почти чёрный, чуть синий подтон
+    "surface": "#141821",
     "surface_2": "#1c2130",
-    "border":    "#232838",
-    "text":      "#eaecf2",
-    "text_dim":  "#8a90a3",
-    "accent":    "#ff2a4b",   # Supra red
+    "border": "#232838",
+    "text": "#eaecf2",
+    "text_dim": "#8a90a3",
+    "accent": "#ff2a4b",  # Supra red
     "accent_hi": "#ff6480",
-    "neon":      "#00d8ff",   # cyan
-    "success":   "#3ecf8e",
-    "warn":      "#ffb020",
-    "danger":    "#ff5573",
+    "neon": "#00d8ff",  # cyan
+    "success": "#3ecf8e",
+    "warn": "#ffb020",
+    "danger": "#ff5573",
 }
 
 

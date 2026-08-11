@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 ZS Music Maker v13 — wizard_v12_integration.py
 ==============================================
@@ -22,14 +21,12 @@ v13:     добавляет явный callback-хаск `bridge_wizard_to_v12()
 from __future__ import annotations
 
 import json
-import os
 import sys
 import time
-import traceback
-from dataclasses import dataclass, field, asdict
+from collections.abc import Callable
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
-
+from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -37,6 +34,7 @@ if str(ROOT) not in sys.path:
 
 LOGS = ROOT / "logs"
 # v22: ленивое создание (не при импорте)
+
 
 def _log(msg: str) -> None:
     line = f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] [wizard_v12_integ] {msg}"
@@ -56,20 +54,20 @@ class WizardBridgeResult:
     started_at: float = field(default_factory=lambda: time.time())
     finished_at: float = 0.0
     verdict: str = "PENDING"
-    stages_done: List[str] = field(default_factory=list)
-    artifacts_written: List[str] = field(default_factory=list)
-    warnings: List[str] = field(default_factory=list)
-    errors: List[str] = field(default_factory=list)
+    stages_done: list[str] = field(default_factory=list)
+    artifacts_written: list[str] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
     human_summary: str = ""
-    kpi_snapshot: Optional[Dict[str, Any]] = None
+    kpi_snapshot: dict[str, Any] | None = None
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         d = asdict(self)
         d["finished_at"] = self.finished_at
         return d
 
 
-def collect_wizard_state(ui_state: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+def collect_wizard_state(ui_state: dict[str, Any] | None = None) -> dict[str, Any]:
     """
     Собирает state из Tk-переменных визарда в плоский dict для пайплайна.
 
@@ -79,7 +77,7 @@ def collect_wizard_state(ui_state: Optional[Dict[str, Any]] = None) -> Dict[str,
 
     Не падает, если Wizard ещё ничего не записал — default = пустой.
     """
-    state: Dict[str, Any] = dict(ui_state or {})
+    state: dict[str, Any] = dict(ui_state or {})
     state.setdefault("bpm", 140)
     state.setdefault("duration_sec", 150)
     state.setdefault("artist", "Unknown Artist")
@@ -95,9 +93,9 @@ def collect_wizard_state(ui_state: Optional[Dict[str, Any]] = None) -> Dict[str,
 
 def bridge_wizard_to_v12(
     project_id: str,
-    ui_state: Optional[Dict[str, Any]] = None,
-    progress_cb: Optional[Callable[[str, float, str], None]] = None,
-    approve_cb: Optional[Callable[[str, str], bool]] = None,
+    ui_state: dict[str, Any] | None = None,
+    progress_cb: Callable[[str, float, str], None] | None = None,
+    approve_cb: Callable[[str, str], bool] | None = None,
     dry_run: bool = True,
     force_v11: bool = False,
 ) -> WizardBridgeResult:
@@ -125,37 +123,42 @@ def bridge_wizard_to_v12(
     """
     res = WizardBridgeResult(project_id=project_id)
     state = collect_wizard_state(ui_state)
-    _log(f"Bridge start: project={project_id} dry_run={dry_run} "
-         f"force_v11={force_v11}")
+    _log(
+        f"Bridge start: project={project_id} dry_run={dry_run} "
+        f"force_v11={force_v11}"
+    )
 
     # 1) health pre-flight
     try:
         from modules import health_v12
+
         hr = health_v12.collect()
         res.stages_done.append(f"health_v12:{hr.verdict} ({hr.percent_ready}%)")
         _log(f"health: {hr.verdict} ({hr.percent_ready}%)")
         if progress_cb:
             try:
-                progress_cb("health_v12", 0.05,
-                            f"стек: {hr.verdict}, {hr.percent_ready}% готов")
+                progress_cb(
+                    "health_v12", 0.05, f"стек: {hr.verdict}, {hr.percent_ready}% готов"
+                )
             except Exception:
                 pass
     except Exception as e:  # noqa: BLE001
         res.warnings.append(f"health_v12: {e}")
 
     # 2/3) основная цепочка
-    pipeline_output: Dict[str, Any] = {}
+    pipeline_output: dict[str, Any] = {}
     try:
         if force_v11:
             raise RuntimeError("forced v11 path")
         from app.core import orchestrator_v12_patch as orch
+
         pipeline_output = orch.run_full_pipeline_v12(
-            project_id, wizard_state=state,
-            progress_cb=progress_cb, dry_run=dry_run)
+            project_id, wizard_state=state, progress_cb=progress_cb, dry_run=dry_run
+        )
         res.verdict = str(pipeline_output.get("verdict", "UNKNOWN"))
-        res.stages_done.extend(["orchestrator_v12_patch",
-                                "master_pipeline_v12",
-                                "kpi_dashboard_v12"])
+        res.stages_done.extend(
+            ["orchestrator_v12_patch", "master_pipeline_v12", "kpi_dashboard_v12"]
+        )
     except Exception as e:  # noqa: BLE001
         res.errors.append(f"orchestrator_v12: {type(e).__name__}: {e}")
         _log(f"orch_v12 fall: {e}")
@@ -164,13 +167,17 @@ def bridge_wizard_to_v12(
     if not str(res.verdict).endswith("PASS"):
         try:
             from app.core import orchestrator_v11_patch as v11
+
             if hasattr(v11, "run_full_pipeline_v11"):
                 v11_out = v11.run_full_pipeline_v11(
-                    project_id, state, progress_cb=progress_cb)
+                    project_id, state, progress_cb=progress_cb
+                )
                 pipeline_output["fallback_v11"] = (
-                    v11_out if isinstance(v11_out, dict) else {"raw": str(v11_out)})
-                if isinstance(v11_out, dict) and \
-                        str(v11_out.get("verdict", "")).endswith("PASS"):
+                    v11_out if isinstance(v11_out, dict) else {"raw": str(v11_out)}
+                )
+                if isinstance(v11_out, dict) and str(
+                    v11_out.get("verdict", "")
+                ).endswith("PASS"):
                     res.verdict = "V11_FALLBACK_PASS"
                 res.stages_done.append("orchestrator_v11_patch(fallback)")
         except Exception as e:  # noqa: BLE001
@@ -178,9 +185,13 @@ def bridge_wizard_to_v12(
             # как минимум — прогон dry-run master_pipeline_v12
             try:
                 from modules import master_pipeline_v12 as mp
-                mp.run_master_pipeline(project_id, wizard_state=state,
-                                        progress_cb=progress_cb,
-                                        dry_run=True)
+
+                mp.run_master_pipeline(
+                    project_id,
+                    wizard_state=state,
+                    progress_cb=progress_cb,
+                    dry_run=True,
+                )
                 res.stages_done.append("master_pipeline_v12:dry_run_only")
                 res.verdict = res.verdict or "DRY_RUN_PASS"
             except Exception as e2:  # noqa: BLE001
@@ -189,6 +200,7 @@ def bridge_wizard_to_v12(
     # 5) финальный KPI snapshot — для пользователя увидеть прогресс
     try:
         from modules import kpi_dashboard_v12 as kd
+
         dash = kd.build(save=True)
         res.kpi_snapshot = {
             "verdict": dash.verdict,
@@ -211,8 +223,8 @@ def bridge_wizard_to_v12(
     proj_dir = ROOT / "output" / "projects" / project_id
     proj_dir.mkdir(parents=True, exist_ok=True)
     (proj_dir / "wizard_bridge_v13.json").write_text(
-        json.dumps(res.as_dict(), ensure_ascii=False, indent=2),
-        encoding="utf-8")
+        json.dumps(res.as_dict(), ensure_ascii=False, indent=2), encoding="utf-8"
+    )
     res.artifacts_written.append(str(proj_dir / "wizard_bridge_v13.json"))
 
     _log(f"Bridge done: {res.verdict} ({res.finished_at - res.started_at:.2f}s)")
@@ -232,19 +244,26 @@ def install_into_wizard_main(main_module: Any) -> bool:
         if not hasattr(main_module, "run_pipeline"):
             return False
         original = main_module.run_pipeline
+
         # замыкаем чтобы не зациклиться
         def patched(*args, **kwargs):
             project_id = kwargs.get("project_id") or (
-                args[0] if args else "wizard_project")
+                args[0] if args else "wizard_project"
+            )
             ui_state = kwargs.get("wizard_state") or {}
             return bridge_wizard_to_v12(
-                project_id=project_id, ui_state=ui_state,
+                project_id=project_id,
+                ui_state=ui_state,
                 progress_cb=kwargs.get("progress_cb"),
                 approve_cb=kwargs.get("approve_cb"),
-                dry_run=kwargs.get("dry_run", False))
+                dry_run=kwargs.get("dry_run", False),
+            )
+
         main_module.run_pipeline = patched
-        _log(f"install_into_wizard_main: patched main_module.run_pipeline "
-             f"(original kept as 'run_pipeline_original')")
+        _log(
+            "install_into_wizard_main: patched main_module.run_pipeline "
+            "(original kept as 'run_pipeline_original')"
+        )
         main_module.run_pipeline_original = original
         return True
     except Exception as e:  # noqa: BLE001
@@ -256,11 +275,12 @@ def main_entry() -> int:
     """CLI: python -m modules.wizard_v12_integration"""
     proj = "wizard_v13_smoke"
     state = collect_wizard_state(
-        ui_state={"artist": "Smoke Artist", "bpm": 138,
-                  "duration_sec": 140})
+        ui_state={"artist": "Smoke Artist", "bpm": 138, "duration_sec": 140}
+    )
     r = bridge_wizard_to_v12(proj, ui_state=state, dry_run=True)
-    print(f"verdict={r.verdict}  stages={len(r.stages_done)}  "
-          f"errors={len(r.errors)}")
+    print(
+        f"verdict={r.verdict}  stages={len(r.stages_done)}  " f"errors={len(r.errors)}"
+    )
     print(r.human_summary)
     return 0 if r.verdict.endswith("PASS") else 1
 

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 [1] analyzer.py — Мульти-референс анализатор v2
 Усиления v2:
@@ -8,14 +7,20 @@
   • Сохранение в analysis_cache с полным provenance
   • Essentia-дескрипторы (опционально, если установлен)
 """
-import os, json, numpy as np
+
+import json
+import os
+
+import numpy as np
 
 try:
     import librosa
 except ImportError:
     librosa = None
 
-VAULT = os.path.join(os.path.dirname(__file__), "..", "references", "analysis_cache.json")
+VAULT = os.path.join(
+    os.path.dirname(__file__), "..", "references", "analysis_cache.json"
+)
 
 
 def _safe_load(path, sr=22050):
@@ -62,7 +67,10 @@ def analyze_single(path: str) -> dict:
     rms_frames = librosa.feature.rms(y=y, frame_length=2048, hop_length=512)[0]
     n_sections = 8
     chunk = len(rms_frames) // n_sections if len(rms_frames) >= n_sections else 1
-    section_energies = [float(np.mean(rms_frames[i*chunk:(i+1)*chunk])) for i in range(n_sections)]
+    section_energies = [
+        float(np.mean(rms_frames[i * chunk : (i + 1) * chunk]))
+        for i in range(n_sections)
+    ]
     # Определяем где дроп (пик энергии)
     drop_section = int(np.argmax(section_energies)) if section_energies else 0
 
@@ -70,6 +78,7 @@ def analyze_single(path: str) -> dict:
     essentia_desc = {}
     try:
         import essentia.standard as estd
+
         loader = estd.MonoLoader(filename=path)
         audio = loader()
         danceability = estd.Danceability()(audio)
@@ -100,16 +109,26 @@ def analyze_single(path: str) -> dict:
 
 def _infer_vibe(bpm, centroid, bass, mode):
     tags = []
-    if bpm < 90: tags.append("slow")
-    elif bpm < 110: tags.append("mid-tempo")
-    elif bpm < 140: tags.append("phonk/drift")
-    elif bpm < 160: tags.append("trap/hype")
-    else: tags.append("hyper/hardstyle")
-    if bass > 1.4: tags.append("bass-heavy")
-    if centroid < 1500: tags.append("dark")
-    elif centroid > 3500: tags.append("bright")
-    if mode == "minor": tags.append("aggressive")
-    if bass > 2.0 and centroid < 2000: tags.append("underground")
+    if bpm < 90:
+        tags.append("slow")
+    elif bpm < 110:
+        tags.append("mid-tempo")
+    elif bpm < 140:
+        tags.append("phonk/drift")
+    elif bpm < 160:
+        tags.append("trap/hype")
+    else:
+        tags.append("hyper/hardstyle")
+    if bass > 1.4:
+        tags.append("bass-heavy")
+    if centroid < 1500:
+        tags.append("dark")
+    elif centroid > 3500:
+        tags.append("bright")
+    if mode == "minor":
+        tags.append("aggressive")
+    if bass > 2.0 and centroid < 2000:
+        tags.append("underground")
     return tags
 
 
@@ -158,7 +177,11 @@ def analyze_multi(paths: list, weights: list = None, take_notes: list = None) ->
 
     # Тональность — голосование
     keys_list = [a["key"] for a in analyses]
-    mode = "minor" if sum(1 for k in keys_list if "minor" in k) >= len(keys_list) / 2 else "major"
+    mode = (
+        "minor"
+        if sum(1 for k in keys_list if "minor" in k) >= len(keys_list) / 2
+        else "major"
+    )
 
     # Vibe tags — взвешенная частота
     tag_weights = {}
@@ -175,12 +198,14 @@ def analyze_multi(paths: list, weights: list = None, take_notes: list = None) ->
     if take_notes:
         for i, note in enumerate(take_notes):
             if i < len(analyses) and note.strip():
-                ref_notes.append({
-                    "ref": analyses[i]["filename"],
-                    "note": note.strip(),
-                    "bpm": analyses[i]["bpm"],
-                    "vibe": analyses[i]["vibe_tags"],
-                })
+                ref_notes.append(
+                    {
+                        "ref": analyses[i]["filename"],
+                        "note": note.strip(),
+                        "bpm": analyses[i]["bpm"],
+                        "vibe": analyses[i]["vibe_tags"],
+                    }
+                )
 
     style_vector = {
         "sources": [os.path.basename(p) for p in paths],
@@ -207,7 +232,9 @@ def _save_to_vault(data):
         except Exception:
             existing = []
     existing.append(data)
-    json.dump(existing, open(VAULT, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+    json.dump(
+        existing, open(VAULT, "w", encoding="utf-8"), ensure_ascii=False, indent=2
+    )
 
 
 def list_cached_analyses() -> list:
@@ -221,6 +248,7 @@ def list_cached_analyses() -> list:
 
 if __name__ == "__main__":
     import sys
+
     files = sys.argv[1:]
     if not files:
         print("Usage: python analyzer.py <ref1.mp3> [ref2.mp3 ...]")

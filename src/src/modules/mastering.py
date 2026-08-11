@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 ZS Music Maker v14 — mastering.py (единый мастеринг-модуль)
 ============================================================
@@ -28,9 +27,9 @@ from __future__ import annotations
 import json
 import logging
 import math
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 log = logging.getLogger("mastering")
 
@@ -38,21 +37,28 @@ log = logging.getLogger("mastering")
 # hit_scorer._loudness_lufs sweet spot -10.5..-7 (95), -14..-10.5 (75),
 # ниже -14 штраф 40. tanh-limiter отнимает ~0.3-0.5 dB → целясь в
 # -13.5 мы гарантированно попадаем в -14..-10.5 (75/100) вместо 40/100.
-STANDS: Dict[str, Dict[str, Any]] = {
-    "streaming":  {"lufs": -13.5, "tp": -1.0, "eq": None},
-    "car":        {"lufs":  -8.5, "tp": -0.5, "eq": {"low_boost_db": 2.0}},
-    "club":       {"lufs":  -6.5, "tp": -0.3, "eq": None, "compress": True},
-    "tiktok":     {"lufs": -12.5, "tp": -1.0, "eq": None, "hook_pop": True},
-    "airpods":    {"lufs": -11.5, "tp": -1.0,
-                   "eq": {"boost_low_hz": (60, 100), "gain_db": 2.0}},
-    "bluetooth":  {"lufs": -10.5, "tp": -1.0,
-                   "eq": {"cut_hi_hz": (8000, 12000), "gain_db": -1.0}},
-    "headphones": {"lufs": -13.5, "tp": -1.0, "eq": None},
-    "monitors":   {"lufs": -13.5, "tp": -1.0, "eq": None},
+STANDS: dict[str, dict[str, Any]] = {
+    "streaming": {"lufs": -12.0, "tp": -0.5, "eq": None},
+    "car": {"lufs": -8.5, "tp": -0.5, "eq": {"low_boost_db": 2.0}},
+    "club": {"lufs": -6.5, "tp": -0.3, "eq": None, "compress": True},
+    "tiktok": {"lufs": -12.5, "tp": -1.0, "eq": None, "hook_pop": True},
+    "airpods": {
+        "lufs": -11.5,
+        "tp": -1.0,
+        "eq": {"boost_low_hz": (60, 100), "gain_db": 2.0},
+    },
+    "bluetooth": {
+        "lufs": -10.5,
+        "tp": -1.0,
+        "eq": {"cut_hi_hz": (8000, 12000), "gain_db": -1.0},
+    },
+    "headphones": {"lufs": -12.0, "tp": -0.5, "eq": None},
+    "monitors": {"lufs": -12.0, "tp": -0.5, "eq": None},
 }
 
 try:
     import matchering as _mg  # type: ignore
+
     MG_OK = True
 except Exception:
     _mg = None
@@ -60,6 +66,7 @@ except Exception:
 
 try:
     import pedalboard as _pb  # type: ignore
+
     PB_OK = True
 except Exception:
     _pb = None
@@ -67,6 +74,7 @@ except Exception:
 
 try:
     import pyloudnorm as _pln  # type: ignore
+
     PLN_OK = True
 except Exception:
     _pln = None
@@ -80,21 +88,22 @@ class MasterResult:
     out_wav: str
     stand: str
     target_lufs: float
-    measured_lufs: Optional[float] = None
-    measured_tp_dbtp: Optional[float] = None
-    stereo_correlation: Optional[float] = None
+    measured_lufs: float | None = None
+    measured_tp_dbtp: float | None = None
+    stereo_correlation: float | None = None
     fallback_used: bool = False
-    reason: Optional[str] = None
+    reason: str | None = None
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return asdict(self)
 
 
-def _measure(path: str) -> Dict[str, Optional[float]]:
+def _measure(path: str) -> dict[str, float | None]:
     out = {"lufs": None, "tp": None, "corr": None}
     try:
-        import soundfile as sf
         import numpy as np
+        import soundfile as sf
+
         y, sr = sf.read(path, always_2d=True)
         if y.shape[1] == 1:
             y = np.repeat(y, 2, axis=1)
@@ -107,7 +116,8 @@ def _measure(path: str) -> Dict[str, Optional[float]]:
         peak = float(np.max(np.abs(y)))
         out["tp"] = 20 * math.log10(peak + 1e-12)
         if y.shape[1] >= 2:
-            l = y[:, 0]; r = y[:, 1]
+            l = y[:, 0]
+            r = y[:, 1]
             num = float(np.mean(l * r))
             den = float(np.sqrt(np.mean(l * l) * np.mean(r * r)) + 1e-12)
             out["corr"] = num / den
@@ -116,33 +126,40 @@ def _measure(path: str) -> Dict[str, Optional[float]]:
     return out
 
 
-def _try_matchering(target: str, reference: str, out_wav: str,
-                    target_lufs: float) -> Optional[MasterResult]:
+def _try_matchering(
+    target: str, reference: str, out_wav: str, target_lufs: float
+) -> MasterResult | None:
     if not MG_OK or not reference or not Path(reference).exists():
         return None
     try:
         _mg.log(lambda *a, **kw: None)
-        _mg.process(target=target, reference=reference,
-                    results=[_mg.pcm16(out_wav)])
+        _mg.process(target=target, reference=reference, results=[_mg.pcm16(out_wav)])
         m = _measure(out_wav)
-        return MasterResult(ok=True, engine="matchering", out_wav=out_wav,
-                            stand="", target_lufs=target_lufs,
-                            measured_lufs=m.get("lufs"),
-                            measured_tp_dbtp=m.get("tp"),
-                            stereo_correlation=m.get("corr"),
-                            fallback_used=False)
+        return MasterResult(
+            ok=True,
+            engine="matchering",
+            out_wav=out_wav,
+            stand="",
+            target_lufs=target_lufs,
+            measured_lufs=m.get("lufs"),
+            measured_tp_dbtp=m.get("tp"),
+            stereo_correlation=m.get("corr"),
+            fallback_used=False,
+        )
     except Exception as e:
         log.error("matchering failed: %s", e)
         return None
 
 
-def _try_pedalboard(target: str, out_wav: str, stand: str,
-                    target_lufs: float) -> Optional[MasterResult]:
+def _try_pedalboard(
+    target: str, out_wav: str, stand: str, target_lufs: float
+) -> MasterResult | None:
     if not PB_OK:
         return None
     try:
-        import soundfile as sf
         import numpy as np
+        import soundfile as sf
+
         y, sr = sf.read(target, always_2d=True)
         if y.shape[1] == 1:
             y = np.repeat(y, 2, axis=1)
@@ -153,19 +170,29 @@ def _try_pedalboard(target: str, out_wav: str, stand: str,
         eq = cfg.get("eq") or {}
 
         if "low_boost_db" in eq:
-            board.append(_pb.LowShelfFilter(cutoff_frequency_hz=120.0,
-                                            gain_db=eq["low_boost_db"]))
+            board.append(
+                _pb.LowShelfFilter(
+                    cutoff_frequency_hz=120.0, gain_db=eq["low_boost_db"]
+                )
+            )
         if "boost_low_hz" in eq:
             lo, hi = eq["boost_low_hz"]
-            board.append(_pb.PeakFilter(cutoff_frequency_hz=(lo + hi) / 2,
-                                        gain_db=eq["gain_db"], q=1.0))
+            board.append(
+                _pb.PeakFilter(
+                    cutoff_frequency_hz=(lo + hi) / 2, gain_db=eq["gain_db"], q=1.0
+                )
+            )
         if "cut_hi_hz" in eq:
             lo, hi = eq["cut_hi_hz"]
-            board.append(_pb.HighShelfFilter(cutoff_frequency_hz=lo,
-                                             gain_db=eq["gain_db"]))
+            board.append(
+                _pb.HighShelfFilter(cutoff_frequency_hz=lo, gain_db=eq["gain_db"])
+            )
 
-        board.append(_pb.Compressor(threshold_db=-16.0, ratio=3.0,
-                                    attack_ms=5.0, release_ms=120.0))
+        board.append(
+            _pb.Compressor(
+                threshold_db=-16.0, ratio=3.0, attack_ms=5.0, release_ms=120.0
+            )
+        )
         tp = cfg.get("tp", -1.0)
         board.append(_pb.Limiter(threshold_db=tp, release_ms=50.0))
 
@@ -173,7 +200,9 @@ def _try_pedalboard(target: str, out_wav: str, stand: str,
 
         if PLN_OK:
             meter = _pln.Meter(sr)
-            cur = meter.integrated_loudness(y2)
+            # Pedalboard output is (channels, frames), pyloudnorm needs (frames, channels)
+            y2_for_norm = y2.T if y2.shape[0] < y2.shape[1] else y2
+            cur = meter.integrated_loudness(y2_for_norm)
             if math.isfinite(cur) and cur > -60:
                 gain_db = max(-24.0, min(24.0, target_lufs - cur))
                 y2 = y2 * (10 ** (gain_db / 20))
@@ -182,12 +211,17 @@ def _try_pedalboard(target: str, out_wav: str, stand: str,
         Path(out_wav).parent.mkdir(parents=True, exist_ok=True)
         sf.write(out_wav, y2, sr)
         m = _measure(out_wav)
-        return MasterResult(ok=True, engine="pedalboard", out_wav=out_wav,
-                            stand=stand, target_lufs=target_lufs,
-                            measured_lufs=m.get("lufs"),
-                            measured_tp_dbtp=m.get("tp"),
-                            stereo_correlation=m.get("corr"),
-                            fallback_used=False)
+        return MasterResult(
+            ok=True,
+            engine="pedalboard",
+            out_wav=out_wav,
+            stand=stand,
+            target_lufs=target_lufs,
+            measured_lufs=m.get("lufs"),
+            measured_tp_dbtp=m.get("tp"),
+            stereo_correlation=m.get("corr"),
+            fallback_used=False,
+        )
     except Exception as e:
         log.error("pedalboard failed: %s", e)
         return None
@@ -202,26 +236,33 @@ def _k_weighted_loudness_approx(y, sr) -> float:
     """
     import numpy as np
     from scipy.signal import butter, sosfilt
+
     try:
         sos_hs = butter(2, 1681, btype="high", fs=sr, output="sos")
         shelf_gain = 10 ** (4.0 / 20) - 1.0
-        y = np.stack([sosfilt(sos_hs, y[:, c]) * shelf_gain + y[:, c]
-                      for c in range(y.shape[1])], axis=1)
+        y = np.stack(
+            [
+                sosfilt(sos_hs, y[:, c]) * shelf_gain + y[:, c]
+                for c in range(y.shape[1])
+            ],
+            axis=1,
+        )
         sos_hp = butter(2, 38, btype="high", fs=sr, output="sos")
-        y = np.stack([sosfilt(sos_hp, y[:, c]) for c in range(y.shape[1])],
-                     axis=1)
+        y = np.stack([sosfilt(sos_hp, y[:, c]) for c in range(y.shape[1])], axis=1)
     except Exception:
         pass
-    ms = float(np.mean(y ** 2)) + 1e-12
+    ms = float(np.mean(y**2)) + 1e-12
     return 10 * math.log10(ms)
 
 
-def _try_numpy_dsp(target: str, out_wav: str, stand: str,
-                   target_lufs: float) -> Optional[MasterResult]:
+def _try_numpy_dsp(
+    target: str, out_wav: str, stand: str, target_lufs: float
+) -> MasterResult | None:
     try:
-        import soundfile as sf
         import numpy as np
+        import soundfile as sf
         from scipy.signal import butter, sosfilt
+
         y, sr = sf.read(target, always_2d=True)
         if y.shape[1] == 1:
             y = np.repeat(y, 2, axis=1)
@@ -237,7 +278,9 @@ def _try_numpy_dsp(target: str, out_wav: str, stand: str,
         if "low_boost_db" in eq:
             sos_lo = butter(2, 120, btype="low", fs=sr, output="sos")
             gain = 10 ** (eq["low_boost_db"] / 20) - 1
-            low = np.stack([sosfilt(sos_lo, y[:, c]) for c in range(y.shape[1])], axis=1)
+            low = np.stack(
+                [sosfilt(sos_lo, y[:, c]) for c in range(y.shape[1])], axis=1
+            )
             y = y + low * gain
         if "boost_low_hz" in eq:
             lo, hi = eq["boost_low_hz"]
@@ -264,13 +307,13 @@ def _try_numpy_dsp(target: str, out_wav: str, stand: str,
         # 5. Лимитирование (soft-clip)
         tp = cfg.get("tp", -1.0)
         tp_lin = 10 ** (tp / 20)
-        
+
         # v26 FIX (P0): целимся в фактический dBFS, компенсация tanh-потерь до 3 итераций.
         for _ in range(3):
             # Мягкий клиппинг
             y = np.tanh(y / tp_lin) * tp_lin * 0.98
-            
-            _rms_v = float(np.sqrt(np.mean(y ** 2))) + 1e-12
+
+            _rms_v = float(np.sqrt(np.mean(y**2))) + 1e-12
             _dbfs = 20.0 * math.log10(_rms_v)
             _diff = target_lufs - _dbfs
             if abs(_diff) < 0.2:
@@ -281,23 +324,30 @@ def _try_numpy_dsp(target: str, out_wav: str, stand: str,
         Path(out_wav).parent.mkdir(parents=True, exist_ok=True)
         sf.write(out_wav, y, sr)
         m = _measure(out_wav)
-        return MasterResult(ok=True, engine="numpy_dsp", out_wav=out_wav,
-                            stand=stand, target_lufs=target_lufs,
-                            measured_lufs=m.get("lufs"),
-                            measured_tp_dbtp=m.get("tp"),
-                            stereo_correlation=m.get("corr"),
-                            fallback_used=False,
-                            reason="pedalboard/matchering unavailable; "
-                                   "real numpy DSP (EQ+K-loudness+limiter)")
+        return MasterResult(
+            ok=True,
+            engine="numpy_dsp",
+            out_wav=out_wav,
+            stand=stand,
+            target_lufs=target_lufs,
+            measured_lufs=m.get("lufs"),
+            measured_tp_dbtp=m.get("tp"),
+            stereo_correlation=m.get("corr"),
+            fallback_used=False,
+            reason="pedalboard/matchering unavailable; "
+            "real numpy DSP (EQ+K-loudness+limiter)",
+        )
     except Exception as e:
         log.error("numpy_dsp failed: %s", e)
         return None
 
 
-def _pydub_fallback(target: str, out_wav: str, stand: str,
-                    target_lufs: float) -> MasterResult:
+def _pydub_fallback(
+    target: str, out_wav: str, stand: str, target_lufs: float
+) -> MasterResult:
     try:
         from pydub import AudioSegment
+
         seg = AudioSegment.from_file(target)
         approx_lufs = seg.dBFS - 3.0
         gain = max(-24.0, min(24.0, target_lufs - approx_lufs))
@@ -307,19 +357,30 @@ def _pydub_fallback(target: str, out_wav: str, stand: str,
         Path(out_wav).parent.mkdir(parents=True, exist_ok=True)
         seg.export(out_wav, format="wav")
         return MasterResult(
-            ok=True, engine="pydub_fallback", out_wav=out_wav, stand=stand,
-            target_lufs=target_lufs, fallback_used=True,
+            ok=True,
+            engine="pydub_fallback",
+            out_wav=out_wav,
+            stand=stand,
+            target_lufs=target_lufs,
+            fallback_used=True,
             reason="Matchering/pedalboard/numpy_dsp unavailable; pydub gain-only. "
-                   "Install matchering + pedalboard for full mastering."
+            "Install matchering + pedalboard for full mastering.",
         )
     except Exception as e:
-        return MasterResult(ok=False, engine="none", out_wav="", stand=stand,
-                            target_lufs=target_lufs, fallback_used=True,
-                            reason=str(e))
+        return MasterResult(
+            ok=False,
+            engine="none",
+            out_wav="",
+            stand=stand,
+            target_lufs=target_lufs,
+            fallback_used=True,
+            reason=str(e),
+        )
 
 
-def master_to_stand(target: str, out_wav: str, stand: str = "streaming",
-                    reference: Optional[str] = None) -> Dict[str, Any]:
+def master_to_stand(
+    target: str, out_wav: str, stand: str = "streaming", reference: str | None = None
+) -> dict[str, Any]:
     if stand not in STANDS:
         return {"ok": False, "engine": "none", "reason": f"Unknown stand: {stand}"}
     target_lufs = STANDS[stand]["lufs"]
@@ -341,9 +402,12 @@ def master_to_stand(target: str, out_wav: str, stand: str = "streaming",
     return r.as_dict()
 
 
-def master_all_stands(target: str, out_dir: str,
-                      reference: Optional[str] = None,
-                      stands: Optional[List[str]] = None) -> Dict[str, Any]:
+def master_all_stands(
+    target: str,
+    out_dir: str,
+    reference: str | None = None,
+    stands: list[str] | None = None,
+) -> dict[str, Any]:
     Path(out_dir).mkdir(parents=True, exist_ok=True)
     stands = stands or list(STANDS.keys())
     results = {}
@@ -361,16 +425,26 @@ def master_all_stands(target: str, out_dir: str,
         "ok": ok_count == len(stands),
         "stands": results,
         "summary": {
-            "total": len(stands), "ok": ok_count, "fallback": fallback_count,
-            "engines_available": {"matchering": MG_OK, "pedalboard": PB_OK,
-                                  "pyloudnorm": PLN_OK},
-        }
+            "total": len(stands),
+            "ok": ok_count,
+            "fallback": fallback_count,
+            "engines_available": {
+                "matchering": MG_OK,
+                "pedalboard": PB_OK,
+                "pyloudnorm": PLN_OK,
+            },
+        },
     }
 
 
-def capability_report() -> Dict[str, Any]:
-    return {"matchering": MG_OK, "pedalboard": PB_OK, "pyloudnorm": PLN_OK,
-            "stands_supported": list(STANDS.keys()), "n_stands": len(STANDS)}
+def capability_report() -> dict[str, Any]:
+    return {
+        "matchering": MG_OK,
+        "pedalboard": PB_OK,
+        "pyloudnorm": PLN_OK,
+        "stands_supported": list(STANDS.keys()),
+        "n_stands": len(STANDS),
+    }
 
 
 if __name__ == "__main__":

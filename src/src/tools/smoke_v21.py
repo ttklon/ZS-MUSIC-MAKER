@@ -1,7 +1,11 @@
-# -*- coding: utf-8 -*-
 """ZS Music Maker v21 — smoke_v21."""
+
 from __future__ import annotations
-import os, sys, tempfile, traceback
+
+import os
+import sys
+import tempfile
+import traceback
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -18,13 +22,23 @@ def _run(name, fn):
         ok, detail = fn()
         _record(name, ok, detail)
     except Exception as e:
-        _record(name, False, "",
-                f"{type(e).__name__}: {e}\n" + traceback.format_exc(limit=3))
+        _record(
+            name,
+            False,
+            "",
+            f"{type(e).__name__}: {e}\n" + traceback.format_exc(limit=3),
+        )
 
 
 def t_blocked_not_simulation():
     from app.core import orchestrator
-    r1 = {"ok": True, "synthetic": True, "blocked": True, "engine": "rap_scaffold_numpy"}
+
+    r1 = {
+        "ok": True,
+        "synthetic": True,
+        "blocked": True,
+        "engine": "rap_scaffold_numpy",
+    }
     r2 = {"ok": True, "blocked": True, "reason": "no RVC model"}
     r3 = {"ok": True, "synthetic": True, "engine": "old_stub"}
     if orchestrator._is_simulation_result(r1):
@@ -40,11 +54,16 @@ def t_blocked_not_simulation():
 
 def t_verdict_pass_with_fallback_no_heavy():
     from app.core import orchestrator
+
     with tempfile.TemporaryDirectory() as td:
         r = orchestrator.run_full_pipeline(
-            "smoke_v21", {"theme": "ночь", "genre": "drift_phonk"},
-            dry_run=False, out_root=Path(td))
-    v = r.get("verdict"); p = r.get("percent")
+            "smoke_v21",
+            {"theme": "ночь", "genre": "drift_phonk"},
+            dry_run=False,
+            out_root=Path(td),
+        )
+    v = r.get("verdict")
+    p = r.get("percent")
     if v == "BLOCKED_SIMULATION":
         return False, f"honest baseline still hits BLOCKED_SIMULATION (percent={p})"
     if p < 75:
@@ -56,6 +75,7 @@ def t_verdict_pass_with_fallback_no_heavy():
 
 def t_rvc_stage_blocked_but_ok():
     from app.core import orchestrator
+
     with tempfile.TemporaryDirectory() as td:
         r = orchestrator._stage_rvc("dummy.wav", Path(td), upstream_synthetic=True)
     if not r.get("blocked"):
@@ -67,8 +87,10 @@ def t_rvc_stage_blocked_but_ok():
 
 def t_stems_stage_blocked_when_no_demucs():
     from app.core import orchestrator
+
     try:
         import demucs  # noqa
+
         return True, "demucs installed — skipping"
     except Exception:
         pass
@@ -83,10 +105,12 @@ def t_stems_stage_blocked_when_no_demucs():
 
 def t_beat_constructor_no_import_side_effect():
     import importlib
+
     if "modules.beat_constructor" in sys.modules:
         del sys.modules["modules.beat_constructor"]
-    tmp_missing = os.path.join(tempfile.gettempdir(),
-                               "zsmm_bc_no_exist_" + os.urandom(4).hex())
+    tmp_missing = os.path.join(
+        tempfile.gettempdir(), "zsmm_bc_no_exist_" + os.urandom(4).hex()
+    )
     old = os.environ.get("ZSMM_BEAT_OUTPUT_DIR")
     os.environ["ZSMM_BEAT_OUTPUT_DIR"] = tmp_missing
     try:
@@ -108,6 +132,7 @@ def t_beat_constructor_no_import_side_effect():
 
 def t_release_pack_placeholder_detectors():
     from modules import release_pack_full as rp
+
     if not rp._is_placeholder_isrc("XX-XXX-00-00000"):
         return False, "placeholder ISRC not detected"
     if rp._is_placeholder_isrc("US-A2P-25-00001"):
@@ -121,6 +146,7 @@ def t_release_pack_placeholder_detectors():
 
 def t_version_bumped_to_21():
     import json
+
     data = json.loads((ROOT / "version.json").read_text(encoding="utf-8"))
     v = str(data.get("version", ""))
     try:
@@ -135,11 +161,23 @@ def t_version_bumped_to_21():
 def main():
     tests = [
         ("v21.blocked_not_simulation", t_blocked_not_simulation),
-        ("v21.verdict_pass_with_fallback_no_heavy", t_verdict_pass_with_fallback_no_heavy),
+        (
+            "v21.verdict_pass_with_fallback_no_heavy",
+            t_verdict_pass_with_fallback_no_heavy,
+        ),
         ("v21.rvc_stage_blocked_but_ok", t_rvc_stage_blocked_but_ok),
-        ("v21.stems_stage_blocked_when_no_demucs", t_stems_stage_blocked_when_no_demucs),
-        ("v21.beat_constructor_no_import_side_effect", t_beat_constructor_no_import_side_effect),
-        ("v21.release_pack_placeholder_detectors", t_release_pack_placeholder_detectors),
+        (
+            "v21.stems_stage_blocked_when_no_demucs",
+            t_stems_stage_blocked_when_no_demucs,
+        ),
+        (
+            "v21.beat_constructor_no_import_side_effect",
+            t_beat_constructor_no_import_side_effect,
+        ),
+        (
+            "v21.release_pack_placeholder_detectors",
+            t_release_pack_placeholder_detectors,
+        ),
         ("v21.version_bumped_to_21", t_version_bumped_to_21),
     ]
     print("=" * 64)

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 [v8] hw_autodetect.py — единый детектор железа с чёткими режимами.
 
@@ -13,8 +12,13 @@
 
 Возвращает dict, который используют Orchestrator, MusicGen, RVC, Voice Synth.
 """
+
 from __future__ import annotations
-import os, platform, json, time
+
+import json
+import os
+import platform
+import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -23,10 +27,15 @@ HW_CACHE.parent.mkdir(parents=True, exist_ok=True)
 
 
 def _cpu_info() -> dict:
-    info = {"logical": os.cpu_count() or 1, "arch": platform.machine(),
-            "system": platform.system(), "release": platform.release()}
+    info = {
+        "logical": os.cpu_count() or 1,
+        "arch": platform.machine(),
+        "system": platform.system(),
+        "release": platform.release(),
+    }
     try:
         import psutil
+
         info["ram_gb"] = round(psutil.virtual_memory().total / (1024**3), 1)
     except Exception:
         info["ram_gb"] = 0.0
@@ -39,17 +48,20 @@ def _gpu_info() -> dict:
     # NVIDIA CUDA
     try:
         import torch
+
         if torch.cuda.is_available():
             g["kind"] = "cuda"
             g["name"] = torch.cuda.get_device_name(0)
             g["vram_gb"] = round(
-                torch.cuda.get_device_properties(0).total_memory / (1024**3), 1)
+                torch.cuda.get_device_properties(0).total_memory / (1024**3), 1
+            )
             return g
     except Exception:
         pass
     # DirectML (AMD/Intel iGPU на Windows)
     try:
         import torch_directml as dml
+
         g["kind"] = "directml"
         try:
             g["name"] = dml.device_name(0)
@@ -58,10 +70,19 @@ def _gpu_info() -> dict:
         # DirectML не даёт точный VRAM. Пробуем через WMIC на Windows.
         try:
             import subprocess
+
             out = subprocess.check_output(
-                ["wmic", "path", "win32_VideoController", "get",
-                 "AdapterRAM,Name", "/format:csv"],
-                timeout=5, stderr=subprocess.DEVNULL).decode(errors="ignore")
+                [
+                    "wmic",
+                    "path",
+                    "win32_VideoController",
+                    "get",
+                    "AdapterRAM,Name",
+                    "/format:csv",
+                ],
+                timeout=5,
+                stderr=subprocess.DEVNULL,
+            ).decode(errors="ignore")
             for line in out.splitlines():
                 parts = [p.strip() for p in line.split(",") if p.strip()]
                 if len(parts) >= 3 and parts[-1].isdigit():
@@ -70,7 +91,7 @@ def _gpu_info() -> dict:
                         g["vram_gb"] = round(v, 1)
                         g["name"] = parts[-2]
         except Exception:
-            g["vram_gb"] = 4.0    # осторожная оценка для RX 580
+            g["vram_gb"] = 4.0  # осторожная оценка для RX 580
         return g
     except Exception:
         pass
@@ -103,24 +124,33 @@ def detect(force: bool = False) -> dict:
 
     # Определяем режим
     if gpu["kind"] == "cuda" and vram >= 10 and ram >= 20:
-        mode = "full";  reason = "CUDA 10+ GB VRAM, 20+ GB RAM"
+        mode = "full"
+        reason = "CUDA 10+ GB VRAM, 20+ GB RAM"
     elif vram >= 10 and ram >= 20:
-        mode = "full";  reason = "10+ GB VRAM (не-CUDA) + 20+ GB RAM"
+        mode = "full"
+        reason = "10+ GB VRAM (не-CUDA) + 20+ GB RAM"
     elif vram >= 6 and ram >= 16:
-        mode = "mid";   reason = "6-10 GB VRAM"
+        mode = "mid"
+        reason = "6-10 GB VRAM"
     elif vram >= 3 and ram >= 12:
-        mode = "lite";  reason = "3-6 GB VRAM (RX 580 fallback)"
+        mode = "lite"
+        reason = "3-6 GB VRAM (RX 580 fallback)"
     else:
-        mode = "lite";  reason = "CPU only / малый VRAM"
+        mode = "lite"
+        reason = "CPU only / малый VRAM"
 
     profile = {
-        "cpu": cpu, "gpu": gpu, "mode": mode, "reason": reason,
+        "cpu": cpu,
+        "gpu": gpu,
+        "mode": mode,
+        "reason": reason,
         "ts": time.time(),
         "recommendations": _recommendations(mode, vram, ram, gpu["kind"]),
     }
     try:
-        HW_CACHE.write_text(json.dumps(profile, ensure_ascii=False, indent=2),
-                            encoding="utf-8")
+        HW_CACHE.write_text(
+            json.dumps(profile, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
     except Exception:
         pass
     return profile
@@ -129,8 +159,8 @@ def detect(force: bool = False) -> dict:
 def _recommendations(mode: str, vram: float, ram: float, gpu_kind: str) -> dict:
     if mode == "full":
         return {
-            "musicgen":    "large (12 GB VRAM)",
-            "rvc":         "full retraining + inference",
+            "musicgen": "large (12 GB VRAM)",
+            "rvc": "full retraining + inference",
             "voice_synth": "Bark-full + XTTS + Silero",
             "windows_len_sec": 30,
             "queue_parallelism": 2,
@@ -138,28 +168,31 @@ def _recommendations(mode: str, vram: float, ram: float, gpu_kind: str) -> dict:
         }
     if mode == "mid":
         return {
-            "musicgen":    "medium (6-8 GB VRAM)",
-            "rvc":         "inference + light training",
+            "musicgen": "medium (6-8 GB VRAM)",
+            "rvc": "inference + light training",
             "voice_synth": "Silero + Bark-small",
             "windows_len_sec": 15,
             "queue_parallelism": 1,
             "quality_mode": "quality",
         }
     return {
-        "musicgen":    "small (CPU) + опционально MusicGen-melody-only",
-        "rvc":         ("inference обязательно, training в ночном режиме "
-                        "≤3 часа" if gpu_kind != "cpu" else
-                        "только inference, training только ночью на CPU"),
+        "musicgen": "small (CPU) + опционально MusicGen-melody-only",
+        "rvc": (
+            "inference обязательно, training в ночном режиме " "≤3 часа"
+            if gpu_kind != "cpu"
+            else "только inference, training только ночью на CPU"
+        ),
         "voice_synth": "Silero v4 (CPU)",
         "windows_len_sec": 8,
         "queue_parallelism": 1,
-        "quality_mode": "quality",   # даже на lite — качество приоритет
+        "quality_mode": "quality",  # даже на lite — качество приоритет
     }
 
 
 def human_summary(profile: dict) -> str:
     """Красивый текст для GUI."""
-    cpu = profile["cpu"]; gpu = profile["gpu"]
+    cpu = profile["cpu"]
+    gpu = profile["gpu"]
     lines = [
         f"🖥  Режим: {profile['mode'].upper()}  ({profile['reason']})",
         f"CPU: {cpu.get('logical', '?')} потоков · RAM: {cpu.get('ram_gb', 0)} GB",

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 [v7] AI Detector Pro — 9 метрик для оценки «нейроношности» трека.
 
@@ -9,34 +8,35 @@ v7 добавлено (3): hook_repeatability, volume_uniformity, vocal_liveline
 По разделу 20.2.3 ТЗ — оценка признаков нейроношности из раздела 14.
 Выдаёт вердикт + конкретные рекомендации что переделать.
 """
+
 from __future__ import annotations
+
 import os
-from pathlib import Path
 
 # Пороги — эмпирические. При выходе за пределы = флаг «нейроношно».
 THRESHOLDS = {
-    "dynamic_range":       (7.0, 30.0),   # слишком плоско / слишком рвано
-    "rms_periodicity":     (0.0, 0.85),   # >0.85 = слишком повторяющееся
-    "spectral_stability":  (0.0, 0.92),   # >0.92 = стерильно, «пластик»
-    "harmonic_ratio":      (0.25, 0.85),
-    "hi_flatness":         (0.05, 0.75),
-    "zcr_consistency":     (0.0, 0.88),
+    "dynamic_range": (7.0, 30.0),  # слишком плоско / слишком рвано
+    "rms_periodicity": (0.0, 0.85),  # >0.85 = слишком повторяющееся
+    "spectral_stability": (0.0, 0.92),  # >0.92 = стерильно, «пластик»
+    "harmonic_ratio": (0.25, 0.85),
+    "hi_flatness": (0.05, 0.75),
+    "zcr_consistency": (0.0, 0.88),
     # v7:
-    "hook_repeatability":  (0.30, 0.85),  # хук повторяется но не 100%
-    "volume_uniformity":   (0.0, 0.90),   # если громкость идеально ровная = флаг
-    "vocal_liveliness":    (0.35, 1.0),   # низкая живость = флаг
+    "hook_repeatability": (0.30, 0.85),  # хук повторяется но не 100%
+    "volume_uniformity": (0.0, 0.90),  # если громкость идеально ровная = флаг
+    "vocal_liveliness": (0.35, 1.0),  # низкая живость = флаг
 }
 
 METRIC_ADVICE = {
-    "dynamic_range":      "Плоская динамика — добавь тише-громче вариации между куплетом/припевом.",
-    "rms_periodicity":    "Слишком ровно повторяется. Добавь брейки, стопы, filter-sweep.",
+    "dynamic_range": "Плоская динамика — добавь тише-громче вариации между куплетом/припевом.",
+    "rms_periodicity": "Слишком ровно повторяется. Добавь брейки, стопы, filter-sweep.",
     "spectral_stability": "Спектр слишком стерильный. Больше живого верха, шума ленты, вибрато.",
-    "harmonic_ratio":     "Гармоники неестественные. Проверь микс — вокал может резать середину.",
-    "hi_flatness":        "Верхи плоские. Добавь варьирующийся hi-hat, шейкер, air.",
-    "zcr_consistency":    "Согласные смазаны. Проверь дикцию, добавь атаки на транзиенты.",
+    "harmonic_ratio": "Гармоники неестественные. Проверь микс — вокал может резать середину.",
+    "hi_flatness": "Верхи плоские. Добавь варьирующийся hi-hat, шейкер, air.",
+    "zcr_consistency": "Согласные смазаны. Проверь дикцию, добавь атаки на транзиенты.",
     "hook_repeatability": "Хук слишком одинаково повторяется. Меняй интонацию, добавь адлибы.",
-    "volume_uniformity":  "Громкость слишком ровная — «плоский нейро-микс». Верни динамику.",
-    "vocal_liveliness":   "Вокал безжизненный. Оставь дыхания, микро-фальш, живые вдохи.",
+    "volume_uniformity": "Громкость слишком ровная — «плоский нейро-микс». Верни динамику.",
+    "vocal_liveliness": "Вокал безжизненный. Оставь дыхания, микро-фальш, живые вдохи.",
 }
 
 
@@ -65,14 +65,16 @@ def analyze_track(audio_path: str) -> dict:
     try:
         rms = librosa.feature.rms(y=y, frame_length=frame_length, hop_length=hop)[0]
         rms_db = 20 * np.log10(rms + 1e-9)
-        metrics["dynamic_range"] = float(np.percentile(rms_db, 95) - np.percentile(rms_db, 5))
+        metrics["dynamic_range"] = float(
+            np.percentile(rms_db, 95) - np.percentile(rms_db, 5)
+        )
     except Exception:
         metrics["dynamic_range"] = 0.0
 
     # 2) RMS periodicity — автокорреляция огибающей громкости
     try:
         env = rms - np.mean(rms)
-        corr = np.correlate(env, env, mode="full")[len(env)-1:]
+        corr = np.correlate(env, env, mode="full")[len(env) - 1 :]
         corr = corr / (corr[0] + 1e-9)
         # Максимум автокорреляции в диапазоне 1-8 сек = регулярность
         lag_min = int(1.0 * sr / hop)
@@ -109,9 +111,13 @@ def analyze_track(audio_path: str) -> dict:
 
     # 6) ZCR consistency — стабильность zero-crossing (согласные)
     try:
-        zcr = librosa.feature.zero_crossing_rate(y=y, frame_length=frame_length, hop_length=hop)[0]
+        zcr = librosa.feature.zero_crossing_rate(
+            y=y, frame_length=frame_length, hop_length=hop
+        )[0]
         # Если std/mean маленький — слишком однородно
-        metrics["zcr_consistency"] = float(1.0 - min(1.0, np.std(zcr) / (np.mean(zcr) + 1e-9)))
+        metrics["zcr_consistency"] = float(
+            1.0 - min(1.0, np.std(zcr) / (np.mean(zcr) + 1e-9))
+        )
     except Exception:
         metrics["zcr_consistency"] = 0.5
 
@@ -154,11 +160,15 @@ def analyze_track(audio_path: str) -> dict:
             flags.append(m)
             advice.append(METRIC_ADVICE.get(m, m))
 
-    score = (len(THRESHOLDS) - len(flags)) / len(THRESHOLDS)   # 1.0 = идеально
-    if score > 0.85: verdict = "✅ Живо, коммерческий уровень"
-    elif score > 0.65: verdict = "🟡 Нормально, но есть что улучшить"
-    elif score > 0.45: verdict = "🟠 Есть признаки нейроношности"
-    else: verdict = "🔴 Сильно похоже на нейросеть, надо пересобрать"
+    score = (len(THRESHOLDS) - len(flags)) / len(THRESHOLDS)  # 1.0 = идеально
+    if score > 0.85:
+        verdict = "✅ Живо, коммерческий уровень"
+    elif score > 0.65:
+        verdict = "🟡 Нормально, но есть что улучшить"
+    elif score > 0.45:
+        verdict = "🟠 Есть признаки нейроношности"
+    else:
+        verdict = "🔴 Сильно похоже на нейросеть, надо пересобрать"
 
     return {
         "ok": True,
@@ -173,6 +183,8 @@ def analyze_track(audio_path: str) -> dict:
 
 if __name__ == "__main__":
     import sys
+
     r = analyze_track(sys.argv[1] if len(sys.argv) > 1 else "")
     import json
+
     print(json.dumps(r, ensure_ascii=False, indent=2))

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 ZS Music Maker v10 — Phoneme Coverage Analyzer
 ================================================
@@ -11,23 +10,39 @@ Voice Vault: покрытие фонем/сочетаний (ТЗ 3.8).
 Не требует нейросети — работает на транскрипте (Whisper выход
 или ручной ввод текста) через словарь звуков.
 """
+
 from __future__ import annotations
+
 import json
-from pathlib import Path
 from collections import Counter
-from typing import Dict, Any, List
+from pathlib import Path
+from typing import Any
 
 # Русские фонемы (упрощённо, IPA-подобно)
 RU_PHONEMES = list("абвгдеёжзийклмнопрстуфхцчшщъыьэюя")
 # Англ фонемы (по буквенным группам)
 EN_PHONEMES = list("abcdefghijklmnopqrstuvwxyz")
-DIPHTHONGS = ["ая", "ое", "ый", "уй", "ай", "ой", "ei", "ai", "ou", "au", "th", "sh", "ch"]
+DIPHTHONGS = [
+    "ая",
+    "ое",
+    "ый",
+    "уй",
+    "ай",
+    "ой",
+    "ei",
+    "ai",
+    "ou",
+    "au",
+    "th",
+    "sh",
+    "ch",
+]
 
 VAULT_DIR = Path("voice_vault")
 COVERAGE_FILE = VAULT_DIR / "phoneme_coverage.json"
 
 
-def _collect_transcripts() -> List[str]:
+def _collect_transcripts() -> list[str]:
     """
     Собирает все транскрипты из Voice Vault.
     """
@@ -51,7 +66,7 @@ def _collect_transcripts() -> List[str]:
     return texts
 
 
-def compute_coverage() -> Dict[str, Any]:
+def compute_coverage() -> dict[str, Any]:
     """
     Пересчитывает покрытие. Возвращает и сохраняет в JSON.
     """
@@ -93,7 +108,7 @@ def compute_coverage() -> Dict[str, Any]:
     return report
 
 
-def _make_suggestions(ru_missing, en_missing, di_missing) -> List[str]:
+def _make_suggestions(ru_missing, en_missing, di_missing) -> list[str]:
     """
     Простые пангаммы под недостающие звуки.
     """

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 [v7] karaoke_phrases.py — набор фраз по 8 стилям для Voice Vault.
 
@@ -6,8 +5,8 @@
 33 буквы русского алфавита. Пользователь читает фразы в караоке-режиме,
 Voice Vault копит записи с меткой стиля.
 """
+
 from __future__ import annotations
-from typing import Optional
 
 STYLES = {
     "slow_clear": {
@@ -101,7 +100,7 @@ STYLES = {
 }
 
 
-def get_style(style_key: str) -> Optional[dict]:
+def get_style(style_key: str) -> dict | None:
     return STYLES.get(style_key)
 
 
@@ -114,7 +113,6 @@ def total_phrases() -> int:
 
 
 if __name__ == "__main__":
-    import json
     print(f"Стилей: {len(STYLES)}, всего фраз: {total_phrases()}")
     for k, s in STYLES.items():
         print(f"  {k}: {len(s['phrases'])} фраз")

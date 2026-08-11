@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 [7] mixdown.py — Финальный микс + мастеринг v2
 Усиления v2:
@@ -7,15 +6,23 @@
   • Matchering под ЛЮБОЙ референс
   • Многотрековый микс (beat + vocal + adlibs + backing)
 """
-import os, shutil, numpy as np
+
+import os
+import shutil
+
+import numpy as np
 
 OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "..", "output", "final")
 # v22: ленивое создание (не при импорте)
 
-def mix_beat_and_vocal(beat_path: str, vocal_path: str,
-                       vocal_gain_db: float = -3.0,
-                       sidechain_strength: float = 0.3,
-                       out_name: str = "mix.wav") -> str:
+
+def mix_beat_and_vocal(
+    beat_path: str,
+    vocal_path: str,
+    vocal_gain_db: float = -3.0,
+    sidechain_strength: float = 0.3,
+    out_name: str = "mix.wav",
+) -> str:
     """Склеивает бит и вокал с sidechain ducking от бочки."""
     from pydub import AudioSegment
 
@@ -25,9 +32,9 @@ def mix_beat_and_vocal(beat_path: str, vocal_path: str,
     # Выравниваем длину
     if len(vocal) < len(beat):
         loops = (len(beat) // len(vocal)) + 1
-        vocal = (vocal * loops)[:len(beat)]
+        vocal = (vocal * loops)[: len(beat)]
     else:
-        vocal = vocal[:len(beat)]
+        vocal = vocal[: len(beat)]
 
     vocal = vocal + vocal_gain_db
 
@@ -40,9 +47,12 @@ def mix_beat_and_vocal(beat_path: str, vocal_path: str,
     return out
 
 
-def apply_eq(audio_path: str, low_cut_hz: float = 30,
-             high_shelf_db: float = 2.0,
-             out_name: str = "eq_output.wav") -> str:
+def apply_eq(
+    audio_path: str,
+    low_cut_hz: float = 30,
+    high_shelf_db: float = 2.0,
+    out_name: str = "eq_output.wav",
+) -> str:
     """Простой эквалайзер через numpy."""
     try:
         from scipy.io import wavfile
@@ -57,12 +67,12 @@ def apply_eq(audio_path: str, low_cut_hz: float = 30,
 
     # Low-cut (high-pass)
     if low_cut_hz > 0:
-        sos = butter(4, low_cut_hz, btype='high', fs=sr, output='sos')
+        sos = butter(4, low_cut_hz, btype="high", fs=sr, output="sos")
         data = sosfilt(sos, data)
 
     # High-shelf (простое усиление верхов)
     if high_shelf_db != 0:
-        sos_hi = butter(2, 5000, btype='high', fs=sr, output='sos')
+        sos_hi = butter(2, 5000, btype="high", fs=sr, output="sos")
         highs = sosfilt(sos_hi, data)
         data = data + highs * (10 ** (high_shelf_db / 20) - 1)
 
@@ -77,13 +87,15 @@ def apply_eq(audio_path: str, low_cut_hz: float = 30,
     return out
 
 
-def master_with_matchering(mix_path: str, reference_path: str,
-                           out_name: str = "master.wav") -> str:
+def master_with_matchering(
+    mix_path: str, reference_path: str, out_name: str = "master.wav"
+) -> str:
     """Matchering под ЛЮБОЙ референс."""
     out = os.path.join(OUTPUT_DIR, out_name)
     used_matchering = True
     try:
         import matchering as mg
+
         mg.log(print)
         mg.process(
             target=mix_path,
@@ -106,15 +118,18 @@ def master_with_matchering(mix_path: str, reference_path: str,
     # Дополнительно: mp3 320
     try:
         from pydub import AudioSegment
-        AudioSegment.from_wav(out).export(out.replace(".wav", ".mp3"),
-                                          format="mp3", bitrate="320k")
+
+        AudioSegment.from_wav(out).export(
+            out.replace(".wav", ".mp3"), format="mp3", bitrate="320k"
+        )
     except Exception:
         pass
     return out
 
 
-def master_with_matchering_status(mix_path: str, reference_path: str,
-                                  out_name: str = "master.wav") -> dict:
+def master_with_matchering_status(
+    mix_path: str, reference_path: str, out_name: str = "master.wav"
+) -> dict:
     """v18: то же, но с честным статусом (used_matchering/fallback)."""
     out = master_with_matchering(mix_path, reference_path, out_name=out_name)
     # повторно определяем флаг по наличию 24-битного файла (matchering его пишет)
@@ -127,14 +142,18 @@ def master_with_matchering_status(mix_path: str, reference_path: str,
     }
 
 
-def full_mixdown(beat_path: str, vocal_path: str, reference_path: str,
-                 vocal_gain_db: float = -3.0,
-                 apply_eq_enabled: bool = True,
-                 out_name: str = "ZS_track_final.wav") -> dict:
+def full_mixdown(
+    beat_path: str,
+    vocal_path: str,
+    reference_path: str,
+    vocal_gain_db: float = -3.0,
+    apply_eq_enabled: bool = True,
+    out_name: str = "ZS_track_final.wav",
+) -> dict:
     """Полный цикл: микс → EQ → мастеринг."""
-    mix = mix_beat_and_vocal(beat_path, vocal_path,
-                             vocal_gain_db=vocal_gain_db,
-                             out_name="_temp_mix.wav")
+    mix = mix_beat_and_vocal(
+        beat_path, vocal_path, vocal_gain_db=vocal_gain_db, out_name="_temp_mix.wav"
+    )
 
     if apply_eq_enabled:
         mix = apply_eq(mix, out_name="_temp_eq.wav")
@@ -144,7 +163,11 @@ def full_mixdown(beat_path: str, vocal_path: str, reference_path: str,
     return {
         "mix": mix,
         "master_wav": master,
-        "master_mp3": master.replace(".wav", ".mp3") if os.path.exists(master.replace(".wav", ".mp3")) else None,
+        "master_mp3": (
+            master.replace(".wav", ".mp3")
+            if os.path.exists(master.replace(".wav", ".mp3"))
+            else None
+        ),
         # v18: честный статус, чтобы UI/логи не выдавали copy за мастеринг
         "used_matchering": used_matchering,
         "fallback_used": not used_matchering,

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 ZS Music Maker v12 «Hit Locked Pro» — kpi_dashboard_v12.py
 ==========================================================
@@ -19,38 +18,45 @@ ZS Music Maker v12 «Hit Locked Pro» — kpi_dashboard_v12.py
 from __future__ import annotations
 
 import json
-import sys
 import time
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 
 # Требования ТЗ, по которым считается процент соответствия (см. раздел 16).
-TZ_CHECKLIST: List[Dict[str, str]] = [
-    {"key": "modules_12",       "tz": "3.1-3.12", "title": "12 модулей архитектуры"},
-    {"key": "gui_wizard",       "tz": "5",        "title": "Единое окно, мастер по шагам"},
-    {"key": "karaoke",          "tz": "5",        "title": "Караоке-режим для записи"},
-    {"key": "onboarding",       "tz": "5",        "title": "Интерактивный Onboarding"},
-    {"key": "utf8_cp866",       "tz": "6",        "title": "UTF-8 в коде, CP866 в консоли"},
-    {"key": "auto_deps",        "tz": "6",        "title": "Авто-подтяжка зависимостей"},
-    {"key": "smoke_tests",      "tz": "7",        "title": "Smoke + E2E тесты"},
-    {"key": "readme_context",   "tz": "8+11",     "title": "README + CONTEXT.md накопительно"},
-    {"key": "agents_free",      "tz": "9",        "title": "Бесплатные интернет-агенты"},
-    {"key": "logging",          "tz": "11",       "title": "Логирование всего в logs/app.log"},
-    {"key": "hw_autodetect",    "tz": "20.1",     "title": "HW autodetect + fallback"},
-    {"key": "rvc_real",         "tz": "20.1[RVC]", "title": "RVC 100% рабочий"},
-    {"key": "musicgen_full",    "tz": "20.1[MG]",  "title": "MusicGen полноценный на 12GB"},
-    {"key": "author_ref",       "tz": "20.3",     "title": "Автор из референсов / поиск"},
-    {"key": "female_backing",   "tz": "20.3",     "title": "Женские бэки"},
-    {"key": "expert_mode",      "tz": "20.3",     "title": "Экспертный режим (скрытый ⋯)"},
-    {"key": "license_provenance","tz": "20.3",    "title": "License / Provenance Manager"},
-    {"key": "release_full",     "tz": "20.2 п.32", "title": "Полный релиз-пакет"},
-    {"key": "distribution_5",   "tz": "20.2 п.33", "title": "5 платформ дистрибуции"},
-    {"key": "hit_scorer",       "tz": "20.2 п.34", "title": "AI Detector Pro + hit_scorer"},
-    {"key": "queue_5",          "tz": "20.2 п.35А","title": "Очередь ≥5 треков"},
-    {"key": "kpi_20_5",         "tz": "20.5",     "title": "KPI-мониторинг"},
+TZ_CHECKLIST: list[dict[str, str]] = [
+    {"key": "modules_12", "tz": "3.1-3.12", "title": "12 модулей архитектуры"},
+    {"key": "gui_wizard", "tz": "5", "title": "Единое окно, мастер по шагам"},
+    {"key": "karaoke", "tz": "5", "title": "Караоке-режим для записи"},
+    {"key": "onboarding", "tz": "5", "title": "Интерактивный Onboarding"},
+    {"key": "utf8_cp866", "tz": "6", "title": "UTF-8 в коде, CP866 в консоли"},
+    {"key": "auto_deps", "tz": "6", "title": "Авто-подтяжка зависимостей"},
+    {"key": "smoke_tests", "tz": "7", "title": "Smoke + E2E тесты"},
+    {
+        "key": "readme_context",
+        "tz": "8+11",
+        "title": "README + CONTEXT.md накопительно",
+    },
+    {"key": "agents_free", "tz": "9", "title": "Бесплатные интернет-агенты"},
+    {"key": "logging", "tz": "11", "title": "Логирование всего в logs/app.log"},
+    {"key": "hw_autodetect", "tz": "20.1", "title": "HW autodetect + fallback"},
+    {"key": "rvc_real", "tz": "20.1[RVC]", "title": "RVC 100% рабочий"},
+    {"key": "musicgen_full", "tz": "20.1[MG]", "title": "MusicGen полноценный на 12GB"},
+    {"key": "author_ref", "tz": "20.3", "title": "Автор из референсов / поиск"},
+    {"key": "female_backing", "tz": "20.3", "title": "Женские бэки"},
+    {"key": "expert_mode", "tz": "20.3", "title": "Экспертный режим (скрытый ⋯)"},
+    {
+        "key": "license_provenance",
+        "tz": "20.3",
+        "title": "License / Provenance Manager",
+    },
+    {"key": "release_full", "tz": "20.2 п.32", "title": "Полный релиз-пакет"},
+    {"key": "distribution_5", "tz": "20.2 п.33", "title": "5 платформ дистрибуции"},
+    {"key": "hit_scorer", "tz": "20.2 п.34", "title": "AI Detector Pro + hit_scorer"},
+    {"key": "queue_5", "tz": "20.2 п.35А", "title": "Очередь ≥5 треков"},
+    {"key": "kpi_20_5", "tz": "20.5", "title": "KPI-мониторинг"},
 ]
 
 
@@ -59,7 +65,7 @@ class DashboardSection:
     title: str
     ok: bool
     percent: int
-    lines: List[str] = field(default_factory=list)
+    lines: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -67,38 +73,43 @@ class Dashboard:
     generated_at: str = ""
     percent_tz: int = 0
     verdict: str = ""
-    sections: List[Dict[str, Any]] = field(default_factory=list)
-    checklist: List[Dict[str, Any]] = field(default_factory=list)
-    advice: List[str] = field(default_factory=list)
+    sections: list[dict[str, Any]] = field(default_factory=list)
+    checklist: list[dict[str, Any]] = field(default_factory=list)
+    advice: list[str] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return asdict(self)
 
 
-def _load_json(p: Path) -> Optional[Dict[str, Any]]:
+def _load_json(p: Path) -> dict[str, Any] | None:
     try:
         return json.loads(p.read_text(encoding="utf-8"))
     except Exception:
         return None
 
 
-def _newest(pattern: str, base: Path) -> Optional[Path]:
+def _newest(pattern: str, base: Path) -> Path | None:
     matches = list(base.rglob(pattern))
     if not matches:
         return None
     return max(matches, key=lambda p: p.stat().st_mtime)
 
 
-def _health_section(health: Optional[Dict[str, Any]]) -> DashboardSection:
+def _health_section(health: dict[str, Any] | None) -> DashboardSection:
     if not health:
-        return DashboardSection("Стек / зависимости", False, 0,
-                                ["health_v12.json не найден — запусти "
-                                 "`python -m modules.health_v12`"])
+        return DashboardSection(
+            "Стек / зависимости",
+            False,
+            0,
+            ["health_v12.json не найден — запусти " "`python -m modules.health_v12`"],
+        )
     percent = int(health.get("percent_ready", 0))
     v = health.get("verdict", "?")
-    lines = [f"Verdict: {v}   Ready: {percent}%",
-             f"HW mode: {health.get('hw_profile', {}).get('mode', '?')}   "
-             f"GPU: {health.get('hw_profile', {}).get('gpu', '?')}"]
+    lines = [
+        f"Verdict: {v}   Ready: {percent}%",
+        f"HW mode: {health.get('hw_profile', {}).get('mode', '?')}   "
+        f"GPU: {health.get('hw_profile', {}).get('gpu', '?')}",
+    ]
     ok_count = sum(1 for e in health.get("externals", []) if e.get("ok"))
     tot = len(health.get("externals", []))
     lines.append(f"External deps OK: {ok_count}/{tot}")
@@ -110,30 +121,43 @@ def _health_section(health: Optional[Dict[str, Any]]) -> DashboardSection:
     return DashboardSection("Стек / зависимости", v == "GREEN", percent, lines)
 
 
-def _pipeline_section(pipe: Optional[Dict[str, Any]]) -> DashboardSection:
+def _pipeline_section(pipe: dict[str, Any] | None) -> DashboardSection:
     if not pipe:
-        return DashboardSection("Последний прогон мастера", False, 0,
-                                ["Нет master_pipeline_v12.json — запусти "
-                                 "`python -m modules.master_pipeline_v12`"])
+        return DashboardSection(
+            "Последний прогон мастера",
+            False,
+            0,
+            [
+                "Нет master_pipeline_v12.json — запусти "
+                "`python -m modules.master_pipeline_v12`"
+            ],
+        )
     percent = int(pipe.get("percent_ready", 0))
     v = str(pipe.get("verdict", "?"))
-    lines = [f"Проект: {pipe.get('project_id', '?')}   "
-             f"Verdict: {v}   Ready: {percent}%"]
+    lines = [
+        f"Проект: {pipe.get('project_id', '?')}   " f"Verdict: {v}   Ready: {percent}%"
+    ]
     for s in pipe.get("stages", [])[:20]:
         mark = "OK " if s.get("ok") else "FAIL"
         fb = " (fallback)" if s.get("fallback_used") else ""
-        lines.append(f"  [{mark}] {s.get('tz_ref', '?'):<6} "
-                     f"{s.get('name', '?'):<22} "
-                     f"{s.get('duration_sec', 0):5.2f}s{fb}")
-    return DashboardSection("Последний прогон мастера",
-                            v.endswith("PASS"), percent, lines)
+        lines.append(
+            f"  [{mark}] {s.get('tz_ref', '?'):<6} "
+            f"{s.get('name', '?'):<22} "
+            f"{s.get('duration_sec', 0):5.2f}s{fb}"
+        )
+    return DashboardSection(
+        "Последний прогон мастера", v.endswith("PASS"), percent, lines
+    )
 
 
-def _smoke_section(smoke: Optional[Dict[str, Any]]) -> DashboardSection:
+def _smoke_section(smoke: dict[str, Any] | None) -> DashboardSection:
     if not smoke:
-        return DashboardSection("Smoke-тесты v12", False, 0,
-                                ["Нет smoke_v12_report.json — запусти "
-                                 "`python smoke_v12.py`"])
+        return DashboardSection(
+            "Smoke-тесты v12",
+            False,
+            0,
+            ["Нет smoke_v12_report.json — запусти " "`python smoke_v12.py`"],
+        )
     passed = int(smoke.get("passed", 0))
     failed = int(smoke.get("failed", 0))
     total = passed + failed
@@ -144,10 +168,11 @@ def _smoke_section(smoke: Optional[Dict[str, Any]]) -> DashboardSection:
     return DashboardSection("Smoke-тесты v12", failed == 0, pct, lines)
 
 
-def _tz_percent(health: Optional[Dict[str, Any]],
-                pipe: Optional[Dict[str, Any]],
-                smoke: Optional[Dict[str, Any]]) -> (int, List[Dict[str, Any]],
-                                                    List[str]):
+def _tz_percent(
+    health: dict[str, Any] | None,
+    pipe: dict[str, Any] | None,
+    smoke: dict[str, Any] | None,
+) -> (int, list[dict[str, Any]], list[str]):
     """Оценка соответствия ТЗ по чеклисту раздела 16 + разделу 20.
 
     Логика:
@@ -173,54 +198,62 @@ def _tz_percent(health: Optional[Dict[str, Any]],
     * queue_5             — есть modules/render_queue.py.
     * kpi_20_5            — есть modules/hit_kpi_monitor_v11.py.
     """
+
     def has(p: str) -> bool:
         return (ROOT / p).exists()
 
     checks = {
-        "modules_12":         all(has(f"modules/{m}.py") for m in [
-                                  "analyzer", "beat_constructor",
-                                  "groove_extractor", "arrangement_engine",
-                                  "voice_synth", "voice_convert",
-                                  "voice_vault_v9", "rvc_manager", "mixdown",
-                                  "matchering_master", "release_pack_v9",
-                                  "lyric_vault_v10", "author_ref_lyrics"]),
-        "gui_wizard":         has("app/gui/wizard.py"),
-        "karaoke":            has("modules/karaoke_engine.py")
-                              and has("ui/karaoke_recorder.py"),
-        "onboarding":         has("modules/onboarding_tour.py")
-                              or has("app/gui/onboarding.py"),
-        "utf8_cp866":         True,
-        "auto_deps":          has("windows_build.bat")
-                              or has("requirements.txt"),
-        "smoke_tests":        has("smoke_v11.py"),
-        "readme_context":     has("README.md") and has("CONTEXT.md"),
-        "agents_free":        has("agents/sample_hunter_v9.py")
-                              or has("agents/sample_hunter.py"),
-        "logging":            (ROOT / "logs").exists(),
-        "hw_autodetect":      has("app/core/hw_autodetect.py"),
-        "rvc_real":           has("modules/rvc_manager.py")
-                              and has("modules/rvc_trainer_v9.py"),
-        "musicgen_full":      has("app/core/musicgen_texture.py"),
-        "author_ref":         has("modules/author_ref_lyrics.py"),
-        "female_backing":     has("modules/female_backing.py"),
-        "expert_mode":        has("modules/expert_mode_v11.py"),
+        "modules_12": all(
+            has(f"modules/{m}.py")
+            for m in [
+                "analyzer",
+                "beat_constructor",
+                "groove_extractor",
+                "arrangement_engine",
+                "voice_synth",
+                "voice_convert",
+                "voice_vault_v9",
+                "rvc_manager",
+                "mixdown",
+                "matchering_master",
+                "release_pack_v9",
+                "lyric_vault_v10",
+                "author_ref_lyrics",
+            ]
+        ),
+        "gui_wizard": has("app/gui/wizard.py"),
+        "karaoke": has("modules/karaoke_engine.py") and has("ui/karaoke_recorder.py"),
+        "onboarding": has("modules/onboarding_tour.py") or has("app/gui/onboarding.py"),
+        "utf8_cp866": True,
+        "auto_deps": has("windows_build.bat") or has("requirements.txt"),
+        "smoke_tests": has("smoke_v11.py"),
+        "readme_context": has("README.md") and has("CONTEXT.md"),
+        "agents_free": has("agents/sample_hunter_v9.py")
+        or has("agents/sample_hunter.py"),
+        "logging": (ROOT / "logs").exists(),
+        "hw_autodetect": has("app/core/hw_autodetect.py"),
+        "rvc_real": has("modules/rvc_manager.py") and has("modules/rvc_trainer_v9.py"),
+        "musicgen_full": has("app/core/musicgen_texture.py"),
+        "author_ref": has("modules/author_ref_lyrics.py"),
+        "female_backing": has("modules/female_backing.py"),
+        "expert_mode": has("modules/expert_mode_v11.py"),
         "license_provenance": has("modules/provenance.py")
-                              and has("app/core/license_manager.py"),
-        "release_full":       has("modules/release_pack_v9.py"),
-        "distribution_5":     has("modules/distribution_export_v11.py"),
-        "hit_scorer":         has("modules/hit_scorer.py")
-                              and has("modules/ai_detector_pro.py"),
-        "queue_5":            has("modules/render_queue.py"),
-        "kpi_20_5":           has("modules/hit_kpi_monitor_v11.py"),
+        and has("app/core/license_manager.py"),
+        "release_full": has("modules/release_pack_v9.py"),
+        "distribution_5": has("modules/distribution_export_v11.py"),
+        "hit_scorer": has("modules/hit_scorer.py")
+        and has("modules/ai_detector_pro.py"),
+        "queue_5": has("modules/render_queue.py"),
+        "kpi_20_5": has("modules/hit_kpi_monitor_v11.py"),
     }
 
     # Небольшая корректировка по health-report:
     if health is not None:
-        int_ok = {e.get("name"): e.get("ok")
-                  for e in health.get("internals", [])}
+        int_ok = {e.get("name"): e.get("ok") for e in health.get("internals", [])}
         # Если internal-модуль не импортируется — снимаем соответствующий флаг
-        if not int_ok.get("modules.rvc_manager", True) or \
-                not int_ok.get("modules.rvc_trainer_v9", True):
+        if not int_ok.get("modules.rvc_manager", True) or not int_ok.get(
+            "modules.rvc_trainer_v9", True
+        ):
             checks["rvc_real"] = False
         if not int_ok.get("app.core.musicgen_texture", True):
             checks["musicgen_full"] = False
@@ -231,18 +264,21 @@ def _tz_percent(health: Optional[Dict[str, Any]],
     passed = 0
     for item in TZ_CHECKLIST:
         ok = bool(checks.get(item["key"], False))
-        entries.append({"key": item["key"], "tz": item["tz"],
-                        "title": item["title"], "ok": ok})
+        entries.append(
+            {"key": item["key"], "tz": item["tz"], "title": item["title"], "ok": ok}
+        )
         if ok:
             passed += 1
     percent = int(100 * passed / max(1, len(TZ_CHECKLIST)))
 
     # Советы по проваленным пунктам
-    advice: List[str] = []
+    advice: list[str] = []
     for e in entries:
         if not e["ok"]:
-            advice.append(f"[TZ {e['tz']}] {e['title']} — не подтверждено, "
-                          f"проверь наличие соответствующего файла/модуля.")
+            advice.append(
+                f"[TZ {e['tz']}] {e['title']} — не подтверждено, "
+                f"проверь наличие соответствующего файла/модуля."
+            )
     return percent, entries, advice
 
 
@@ -279,23 +315,27 @@ def build(save: bool = True) -> Dashboard:
             outdir.mkdir(exist_ok=True)
             (outdir / "kpi_dashboard_v12.json").write_text(
                 json.dumps(dash.as_dict(), ensure_ascii=False, indent=2),
-                encoding="utf-8")
+                encoding="utf-8",
+            )
             (ROOT / "docs").mkdir(exist_ok=True)
             (ROOT / "docs" / "KPI_DASHBOARD_v12.md").write_text(
-                render_markdown(dash), encoding="utf-8")
+                render_markdown(dash), encoding="utf-8"
+            )
         except Exception:
             pass
     return dash
 
 
 def render_markdown(dash: Dashboard) -> str:
-    lines = [f"# KPI Dashboard v12 «Hit Locked Pro»",
-             f"",
-             f"_Generated: {dash.generated_at}_",
-             f"",
-             f"**Соответствие ТЗ: {dash.percent_tz}%**   |   "
-             f"**Общий вердикт: {dash.verdict}**",
-             f""]
+    lines = [
+        "# KPI Dashboard v12 «Hit Locked Pro»",
+        "",
+        f"_Generated: {dash.generated_at}_",
+        "",
+        f"**Соответствие ТЗ: {dash.percent_tz}%**   |   "
+        f"**Общий вердикт: {dash.verdict}**",
+        "",
+    ]
     for s in dash.sections:
         badge = "🟢" if s["ok"] else "🔴"
         lines += [f"## {badge} {s['title']} — {s['percent']}%", ""]
@@ -303,11 +343,11 @@ def render_markdown(dash: Dashboard) -> str:
             lines.append(f"    {ln}")
         lines.append("")
     lines += ["## Чеклист ТЗ (раздел 16 + 20)", ""]
-    lines += ["| # | ТЗ | Пункт | Статус |",
-              "|---|----|-------|--------|"]
+    lines += ["| # | ТЗ | Пункт | Статус |", "|---|----|-------|--------|"]
     for i, c in enumerate(dash.checklist, 1):
-        lines.append(f"| {i} | {c['tz']} | {c['title']} | "
-                     f"{'✅' if c['ok'] else '❌'} |")
+        lines.append(
+            f"| {i} | {c['tz']} | {c['title']} | " f"{'✅' if c['ok'] else '❌'} |"
+        )
     if dash.advice:
         lines += ["", "## Что не подтверждено / рекомендации", ""]
         for a in dash.advice:
@@ -316,20 +356,20 @@ def render_markdown(dash: Dashboard) -> str:
 
 
 def render_text(dash: Dashboard) -> str:
-    out = ["=" * 72,
-           f"KPI DASHBOARD v12 — {dash.generated_at}",
-           f"Соответствие ТЗ: {dash.percent_tz}%   Verdict: {dash.verdict}",
-           "-" * 72]
+    out = [
+        "=" * 72,
+        f"KPI DASHBOARD v12 — {dash.generated_at}",
+        f"Соответствие ТЗ: {dash.percent_tz}%   Verdict: {dash.verdict}",
+        "-" * 72,
+    ]
     for s in dash.sections:
-        out.append(f"[{'OK' if s['ok'] else 'X '}] {s['title']} "
-                   f"({s['percent']}%)")
+        out.append(f"[{'OK' if s['ok'] else 'X '}] {s['title']} " f"({s['percent']}%)")
         for ln in s.get("lines", []):
             out.append(f"    {ln}")
     out.append("-" * 72)
     out.append("TZ CHECKLIST:")
     for c in dash.checklist:
-        out.append(f"  [{'V' if c['ok'] else ' '}] {c['tz']:<10} "
-                   f"{c['title']}")
+        out.append(f"  [{'V' if c['ok'] else ' '}] {c['tz']:<10} " f"{c['title']}")
     if dash.advice:
         out.append("-" * 72)
         out.append("ADVICE:")
@@ -342,8 +382,7 @@ def render_text(dash: Dashboard) -> str:
 def main() -> int:
     dash = build()
     print(render_text(dash))
-    return 0 if dash.verdict == "GREEN" else (1 if dash.verdict == "YELLOW"
-                                              else 2)
+    return 0 if dash.verdict == "GREEN" else (1 if dash.verdict == "YELLOW" else 2)
 
 
 if __name__ == "__main__":

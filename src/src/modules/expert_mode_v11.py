@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 ZS Music Maker v11 — expert_mode_v11.py
 
@@ -11,8 +10,8 @@ from __future__ import annotations
 import json
 import os
 import sys
-from dataclasses import dataclass, asdict, field, fields
-from typing import Any, Dict, List, Optional
+from dataclasses import asdict, dataclass, field, fields
+from typing import Any
 
 
 def _safe_print(msg):
@@ -24,14 +23,14 @@ def _safe_print(msg):
 
 @dataclass
 class ExpertBeat:
-    bpm_override: Optional[float] = None
+    bpm_override: float | None = None
     swing_percent: float = 15.0
     kick_pattern: str = "trap_v2"
     snare_layer: str = "auto"
     hihat_density: float = 1.0
     bass_style: str = "808_sub"
     fills_intensity: float = 0.5
-    dropout_bars: List[int] = field(default_factory=list)
+    dropout_bars: list[int] = field(default_factory=list)
 
 
 @dataclass
@@ -45,9 +44,9 @@ class ExpertLyrics:
     chorus_count: int = 2
     include_en_hook: bool = True
     female_backing: bool = True
-    reference_authors: List[str] = field(default_factory=list)
-    forbidden_words: List[str] = field(default_factory=list)
-    forced_words: List[str] = field(default_factory=list)
+    reference_authors: list[str] = field(default_factory=list)
+    forbidden_words: list[str] = field(default_factory=list)
+    forced_words: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -84,7 +83,7 @@ class ExpertMaster:
     stand_club_lufs: float = -6.5
     stand_stream_lufs: float = -14.0
     stand_tiktok_lufs: float = -13.0
-    matchering_ref: Optional[str] = None
+    matchering_ref: str | None = None
     true_peak_max_db: float = -1.0
 
 
@@ -136,14 +135,21 @@ class ExpertConfig:
     anti_neuro: ExpertAntiNeuro = field(default_factory=ExpertAntiNeuro)
     render: ExpertRender = field(default_factory=ExpertRender)
 
-    def to_flat_dict(self) -> Dict[str, Any]:
-        out: Dict[str, Any] = {"expert_mode_enabled": self.enabled,
-                               "expert_mode_version": self.version}
-        for sn, sec in [("beat", self.beat), ("lyrics", self.lyrics),
-                        ("voice", self.voice), ("mix", self.mix),
-                        ("master", self.master), ("musicgen", self.musicgen),
-                        ("anti_neuro", self.anti_neuro),
-                        ("render", self.render)]:
+    def to_flat_dict(self) -> dict[str, Any]:
+        out: dict[str, Any] = {
+            "expert_mode_enabled": self.enabled,
+            "expert_mode_version": self.version,
+        }
+        for sn, sec in [
+            ("beat", self.beat),
+            ("lyrics", self.lyrics),
+            ("voice", self.voice),
+            ("mix", self.mix),
+            ("master", self.master),
+            ("musicgen", self.musicgen),
+            ("anti_neuro", self.anti_neuro),
+            ("render", self.render),
+        ]:
             for fld in fields(sec):
                 out[f"{sn}.{fld.name}"] = getattr(sec, fld.name)
         return out
@@ -172,6 +178,7 @@ class ExpertConfig:
                 if fld.name in data:
                     kw[fld.name] = data[fld.name]
             return dc_cls(**kw)
+
         return cls(
             enabled=bool(raw.get("enabled", False)),
             version=str(raw.get("version", "v11")),
@@ -222,9 +229,11 @@ def preset_default():
 
 def preset_phonk_car():
     c = ExpertConfig(enabled=True)
-    c.beat.kick_pattern = "phonk_808"; c.beat.bass_style = "808_sub"
+    c.beat.kick_pattern = "phonk_808"
+    c.beat.bass_style = "808_sub"
     c.beat.hihat_density = 1.4
-    c.mix.sidechain_amount = 0.55; c.mix.stereo_width = 1.25
+    c.mix.sidechain_amount = 0.55
+    c.mix.stereo_width = 1.25
     c.master.target_lufs = -8.5
     c.anti_neuro.preset = "aggressive"
     c.render.length_sec = 150
@@ -233,8 +242,10 @@ def preset_phonk_car():
 
 def preset_hyperpop_tiktok():
     c = ExpertConfig(enabled=True)
-    c.beat.kick_pattern = "hyperpop"; c.beat.hihat_density = 1.6
-    c.lyrics.include_en_hook = True; c.lyrics.female_backing = True
+    c.beat.kick_pattern = "hyperpop"
+    c.beat.hihat_density = 1.6
+    c.lyrics.include_en_hook = True
+    c.lyrics.female_backing = True
     c.voice.tts_prosody = 1.15
     c.mix.reverb_wet = 0.25
     c.master.target_lufs = -13.0
@@ -244,7 +255,8 @@ def preset_hyperpop_tiktok():
 
 def preset_trap_summer():
     c = ExpertConfig(enabled=True)
-    c.beat.kick_pattern = "trap_v2"; c.beat.bass_style = "808_sub"
+    c.beat.kick_pattern = "trap_v2"
+    c.beat.bass_style = "808_sub"
     c.beat.swing_percent = 22.0
     c.lyrics.syllable_target = "dense"
     c.master.target_lufs = -9.5
@@ -276,32 +288,35 @@ def merge_with_wizard_state(wizard_state, expert):
 
 def _self_test():
     import tempfile
+
     ok = True
     c = preset_default()
-    ok &= (c.enabled is False)
-    ok &= (c.render.length_sec == 150)
+    ok &= c.enabled is False
+    ok &= c.render.length_sec == 150
     with tempfile.TemporaryDirectory() as tmp:
         p = os.path.join(tmp, "cfg.json")
-        c2 = preset_phonk_car(); c2.save(p)
+        c2 = preset_phonk_car()
+        c2.save(p)
         c3 = ExpertConfig.load(p)
-        ok &= (c3.beat.kick_pattern == "phonk_808")
-        ok &= (c3.enabled is True)
+        ok &= c3.beat.kick_pattern == "phonk_808"
+        ok &= c3.enabled is True
     bad = ExpertConfig()
-    bad.render.length_sec = 30; bad.master.target_lufs = 5.0
+    bad.render.length_sec = 30
+    bad.master.target_lufs = 5.0
     bad.anti_neuro.preset = "xxx"
     v = validate(bad)
-    ok &= (len(v["errors"]) >= 3)
+    ok &= len(v["errors"]) >= 3
     good = preset_hyperpop_tiktok()
-    ok &= (len(validate(good)["errors"]) == 0)
+    ok &= len(validate(good)["errors"]) == 0
     flat = good.to_flat_dict()
-    ok &= ("beat.kick_pattern" in flat)
-    ok &= (flat["expert_mode_enabled"] is True)
+    ok &= "beat.kick_pattern" in flat
+    ok &= flat["expert_mode_enabled"] is True
     ws = {"length_sec": 120, "some_thing": True}
     m1 = merge_with_wizard_state(ws, preset_default())
-    ok &= (m1["expert_mode_enabled"] is False)
-    ok &= (m1["length_sec"] == 120)
+    ok &= m1["expert_mode_enabled"] is False
+    ok &= m1["length_sec"] == 120
     m2 = merge_with_wizard_state(ws, good)
-    ok &= (m2["render.length_sec"] == 105)
+    ok &= m2["render.length_sec"] == 105
     return ok
 
 

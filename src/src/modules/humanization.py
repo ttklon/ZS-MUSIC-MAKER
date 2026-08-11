@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 [8] humanization.py — Humanization & Authenticity Layer v3
 Устраняет признаки «нейроношности» песни:
@@ -12,32 +11,41 @@
   • проверка вокала на дикцию, атаку согласных, переавтотюненность
 v3: bpm параметризован, robust IO, безопасные fallback.
 """
-import os, json, numpy as np, random
+
+import json
+import os
+import random
+
+import numpy as np
 
 OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "..", "output", "voice_final")
 # v22: ленивое создание (не при импорте)
 
+
 def _read_wav(path: str):
     from pydub import AudioSegment
+
     seg = AudioSegment.from_file(path)
     sr = seg.frame_rate
     samples = np.array(seg.get_array_of_samples(), dtype=np.float32)
     if seg.channels > 1:
         samples = samples.reshape(-1, seg.channels).mean(axis=1)
-    samples = samples / (2 ** 15)
+    samples = samples / (2**15)
     return samples, sr
 
 
 def _write_wav(path: str, samples: np.ndarray, sr: int):
     from scipy.io import wavfile
+
     peak = np.max(np.abs(samples)) + 1e-9
     if peak > 1.0:
         samples = samples / peak * 0.95
     wavfile.write(path, sr, (samples * 32767).astype(np.int16))
 
 
-def humanize_vocal(vocal_path: str, intensity: float = 0.5,
-                   out_name: str = "humanized_vocal.wav") -> dict:
+def humanize_vocal(
+    vocal_path: str, intensity: float = 0.5, out_name: str = "humanized_vocal.wav"
+) -> dict:
     try:
         samples, sr = _read_wav(vocal_path)
     except Exception as e:
@@ -60,10 +68,10 @@ def humanize_vocal(vocal_path: str, intensity: float = 0.5,
     window = int(sr * 0.05)
     if window > 0:
         for i in range(0, len(samples) - window, window):
-            chunk = samples[i:i + window]
+            chunk = samples[i : i + window]
             if np.max(np.abs(chunk)) < silence_thresh:
                 breath = np.random.randn(len(chunk)) * 0.02 * intensity
-                samples[i:i + window] += breath
+                samples[i : i + window] += breath
 
     n_sections = 4
     section_len = len(samples) // n_sections
@@ -84,14 +92,21 @@ def humanize_vocal(vocal_path: str, intensity: float = 0.5,
         "humanized_path": out_path,
         "intensity": intensity,
         "timing_jitter_ms": round(timing_jitter_ms, 2),
-        "applied": ["timing_jitter", "pitch_vibrato",
-                    "breath_in_silences", "section_dynamics"],
+        "applied": [
+            "timing_jitter",
+            "pitch_vibrato",
+            "breath_in_silences",
+            "section_dynamics",
+        ],
     }
 
 
-def humanize_arrangement(beat_path: str, intensity: float = 0.4,
-                         bpm: int = 128,
-                         out_name: str = "humanized_beat.wav") -> dict:
+def humanize_arrangement(
+    beat_path: str,
+    intensity: float = 0.4,
+    bpm: int = 128,
+    out_name: str = "humanized_beat.wav",
+) -> dict:
     try:
         samples, sr = _read_wav(beat_path)
     except Exception as e:
@@ -151,8 +166,11 @@ def check_ai_artifacts(vocal_path: str) -> dict:
     try:
         f0, voiced_flag, _ = librosa.pyin(y, fmin=80, fmax=600, sr=sr)
         f0_voiced = f0[voiced_flag]
-        pitch_stability = float(np.std(f0_voiced) / (np.mean(f0_voiced) + 1e-9)) \
-            if len(f0_voiced) > 0 else 1.0
+        pitch_stability = (
+            float(np.std(f0_voiced) / (np.mean(f0_voiced) + 1e-9))
+            if len(f0_voiced) > 0
+            else 1.0
+        )
     except Exception:
         pitch_stability = 1.0
 
@@ -160,7 +178,9 @@ def check_ai_artifacts(vocal_path: str) -> dict:
         "dynamic_range": round(dynamic_range, 4),
         "dynamic_verdict": "natural" if dynamic_range > 0.3 else "TOO_FLAT_AI_LIKE",
         "consonant_clarity": round(zcr_consistency, 4),
-        "consonant_verdict": "natural" if zcr_consistency > 0.5 else "SMUDGED_CONSONANTS",
+        "consonant_verdict": (
+            "natural" if zcr_consistency > 0.5 else "SMUDGED_CONSONANTS"
+        ),
         "pitch_stability": round(pitch_stability, 4),
         "pitch_verdict": "natural" if pitch_stability > 0.05 else "OVER_AUTOTUNED",
     }
@@ -172,15 +192,20 @@ def check_ai_artifacts(vocal_path: str) -> dict:
 
     scores["ai_likeness_score"] = f"{ai_score}/3"
     scores["recommendation"] = (
-        "Голос звучит естественно ✅" if ai_score == 0
-        else f"Обнаружено {ai_score} AI-признака. Прогони humanize_vocal()" if ai_score <= 2
-        else "Высокий AI-риск! Нужен RVC + humanization + ручная запись"
+        "Голос звучит естественно ✅"
+        if ai_score == 0
+        else (
+            f"Обнаружено {ai_score} AI-признака. Прогони humanize_vocal()"
+            if ai_score <= 2
+            else "Высокий AI-риск! Нужен RVC + humanization + ручная запись"
+        )
     )
     return scores
 
 
 if __name__ == "__main__":
     import sys
+
     if len(sys.argv) > 1:
         print(json.dumps(check_ai_artifacts(sys.argv[1]), ensure_ascii=False, indent=2))
     else:

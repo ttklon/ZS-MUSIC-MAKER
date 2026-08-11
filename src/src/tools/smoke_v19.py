@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 ZS Music Maker v19 — tools/smoke_v19.py
 
@@ -33,14 +32,20 @@ def _run(name, fn):
         ok, detail = fn()
         _record(name, ok, detail)
     except Exception as e:
-        _record(name, False, "", f"{type(e).__name__}: {e}\n"
-                                 + traceback.format_exc(limit=3))
+        _record(
+            name,
+            False,
+            "",
+            f"{type(e).__name__}: {e}\n" + traceback.format_exc(limit=3),
+        )
 
 
 def t_hit_score_real():
     from app.core import orchestrator
+
     r = orchestrator.run_full_pipeline(
-        "smoke_v19_hit", {"references": [], "theme": "test", "genre": "phonk"},
+        "smoke_v19_hit",
+        {"references": [], "theme": "test", "genre": "phonk"},
         dry_run=True,
     )
     hs = [s for s in r["stages"] if s["name"] == "_stage_hit_score"]
@@ -64,9 +69,11 @@ def t_stems_uses_split_stems():
     if "split_stems" not in src:
         return False, "no split_stems reference in _stage_stems"
     from modules import stem_splitter
+
     if not callable(getattr(stem_splitter, "split_stems", None)):
         return False, "stem_splitter.split_stems missing"
     from app.core import orchestrator
+
     r = orchestrator._stage_stems(str(ROOT / "main.py"), ROOT / "output")
     if r.get("ok"):
         return True, "demucs available, stems ok"
@@ -77,8 +84,10 @@ def t_stems_uses_split_stems():
 
 def t_voice_synth_scaffold():
     from app.core import orchestrator
-    r = orchestrator._stage_voice_synth("тест раз два три четыре пять",
-                                        ROOT / "output" / "audit_v19_smoke")
+
+    r = orchestrator._stage_voice_synth(
+        "тест раз два три четыре пять", ROOT / "output" / "audit_v19_smoke"
+    )
     if not r.get("ok"):
         return False, f"voice_synth failed even scaffold: {r.get('reason')}"
     if not r.get("synthetic"):
@@ -94,14 +103,18 @@ def t_voice_synth_scaffold():
 
 def t_rvc_refuses_scaffold():
     from app.core import orchestrator
-    r = orchestrator._stage_rvc("nonexistent.wav", ROOT / "output",
-                                upstream_synthetic=True)
+
+    r = orchestrator._stage_rvc(
+        "nonexistent.wav", ROOT / "output", upstream_synthetic=True
+    )
     if r.get("ok"):
         return False, "RVC accepted scaffold — P0.05 violation"
     if not r.get("blocked"):
         return False, f"RVC didn't block scaffold: {r}"
-    if "P0.05" not in (r.get("reason") or "") and \
-       "synthetic" not in (r.get("reason") or "").lower():
+    if (
+        "P0.05" not in (r.get("reason") or "")
+        and "synthetic" not in (r.get("reason") or "").lower()
+    ):
         return False, f"unclear reason: {r.get('reason')}"
     return True, "RVC honestly blocked scaffold"
 
@@ -117,6 +130,7 @@ def t_sidechain_kick_bp():
 
 def t_texture_honest_skip():
     from app.core import orchestrator
+
     r = orchestrator._stage_texture("test prompt", ROOT / "output")
     if not r.get("ok"):
         return False, f"texture not ok: {r.get('reason')}"
@@ -131,12 +145,12 @@ def t_texture_honest_skip():
 
 def main():
     tests = [
-        ("v19.hit_score_real",         t_hit_score_real),
+        ("v19.hit_score_real", t_hit_score_real),
         ("v19.stems_uses_split_stems", t_stems_uses_split_stems),
-        ("v19.voice_synth_scaffold",   t_voice_synth_scaffold),
-        ("v19.rvc_refuses_scaffold",   t_rvc_refuses_scaffold),
-        ("v19.sidechain_kick_bp",      t_sidechain_kick_bp),
-        ("v19.texture_honest_skip",    t_texture_honest_skip),
+        ("v19.voice_synth_scaffold", t_voice_synth_scaffold),
+        ("v19.rvc_refuses_scaffold", t_rvc_refuses_scaffold),
+        ("v19.sidechain_kick_bp", t_sidechain_kick_bp),
+        ("v19.texture_honest_skip", t_texture_honest_skip),
     ]
 
     print("=" * 64)

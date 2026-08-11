@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 [v7] user_profile.py — профиль пользователя.
 
@@ -11,7 +10,9 @@
   • history — последние 100 треков
   • voice_training_hours — сколько всего часов обучения RVC
 """
-import os, json, time
+
+import json
+import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -21,7 +22,7 @@ PROFILE_FILE = ROOT / "data" / "user_profile.json"
 DEFAULT_PROFILE = {
     "artist_name": "",
     "first_run": True,
-    "quality_mode": "quality",           # fast | quality | max
+    "quality_mode": "quality",  # fast | quality | max
     "last_settings": {},
     "favorite_themes": ["лето", "тачки", "деньги", "движ"],
     "favorite_presets": ["tamam_like", "brazilian_phonk"],
@@ -52,8 +53,9 @@ def get_profile() -> dict:
 
 def save_profile(p: dict) -> None:
     p["updated_at"] = time.time()
-    PROFILE_FILE.write_text(json.dumps(p, ensure_ascii=False, indent=2),
-                            encoding="utf-8")
+    PROFILE_FILE.write_text(
+        json.dumps(p, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
 
 
 def update(**kwargs) -> dict:
@@ -93,7 +95,7 @@ def add_to_history(entry: dict) -> None:
     p = get_profile()
     entry.setdefault("timestamp", time.time())
     p["history"].append(entry)
-    p["history"] = p["history"][-100:]     # держим только последние 100
+    p["history"] = p["history"][-100:]  # держим только последние 100
     save_profile(p)
 
 
@@ -102,7 +104,8 @@ def get_history(limit: int = 20) -> list:
 
 
 def add_favorite_theme(theme: str) -> dict:
-    if not theme: return {"error": "пусто"}
+    if not theme:
+        return {"error": "пусто"}
     p = get_profile()
     if theme not in p["favorite_themes"]:
         p["favorite_themes"].append(theme)
@@ -112,7 +115,8 @@ def add_favorite_theme(theme: str) -> dict:
 
 
 def add_favorite_preset(preset_key: str) -> dict:
-    if not preset_key: return {"error": "пусто"}
+    if not preset_key:
+        return {"error": "пусто"}
     p = get_profile()
     if preset_key not in p["favorite_presets"]:
         p["favorite_presets"].append(preset_key)
@@ -125,13 +129,18 @@ def sync_voice_progress() -> dict:
     """Обновляет прогресс обучения голоса из voice_convert.vault_summary()."""
     try:
         from modules.voice_convert import vault_summary
+
         v = vault_summary()
         p = get_profile()
         p["voice_training_hours"] = round(v.get("total_minutes", 0) / 60, 2)
         p["voice_training_completed"] = v.get("ready_for_training", False)
         save_profile(p)
-        return {"ok": True, "hours": p["voice_training_hours"],
-                "ready": p["voice_training_completed"], "detail": v}
+        return {
+            "ok": True,
+            "hours": p["voice_training_hours"],
+            "ready": p["voice_training_completed"],
+            "detail": v,
+        }
     except Exception as e:
         return {"error": str(e)}
 

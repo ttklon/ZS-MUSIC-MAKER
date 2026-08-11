@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 ZS Music Maker v10 — Lyric Vault v10
 ======================================
@@ -12,15 +11,16 @@ ZS Music Maker v10 — Lyric Vault v10
   - импорт из чужих транскриптов с автопомечанием
   - анти-повтор: чтобы одни и те же строки не всплывали 5 треков подряд
 """
+
 from __future__ import annotations
-import json
-import time
+
 import hashlib
+import json
 import logging
-import re
-from pathlib import Path
-from typing import Dict, Any, List, Optional
+import time
 from collections import Counter
+from pathlib import Path
+from typing import Any
 
 log = logging.getLogger("zsmm.lyric_vault_v10")
 
@@ -47,12 +47,14 @@ def _syllable_count(line: str) -> int:
     return max(1, n)
 
 
-def add_line(text: str,
-             bpm: Optional[int] = None,
-             emotion: str = "neutral",
-             topic: str = "generic",
-             lang: str = "ru",
-             source: str = "user") -> Dict[str, Any]:
+def add_line(
+    text: str,
+    bpm: int | None = None,
+    emotion: str = "neutral",
+    topic: str = "generic",
+    lang: str = "ru",
+    source: str = "user",
+) -> dict[str, Any]:
     """
     Добавляет строку в vault.
     """
@@ -74,7 +76,7 @@ def add_line(text: str,
     return entry
 
 
-def load_all() -> List[Dict[str, Any]]:
+def load_all() -> list[dict[str, Any]]:
     """
     Загружает все записи из lyrics_memory.jsonl.
     Совместимость: v9-записи (поле 'lyrics' вместо 'text', без 'id')
@@ -104,14 +106,16 @@ def load_all() -> List[Dict[str, Any]]:
     return out
 
 
-def find_lines(bpm: Optional[int] = None,
-               emotion: Optional[str] = None,
-               topic: Optional[str] = None,
-               lang: Optional[str] = None,
-               syllable_min: Optional[int] = None,
-               syllable_max: Optional[int] = None,
-               limit: int = 20,
-               anti_repeat: bool = True) -> List[Dict[str, Any]]:
+def find_lines(
+    bpm: int | None = None,
+    emotion: str | None = None,
+    topic: str | None = None,
+    lang: str | None = None,
+    syllable_min: int | None = None,
+    syllable_max: int | None = None,
+    limit: int = 20,
+    anti_repeat: bool = True,
+) -> list[dict[str, Any]]:
     """
     Ищет подходящие строки. Anti-repeat: строки использованные
     за последние 5 треков — отфильтровываются.
@@ -143,7 +147,7 @@ def find_lines(bpm: Optional[int] = None,
     return matched[:limit]
 
 
-def mark_used(line_ids: List[str], track_id: str) -> None:
+def mark_used(line_ids: list[str], track_id: str) -> None:
     """
     Отмечает строки как использованные в треке (для anti-repeat).
     """
@@ -154,7 +158,7 @@ def mark_used(line_ids: List[str], track_id: str) -> None:
     _save_usage(usage)
 
 
-def rebuild_index() -> Dict[str, Any]:
+def rebuild_index() -> dict[str, Any]:
     all_lines = load_all()
     idx = {
         "total_lines": len(all_lines),
@@ -169,12 +173,18 @@ def rebuild_index() -> Dict[str, Any]:
         "rebuilt_at": int(time.time()),
     }
     VAULT.mkdir(parents=True, exist_ok=True)
-    INDEX_JSON.write_text(json.dumps(idx, ensure_ascii=False, indent=2), encoding="utf-8")
+    INDEX_JSON.write_text(
+        json.dumps(idx, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
     return idx
 
 
-def export_lrc(lines: List[Dict[str, Any]], out_lrc: str,
-               bpm: int = 120, start_offset_ms: int = 4000) -> str:
+def export_lrc(
+    lines: list[dict[str, Any]],
+    out_lrc: str,
+    bpm: int = 120,
+    start_offset_ms: int = 4000,
+) -> str:
     """
     Экспорт в LRC с тайм-кодами (для караоке).
     Устойчив к разным shape'ам входа — если нет 'text', используется str(item).
@@ -183,7 +193,7 @@ def export_lrc(lines: List[Dict[str, Any]], out_lrc: str,
     bar_ms = beat_ms * 4
     Path(out_lrc).parent.mkdir(parents=True, exist_ok=True)
     with open(out_lrc, "w", encoding="utf-8") as f:
-        f.write(f"[ti:Track]\n[ar:ZS]\n[al:MM ZS Vault Export]\n\n")
+        f.write("[ti:Track]\n[ar:ZS]\n[al:MM ZS Vault Export]\n\n")
         t = start_offset_ms
         for e in lines:
             if isinstance(e, dict):
@@ -223,7 +233,7 @@ def _recently_used_ids(last_n_tracks: int = 5) -> set:
     return used
 
 
-def _load_usage() -> Dict[str, list]:
+def _load_usage() -> dict[str, list]:
     if USAGE_LOG.exists():
         try:
             return json.loads(USAGE_LOG.read_text(encoding="utf-8"))
@@ -232,7 +242,7 @@ def _load_usage() -> Dict[str, list]:
     return {}
 
 
-def _save_usage(u: Dict[str, list]) -> None:
+def _save_usage(u: dict[str, list]) -> None:
     VAULT.mkdir(parents=True, exist_ok=True)
     USAGE_LOG.write_text(json.dumps(u, ensure_ascii=False, indent=2), encoding="utf-8")
 

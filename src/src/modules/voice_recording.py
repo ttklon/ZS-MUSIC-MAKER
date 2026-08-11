@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 ZS Music Maker v14 — voice_recording.py
 =======================================
@@ -24,17 +23,19 @@ import math
 import time
 import uuid
 import wave
-from dataclasses import dataclass, field, asdict
+from collections.abc import Callable
+from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 VAULT_DIR = ROOT / "voice_vault"
 # v22: ленивое создание (не при импорте)
 
 try:
-    import sounddevice as _sd  # type: ignore
     import numpy as _np
+    import sounddevice as _sd  # type: ignore
+
     SD_OK = True
 except Exception:
     _sd = None
@@ -66,22 +67,27 @@ class TakeInfo:
     quality: str
     style: str = "conversational"
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return asdict(self)
 
 
 class RealMicRecorder:
     """Ядро реальной записи с микрофона."""
 
-    def __init__(self, sample_rate: int = 48000, channels: int = 1,
-                 chunk_ms: int = 40, style: str = "conversational",
-                 on_metrics: Optional[Callable[[RecorderMetrics], None]] = None):
+    def __init__(
+        self,
+        sample_rate: int = 48000,
+        channels: int = 1,
+        chunk_ms: int = 40,
+        style: str = "conversational",
+        on_metrics: Callable[[RecorderMetrics], None] | None = None,
+    ):
         self.sample_rate = sample_rate
         self.channels = channels
         self.chunk_ms = chunk_ms
         self.style = style
         self.on_metrics = on_metrics
-        self._buf: List[Any] = []
+        self._buf: list[Any] = []
         self._start_ts: float = 0.0
         self._stop_ts: float = 0.0
         self._stream: Any = None
@@ -104,7 +110,7 @@ class RealMicRecorder:
             return
         try:
             x = chunk[:, 0] if chunk.ndim > 1 else chunk
-            rms = float(_np.sqrt(_np.mean(x ** 2)) + 1e-9)
+            rms = float(_np.sqrt(_np.mean(x**2)) + 1e-9)
             peak = float(_np.max(_np.abs(x)) + 1e-9)
             rms_db = 20 * math.log10(rms)
             peak_db = 20 * math.log10(peak)
@@ -119,43 +125,53 @@ class RealMicRecorder:
                     self._speech_frames = 0
             self._vad_state = self._speech_frames > 3
 
-            self.on_metrics(RecorderMetrics(
-                rms_db=rms_db, peak_db=peak_db,
-                lufs_short=rms_db - 3.0,
-                clipping_pct=clip * 100,
-                snr_db_estimate=max(0.0, rms_db - (-70.0)),
-                elapsed_sec=time.time() - self._start_ts,
-                is_speaking=self._vad_state,
-            ))
+            self.on_metrics(
+                RecorderMetrics(
+                    rms_db=rms_db,
+                    peak_db=peak_db,
+                    lufs_short=rms_db - 3.0,
+                    clipping_pct=clip * 100,
+                    snr_db_estimate=max(0.0, rms_db - (-70.0)),
+                    elapsed_sec=time.time() - self._start_ts,
+                    is_speaking=self._vad_state,
+                )
+            )
         except Exception:
             pass
 
-    def start(self) -> Dict[str, Any]:
+    def start(self) -> dict[str, Any]:
         self._buf = []
         self._start_ts = time.time()
         if not SD_OK:
             self._active = False
-            return {"ok": False, "backend": self._backend,
-                    "reason": "sounddevice unavailable; real microphone "
-                              "recording is IMPOSSIBLE in this environment. "
-                              "Use ingest_wav(path) instead."}
+            return {
+                "ok": False,
+                "backend": self._backend,
+                "reason": "sounddevice unavailable; real microphone "
+                "recording is IMPOSSIBLE in this environment. "
+                "Use ingest_wav(path) instead.",
+            }
         try:
             self._stream = _sd.InputStream(
-                samplerate=self.sample_rate, channels=self.channels,
+                samplerate=self.sample_rate,
+                channels=self.channels,
                 dtype="float32",
                 blocksize=int(self.sample_rate * self.chunk_ms / 1000),
                 callback=self._callback,
             )
             self._stream.start()
             self._active = True
-            return {"ok": True, "backend": self._backend,
-                    "sample_rate": self.sample_rate,
-                    "channels": self.channels}
+            return {
+                "ok": True,
+                "backend": self._backend,
+                "sample_rate": self.sample_rate,
+                "channels": self.channels,
+            }
         except Exception as e:
             self._active = False
             return {"ok": False, "backend": self._backend, "reason": str(e)}
 
-    def stop(self) -> Dict[str, Any]:
+    def stop(self) -> dict[str, Any]:
         self._stop_ts = time.time()
         if not self._active or self._stream is None:
             return {"ok": False, "reason": "not recording"}
@@ -173,9 +189,13 @@ class RealMicRecorder:
             out_path = VAULT_DIR / f"rec_{int(self._start_ts)}.wav"
             self._write_wav(str(out_path), full, self.sample_rate)
             dur = full.shape[0] / self.sample_rate
-            return {"ok": True, "path": str(out_path),
-                    "duration_sec": dur, "sample_rate": self.sample_rate,
-                    "style": self.style}
+            return {
+                "ok": True,
+                "path": str(out_path),
+                "duration_sec": dur,
+                "sample_rate": self.sample_rate,
+                "style": self.style,
+            }
         except Exception as e:
             return {"ok": False, "reason": f"save failed: {e}"}
 
@@ -190,40 +210,55 @@ class RealMicRecorder:
             w.setframerate(sr)
             w.writeframes(x.tobytes())
 
-    def ingest_wav(self, wav_path: str, style: str = "conversational") -> Dict[str, Any]:
+    def ingest_wav(
+        self, wav_path: str, style: str = "conversational"
+    ) -> dict[str, Any]:
         p = Path(wav_path)
         if not p.exists():
             return {"ok": False, "reason": f"file not found: {wav_path}"}
         try:
             import soundfile as sf
+
             y, sr = sf.read(str(p))
             dur = len(y) / sr
             dst = VAULT_DIR / f"ingest_{int(time.time())}_{p.name}"
             sf.write(str(dst), y, sr)
-            return {"ok": True, "path": str(dst), "duration_sec": dur,
-                    "sample_rate": sr, "style": style, "ingest_mode": True,
-                    "notice": "This is INGEST, not real microphone recording. "
-                              "For P0.03 compliance, real recording is required."}
+            return {
+                "ok": True,
+                "path": str(dst),
+                "duration_sec": dur,
+                "sample_rate": sr,
+                "style": style,
+                "ingest_mode": True,
+                "notice": "This is INGEST, not real microphone recording. "
+                "For P0.03 compliance, real recording is required.",
+            }
         except Exception as e:
             return {"ok": False, "reason": str(e)}
 
-    def stop_and_split(self, min_silence_ms: int = 600,
-                       min_take_ms: int = 800) -> List[TakeInfo]:
+    def stop_and_split(
+        self, min_silence_ms: int = 600, min_take_ms: int = 800
+    ) -> list[TakeInfo]:
         info = self.stop()
         if not info.get("ok"):
             return []
-        return split_wav_into_takes(info["path"],
-                                    min_silence_ms=min_silence_ms,
-                                    min_take_ms=min_take_ms,
-                                    style=self.style)
+        return split_wav_into_takes(
+            info["path"],
+            min_silence_ms=min_silence_ms,
+            min_take_ms=min_take_ms,
+            style=self.style,
+        )
 
 
-def split_wav_into_takes(wav_path: str, min_silence_ms: int = 600,
-                         min_take_ms: int = 800,
-                         style: str = "conversational") -> List[TakeInfo]:
+def split_wav_into_takes(
+    wav_path: str,
+    min_silence_ms: int = 600,
+    min_take_ms: int = 800,
+    style: str = "conversational",
+) -> list[TakeInfo]:
     try:
-        import soundfile as sf
         import numpy as np
+        import soundfile as sf
     except Exception:
         return []
 
@@ -241,21 +276,23 @@ def split_wav_into_takes(wav_path: str, min_silence_ms: int = 600,
     if win < 1:
         return []
     n_wins = len(y) // win
-    rms = np.array([
-        float(np.sqrt(np.mean(y[i*win:(i+1)*win] ** 2)) + 1e-9)
-        for i in range(n_wins)
-    ])
+    rms = np.array(
+        [
+            float(np.sqrt(np.mean(y[i * win : (i + 1) * win] ** 2)) + 1e-9)
+            for i in range(n_wins)
+        ]
+    )
     rms_db = 20 * np.log10(rms + 1e-9)
 
     silence = rms_db < -40.0
     silence_wins = int(min_silence_ms / 20)
 
-    takes: List[TakeInfo] = []
+    takes: list[TakeInfo] = []
     in_speech = False
     start_win = 0
     sil_count = 0
 
-    def _finalize(a: int, b: int) -> Optional[TakeInfo]:
+    def _finalize(a: int, b: int) -> TakeInfo | None:
         s_ms = a * 20
         e_ms = b * 20
         dur_ms = e_ms - s_ms
@@ -264,7 +301,7 @@ def split_wav_into_takes(wav_path: str, min_silence_ms: int = 600,
         s_sam = int(s_ms / 1000 * sr)
         e_sam = int(e_ms / 1000 * sr)
         seg = y[s_sam:e_sam]
-        seg_rms = float(np.sqrt(np.mean(seg ** 2)) + 1e-9)
+        seg_rms = float(np.sqrt(np.mean(seg**2)) + 1e-9)
         seg_peak = float(np.max(np.abs(seg)) + 1e-9)
         seg_clip = float(np.mean(np.abs(seg) > 0.98))
         rms_db = 20 * math.log10(seg_rms)
@@ -289,12 +326,16 @@ def split_wav_into_takes(wav_path: str, min_silence_ms: int = 600,
             return None
 
         return TakeInfo(
-            take_id=tid, path=str(tpath),
-            start_sec=s_ms / 1000, end_sec=e_ms / 1000,
+            take_id=tid,
+            path=str(tpath),
+            start_sec=s_ms / 1000,
+            end_sec=e_ms / 1000,
             duration_sec=dur_ms / 1000,
-            rms_db=rms_db, peak_db=peak_db,
+            rms_db=rms_db,
+            peak_db=peak_db,
             clipping_pct=seg_clip * 100,
-            quality=q, style=style,
+            quality=q,
+            style=style,
         )
 
     for i, s in enumerate(silence):
@@ -320,9 +361,8 @@ def split_wav_into_takes(wav_path: str, min_silence_ms: int = 600,
     manifest = p.parent / f"{p.stem}_takes.json"
     try:
         manifest.write_text(
-            json.dumps([t.as_dict() for t in takes],
-                       ensure_ascii=False, indent=2),
-            encoding="utf-8"
+            json.dumps([t.as_dict() for t in takes], ensure_ascii=False, indent=2),
+            encoding="utf-8",
         )
     except Exception:
         pass
@@ -330,14 +370,16 @@ def split_wav_into_takes(wav_path: str, min_silence_ms: int = 600,
     return takes
 
 
-def capability_report() -> Dict[str, Any]:
+def capability_report() -> dict[str, Any]:
     devices = []
     if SD_OK:
         try:
             devs = _sd.query_devices()
-            devices = [{"name": d.get("name", ""),
-                        "max_in": d.get("max_input_channels", 0)}
-                       for d in devs if d.get("max_input_channels", 0) > 0]
+            devices = [
+                {"name": d.get("name", ""), "max_in": d.get("max_input_channels", 0)}
+                for d in devs
+                if d.get("max_input_channels", 0) > 0
+            ]
         except Exception:
             pass
     return {

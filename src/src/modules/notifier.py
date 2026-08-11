@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 [11] notifier.py — Desktop-уведомления (v5)
 Кроссплатформенно, полностью offline. Показывает toast когда пайплайн завершён.
@@ -7,7 +6,11 @@
   • macOS: osascript
 Всё опционально — если ничего нет, тихо логирует в консоль.
 """
-import os, sys, subprocess, shutil, logging
+
+import logging
+import shutil
+import subprocess
+import sys
 
 log = logging.getLogger("zsmm.notifier")
 
@@ -16,8 +19,10 @@ def notify(title: str, message: str, timeout: int = 5) -> dict:
     """Показывает системное уведомление. Возвращает какой backend сработал."""
     try:
         from plyer import notification as pl_notify
-        pl_notify.notify(title=title, message=message,
-                         app_name="ZS Music Maker", timeout=timeout)
+
+        pl_notify.notify(
+            title=title, message=message, app_name="ZS Music Maker", timeout=timeout
+        )
         return {"ok": True, "backend": "plyer"}
     except Exception:
         pass
@@ -25,13 +30,16 @@ def notify(title: str, message: str, timeout: int = 5) -> dict:
     if sys.platform.startswith("win"):
         try:
             from win10toast import ToastNotifier
+
             ToastNotifier().show_toast(title, message, duration=timeout, threaded=True)
             return {"ok": True, "backend": "win10toast"}
         except Exception:
             pass
         try:
-            ps = (f'Add-Type -AssemblyName System.Windows.Forms; '
-                  f'[System.Windows.Forms.MessageBox]::Show("{message}","{title}") | Out-Null')
+            ps = (
+                f"Add-Type -AssemblyName System.Windows.Forms; "
+                f'[System.Windows.Forms.MessageBox]::Show("{message}","{title}") | Out-Null'
+            )
             subprocess.Popen(["powershell", "-NoProfile", "-Command", ps])
             return {"ok": True, "backend": "powershell"}
         except Exception:

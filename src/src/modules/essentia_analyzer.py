@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 ZS Music Maker v10 — Essentia Analyzer
 =========================================
@@ -17,16 +16,19 @@ ZS Music Maker v10 — Essentia Analyzer
 
 Автор: v10 «Chart Killer Pro»
 """
+
 from __future__ import annotations
+
 import json
 import logging
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Any
 
 log = logging.getLogger("zsmm.essentia")
 
 try:
     import essentia.standard as es  # type: ignore
+
     ESSENTIA_OK = True
 except Exception:
     ESSENTIA_OK = False
@@ -40,7 +42,7 @@ except Exception:
     np = None
 
 
-def analyze_advanced(audio_path: str, sr: int = 44100) -> Dict[str, Any]:
+def analyze_advanced(audio_path: str, sr: int = 44100) -> dict[str, Any]:
     """
     Возвращает расширенный музыковедческий отчёт.
 
@@ -60,7 +62,7 @@ def analyze_advanced(audio_path: str, sr: int = 44100) -> Dict[str, Any]:
     return _analyze_librosa_fallback(str(p), sr)
 
 
-def _analyze_essentia(audio_path: str, sr: int) -> Dict[str, Any]:
+def _analyze_essentia(audio_path: str, sr: int) -> dict[str, Any]:
     loader = es.MonoLoader(filename=audio_path, sampleRate=sr)
     audio = loader()
 
@@ -82,8 +84,14 @@ def _analyze_essentia(audio_path: str, sr: int) -> Dict[str, Any]:
     dyn_cmp, dyn_loud = es.DynamicComplexity()(audio)
 
     # Spectral
-    hfc = float(np.mean([es.HFC()(es.Spectrum()(es.Windowing()(fr)))
-                        for fr in es.FrameGenerator(audio, 2048, 1024)]))
+    hfc = float(
+        np.mean(
+            [
+                es.HFC()(es.Spectrum()(es.Windowing()(fr)))
+                for fr in es.FrameGenerator(audio, 2048, 1024)
+            ]
+        )
+    )
 
     onset = es.OnsetRate()
     onsets, onset_rate = onset(audio)
@@ -101,11 +109,11 @@ def _analyze_essentia(audio_path: str, sr: int) -> Dict[str, Any]:
         "dynamic_complexity": float(dyn_cmp),
         "hfc": hfc,
         "onset_rate": float(onset_rate),
-        "n_beats": int(len(beats)),
+        "n_beats": len(beats),
     }
 
 
-def _analyze_librosa_fallback(audio_path: str, sr: int) -> Dict[str, Any]:
+def _analyze_librosa_fallback(audio_path: str, sr: int) -> dict[str, Any]:
     if librosa is None:
         return {"ok": False, "reason": "no librosa & no essentia"}
     try:
@@ -118,7 +126,7 @@ def _analyze_librosa_fallback(audio_path: str, sr: int) -> Dict[str, Any]:
         flatness = float(np.mean(librosa.feature.spectral_flatness(y=y)))
         chroma = librosa.feature.chroma_cqt(y=y, sr=sr)
         key_idx = int(np.argmax(np.mean(chroma, axis=1)))
-        keys = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"]
+        keys = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
 
         # Простая эвристика danceability = функция от tempo стабильности и RMS
         beat_stability = 1.0
@@ -132,19 +140,23 @@ def _analyze_librosa_fallback(audio_path: str, sr: int) -> Dict[str, Any]:
             "engine": "librosa_fallback",
             "bpm": float(tempo),
             "key": keys[key_idx],
-            "scale": "major" if np.mean(chroma[[0, 4, 7]]) > np.mean(chroma[[0, 3, 7]]) else "minor",
+            "scale": (
+                "major"
+                if np.mean(chroma[[0, 4, 7]]) > np.mean(chroma[[0, 3, 7]])
+                else "minor"
+            ),
             "danceability": float(danceability),
             "rms": rms,
             "spectral_centroid": centroid,
             "spectral_flatness": flatness,
             "onset_rate": onset_rate,
-            "n_beats": int(len(beats)),
+            "n_beats": len(beats),
         }
     except Exception as e:
         return {"ok": False, "reason": str(e)}
 
 
-def save_report(report: Dict[str, Any], out_json: str) -> None:
+def save_report(report: dict[str, Any], out_json: str) -> None:
     Path(out_json).parent.mkdir(parents=True, exist_ok=True)
     with open(out_json, "w", encoding="utf-8") as f:
         json.dump(report, f, ensure_ascii=False, indent=2)
@@ -152,6 +164,7 @@ def save_report(report: Dict[str, Any], out_json: str) -> None:
 
 if __name__ == "__main__":
     import sys
+
     if len(sys.argv) < 2:
         print(json.dumps({"engine_available": ESSENTIA_OK}, ensure_ascii=False))
     else:

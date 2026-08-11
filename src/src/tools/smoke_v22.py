@@ -1,7 +1,11 @@
-# -*- coding: utf-8 -*-
 """ZS Music Maker v22 — smoke_v22."""
+
 from __future__ import annotations
-import sys, tempfile, traceback, json
+
+import json
+import sys
+import tempfile
+import traceback
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -18,12 +22,17 @@ def _run(name, fn):
         ok, detail = fn()
         _record(name, ok, detail)
     except Exception as e:
-        _record(name, False, "",
-                f"{type(e).__name__}: {e}\n" + traceback.format_exc(limit=3))
+        _record(
+            name,
+            False,
+            "",
+            f"{type(e).__name__}: {e}\n" + traceback.format_exc(limit=3),
+        )
 
 
 def t_analyze_no_refs_not_fallback():
     from app.core import orchestrator as o
+
     r = o._stage_analyze([], False, genre="drift_phonk")
     if r.get("fallback_used"):
         return False, "analyze with no refs still flagged as fallback_used"
@@ -37,6 +46,7 @@ def t_analyze_no_refs_not_fallback():
 
 def t_groove_no_refs_not_fallback():
     from app.core import orchestrator as o
+
     r = o._stage_groove([], genre="drift_phonk")
     if r.get("fallback_used"):
         return False, "groove with no refs still flagged as fallback_used"
@@ -49,8 +59,11 @@ def t_groove_no_refs_not_fallback():
 
 
 def t_synth_beat_structured():
+    import numpy as np
+    import soundfile as sf
+
     from app.core import orchestrator as o
-    import soundfile as sf, numpy as np
+
     with tempfile.TemporaryDirectory() as td:
         out = str(Path(td) / "beat.wav")
         r = o._synth_beat(out, duration=30, bpm=130)
@@ -72,6 +85,7 @@ def t_synth_beat_structured():
 
 def t_fallback_lyrics_genre_variety():
     from app.core import orchestrator as o
+
     r1 = o._fallback_lyrics("ночь", "drift_phonk")
     r2 = o._fallback_lyrics("любовь", "pop")
     r3 = o._fallback_lyrics("дождь", "lo_fi")
@@ -85,8 +99,11 @@ def t_fallback_lyrics_genre_variety():
 
 
 def t_voice_scaffold_v22_formants():
+    import numpy as np
+    import soundfile as sf
+
     from app.core import orchestrator as o
-    import soundfile as sf, numpy as np
+
     with tempfile.TemporaryDirectory() as td:
         out = str(Path(td) / "voice.wav")
         r = o._pyttsx3_speak("Привет мир как дела нормально всё", out)
@@ -97,24 +114,42 @@ def t_voice_scaffold_v22_formants():
         y, sr = sf.read(out)
         if len(y) < sr * 1.5:
             return False, f"too short: {len(y)/sr:.1f}s"
-        return True, f"scaffold v22, dur={len(y)/sr:.1f}s, rms={float(np.sqrt(np.mean(y**2))):.3f}"
+        return (
+            True,
+            f"scaffold v22, dur={len(y)/sr:.1f}s, rms={float(np.sqrt(np.mean(y**2))):.3f}",
+        )
 
 
 def t_modules_import_no_side_effects():
-    import os
     # Убираем output/ если вдруг появился от прошлых запусков
     out_dir = ROOT / "output"
     had_before = out_dir.exists()
     if had_before:
         # не удаляем, просто фиксируем что он был
         pass
-    mods = ["mixdown", "beat_gen", "humanization", "voice_synth",
-            "release_export", "provenance", "track_templates",
-            "render_queue", "lyrics_gen", "female_backing",
-            "user_profile", "voice_recording", "voice_onboarding",
-            "voice_vault_v9", "rvc_trainer_v9", "reference_ingest",
-            "auto_qa", "self_diag_v13", "wizard_v12_integration",
-            "master_pipeline_v12", "llm_clients_v15"]
+    mods = [
+        "mixdown",
+        "beat_gen",
+        "humanization",
+        "voice_synth",
+        "release_export",
+        "provenance",
+        "track_templates",
+        "render_queue",
+        "lyrics_gen",
+        "female_backing",
+        "user_profile",
+        "voice_recording",
+        "voice_onboarding",
+        "voice_vault_v9",
+        "rvc_trainer_v9",
+        "reference_ingest",
+        "auto_qa",
+        "self_diag_v13",
+        "wizard_v12_integration",
+        "master_pipeline_v12",
+        "llm_clients_v15",
+    ]
     for m in mods:
         try:
             __import__(f"modules.{m}")
@@ -130,11 +165,16 @@ def t_modules_import_no_side_effects():
 
 def t_pipeline_verdict_not_blocked_sim():
     from app.core import orchestrator as o
+
     with tempfile.TemporaryDirectory() as td:
         r = o.run_full_pipeline(
-            "smoke_v22", {"theme": "ночь", "genre": "drift_phonk"},
-            dry_run=False, out_root=Path(td))
-    v = r.get("verdict"); p = r.get("percent")
+            "smoke_v22",
+            {"theme": "ночь", "genre": "drift_phonk"},
+            dry_run=False,
+            out_root=Path(td),
+        )
+    v = r.get("verdict")
+    p = r.get("percent")
     if v == "BLOCKED_SIMULATION":
         return False, f"verdict={v} percent={p}"
     if v not in ("PASS", "PASS_WITH_FALLBACK", "PASS_BLOCKED"):

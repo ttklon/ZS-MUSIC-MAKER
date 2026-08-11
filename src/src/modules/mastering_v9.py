@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 [v9] mastering_v9.py — надстройка над mixdown.py / mastering_stands.py.
 
@@ -15,10 +14,12 @@
   • fallback: если Matchering не установлен — bypass с warning
   • DOES NOT overwrite финальный master.wav v7; создаёт _v9-варианты параллельно
 """
+
 from __future__ import annotations
-import json, math, time
+
+import json
+import math
 from pathlib import Path
-from typing import Optional
 
 try:
     import numpy as np
@@ -27,18 +28,21 @@ except Exception:
 
 try:
     import soundfile as sf
+
     HAS_SF = True
 except Exception:
     HAS_SF = False
 
 try:
     import scipy.signal as sg
+
     HAS_SP = True
 except Exception:
     HAS_SP = False
 
 try:
     import matchering as mg
+
     HAS_MG = True
 except Exception:
     HAS_MG = False
@@ -46,7 +50,8 @@ except Exception:
 
 # ============================================================ measurements
 def _read(path: str):
-    if not HAS_SF: return None, None
+    if not HAS_SF:
+        return None, None
     y, sr = sf.read(path, always_2d=True)
     return y, sr
 
@@ -65,7 +70,8 @@ def measure(path: str) -> dict:
     if not HAS_SF or np is None:
         return {"ok": False, "error": "soundfile/numpy unavailable"}
     y, sr = _read(path)
-    if y is None: return {"ok": False, "error": "read failed"}
+    if y is None:
+        return {"ok": False, "error": "read failed"}
     peak = float(np.max(np.abs(y)))
     rms = _rms(y)
     dbfs_rms = 20 * math.log10(max(rms, 1e-9))
@@ -89,37 +95,40 @@ def measure(path: str) -> dict:
 
 # ============================================================ processing
 def _apply_gain(y, gain_db: float):
-    if np is None: return y
+    if np is None:
+        return y
     return y * (10 ** (gain_db / 20.0))
 
 
 def _soft_limit(y, ceiling_db: float = -1.0):
-    if np is None: return y
+    if np is None:
+        return y
     ceil = 10 ** (ceiling_db / 20.0)
     return np.tanh(y / ceil) * ceil
 
 
 def _eq_shelf(y, sr, freq: float, gain_db: float, kind: str = "low"):
-    if not HAS_SP or np is None: return y
+    if not HAS_SP or np is None:
+        return y
     try:
         A = 10 ** (gain_db / 40.0)
         w0 = 2 * math.pi * freq / sr
         alpha = math.sin(w0) / (2 * 0.707)
         cos_w = math.cos(w0)
         if kind == "low":
-            b0 =    A*((A+1) - (A-1)*cos_w + 2*math.sqrt(A)*alpha)
-            b1 =  2*A*((A-1) - (A+1)*cos_w)
-            b2 =    A*((A+1) - (A-1)*cos_w - 2*math.sqrt(A)*alpha)
-            a0 =       (A+1) + (A-1)*cos_w + 2*math.sqrt(A)*alpha
-            a1 =   -2*((A-1) + (A+1)*cos_w)
-            a2 =       (A+1) + (A-1)*cos_w - 2*math.sqrt(A)*alpha
+            b0 = A * ((A + 1) - (A - 1) * cos_w + 2 * math.sqrt(A) * alpha)
+            b1 = 2 * A * ((A - 1) - (A + 1) * cos_w)
+            b2 = A * ((A + 1) - (A - 1) * cos_w - 2 * math.sqrt(A) * alpha)
+            a0 = (A + 1) + (A - 1) * cos_w + 2 * math.sqrt(A) * alpha
+            a1 = -2 * ((A - 1) + (A + 1) * cos_w)
+            a2 = (A + 1) + (A - 1) * cos_w - 2 * math.sqrt(A) * alpha
         else:  # high shelf
-            b0 =    A*((A+1) + (A-1)*cos_w + 2*math.sqrt(A)*alpha)
-            b1 = -2*A*((A-1) + (A+1)*cos_w)
-            b2 =    A*((A+1) + (A-1)*cos_w - 2*math.sqrt(A)*alpha)
-            a0 =       (A+1) - (A-1)*cos_w + 2*math.sqrt(A)*alpha
-            a1 =    2*((A-1) - (A+1)*cos_w)
-            a2 =       (A+1) - (A-1)*cos_w - 2*math.sqrt(A)*alpha
+            b0 = A * ((A + 1) + (A - 1) * cos_w + 2 * math.sqrt(A) * alpha)
+            b1 = -2 * A * ((A - 1) + (A + 1) * cos_w)
+            b2 = A * ((A + 1) + (A - 1) * cos_w - 2 * math.sqrt(A) * alpha)
+            a0 = (A + 1) - (A - 1) * cos_w + 2 * math.sqrt(A) * alpha
+            a1 = 2 * ((A - 1) - (A + 1) * cos_w)
+            a2 = (A + 1) - (A - 1) * cos_w - 2 * math.sqrt(A) * alpha
         b = np.array([b0, b1, b2]) / a0
         a = np.array([a0, a1, a2]) / a0
         if y.ndim == 2:
@@ -133,7 +142,8 @@ def _eq_shelf(y, sr, freq: float, gain_db: float, kind: str = "low"):
 
 
 def _widen_stereo(y, amount: float = 0.3):
-    if np is None or y.ndim != 2 or y.shape[1] < 2: return y
+    if np is None or y.ndim != 2 or y.shape[1] < 2:
+        return y
     mid = 0.5 * (y[:, 0] + y[:, 1])
     side = 0.5 * (y[:, 0] - y[:, 1]) * (1 + amount)
     out = y.copy()
@@ -146,28 +156,26 @@ def _widen_stereo(y, amount: float = 0.3):
 STAND_PRESETS = {
     "car": {
         "shelves": [(60, +2.5, "low"), (5000, +1.5, "high")],
-        "widen":   0.15,
-        "lufs":    -8.5,
+        "widen": 0.15,
+        "lufs": -8.5,
         "ceiling": -0.5,
     },
     "club": {
-        "shelves": [(50, +3.5, "low"), (400, -1.0, "low"),
-                    (12000, +1.0, "high")],
-        "widen":   0.35,
-        "lufs":    -6.5,
+        "shelves": [(50, +3.5, "low"), (400, -1.0, "low"), (12000, +1.0, "high")],
+        "widen": 0.35,
+        "lufs": -6.5,
         "ceiling": -0.3,
     },
     "streaming": {
         "shelves": [(80, +1.0, "low"), (8000, +0.5, "high")],
-        "widen":   0.20,
-        "lufs":    -14.0,
+        "widen": 0.20,
+        "lufs": -14.0,
         "ceiling": -1.0,
     },
 }
 
 
-def render_stand(input_wav: str, output_wav: str,
-                 stand: str = "streaming") -> dict:
+def render_stand(input_wav: str, output_wav: str, stand: str = "streaming") -> dict:
     """Рендерит один стенд. Возвращает reports before/after."""
     if not HAS_SF or np is None:
         return {"ok": False, "error": "soundfile/numpy required"}
@@ -194,7 +202,8 @@ def render_stand(input_wav: str, output_wav: str,
         rms = _rms(y)
         dbfs = 20 * math.log10(max(rms, 1e-9)) - 3.0  # pseudo-LUFS
         delta = target_lufs - dbfs
-        if abs(delta) < 0.5: break
+        if abs(delta) < 0.5:
+            break
         y = _apply_gain(y, delta)
         y = _soft_limit(y, ceiling_db)
 
@@ -207,36 +216,44 @@ def render_stand(input_wav: str, output_wav: str,
     _write(output_wav, y, sr)
     after = measure(output_wav)
 
-    return {"ok": True, "stand": stand,
-            "input": input_wav, "output": output_wav,
-            "before": before, "after": after, "preset": preset}
+    return {
+        "ok": True,
+        "stand": stand,
+        "input": input_wav,
+        "output": output_wav,
+        "before": before,
+        "after": after,
+        "preset": preset,
+    }
 
 
-def render_all_stands(input_wav: str, out_dir: str,
-                      artist: str = "") -> dict:
-    out_dir = Path(out_dir); out_dir.mkdir(parents=True, exist_ok=True)
+def render_all_stands(input_wav: str, out_dir: str, artist: str = "") -> dict:
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
     results = {}
     for stand in STAND_PRESETS:
         dst = out_dir / f"{stand}_master.wav"
         results[stand] = render_stand(input_wav, str(dst), stand=stand)
-    return {"ok": True, "results": results, "dir": str(out_dir),
-            "artist": artist}
+    return {"ok": True, "results": results, "dir": str(out_dir), "artist": artist}
 
 
 # ============================================================ matchering wrapper
-def match_to_reference(input_wav: str, reference_wav: str,
-                       output_wav: str) -> dict:
+def match_to_reference(input_wav: str, reference_wav: str, output_wav: str) -> dict:
     """Обёртка над Matchering. При отсутствии — bypass copy."""
     if not HAS_MG:
         if HAS_SF:
             y, sr = _read(input_wav)
             _write(output_wav, y, sr)
-        return {"ok": True, "matchering": False,
-                "note": "matchering not installed, output = input",
-                "output": output_wav}
+        return {
+            "ok": True,
+            "matchering": False,
+            "note": "matchering not installed, output = input",
+            "output": output_wav,
+        }
     try:
-        mg.process(target=input_wav, reference=reference_wav,
-                   results=[mg.pcm24(output_wav)])
+        mg.process(
+            target=input_wav, reference=reference_wav, results=[mg.pcm24(output_wav)]
+        )
         return {"ok": True, "matchering": True, "output": output_wav}
     except Exception as e:
         return {"ok": False, "error": str(e)}
@@ -245,10 +262,20 @@ def match_to_reference(input_wav: str, reference_wav: str,
 # ============================================================ CLI
 if __name__ == "__main__":
     import sys
+
     if len(sys.argv) < 3:
         print("usage: python mastering_v9.py <in.wav> <out_dir>")
         sys.exit(1)
     r = render_all_stands(sys.argv[1], sys.argv[2])
-    print(json.dumps({k: {"ok": v.get("ok"),
-                          "after_lufs": (v.get("after") or {}).get("lufs_est")}
-                       for k, v in r["results"].items()}, indent=2))
+    print(
+        json.dumps(
+            {
+                k: {
+                    "ok": v.get("ok"),
+                    "after_lufs": (v.get("after") or {}).get("lufs_est"),
+                }
+                for k, v in r["results"].items()
+            },
+            indent=2,
+        )
+    )

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 [v9] release_pack_v9.py — расширенная сборка релиз-пакета.
 
@@ -19,11 +18,13 @@ v9 добавляет к v6 release_pack_v6 / v7 release_export:
 НИЧЕГО не удаляет из v6/v7. Работает как append-режим: даёт файлы поверх
 существующей папки релиза.
 """
-from __future__ import annotations
-import json, shutil, time
-from pathlib import Path
-from typing import Optional
 
+from __future__ import annotations
+
+import json
+import shutil
+import time
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -39,8 +40,9 @@ def _safe_copy(src: str, dst: str) -> bool:
 
 def _write_json(path: str, data: dict) -> None:
     Path(path).parent.mkdir(parents=True, exist_ok=True)
-    Path(path).write_text(json.dumps(data, ensure_ascii=False, indent=2),
-                          encoding="utf-8")
+    Path(path).write_text(
+        json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
 
 
 def _readme_text(payload: dict) -> str:
@@ -70,23 +72,26 @@ def _readme_text(payload: dict) -> str:
     return "\n".join(lines)
 
 
-def build_release_v9(release_dir: str,
-                     project_meta: dict,
-                     master_wav: str,
-                     hit_report: Optional[dict] = None,
-                     arrangement_plan: Optional[dict] = None,
-                     style_fingerprint: Optional[dict] = None,
-                     sample_manifest: Optional[dict] = None,
-                     voice_manifest: Optional[dict] = None,
-                     stand_wavs: Optional[dict] = None,
-                     tiktok_wavs: Optional[dict] = None) -> dict:
+def build_release_v9(
+    release_dir: str,
+    project_meta: dict,
+    master_wav: str,
+    hit_report: dict | None = None,
+    arrangement_plan: dict | None = None,
+    style_fingerprint: dict | None = None,
+    sample_manifest: dict | None = None,
+    voice_manifest: dict | None = None,
+    stand_wavs: dict | None = None,
+    tiktok_wavs: dict | None = None,
+) -> dict:
     """
     Дописывает v9-артефакты в существующую (или новую) папку релиза.
     project_meta: {artist, title, bpm, key, mode, genre, mood, duration_s, ...}
     stand_wavs:   {"car": "/path/car_master.wav", "club": ..., "streaming": ...}
     tiktok_wavs:  {"tiktok_15s": "...", "tiktok_30s": "...", "hook_loop": "..."}
     """
-    outd = Path(release_dir); outd.mkdir(parents=True, exist_ok=True)
+    outd = Path(release_dir)
+    outd.mkdir(parents=True, exist_ok=True)
     files: list[str] = []
     warnings: list[str] = []
 
@@ -140,8 +145,7 @@ def build_release_v9(release_dir: str,
         "hit_verdict": (hit_report or {}).get("verdict"),
         "files": files,
     }
-    (outd / "README_RELEASE.txt").write_text(_readme_text(payload),
-                                              encoding="utf-8")
+    (outd / "README_RELEASE.txt").write_text(_readme_text(payload), encoding="utf-8")
     files.append("README_RELEASE.txt")
 
     return {
@@ -155,13 +159,22 @@ def build_release_v9(release_dir: str,
 
 if __name__ == "__main__":
     import sys
+
     if len(sys.argv) < 2:
         print("usage: python release_pack_v9.py <release_dir>")
         sys.exit(1)
-    r = build_release_v9(sys.argv[1],
-                          project_meta={"artist": "test", "title": "demo",
-                                        "bpm": 132, "key": "F", "mode": "minor",
-                                        "genre": "phonk", "mood": "moody",
-                                        "duration_s": 150},
-                          master_wav="/tmp/none.wav")
+    r = build_release_v9(
+        sys.argv[1],
+        project_meta={
+            "artist": "test",
+            "title": "demo",
+            "bpm": 132,
+            "key": "F",
+            "mode": "minor",
+            "genre": "phonk",
+            "mood": "moody",
+            "duration_s": 150,
+        },
+        master_wav="/tmp/none.wav",
+    )
     print(json.dumps(r, indent=2))

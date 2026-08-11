@@ -1,8 +1,8 @@
-# -*- coding: utf-8 -*-
 """
 safe_import.py — Graceful-imports helper для ZS Music Maker v4.
 Позволяет UI и пайплайну переживать отсутствие тяжёлых зависимостей.
 """
+
 import importlib
 import logging
 
@@ -36,8 +36,7 @@ def require(*module_names: str) -> dict:
             missing.append(m)
         else:
             available.append(m)
-    return {"missing": missing, "available": available,
-            "ok": len(missing) == 0}
+    return {"missing": missing, "available": available, "ok": len(missing) == 0}
 
 
 def diagnostics() -> dict:
@@ -62,4 +61,5 @@ def diagnostics() -> dict:
 
 if __name__ == "__main__":
     import json
+
     print(json.dumps(diagnostics(), ensure_ascii=False, indent=2))
