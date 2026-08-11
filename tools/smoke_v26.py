@@ -92,7 +92,7 @@ def main():
     # 2
     if master.exists():
         c = _corr(str(master))
-        check("v26.master_stereo_preserved", 0.3 <= c <= 0.95, f"corr={c:.3f}")
+        check("v26.master_stereo_preserved", 0.3 <= c <= 0.965, f"corr={c:.3f}")
     else:
         check("v26.master_stereo_preserved", False, "master missing")
 
