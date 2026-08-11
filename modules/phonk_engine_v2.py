@@ -17,12 +17,12 @@ from modules.phonk_engine import generate_cowbell
 from modules.musical_intelligence import MusicalIntelligence
 
 class PhonkEngineV2:
-    def __init__(self, sr: int = 44100):
+    def __init__(self, sr: int = 44100, drive_db: float = 25.0, obfuscation: float = 0.3):
         self.sr = sr
         self.intel = MusicalIntelligence(sr)
         self.chain = PluginChain()
-        self.chain.add(PhonkDistortion(drive_db=25.0))
-        self.chain.add(AntiAINeuroObfuscator(intensity=0.3))
+        self.chain.add(PhonkDistortion(drive_db=drive_db))
+        self.chain.add(AntiAINeuroObfuscator(intensity=obfuscation))
 
     def generate_808(self, freq: float, duration: float, glide_to: float = None):
         """Генерирует жирный 808 бас с возможным глайдом."""
@@ -44,9 +44,8 @@ class PhonkEngineV2:
         env = np.exp(-t * 5.0)
         return (wave * env).astype(np.float32)
 
-    def create_drift_track(self, project_id: str, bpm: int, key_root: str, mode: str, out_path: str):
+    def create_drift_track(self, project_id: str, bpm: int, key_root: str, mode: str, out_path: str, duration_sec: float = 30.0):
         """Создает полноценный Drift Phonk трек."""
-        duration_sec = 30 # Для теста 30 секунд
         total_samples = int(self.sr * duration_sec)
         track = np.zeros((total_samples, 2), dtype=np.float32)
         

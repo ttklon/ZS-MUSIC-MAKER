@@ -46,7 +46,14 @@ def _load_version_info():
     return default_v, default_b
 
 
-VERSION, BUILD = _load_version_info()
+class ProjectContext:
+    def __init__(self):
+        v, b = _load_version_info()
+        self.version = v
+        self.build = b
+        self.status = "GOD MODE 3.0 (Autonomy & Stability)"
+
+ctx = ProjectContext()
 
 
 def _setup_console_encoding() -> None:
@@ -113,9 +120,9 @@ def _safe_print(msg: str) -> None:
 
 def _header() -> None:
     _safe_print("=" * 64)
-    _safe_print(f"ZS Music Maker v{VERSION} — main.py (unified)")
-    _safe_print(f"Build: {BUILD}")
-    _safe_print("Status: GOD MODE 3.0 (Autonomy & Stability)")
+    _safe_print(f"ZS Music Maker v{ctx.version} — main.py (unified)")
+    _safe_print(f"Build: {ctx.build}")
+    _safe_print(f"Status: {ctx.status}")
     _safe_print("=" * 64)
 
 
@@ -139,7 +146,7 @@ def _try_launch_gui_pyside() -> bool:
     try:
         from PySide6.QtWidgets import QApplication
     except Exception as e:
-        _safe_print(f"[main] PySide6 недоступен: {e}")
+        _safe_print(f"[ERROR] PySide6 не найден. Для работы GUI установите: pip install PySide6. Ошибка: {e}")
         return False
     try:
         from app.gui import theme_v12
@@ -148,7 +155,7 @@ def _try_launch_gui_pyside() -> bool:
         from app.logger import setup_logger
         from app.runtime_orchestrator import RuntimeOrchestrator
     except Exception as e:
-        _safe_print(f"[main] desktop wizard недоступен: {e}")
+        _safe_print(f"[ERROR] Не удалось загрузить модули GUI. Проверьте целостность папки app/gui. Ошибка: {e}")
         traceback.print_exc()
         return False
     app = QApplication.instance() or QApplication(sys.argv)

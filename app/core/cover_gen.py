@@ -33,10 +33,12 @@ def make_cover(recipe: dict, out_png: str, size: int = 1500) -> dict:
         [size // 12, size // 2 - size // 8, size - size // 12, size // 2 + size // 8],
         fill=c2,
     )
-    try:
-        font = ImageFont.truetype("arialbd.ttf", size // 10)
-    except Exception:
-        font = ImageFont.load_default()
+    def _get_font(s):
+        for f in ["arialbd.ttf", "DejaVuSans-Bold.ttf", "LiberationSans-Bold.ttf"]:
+            try: return ImageFont.truetype(f, s)
+            except: continue
+        return ImageFont.load_default()
+    font = _get_font(size // 10)
     txt = title[:22].upper()
     bbox = d.textbbox((0, 0), txt, font=font)
     tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]

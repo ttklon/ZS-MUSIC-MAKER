@@ -1,0 +1,350 @@
+--- VULNERABILITY AUDIT (Safety) ---
+
+
+[33m[1m+===========================================================================================================================================================================================+[0m
+
+
+[31m[1mDEPRECATED: [0m[33m[1mthis command (`check`) has been DEPRECATED, and will be unsupported beyond 01 June 2024.[0m
+
+
+[32mWe highly encourage switching to the new [0m[32m[1m`scan`[0m[32m command which is easier to use, more powerful, and can be set up to mimic the deprecated command if required.[0m
+
+
+[33m[1m+===========================================================================================================================================================================================+[0m
+
+
+\n--- DEPENDENCY AUDIT (Pip-Audit) ---
+Name       Version ID              Fix Versions
+---------- ------- --------------- ------------
+pypdf      6.14.2  PYSEC-2026-3655 6.15.0
+pypdf      6.14.2  PYSEC-2026-3656 6.15.0
+setuptools 68.1.2  PYSEC-2025-49   78.1.1
+setuptools 68.1.2  PYSEC-2025-49   78.1.1
+setuptools 68.1.2  PYSEC-2026-1918 70.0.0
+setuptools 68.1.2  PYSEC-2026-3447 83.0.0
+setuptools 68.1.2  PYSEC-2026-3447 83.0.0
+wheel      0.42.0  CVE-2026-24049  0.46.2
+xhtml2pdf  0.2.14  PYSEC-2026-2056
+\n--- STYLE AUDIT (Pycodestyle) ---
+./agents/sample_hunter.py:190:36: E231 missing whitespace after ','
+./agents/sample_hunter.py:190:68: E231 missing whitespace after ','
+./agents/training_texts.py:17:121: E501 line too long (125 > 120 characters)
+./agents/training_texts.py:18:121: E501 line too long (134 > 120 characters)
+./app/core/logger.py:13:1: E302 expected 2 blank lines, found 1
+./app/core/logger.py:17:1: W293 blank line contains whitespace
+./app/core/logger.py:30:1: W293 blank line contains whitespace
+./app/core/logger.py:38:1: E305 expected 2 blank lines after class or function definition, found 1
+./app/core/lrc_export.py:7:28: E741 ambiguous variable name 'l'
+./app/core/model_manager.py:16:1: E302 expected 2 blank lines, found 1
+./app/core/model_manager.py:23:121: E501 line too long (151 > 120 characters)
+./app/core/model_manager.py:37:1: W293 blank line contains whitespace
+./app/core/model_manager.py:42:1: W293 blank line contains whitespace
+./app/core/model_manager.py:53:1: E305 expected 2 blank lines after class or function definition, found 1
+./app/core/orchestrator.py:547:42: E203 whitespace before ':'
+./app/core/orchestrator.py:1522:59: E231 missing whitespace after ','
+./app/core/orchestrator.py:1523:43: E231 missing whitespace after ','
+./app/core/orchestrator.py:1696:42: E741 ambiguous variable name 'l'
+./app/core/orchestrator_async.py:17:1: E302 expected 2 blank lines, found 1
+./app/core/orchestrator_async.py:24:1: W293 blank line contains whitespace
+./app/core/orchestrator_async.py:25:1: E302 expected 2 blank lines, found 1
+./app/core/orchestrator_async.py:34:1: W293 blank line contains whitespace
+./app/core/orchestrator_async.py:43:1: E302 expected 2 blank lines, found 1
+./app/core/orchestrator_async.py:52:1: W293 blank line contains whitespace
+./app/core/orchestrator_async.py:54:1: W293 blank line contains whitespace
+./app/core/orchestrator_async.py:57:1: W293 blank line contains whitespace
+./app/core/orchestrator_async.py:61:39: W291 trailing whitespace
+./app/core/orchestrator_async.py:69:1: W293 blank line contains whitespace
+./app/core/orchestrator_async.py:76:1: W293 blank line contains whitespace
+./app/core/orchestrator_async.py:79:1: W293 blank line contains whitespace
+./app/core/orchestrator_async.py:85:1: W293 blank line contains whitespace
+./app/core/orchestrator_async.py:90:1: W293 blank line contains whitespace
+./app/core/orchestrator_async.py:92:1: W293 blank line contains whitespace
+./app/core/orchestrator_async.py:99:1: W293 blank line contains whitespace
+./app/core/orchestrator_async.py:102:1: W293 blank line contains whitespace
+./app/core/orchestrator_async.py:105:1: E302 expected 2 blank lines, found 1
+./app/core/orchestrator_god.py:28:1: E302 expected 2 blank lines, found 1
+./app/core/orchestrator_god.py:33:1: E302 expected 2 blank lines, found 1
+./app/core/orchestrator_god.py:45:1: W293 blank line contains whitespace
+./app/core/orchestrator_god.py:47:1: W293 blank line contains whitespace
+./app/core/orchestrator_god.py:57:1: W293 blank line contains whitespace
+./app/core/orchestrator_god.py:69:1: W293 blank line contains whitespace
+./app/core/orchestrator_god.py:77:1: W293 blank line contains whitespace
+./app/core/orchestrator_god.py:87:39: W291 trailing whitespace
+./app/core/orchestrator_god.py:93:1: W293 blank line contains whitespace
+./app/core/orchestrator_god.py:121:1: W293 blank line contains whitespace
+./app/core/orchestrator_god.py:134:1: W293 blank line contains whitespace
+./app/core/orchestrator_god.py:143:1: W293 blank line contains whitespace
+./app/core/pipeline_core.py:22:1: E302 expected 2 blank lines, found 1
+./app/core/pipeline_core.py:30:1: E302 expected 2 blank lines, found 1
+./app/core/pipeline_core.py:37:1: E302 expected 2 blank lines, found 1
+./app/core/pipeline_core.py:60:1: E302 expected 2 blank lines, found 1
+./app/core/pipeline_core.py:86:1: W293 blank line contains whitespace
+./app/core/pipeline_core.py:94:121: E501 line too long (123 > 120 characters)
+./app/core/pipeline_core.py:96:34: E701 multiple statements on one line (colon)
+./app/core/pipeline_core.py:101:1: W293 blank line contains whitespace
+./app/core/pipeline_core.py:104:1: W293 blank line contains whitespace
+./app/core/pipeline_core.py:108:1: W293 blank line contains whitespace
+./app/core/security_utils.py:15:1: E302 expected 2 blank lines, found 1
+./app/core/security_utils.py:19:1: E302 expected 2 blank lines, found 1
+./app/core/security_utils.py:31:1: W293 blank line contains whitespace
+./app/core/security_utils.py:41:1: E302 expected 2 blank lines, found 1
+./app/core/security_utils.py:46:1: W293 blank line contains whitespace
+./app/gui/wizard.py:65:5: E741 ambiguous variable name 'l'
+./app/gui/wizard.py:71:5: E741 ambiguous variable name 'l'
+./app/gui/wizard.py:77:5: E741 ambiguous variable name 'l'
+./app/gui/wizard.py:197:58: E228 missing whitespace around modulo operator
+./app/gui/wizard.py:445:19: E741 ambiguous variable name 'l'
+./app/plugins/advanced.py:13:1: E302 expected 2 blank lines, found 1
+./app/plugins/advanced.py:27:1: E302 expected 2 blank lines, found 1
+./app/plugins/advanced.py:35:1: E302 expected 2 blank lines, found 1
+./app/plugins/base.py:12:1: E302 expected 2 blank lines, found 1
+./app/plugins/base.py:20:25: W291 trailing whitespace
+./app/plugins/base.py:28:1: E302 expected 2 blank lines, found 1
+./modules/ai_arranger.py:12:1: E302 expected 2 blank lines, found 1
+./modules/ai_arranger.py:32:1: W293 blank line contains whitespace
+./modules/ai_arranger.py:36:1: W293 blank line contains whitespace
+./modules/ai_arranger.py:40:55: E261 at least two spaces before inline comment
+./modules/ai_arranger.py:41:1: W293 blank line contains whitespace
+./modules/ai_arranger.py:49:1: W293 blank line contains whitespace
+./modules/ai_arranger.py:52:1: E305 expected 2 blank lines after class or function definition, found 1
+./modules/ai_detector_pro.py:77:64: E203 whitespace before ':'
+./modules/analyzer.py:71:43: E203 whitespace before ':'
+./modules/anti_ai_polish.py:68:20: E203 whitespace before ':'
+./modules/anti_ai_polish.py:96:20: E203 whitespace before ':'
+./modules/anti_ai_polish.py:98:24: E203 whitespace before ':'
+./modules/anti_ai_polish.py:100:20: E203 whitespace before ':'
+./modules/anti_neuro_v10.py:240:32: E203 whitespace before ':'
+./modules/anti_neuro_v10.py:290:24: E203 whitespace before ':'
+./modules/anti_neuro_v10.py:335:24: E203 whitespace before ':'
+./modules/author_ref_lyrics.py:190:20: E741 ambiguous variable name 'l'
+./modules/author_ref_lyrics.py:213:40: E741 ambiguous variable name 'l'
+./modules/auto_qa.py:66:24: E203 whitespace before ':'
+./modules/beat_constructor.py:374:36: E203 whitespace before ':'
+./modules/beat_constructor.py:467:44: E203 whitespace before ':'
+./modules/beat_constructor.py:521:36: E203 whitespace before ':'
+./modules/beat_constructor.py:551:1: W293 blank line contains whitespace
+./modules/beat_constructor.py:556:1: W293 blank line contains whitespace
+./modules/beat_gen.py:56:121: E501 line too long (121 > 120 characters)
+./modules/genre_engine.py:14:1: E302 expected 2 blank lines, found 1
+./modules/genre_engine.py:24:1: E302 expected 2 blank lines, found 1
+./modules/genre_engine.py:32:32: W291 trailing whitespace
+./modules/genre_engine.py:33:34: W291 trailing whitespace
+./modules/genre_engine.py:34:52: W291 trailing whitespace
+./modules/genre_engine.py:35:24: W291 trailing whitespace
+./modules/genre_engine.py:38:1: W293 blank line contains whitespace
+./modules/genre_engine.py:74:1: E302 expected 2 blank lines, found 1
+./modules/genre_engine.py:81:1: W293 blank line contains whitespace
+./modules/genre_engine.py:84:1: W293 blank line contains whitespace
+./modules/genre_engine.py:94:1: W293 blank line contains whitespace
+./modules/genre_engine.py:97:1: W293 blank line contains whitespace
+./modules/genre_engine.py:100:1: E305 expected 2 blank lines after class or function definition, found 1
+./modules/groove_extractor.py:136:43: E203 whitespace before ':'
+./modules/groove_extractor.py:146:46: E203 whitespace before ':'
+./modules/groove_extractor.py:147:46: E203 whitespace before ':'
+./modules/hit_scorer.py:97:34: E203 whitespace before ':'
+./modules/hit_scorer.py:122:26: E203 whitespace before ':'
+./modules/hit_scorer.py:191:35: E203 whitespace before ':'
+./modules/hit_scorer.py:211:18: E203 whitespace before ':'
+./modules/hit_scorer.py:224:26: E203 whitespace before ':'
+./modules/humanization.py:71:30: E203 whitespace before ':'
+./modules/humanization.py:74:26: E203 whitespace before ':'
+./modules/lyrics_gen.py:152:22: E741 ambiguous variable name 'l'
+./modules/lyrics_gen.py:187:30: E741 ambiguous variable name 'l'
+./modules/lyrics_gen.py:188:30: E741 ambiguous variable name 'l'
+./modules/lyrics_gen.py:246:42: E741 ambiguous variable name 'l'
+./modules/lyrics_gen_v8.py:69:9: E741 ambiguous variable name 'l'
+./modules/mastering.py:119:13: E741 ambiguous variable name 'l'
+./modules/midi_generator.py:14:1: E302 expected 2 blank lines, found 1
+./modules/midi_generator.py:24:1: W293 blank line contains whitespace
+./modules/midi_generator.py:28:1: W293 blank line contains whitespace
+./modules/midi_generator.py:31:1: W293 blank line contains whitespace
+./modules/midi_generator.py:57:1: W293 blank line contains whitespace
+./modules/midi_generator.py:60:1: W293 blank line contains whitespace
+./modules/midi_generator.py:62:45: W291 trailing whitespace
+./modules/midi_generator.py:63:1: W293 blank line contains whitespace
+./modules/midi_generator.py:65:1: W293 blank line contains whitespace
+./modules/midi_generator.py:70:1: W293 blank line contains whitespace
+./modules/midi_generator.py:75:1: E305 expected 2 blank lines after class or function definition, found 1
+./modules/musical_intelligence.py:18:1: E302 expected 2 blank lines, found 1
+./modules/musical_intelligence.py:31:31: E261 at least two spaces before inline comment
+./modules/musical_intelligence.py:32:1: W293 blank line contains whitespace
+./modules/musical_intelligence.py:36:1: W293 blank line contains whitespace
+./modules/musical_intelligence.py:39:1: W293 blank line contains whitespace
+./modules/musical_intelligence.py:43:1: W293 blank line contains whitespace
+./modules/musical_intelligence.py:47:1: W293 blank line contains whitespace
+./modules/musical_intelligence.py:52:1: W293 blank line contains whitespace
+./modules/musical_intelligence.py:70:1: W293 blank line contains whitespace
+./modules/musical_intelligence.py:76:1: W293 blank line contains whitespace
+./modules/musical_intelligence.py:81:1: E305 expected 2 blank lines after class or function definition, found 1
+./modules/phonk_engine_v2.py:5:31: W291 trailing whitespace
+./modules/phonk_engine_v2.py:19:1: E302 expected 2 blank lines, found 1
+./modules/phonk_engine_v2.py:30:1: W293 blank line contains whitespace
+./modules/phonk_engine_v2.py:38:1: W293 blank line contains whitespace
+./modules/phonk_engine_v2.py:42:1: W293 blank line contains whitespace
+./modules/phonk_engine_v2.py:49:26: E261 at least two spaces before inline comment
+./modules/phonk_engine_v2.py:52:1: W293 blank line contains whitespace
+./modules/phonk_engine_v2.py:53:34: E261 at least two spaces before inline comment
+./modules/phonk_engine_v2.py:55:1: W293 blank line contains whitespace
+./modules/phonk_engine_v2.py:61:1: W293 blank line contains whitespace
+./modules/phonk_engine_v2.py:69:24: E261 at least two spaces before inline comment
+./modules/phonk_engine_v2.py:70:1: W293 blank line contains whitespace
+./modules/phonk_engine_v2.py:73:1: W293 blank line contains whitespace
+./modules/phonk_engine_v2.py:77:1: W293 blank line contains whitespace
+./modules/phonk_engine_v2.py:89:1: W293 blank line contains whitespace
+./modules/phonk_engine_v2.py:92:1: W293 blank line contains whitespace
+./modules/phonk_engine_v2.py:96:1: E305 expected 2 blank lines after class or function definition, found 1
+./modules/recording_v13.py:109:32: E203 whitespace before ':'
+./modules/recording_v13.py:126:30: E203 whitespace before ':'
+./modules/recording_v13.py:171:26: E203 whitespace before ':'
+./modules/recording_v13.py:276:30: E203 whitespace before ':'
+./modules/recording_v13.py:285:42: E203 whitespace before ':'
+./modules/release_export.py:247:46: E231 missing whitespace after ','
+./modules/release_export.py:247:67: E231 missing whitespace after ','
+./modules/release_export.py:249:61: E231 missing whitespace after ','
+./modules/release_export.py:249:68: E231 missing whitespace after ','
+./modules/release_pack_full.py:231:45: E228 missing whitespace around modulo operator
+./modules/release_pack_full.py:343:41: E203 whitespace before ':'
+./modules/release_pack_full.py:426:28: E231 missing whitespace after ','
+./modules/release_pack_full.py:426:61: E231 missing whitespace after ','
+./modules/release_pack_full.py:427:39: E231 missing whitespace after ','
+./modules/release_pack_full.py:428:61: E231 missing whitespace after ','
+./modules/release_pack_full.py:439:59: E231 missing whitespace after ','
+./modules/release_pack_full.py:441:22: E231 missing whitespace after ','
+./modules/release_pack_full.py:441:56: E231 missing whitespace after ','
+./modules/release_pack_full.py:442:35: E231 missing whitespace after ','
+./modules/release_pack_full.py:442:75: E231 missing whitespace after ','
+./modules/release_pack_full.py:443:28: E231 missing whitespace after ','
+./modules/release_pack_full.py:464:30: E231 missing whitespace after ','
+./modules/release_pack_full.py:465:31: E231 missing whitespace after ','
+./modules/release_pack_full.py:466:30: E231 missing whitespace after ','
+./modules/release_pack_full.py:466:58: E231 missing whitespace after ','
+./modules/release_pack_full.py:478:53: E231 missing whitespace after ','
+./modules/release_pack_full.py:505:39: E231 missing whitespace after ','
+./modules/release_pack_full.py:506:35: E231 missing whitespace after ','
+./modules/release_pack_full.py:507:35: E231 missing whitespace after ','
+./modules/release_pack_full.py:508:45: E231 missing whitespace after ','
+./modules/release_pack_full.py:509:53: E231 missing whitespace after ','
+./modules/release_pack_full.py:524:30: E231 missing whitespace after ','
+./modules/release_pack_full.py:711:69: E231 missing whitespace after ','
+./modules/release_pack_full.py:762:47: E231 missing whitespace after ','
+./modules/release_pack_full.py:770:53: E231 missing whitespace after ','
+./modules/release_pack_full.py:771:37: E231 missing whitespace after ','
+./modules/release_pack_full.py:771:64: E231 missing whitespace after ','
+./modules/release_pack_full.py:784:48: E231 missing whitespace after ','
+./modules/release_pack_full.py:784:74: E231 missing whitespace after ','
+./modules/self_diag_v13.py:59:1: E731 do not assign a lambda expression, use a def
+./modules/self_diag_v13.py:60:1: E731 do not assign a lambda expression, use a def
+./modules/self_diag_v13.py:61:1: E731 do not assign a lambda expression, use a def
+./modules/self_diag_v13.py:62:1: E731 do not assign a lambda expression, use a def
+./modules/self_diag_v13.py:63:1: E731 do not assign a lambda expression, use a def
+./modules/self_diag_v13.py:252:30: E231 missing whitespace after ','
+./modules/self_diag_v13.py:252:55: E231 missing whitespace after ','
+./modules/tiktok_edit_v9.py:66:41: E203 whitespace before ':'
+./modules/video_edit_v11.py:87:34: E203 whitespace before ':'
+./modules/video_edit_v11.py:96:31: E203 whitespace before ':'
+./modules/video_edit_v11.py:112:34: E203 whitespace before ':'
+./modules/video_edit_v11.py:123:26: E203 whitespace before ':'
+./modules/video_edit_v11.py:158:36: E203 whitespace before ':'
+./modules/video_edit_v11.py:181:59: E203 whitespace before ':'
+./modules/video_edit_v11.py:188:41: E203 whitespace before ':'
+./modules/vocal_fx.py:113:27: E203 whitespace before ':'
+./modules/vocal_fx.py:267:28: E203 whitespace before ':'
+./modules/vocal_fx.py:269:28: E203 whitespace before ':'
+./modules/voice_recording.py:281:44: E203 whitespace before ':'
+./modules/voice_vault_v9.py:101:22: E203 whitespace before ':'
+./modules/voice_vault_v9.py:106:60: E203 whitespace before ':'
+./tools/smoke_v18.py:62:11: E203 whitespace before ':'
+./tools/smoke_v18.py:63:15: E203 whitespace before ':'
+./tools/smoke_v25.py:225:46: E231 missing whitespace after ','
+./tools/smoke_v25.py:244:24: E231 missing whitespace after ','
+./tools/smoke_v26.py:119:42: E203 whitespace before ':'
+./ui/karaoke_recorder.py:40:16: E203 whitespace before ':'
+\n--- DEAD CODE AUDIT (Eradicate) ---
+--- before/./main.py
++++ after/./main.py
+@@ -367,7 +367,6 @@
+     _setup_console_encoding()
+     _header()
+     # v26: Патчи больше не нужны, используем единое ядро
+-    # _register_patches()
+ 
+     args = set(sys.argv[1:])
+     if "--smoke" in args:
+--- before/./agents/sample_hunter.py
++++ after/./agents/sample_hunter.py
+@@ -135,7 +135,6 @@
+     return results[:max_results]
+ 
+ 
+-# ---------------------------------------------------------------- hunt (main)
+ def hunt(
+     query: str,
+     max_results: int = 8,
+--- before/./app/core/hw_autodetect.py
++++ after/./app/core/hw_autodetect.py
+@@ -95,7 +95,6 @@
+         return g
+     except Exception:
+         pass
+-    # ROCm (Linux)
+     try:
+         if os.path.exists("/opt/rocm"):
+             g["kind"] = "rocm"
+--- before/./modules/analyzer.py
++++ after/./modules/analyzer.py
+@@ -74,7 +74,6 @@
+     # Определяем где дроп (пик энергии)
+     drop_section = int(np.argmax(section_energies)) if section_energies else 0
+ 
+-    # Essentia-дескрипторы (опционально)
+     essentia_desc = {}
+     try:
+         import essentia.standard as estd
+--- before/./modules/arrangement_engine.py
++++ after/./modules/arrangement_engine.py
+@@ -29,7 +29,6 @@
+ 
+ # ---------------------------------------------------------- templates
+ # Каждый шаблон — базовая структура для жанра.
+-# Секции: (name, bars_default, energy, vocal_role)
+ GENRE_TEMPLATES = {
+     "phonk / drift": [
+         ("intro", 4, 0.35, "silence"),
+--- before/./modules/beat_constructor.py
++++ after/./modules/beat_constructor.py
+@@ -347,7 +347,6 @@
+                         hh[: hh_end - step_start], hh_pan
+                     )
+ 
+-            # Мелодия (шире)
+             mel = self._generate_melody(bar, section, bar_samples)
+             bar_audio += self._pan_audio(mel, random.uniform(-0.6, 0.6))
+ 
+--- before/./modules/lyrics_gen.py
++++ after/./modules/lyrics_gen.py
+@@ -204,7 +204,6 @@
+         lyrics_text = ollama_out
+         source = "ollama"
+     else:
+-        # Fallback: template
+         punches = _pick_punches(theme, count=8)
+         blocks = []
+         for i in range(n_verses):
+--- before/./modules/release_export.py
++++ after/./modules/release_export.py
+@@ -164,7 +164,6 @@
+         if "master.flac" in files:
+             _write_flac_tags(files["master.flac"], artist_name, title)
+ 
+-    # Instrumental (beat)
+     if beat_path and os.path.exists(beat_path):
+         for ext in ("wav", "mp3"):
+             p = rel_dir / f"instrumental.{ext}"
+@@ -178,7 +177,6 @@
+                 year=time.localtime().tm_year,
+             )
+ 
+-    # Acapella (vocal)
+     if vocal_path and os.path.exists(vocal_path):
+         for ext in ("wav", "mp3"):
+             p = rel_dir / f"acapella.{ext}"

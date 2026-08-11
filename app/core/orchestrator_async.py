@@ -46,6 +46,13 @@ class AsyncOrchestrator:
         self.out_root = out_root
         self.out_root.mkdir(parents=True, exist_ok=True)
         self.stages: List[AsyncStage] = []
+        # v26: Ограничиваем параллелизм количеством ядер для стабильности
+        import multiprocessing
+        self.semaphore = asyncio.Semaphore(max(1, multiprocessing.cpu_count() - 1))
+
+    async def _run_limited(self, name: str, coro: Callable):
+        async with self.semaphore:
+            return await run_stage_async(name, coro)
 
     async def run_pipeline(self, wizard_state: dict):
         t_start = time.time()
@@ -55,14 +62,14 @@ class AsyncOrchestrator:
         bpm = int(wizard_state.get("bpm_override") or 130)
         genre = wizard_state.get("genre", "drift_phonk")
         
-        # 1. Параллельный запуск генерации бита и колокольчиков
+        # 1. Параллельный запуск генерации бита и колокольчиков (через семафор)
         tasks = [
-            run_stage_async("beat_gen", lambda: beat_constructor.construct_beat(
+            self._run_limited("beat_gen", lambda: beat_constructor.construct_beat(
                 groove={}, samples=[], 
                 style_vector={"target_bpm": bpm, "target_mode": "minor"},
                 out_name="beat.wav"
             )),
-            run_stage_async("cowbell_gen", lambda: phonk_engine.create_cowbell_melody(
+            self._run_limited("cowbell_gen", lambda: phonk_engine.create_cowbell_melody(
                 [440, 523, 392, 440], bpm, str(self.out_root / "cowbells.wav")
             ))
         ]
@@ -70,7 +77,7 @@ class AsyncOrchestrator:
         # Если есть вокал - добавляем очистку в параллель
         vocal_in = wizard_state.get("vocal_input_path")
         if vocal_in and os.path.exists(vocal_in):
-            tasks.append(run_stage_async("vocal_clean", lambda: voice_cleaner.clean_vocal(
+            tasks.append(self._run_limited("vocal_clean", lambda: voice_cleaner.clean_vocal(
                 vocal_in, str(self.out_root / "vocal_cleaned.wav")
             )))
             

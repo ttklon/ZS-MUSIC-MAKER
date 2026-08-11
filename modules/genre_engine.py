@@ -22,9 +22,20 @@ class GenreProfile:
     tags: List[str] = field(default_factory=list)
 
 class StyleRegistry:
+    _instance = None
+
+    def __new__(cls, *args, **kwargs):
+        if not cls._instance:
+            cls._instance = super(StyleRegistry, cls).__new__(cls)
+            cls._instance._initialized = False
+        return cls._instance
+
     def __init__(self):
+        if self._initialized:
+            return
         self.genres: Dict[str, GenreProfile] = {}
         self._load_defaults()
+        self._initialized = True
 
     def _load_defaults(self):
         # Базовые жанры
@@ -39,26 +50,36 @@ class StyleRegistry:
         # Загрузка 100+ жанров из конфига
         config_path = os.path.join(os.path.dirname(__file__), "..", "config", "genres_100.json")
         if os.path.exists(config_path):
-            with open(config_path, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                for category, genre_list in data.items():
-                    for g_name in genre_list:
-                        safe_name = g_name.lower().replace(" ", "_")
-                        # Динамическая настройка параметров в зависимости от категории
-                        bpm_map = {
-                            "electronic": (124, 145),
-                            "hiphop_rnb": (85, 105),
-                            "jazz_blues": (90, 120),
-                            "rock_metal": (110, 160),
-                            "classical_cinematic": (60, 140),
-                            "folk_world": (80, 130)
-                        }
-                        self.register(GenreProfile(
-                            name=safe_name,
-                            bpm_range=bpm_map.get(category, (100, 130)),
-                            energy=0.8 if "metal" in category else 0.6,
-                            tags=[category, safe_name]
-                        ))
+            try:
+                with open(config_path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    # v26: Валидация структуры конфига
+                    if not isinstance(data, dict):
+                        raise ValueError("Genre config must be a JSON object")
+                    
+                    for category, genre_list in data.items():
+                        if not isinstance(genre_list, list):
+                            continue
+                        for g_name in genre_list:
+                            safe_name = g_name.lower().replace(" ", "_")
+                            # Динамическая настройка параметров в зависимости от категории
+                            bpm_map = {
+                                "electronic": (124, 145),
+                                "hiphop_rnb": (85, 105),
+                                "jazz_blues": (90, 120),
+                                "rock_metal": (110, 160),
+                                "classical_cinematic": (60, 140),
+                                "folk_world": (80, 130)
+                            }
+                            self.register(GenreProfile(
+                                name=safe_name,
+                                bpm_range=bpm_map.get(category, (100, 130)),
+                                energy=0.8 if "metal" in category else 0.6,
+                                tags=[category, safe_name]
+                            ))
+            except Exception as e:
+                from app.core.logger import app_logger
+                app_logger.error(f"Error loading genre config: {e}")
 
     def register(self, profile: GenreProfile):
         self.genres[profile.name] = profile
