@@ -48,17 +48,21 @@ except Exception:  # pragma: no cover
 
 try:
     import librosa
-
     HAS_LIBROSA = True
 except Exception:
     HAS_LIBROSA = False
 
 try:
     import soundfile as sf
-
     HAS_SF = True
 except Exception:
     HAS_SF = False
+
+try:
+    import pyloudnorm as pyln
+    HAS_PYLOUDNORM = True
+except ImportError:
+    HAS_PYLOUDNORM = False
 
 
 # ============================================================ utils
@@ -252,14 +256,33 @@ def _bpm_dance_fitness(y, sr) -> tuple[float, float]:
 
 
 def _loudness_lufs(y, sr) -> tuple[float, float]:
-    """Псевдо-LUFS через простую A-weighting-approx RMS в dBFS.
-
+    """Интегральная громкость. Использует pyloudnorm (BS.1770) если есть, иначе RMS-fallback.
+    
     v26 FIX (P1): librosa грузит mono-downmix (L+R)/2 — теряет ~3 dB RMS
-    относительно стерео dBFS. Sweet-spot сдвинут на -3 dB:
-    - стерео dBFS -11..-7 → mono-RMS -14..-10 = score 95.
+    относительно стерео dBFS. Sweet-spot сдвинут на -3 dB.
     """
     if np is None:
         return 60.0, -14.0
+        
+    if HAS_PYLOUDNORM:
+        try:
+            # y is mono from _load_audio
+            meter = pyln.Meter(sr)
+            lufs = float(meter.integrated_loudness(y))
+            # Для LUFS таргет обычно -14..-9
+            if -14.0 <= lufs <= -9.0:
+                score = 98.0
+            elif -16.0 <= lufs < -14.0:
+                score = 80.0
+            elif -9.0 < lufs <= -7.0:
+                score = 85.0
+            else:
+                score = 50.0
+            return score, lufs
+        except Exception:
+            pass
+
+    # Fallback to RMS-based pseudo-LUFS
     rms = _rms(y)
     dbfs = _db(rms)
     if -14.0 <= dbfs <= -10.0:

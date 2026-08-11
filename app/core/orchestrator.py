@@ -1970,7 +1970,7 @@ def run_full_pipeline(
             verdict = "PASS"
         elif all_ok and any_fb:
             verdict = "PASS_WITH_FALLBACK"
-            warnings.append("Some stages used fallback (see fallback_used=True).")
+            warnings.append("Some stages used fallback. Output might be simplified (e.g. template lyrics or basic mastering).")
         elif non_blocked_ok and any_blocked:
             # только heavy-стадии (RVC/demucs/MusicGen/TTS) BLOCKED,
             # всё остальное отработало честно — нормальный baseline-режим

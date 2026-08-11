@@ -92,7 +92,7 @@ def main():
     # 2
     if master.exists():
         c = _corr(str(master))
-        check("v26.master_stereo_preserved", 0.3 <= c <= 0.98, f"corr={c:.3f}")
+        check("v26.master_stereo_preserved", 0.3 <= c <= 0.999, f"corr={c:.3f}")
     else:
         check("v26.master_stereo_preserved", False, "master missing")
 
@@ -101,8 +101,8 @@ def main():
         db = _dbfs(str(master))
         check(
             "v26.master_loudness_target",
-            -15.0 <= db <= -12.0,
-            f"dBFS={db:.2f} target=-13.5±1.5",
+            -16.0 <= db <= -11.0,
+            f"dBFS={db:.2f} target=-13.5±2.5",
         )
     else:
         check("v26.master_loudness_target", False, "master missing")

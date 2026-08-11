@@ -90,13 +90,21 @@ def apply_eq(
 def master_with_matchering(
     mix_path: str, reference_path: str, out_name: str = "master.wav"
 ) -> str:
-    """Matchering под ЛЮБОЙ референс."""
+    """Matchering под ЛЮБОЙ референс. Возвращает путь к мастеру."""
+    res = master_with_matchering_status(mix_path, reference_path, out_name)
+    return res["master_wav"]
+
+
+def master_with_matchering_status(
+    mix_path: str, reference_path: str, out_name: str = "master.wav"
+) -> dict:
+    """Matchering под ЛЮБОЙ референс с возвратом статуса."""
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
     out = os.path.join(OUTPUT_DIR, out_name)
-    used_matchering = True
+    used_matchering = False
+    
     try:
         import matchering as mg
-
-        mg.log(print)
         mg.process(
             target=mix_path,
             reference=reference_path,
@@ -105,41 +113,31 @@ def master_with_matchering(
                 mg.pcm24(out.replace(".wav", "_24.wav")),
             ],
         )
+        used_matchering = True
     except ImportError:
-        # v18: честный fallback, не скрытый copy
-        used_matchering = False
         shutil.copy(mix_path, out)
-        print("[matchering] MISSING — fallback: copy (НЕ мастеринг по референсу)")
+        print("[matchering] MISSING — fallback: copy")
     except Exception as e:
-        used_matchering = False
-        print(f"[matchering warning] {e}, fallback -> copy")
         shutil.copy(mix_path, out)
+        print(f"[matchering error] {e} — fallback: copy")
 
     # Дополнительно: mp3 320
     try:
         from pydub import AudioSegment
-
         AudioSegment.from_wav(out).export(
             out.replace(".wav", ".mp3"), format="mp3", bitrate="320k"
         )
     except Exception:
         pass
-    return out
-
-
-def master_with_matchering_status(
-    mix_path: str, reference_path: str, out_name: str = "master.wav"
-) -> dict:
-    """v18: то же, но с честным статусом (used_matchering/fallback)."""
-    out = master_with_matchering(mix_path, reference_path, out_name=out_name)
-    # повторно определяем флаг по наличию 24-битного файла (matchering его пишет)
-    used = os.path.exists(out.replace(".wav", "_24.wav"))
+        
     return {
         "master_wav": out,
-        "used_matchering": used,
-        "fallback_used": not used,
-        "engine": "matchering" if used else "copy_fallback",
+        "used_matchering": used_matchering,
+        "engine": "matchering" if used_matchering else "copy_fallback"
     }
+
+
+# Функция master_with_matchering_status была перемещена выше для устранения дублирования и улучшения логики.
 
 
 def full_mixdown(

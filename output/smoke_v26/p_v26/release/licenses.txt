@@ -1,4 +1,4 @@
 ZS Music Maker — Release Pack
 Все сэмплы: CC0 / CC-BY (см. samples_cache/cc0/index.json).
 Голос: RVC пользователя или TTS fallback.
-Собрано: 2026-08-11 19:23:27
+Собрано: 2026-08-11 19:46:28

@@ -70,15 +70,15 @@ class ZSPipeline:
         return self
 
     def _save_checkpoint(self, stage_name: str, result: StageResult):
-        """Сохраняет состояние стадии на диск (в бинарном формате)."""
-        cp_path = self.checkpoint_dir / f"{stage_name}.pkl"
+        """Сохраняет состояние стадии на диск (в безопасном JSON формате)."""
+        cp_path = self.checkpoint_dir / f"{stage_name}.json"
         try:
-            with open(cp_path, "wb") as f:
-                pickle.dump({
+            with open(cp_path, "w", encoding="utf-8") as f:
+                json.dump({
                     "ok": result.ok,
                     "output": result.output,
                     "duration": result.duration_sec
-                }, f)
+                }, f, ensure_ascii=False, default=str)
         except Exception as e:
             logger.warning(f"Failed to save checkpoint for {stage_name}: {e}")
 
@@ -86,13 +86,13 @@ class ZSPipeline:
         logger.info(f"Launching pipeline for project: {self.context.project_id}")
         
         for stage in self.stages:
-            # Проверка чекпоинта (бинарный формат быстрее)
-            cp_path = self.checkpoint_dir / f"{stage.name}.pkl"
+            # Проверка чекпоинта (JSON формат для безопасности)
+            cp_path = self.checkpoint_dir / f"{stage.name}.json"
             if use_checkpoints and cp_path.exists():
                 logger.info(f"Loading checkpoint for stage: {stage.name}")
                 try:
-                    with open(cp_path, "rb") as f:
-                        data = pickle.load(f)
+                    with open(cp_path, "r", encoding="utf-8") as f:
+                        data = json.load(f)
                         res = StageResult(name=stage.name, ok=data["ok"], output=data["output"], duration_sec=data["duration"])
                         self.context.results[stage.name] = res
                         if not res.ok: break
