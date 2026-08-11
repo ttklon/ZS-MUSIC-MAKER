@@ -116,8 +116,8 @@ def run_god_pipeline(
 
     pipe.add_stage("god_mastering_pro", stage_master)
 
-    # Запуск
-    final_out = pipe.run()
+    # Запуск (с поддержкой чекпоинтов для стабильности)
+    final_out = pipe.run(use_checkpoints=True)
     
     # Формируем итоговый отчет для совместимости
     stages_list = []

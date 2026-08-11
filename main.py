@@ -115,6 +115,7 @@ def _header() -> None:
     _safe_print("=" * 64)
     _safe_print(f"ZS Music Maker v{VERSION} — main.py (unified)")
     _safe_print(f"Build: {BUILD}")
+    _safe_print("Status: GOD MODE 3.0 (Autonomy & Stability)")
     _safe_print("=" * 64)
 
 

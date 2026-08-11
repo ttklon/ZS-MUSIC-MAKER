@@ -7,7 +7,7 @@
     {
       "name": "ai_arrangement",
       "ok": true,
-      "duration_sec": 0.00037741661071777344,
+      "duration_sec": 0.0002770423889160156,
       "output": [
         {
           "name": "intro",
@@ -51,7 +51,7 @@
     {
       "name": "midi_generation",
       "ok": true,
-      "duration_sec": 0.0005218982696533203,
+      "duration_sec": 0.0006356239318847656,
       "output": {
         "ok": true,
         "drums": "output/midi/phonk_drums.mid",
@@ -62,26 +62,26 @@
     {
       "name": "audio_generation",
       "ok": true,
-      "duration_sec": 0.49309372901916504,
+      "duration_sec": 0.48734426498413086,
       "output": "/home/ubuntu/ZS-MUSIC-MAKER/output/god_cli/phonk_v2_master.wav",
       "reason": null
     },
     {
       "name": "vocal_cleaning",
       "ok": true,
-      "duration_sec": 3.0040740966796875e-05,
+      "duration_sec": 0.0001361370086669922,
       "output": null,
       "reason": null
     },
     {
       "name": "god_mastering_pro",
       "ok": true,
-      "duration_sec": 0.13901019096374512,
+      "duration_sec": 0.1383686065673828,
       "output": {
         "ok": true,
         "path": "/home/ubuntu/ZS-MUSIC-MAKER/output/god_cli/masters/master_god.wav",
         "engine": "pedalboard_pro",
-        "input_lufs": -14.5,
+        "input_lufs": -14.29,
         "target_lufs": -12.0
       },
       "reason": null
