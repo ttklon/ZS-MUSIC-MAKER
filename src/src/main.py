@@ -381,6 +381,13 @@ def main() -> int:
         return _cli_console()
     if "--god" in args:
         return _cli_god()
+    if "--async" in args:
+        import asyncio
+        from app.core.orchestrator_async import AsyncOrchestrator
+
+        orch = AsyncOrchestrator("async_cli", ROOT / "output" / "async_cli")
+        asyncio.run(orch.run_pipeline({"genre": "phonk", "bpm_override": 135}))
+        return 0
     if "--version" in args or "-V" in args:
         return _cli_version()
     if "--gradio" in args:

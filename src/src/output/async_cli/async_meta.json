@@ -1,0 +1,99 @@
+{
+  "project_id": "async_cli",
+  "status": "completed",
+  "duration_sec": 2.23,
+  "stages": [
+    {
+      "name": "beat_gen",
+      "ok": true,
+      "duration_sec": 0.295,
+      "output": {
+        "ok": true,
+        "beat_path": "/home/ubuntu/ZS-MUSIC-MAKER/src/src/modules/../output/beats/beat.wav",
+        "duration_sec": 120.0,
+        "bpm": 135,
+        "key": "A minor",
+        "sections": [
+          {
+            "name": "intro",
+            "bars": 4,
+            "start_sec": 0.0,
+            "duration_sec": 7.11
+          },
+          {
+            "name": "verse",
+            "bars": 8,
+            "start_sec": 7.11,
+            "duration_sec": 14.22
+          },
+          {
+            "name": "pre_chorus",
+            "bars": 4,
+            "start_sec": 21.33,
+            "duration_sec": 7.11
+          },
+          {
+            "name": "hook",
+            "bars": 8,
+            "start_sec": 28.44,
+            "duration_sec": 14.22
+          },
+          {
+            "name": "verse",
+            "bars": 8,
+            "start_sec": 42.67,
+            "duration_sec": 14.22
+          },
+          {
+            "name": "pre_chorus",
+            "bars": 4,
+            "start_sec": 56.89,
+            "duration_sec": 7.11
+          },
+          {
+            "name": "hook",
+            "bars": 8,
+            "start_sec": 64.0,
+            "duration_sec": 14.22
+          },
+          {
+            "name": "outro",
+            "bars": 4,
+            "start_sec": 78.22,
+            "duration_sec": 7.11
+          }
+        ],
+        "total_bars": 48,
+        "samples_used": {
+          "kicks": 0,
+          "snares": 0,
+          "hihats": 0,
+          "bass": 0,
+          "melody": 0,
+          "fx": 0
+        }
+      },
+      "reason": null
+    },
+    {
+      "name": "cowbell_gen",
+      "ok": true,
+      "duration_sec": 0.009,
+      "output": "/home/ubuntu/ZS-MUSIC-MAKER/src/src/output/async_cli/cowbells.wav",
+      "reason": null
+    },
+    {
+      "name": "mastering",
+      "ok": true,
+      "duration_sec": 0.543,
+      "output": {
+        "ok": true,
+        "path": "/home/ubuntu/ZS-MUSIC-MAKER/src/src/output/async_cli/masters/master_async.wav",
+        "engine": "pedalboard_pro",
+        "input_lufs": -18.53,
+        "target_lufs": -12.0
+      },
+      "reason": null
+    }
+  ]
+}
