@@ -78,15 +78,19 @@ class ZSPipeline:
         return self
 
     def _save_checkpoint(self, stage_name: str, result: StageResult):
-        """Сохраняет состояние стадии на диск (в бинарном формате)."""
+        """Сохраняет состояние стадии на диск (в бинарном формате с контрольной суммой)."""
         cp_path = self.checkpoint_dir / f"{stage_name}.pkl"
         try:
+            payload = {
+                "ok": result.ok,
+                "output": result.output,
+                "duration": result.duration_sec
+            }
+            data = pickle.dumps(payload)
+            import zlib
+            checksum = zlib.crc32(data)
             with open(cp_path, "wb") as f:
-                pickle.dump({
-                    "ok": result.ok,
-                    "output": result.output,
-                    "duration": result.duration_sec
-                }, f)
+                pickle.dump({"checksum": checksum, "data": data}, f)
         except Exception as e:
             logger.warning(f"Failed to save checkpoint for {stage_name}: {e}")
 
@@ -94,19 +98,31 @@ class ZSPipeline:
         logger.info(i18n.t("start_pipeline", self.context.project_id))
         
         for stage in self.stages:
-            # Проверка чекпоинта (бинарный формат быстрее)
+            # Проверка чекпоинта с валидацией контрольной суммы (CRC32)
             cp_path = self.checkpoint_dir / f"{stage.name}.pkl"
             if use_checkpoints and cp_path.exists():
                 logger.info(i18n.t("loading_checkpoint", stage.name))
                 try:
                     with open(cp_path, "rb") as f:
-                        data = pickle.load(f)
-                        res = StageResult(name=stage.name, ok=data["ok"], output=data["output"], duration_sec=data["duration"])
+                        container = pickle.load(f)
+                        if isinstance(container, dict) and "checksum" in container and "data" in container:
+                            import zlib
+                            if zlib.crc32(container["data"]) != container["checksum"]:
+                                raise ValueError("CRC32 checksum mismatch — checkpoint corrupted.")
+                            payload = pickle.loads(container["data"])
+                        else:
+                            # Старый формат без чек-суммы
+                            payload = container
+                        
+                        res = StageResult(name=stage.name, ok=payload["ok"], output=payload["output"], duration_sec=payload["duration"])
                         self.context.results[stage.name] = res
                         if not res.ok: break
                         continue
                 except Exception as e:
                     logger.warning(f"Checkpoint corrupted for {stage.name}, re-running. Error: {e}")
+                    try:
+                        cp_path.unlink() # Удаляем битый чекпоинт
+                    except: pass
 
             res = stage.execute(self.context)
             self._save_checkpoint(stage.name, res)
