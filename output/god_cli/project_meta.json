@@ -2,15 +2,12 @@
   "project_id": "god_cli",
   "status": "completed",
   "god_mode": true,
-  "elapsed_sec": 0.82,
+  "elapsed_sec": 0.63,
   "stages": [
     {
       "name": "ai_arrangement",
       "ok": true,
-      "fallback_used": false,
-      "synthetic": false,
-      "blocked": false,
-      "duration_sec": 0.0,
+      "duration_sec": 0.00037741661071777344,
       "output": [
         {
           "name": "intro",
@@ -19,28 +16,28 @@
           "duration_sec": 8.0
         },
         {
-          "name": "buildup",
-          "bars": 4,
+          "name": "verse",
+          "bars": 8,
           "start_sec": 8.0,
-          "duration_sec": 8.0
-        },
-        {
-          "name": "drop",
-          "bars": 8,
-          "start_sec": 16.0,
           "duration_sec": 16.0
         },
         {
-          "name": "breakdown",
+          "name": "hook",
           "bars": 4,
-          "start_sec": 32.0,
+          "start_sec": 24.0,
           "duration_sec": 8.0
         },
         {
-          "name": "drop",
+          "name": "verse",
           "bars": 8,
-          "start_sec": 40.0,
+          "start_sec": 32.0,
           "duration_sec": 16.0
+        },
+        {
+          "name": "hook",
+          "bars": 4,
+          "start_sec": 48.0,
+          "duration_sec": 8.0
         },
         {
           "name": "outro",
@@ -54,108 +51,41 @@
     {
       "name": "midi_generation",
       "ok": true,
-      "fallback_used": false,
-      "synthetic": false,
-      "blocked": false,
-      "duration_sec": 0.0,
+      "duration_sec": 0.0005218982696533203,
       "output": {
         "ok": true,
-        "drums": "output/midi/techno_drums.mid",
-        "melody": "output/midi/techno_melody.mid"
+        "drums": "output/midi/phonk_drums.mid",
+        "melody": "output/midi/phonk_melody.mid"
       },
       "reason": null
     },
     {
-      "name": "multi_genre_beat",
+      "name": "audio_generation",
       "ok": true,
-      "fallback_used": false,
-      "synthetic": false,
-      "blocked": false,
-      "duration_sec": 0.288,
-      "output": {
-        "ok": true,
-        "beat_path": "/home/ubuntu/ZS-MUSIC-MAKER/src/src/modules/../output/beats/multi_beat.wav",
-        "duration_sec": 120.0,
-        "bpm": 138,
-        "key": "A minor",
-        "sections": [
-          {
-            "name": "intro",
-            "bars": 4,
-            "start_sec": 0.0,
-            "duration_sec": 6.96
-          },
-          {
-            "name": "verse",
-            "bars": 8,
-            "start_sec": 6.96,
-            "duration_sec": 13.91
-          },
-          {
-            "name": "pre_chorus",
-            "bars": 4,
-            "start_sec": 20.87,
-            "duration_sec": 6.96
-          },
-          {
-            "name": "hook",
-            "bars": 8,
-            "start_sec": 27.83,
-            "duration_sec": 13.91
-          },
-          {
-            "name": "verse",
-            "bars": 8,
-            "start_sec": 41.74,
-            "duration_sec": 13.91
-          },
-          {
-            "name": "pre_chorus",
-            "bars": 4,
-            "start_sec": 55.65,
-            "duration_sec": 6.96
-          },
-          {
-            "name": "hook",
-            "bars": 8,
-            "start_sec": 62.61,
-            "duration_sec": 13.91
-          },
-          {
-            "name": "outro",
-            "bars": 4,
-            "start_sec": 76.52,
-            "duration_sec": 6.96
-          }
-        ],
-        "total_bars": 48,
-        "samples_used": {
-          "kicks": 0,
-          "snares": 0,
-          "hihats": 0,
-          "bass": 0,
-          "melody": 0,
-          "fx": 0
-        }
-      },
+      "duration_sec": 0.49309372901916504,
+      "output": "/home/ubuntu/ZS-MUSIC-MAKER/output/god_cli/phonk_v2_master.wav",
+      "reason": null
+    },
+    {
+      "name": "vocal_cleaning",
+      "ok": true,
+      "duration_sec": 3.0040740966796875e-05,
+      "output": null,
       "reason": null
     },
     {
       "name": "god_mastering_pro",
       "ok": true,
-      "fallback_used": false,
-      "synthetic": false,
-      "blocked": false,
-      "duration_sec": 0.532,
+      "duration_sec": 0.13901019096374512,
       "output": {
         "ok": true,
-        "path": "/home/ubuntu/ZS-MUSIC-MAKER/src/src/output/god_cli/masters/master_god.wav",
+        "path": "/home/ubuntu/ZS-MUSIC-MAKER/output/god_cli/masters/master_god.wav",
         "engine": "pedalboard_pro",
-        "input_lufs": -18.53,
+        "input_lufs": -14.5,
         "target_lufs": -12.0
       },
       "reason": null
     }
   ],
-  "master_path": "/home/ubuntu/ZS-MUSIC-MAKER/src/src/output/god_cli/masters/master_god.wav"
+  "master_path": "/home/ubuntu/ZS-MUSIC-MAKER/output/god_cli/masters/master_god.wav"
 }

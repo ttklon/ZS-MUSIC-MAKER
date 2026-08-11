@@ -16,12 +16,11 @@
 
 from __future__ import annotations
 
-import hashlib
 import json
 import os
 import urllib.parse
-import urllib.request
 from pathlib import Path
+from app.core.security_utils import safe_hash, download_file, get_json
 
 ROOT = Path(__file__).resolve().parents[1]
 CACHE = ROOT / "samples_cache"
@@ -63,8 +62,9 @@ def search_wikimedia(query: str, max_results: int = 10) -> list[dict]:
             f"action=query&list=search&srsearch={urllib.parse.quote(query)}%20audio"
             f"&srnamespace=6&srlimit={max_results}&format=json"
         )
-        with urllib.request.urlopen(url, timeout=10) as r:
-            data = json.load(r)
+        data = get_json(url)
+        if not data:
+            return []
         for item in data.get("query", {}).get("search", []):
             title = item.get("title", "")
             if not any(
@@ -106,8 +106,9 @@ def search_pixabay(query: str, max_results: int = 10) -> list[dict]:
         return []
     try:
         url = f"https://pixabay.com/api/music/?key={api_key}&q={urllib.parse.quote(query)}&per_page={max_results}"
-        with urllib.request.urlopen(url, timeout=10) as r:
-            data = json.load(r)
+        data = get_json(url)
+        if not data:
+            return []
         for hit in data.get("hits", []):
             results = []
             results.append(
@@ -185,15 +186,16 @@ def download_to_cache(item: dict) -> str | None:
     if not url:
         return None
     try:
-        h = hashlib.md5(url.encode()).hexdigest()[:10]
+        h = safe_hash(url)[:10]
         name = f"{item.get('source','online')}_{h}_{item.get('name','sample')[:30]}"
         # Санитайзим имя файла
         name = "".join(c if c.isalnum() or c in "._-" else "_" for c in name)
         target = CACHE / name
         if target.exists():
             return str(target)
-        urllib.request.urlretrieve(url, str(target))
-        return str(target)
+        if download_file(url, str(target)):
+            return str(target)
+        return None
     except Exception as e:
         print(f"[sample_hunter.download] {e}")
         return None

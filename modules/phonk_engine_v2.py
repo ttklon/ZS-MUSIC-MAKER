@@ -81,7 +81,8 @@ class PhonkEngineV2:
                 bell_stereo = np.stack([bell, bell], axis=1)
                 b_start = i + j * step_samples * 4
                 b_end = b_start + len(bell_stereo)
-                track[b_start:b_end] += bell_stereo * 0.5
+                if b_end <= total_samples:
+                    track[b_start:b_end] += bell_stereo * 0.5
 
         # 2. Применяем цепочку эффектов (GOD MODE)
         track = self.chain.process(track, self.sr)

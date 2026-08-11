@@ -12,8 +12,9 @@ def make_cover(recipe: dict, out_png: str, size: int = 1500) -> dict:
         from PIL import Image, ImageDraw, ImageFilter, ImageFont
     except Exception as e:
         return {"ok": False, "reason": f"Pillow missing: {e}"}
+    from app.core.security_utils import safe_hash
     title = recipe.get("title") or recipe.get("theme") or "ZS Track"
-    h = hashlib.md5(title.encode("utf-8")).hexdigest()
+    h = safe_hash(title)
     seed = int(h[:8], 16)
     rnd = random.Random(seed)
     palette = [

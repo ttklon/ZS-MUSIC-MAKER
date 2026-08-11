@@ -1,0 +1,2937 @@
+--- COMPLEXITY AUDIT (Radon CC) ---
+main.py
+    F 365:0 main - C
+    F 335:0 _cli_console - C
+agents/github_scout.py
+    F 101:0 scan - C
+app/runtime_orchestrator.py
+    M 82:4 RuntimeOrchestrator._process - D
+app/core/hw_autodetect.py
+    F 110:0 detect - C
+    F 45:0 _gpu_info - C
+app/core/orchestrator.py
+    F 1541:0 run_full_pipeline - F
+    F 360:0 _synth_beat - E
+    F 695:0 _text_to_struct - D
+    F 927:0 _pyttsx3_speak - D
+    F 306:0 _stage_beat - C
+    F 1281:0 _stage_polish - C
+    F 1121:0 _mix_beat_and_vocal - C
+    F 896:0 _stage_voice_synth - C
+    F 1331:0 _stage_stems - C
+app/core/orchestrator_async.py
+    M 50:4 AsyncOrchestrator.run_pipeline - C
+app/core/orchestrator_god.py
+    F 41:0 run_god_pipeline - C
+app/core/orchestrator_v10_patch.py
+    F 23:0 apply_v10_patch - C
+app/core/orchestrator_v11_patch.py
+    F 52:0 run_full_pipeline_v11 - F
+app/core/orchestrator_v12_patch.py
+    F 38:0 run_full_pipeline_v12 - C
+app/core/orchestrator_v8_patch.py
+    F 30:0 run_pipeline_v8 - C
+app/core/orchestrator_v9_patch.py
+    F 38:0 run_pipeline_v9 - F
+app/gui/wizard.py
+    M 702:4 StepRun.tick - C
+modules/ai_detector_pro.py
+    F 43:0 analyze_track - D
+modules/analyzer.py
+    F 158:0 analyze_multi - C
+    F 110:0 _infer_vibe - C
+modules/anti_ai_polish.py
+    F 233:0 polish_track - C
+modules/anti_neuro_v10.py
+    F 128:0 _polish_numpy - D
+    F 283:0 _apply_stage - C
+modules/arrangement_engine.py
+    F 137:0 build_arrangement - E
+modules/author_ref_lyrics.py
+    F 160:0 build_style_profile - D
+    F 298:0 build_style_prompt - C
+    F 326:0 scan_library - C
+modules/auto_qa.py
+    F 87:0 audit_track - C
+modules/beat_constructor.py
+    M 395:4 BeatConstructor.build_track - D
+    M 60:4 BeatConstructor._classify_samples - C
+modules/expert_mode_v11.py
+    F 196:0 validate - C
+modules/freesound_client.py
+    F 55:0 search - C
+modules/groove_extractor.py
+    F 22:0 extract_groove - E
+    F 185:0 merge_grooves - C
+modules/health_v12.py
+    F 220:0 collect - E
+modules/hit_kpi_monitor_v11.py
+    F 187:0 finalize_session - C
+    F 114:0 check_release_completeness - C
+    F 160:0 check_ai_detector - C
+modules/hit_scorer.py
+    F 408:0 _actions - C
+    F 108:0 _hook_repeatability - C
+modules/humanization.py
+    F 46:0 humanize_vocal - C
+    F 152:0 check_ai_artifacts - C
+modules/hw_directml.py
+    F 23:0 detect - C
+modules/kpi_dashboard_v12.py
+    F 171:0 _tz_percent - C
+modules/llm_clients_v15.py
+    M 425:4 LLMRouter.complete - C
+modules/lyric_vault_v10.py
+    F 109:0 find_lines - C
+modules/lyrics_gen.py
+    F 172:0 generate_lyrics - D
+modules/lyrics_gen_v8.py
+    F 77:0 generate_lyrics_v8 - E
+    F 30:0 _split_blocks - C
+modules/master_pipeline_v12.py
+    F 200:0 run_master_pipeline - D
+modules/mastering.py
+    F 258:0 _try_numpy_dsp - C
+    F 154:0 _try_pedalboard - C
+modules/notifier.py
+    F 18:0 notify - C
+modules/phoneme_coverage.py
+    F 69:0 compute_coverage - C
+    F 111:0 _make_suggestions - C
+    F 45:0 _collect_transcripts - C
+modules/recording_v13.py
+    F 267:0 analyze_take - C
+    F 83:0 load_pcm - C
+modules/reference_ingest.py
+    F 100:0 analyze_file - C
+modules/release_export.py
+    F 120:0 export_release - E
+modules/release_pack_full.py
+    F 566:0 build_pack - F
+    F 499:0 _production_notes - C
+modules/release_pack_v13.py
+    F 151:0 build_distrokid_xml - C
+modules/release_pack_v6.py
+    F 20:0 build_v6_release - C
+modules/release_pack_v9.py
+    F 75:0 build_release_v9 - C
+modules/self_diag_v13.py
+    F 149:0 collect_action_plan - E
+    F 229:0 render_report - C
+modules/tiktok_edit_v9.py
+    F 118:0 make_all_cuts - C
+modules/video_edit_v11.py
+    F 299:0 _build_with_moviepy - C
+    F 72:0 _read_wav_mono - C
+    F 170:0 _parse_lrc - C
+    F 131:0 detect_hook - C
+modules/vocal_fx.py
+    F 216:0 apply_delay_throw - C
+    F 295:0 process_vocal - C
+modules/voice_onboarding.py
+    F 204:0 compute_progress - C
+modules/voice_recording.py
+    F 253:0 split_wav_into_takes - C
+modules/voice_synth.py
+    F 107:0 synth - C
+modules/voice_vault_v9.py
+    F 225:0 clean_stats - C
+modules/wizard_v12_integration.py
+    F 94:0 bridge_wizard_to_v12 - C
+tools/fallback_audit.py
+    F 97:0 scan_all - C
+tools/readiness.py
+    F 81:0 probe_core_modules - C
+    F 226:0 compute - C
+tools/real_e2e_v14.py
+    F 82:0 main - C
+tools/smoke_v15.py
+    F 62:0 main - E
+tools/smoke_v20.py
+    F 57:0 t_release_pack_accepts_dict_masters - C
+tools/smoke_v22.py
+    F 207:0 main - C
+tools/smoke_v24.py
+    F 54:0 main - D
+tools/smoke_v25.py
+    F 65:0 main - E
+tools/smoke_v26.py
+    F 60:0 main - D
+updater/updater.py
+    F 227:0 install_from_zip - C
+    F 109:0 verify_zip - C
+
+97 blocks (classes, functions, methods) analyzed.
+Average complexity: C (19.432989690721648)
+\n--- SECURITY AUDIT (Bandit) ---
+Working... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 100% 0:00:01
+Run started:2026-08-11 18:47:39.547859+00:00
+
+Test results:
+>> Issue: [B310:blacklist] Audit url open for permitted schemes. Allowing use of file:/ or custom schemes is often unexpected.
+   Severity: Medium   Confidence: High
+   CWE: CWE-22 (https://cwe.mitre.org/data/definitions/22.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/blacklists/blacklist_calls.html#b310-urllib-urlopen
+   Location: ./agents/sample_hunter.py:66:13
+65	        )
+66	        with urllib.request.urlopen(url, timeout=10) as r:
+67	            data = json.load(r)
+
+--------------------------------------------------
+>> Issue: [B310:blacklist] Audit url open for permitted schemes. Allowing use of file:/ or custom schemes is often unexpected.
+   Severity: Medium   Confidence: High
+   CWE: CWE-22 (https://cwe.mitre.org/data/definitions/22.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/blacklists/blacklist_calls.html#b310-urllib-urlopen
+   Location: ./agents/sample_hunter.py:109:13
+108	        url = f"https://pixabay.com/api/music/?key={api_key}&q={urllib.parse.quote(query)}&per_page={max_results}"
+109	        with urllib.request.urlopen(url, timeout=10) as r:
+110	            data = json.load(r)
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./agents/sample_hunter.py:158:8
+157	            ]
+158	        except Exception:
+159	            pass
+160	
+
+--------------------------------------------------
+>> Issue: [B324:hashlib] Use of weak MD5 hash for security. Consider usedforsecurity=False
+   Severity: High   Confidence: High
+   CWE: CWE-327 (https://cwe.mitre.org/data/definitions/327.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b324_hashlib.html
+   Location: ./agents/sample_hunter.py:188:12
+187	    try:
+188	        h = hashlib.md5(url.encode()).hexdigest()[:10]
+189	        name = f"{item.get('source','online')}_{h}_{item.get('name','sample')[:30]}"
+
+--------------------------------------------------
+>> Issue: [B310:blacklist] Audit url open for permitted schemes. Allowing use of file:/ or custom schemes is often unexpected.
+   Severity: Medium   Confidence: High
+   CWE: CWE-22 (https://cwe.mitre.org/data/definitions/22.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/blacklists/blacklist_calls.html#b310-urllib-urlopen
+   Location: ./agents/sample_hunter.py:195:8
+194	            return str(target)
+195	        urllib.request.urlretrieve(url, str(target))
+196	        return str(target)
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./agents/trend_scout.py:40:4
+39	        trends.extend(_duckduckgo_search(f"{query} тренд сленг 2026"))
+40	    except Exception:
+41	        pass
+42	
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./agents/trend_scout.py:48:4
+47	        trends.extend(load_slang_dictionary()[:10])
+48	    except Exception:
+49	        pass
+50	
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./agents/trend_scout.py:147:4
+146	            topics = online[:4] + topics
+147	    except Exception:
+148	        pass
+149	
+
+--------------------------------------------------
+>> Issue: [B310:blacklist] Audit url open for permitted schemes. Allowing use of file:/ or custom schemes is often unexpected.
+   Severity: Medium   Confidence: High
+   CWE: CWE-22 (https://cwe.mitre.org/data/definitions/22.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/blacklists/blacklist_calls.html#b310-urllib-urlopen
+   Location: ./agents/trend_scout_v3.py:156:13
+155	        req = urllib.request.Request(url, headers={"User-Agent": UA})
+156	        with urllib.request.urlopen(req, timeout=8) as r:
+157	            html = r.read().decode("utf-8", errors="ignore")
+
+--------------------------------------------------
+>> Issue: [B310:blacklist] Audit url open for permitted schemes. Allowing use of file:/ or custom schemes is often unexpected.
+   Severity: Medium   Confidence: High
+   CWE: CWE-22 (https://cwe.mitre.org/data/definitions/22.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/blacklists/blacklist_calls.html#b310-urllib-urlopen
+   Location: ./agents/trend_scout_v3.py:176:13
+175	        req = urllib.request.Request(url, headers={"User-Agent": UA})
+176	        with urllib.request.urlopen(req, timeout=8) as r:
+177	            data = json.load(r)
+
+--------------------------------------------------
+>> Issue: [B324:hashlib] Use of weak MD5 hash for security. Consider usedforsecurity=False
+   Severity: High   Confidence: High
+   CWE: CWE-327 (https://cwe.mitre.org/data/definitions/327.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b324_hashlib.html
+   Location: ./app/core/cover_gen.py:16:8
+15	    title = recipe.get("title") or recipe.get("theme") or "ZS Track"
+16	    h = hashlib.md5(title.encode("utf-8")).hexdigest()
+17	    seed = int(h[:8], 16)
+
+--------------------------------------------------
+>> Issue: [B311:blacklist] Standard pseudo-random generators are not suitable for security/cryptographic purposes.
+   Severity: Low   Confidence: High
+   CWE: CWE-330 (https://cwe.mitre.org/data/definitions/330.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/blacklists/blacklist_calls.html#b311-random
+   Location: ./app/core/cover_gen.py:18:10
+17	    seed = int(h[:8], 16)
+18	    rnd = random.Random(seed)
+19	    palette = [
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./app/core/hw_autodetect.py:59:4
+58	            return g
+59	    except Exception:
+60	        pass
+61	    # DirectML (AMD/Intel iGPU на Windows)
+
+--------------------------------------------------
+>> Issue: [B404:blacklist] Consider possible security implications associated with the subprocess module.
+   Severity: Low   Confidence: High
+   CWE: CWE-78 (https://cwe.mitre.org/data/definitions/78.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/blacklists/blacklist_imports.html#b404-import-subprocess
+   Location: ./app/core/hw_autodetect.py:72:12
+71	        try:
+72	            import subprocess
+73	
+
+--------------------------------------------------
+>> Issue: [B607:start_process_with_partial_path] Starting a process with a partial executable path
+   Severity: Low   Confidence: High
+   CWE: CWE-78 (https://cwe.mitre.org/data/definitions/78.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b607_start_process_with_partial_path.html
+   Location: ./app/core/hw_autodetect.py:74:18
+73	
+74	            out = subprocess.check_output(
+75	                [
+76	                    "wmic",
+77	                    "path",
+78	                    "win32_VideoController",
+79	                    "get",
+80	                    "AdapterRAM,Name",
+81	                    "/format:csv",
+82	                ],
+83	                timeout=5,
+84	                stderr=subprocess.DEVNULL,
+85	            ).decode(errors="ignore")
+86	            for line in out.splitlines():
+
+--------------------------------------------------
+>> Issue: [B603:subprocess_without_shell_equals_true] subprocess call - check for execution of untrusted input.
+   Severity: Low   Confidence: High
+   CWE: CWE-78 (https://cwe.mitre.org/data/definitions/78.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b603_subprocess_without_shell_equals_true.html
+   Location: ./app/core/hw_autodetect.py:74:18
+73	
+74	            out = subprocess.check_output(
+75	                [
+76	                    "wmic",
+77	                    "path",
+78	                    "win32_VideoController",
+79	                    "get",
+80	                    "AdapterRAM,Name",
+81	                    "/format:csv",
+82	                ],
+83	                timeout=5,
+84	                stderr=subprocess.DEVNULL,
+85	            ).decode(errors="ignore")
+86	            for line in out.splitlines():
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./app/core/hw_autodetect.py:96:4
+95	        return g
+96	    except Exception:
+97	        pass
+98	    # ROCm (Linux)
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./app/core/hw_autodetect.py:105:4
+104	            return g
+105	    except Exception:
+106	        pass
+107	    return g
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./app/core/hw_autodetect.py:117:8
+116	                return cached
+117	        except Exception:
+118	            pass
+119	
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./app/core/hw_autodetect.py:154:4
+153	        )
+154	    except Exception:
+155	        pass
+156	    return profile
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./app/core/musicgen_texture.py:70:4
+69	        torch.cuda.empty_cache()
+70	    except Exception:
+71	        pass
+72	
+
+--------------------------------------------------
+>> Issue: [B324:hashlib] Use of weak MD5 hash for security. Consider usedforsecurity=False
+   Severity: High   Confidence: High
+   CWE: CWE-327 (https://cwe.mitre.org/data/definitions/327.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b324_hashlib.html
+   Location: ./app/core/musicgen_texture.py:76:8
+75	def _cache_key(prompt: str, size: str, duration: int) -> str:
+76	    h = hashlib.md5(f"{prompt}|{size}|{duration}".encode()).hexdigest()[:12]
+77	    return h
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./app/core/orchestrator.py:883:8
+882	                }
+883	        except Exception:
+884	            pass
+885	    fb = _fallback_lyrics(theme, genre)
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./app/core/orchestrator.py:914:12
+913	                    return {"ok": True, "path": path, "engine": "voice_synth.synth"}
+914	            except Exception:
+915	                pass
+916	        if hasattr(voice_synth, "synthesize"):
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./app/core/orchestrator.py:942:4
+941	            }
+942	    except Exception:
+943	        pass
+944	    # v19: честный numpy-fallback — короткая "рыба" вокала с формантной
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./app/core/orchestrator.py:1035:16
+1034	                        seg = seg + sosfilt(sos, seg) * 0.6
+1035	                except Exception:
+1036	                    # fallback: просто нормализуем
+1037	                    pass
+1038	            # Огибающая: attack + decay (форма слога)
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./app/core/orchestrator.py:1162:8
+1161	            )
+1162	        except Exception:
+1163	            pass
+1164	        gain = 10 ** (vocal_gain_db / 20.0)
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./app/core/orchestrator.py:1295:8
+1294	                return r if isinstance(r, dict) else {"ok": True, "path": r}
+1295	        except Exception:
+1296	            pass
+1297	        try:
+
+--------------------------------------------------
+>> Issue: [B112:try_except_continue] Try, Except, Continue detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b112_try_except_continue.html
+   Location: ./app/core/orchestrator.py:1313:20
+1312	                            }
+1313	                    except Exception:
+1314	                        continue
+1315	        except Exception:
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./app/core/orchestrator.py:1315:8
+1314	                        continue
+1315	        except Exception:
+1316	            pass
+1317	        import shutil
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./app/core/orchestrator.py:1467:4
+1466	        )
+1467	    except Exception:
+1468	        pass
+1469	    try:
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./app/core/orchestrator.py:1477:4
+1476	                return r
+1477	    except Exception:
+1478	        pass
+1479	    return _minimal_release_pack(master_wav, meta, out)
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./app/core/orchestrator.py:1500:8
+1499	            files.append(str(mp3))
+1500	        except Exception:
+1501	            pass
+1502	        try:
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./app/core/orchestrator.py:1511:8
+1510	            files.append(str(cov))
+1511	        except Exception:
+1512	            pass
+1513	        (out / "lyrics.txt").write_text(meta.get("lyrics_text", ""), encoding="utf-8")
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./app/core/orchestrator.py:1572:8
+1571	                _preset_genre = preset_key
+1572	        except Exception:
+1573	            pass
+1574	    genre = wizard_state.get("genre") or _preset_genre or "drift_phonk"
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./app/core/orchestrator.py:1909:8
+1908	                )
+1909	        except Exception:
+1910	            pass
+1911	        try:
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./app/core/orchestrator.py:1922:8
+1921	                )
+1922	        except Exception:
+1923	            pass
+1924	        _hit = {}
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./app/core/orchestrator.py:1930:8
+1929	                }
+1930	        except Exception:
+1931	            pass
+1932	        s14 = _timed(
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./app/core/orchestrator_v11_patch.py:65:12
+64	                progress_cb(stage, pct, msg)
+65	            except Exception:
+66	                pass
+67	
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./app/core/orchestrator_v11_patch.py:339:8
+338	                wf.writeframes(struct.pack("<" + "h" * 44100, *([0] * 44100)))
+339	        except Exception:
+340	            pass
+341	    lp = os.path.join(release_dir, "lyrics.txt")
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./app/core/orchestrator_v8_patch.py:26:4
+25	            hook(name, progress)
+26	    except Exception:
+27	        pass
+28	
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./app/core/orchestrator_v9_patch.py:34:4
+33	            hook(name, progress)
+34	    except Exception:
+35	        pass
+36	
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./app/core/orchestrator_v9_patch.py:222:8
+221	            voice_manifest = json.loads(Path(vm_path).read_text(encoding="utf-8"))
+222	        except Exception:
+223	            pass
+224	
+
+--------------------------------------------------
+>> Issue: [B404:blacklist] Consider possible security implications associated with the subprocess module.
+   Severity: Low   Confidence: High
+   CWE: CWE-78 (https://cwe.mitre.org/data/definitions/78.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/blacklists/blacklist_imports.html#b404-import-subprocess
+   Location: ./app/core/video_edit.py:9:0
+8	import shutil
+9	import subprocess
+10	from pathlib import Path
+
+--------------------------------------------------
+>> Issue: [B603:subprocess_without_shell_equals_true] subprocess call - check for execution of untrusted input.
+   Severity: Low   Confidence: High
+   CWE: CWE-78 (https://cwe.mitre.org/data/definitions/78.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b603_subprocess_without_shell_equals_true.html
+   Location: ./app/core/video_edit.py:63:12
+62	    try:
+63	        r = subprocess.run(cmd, capture_output=True, timeout=180)
+64	        return {
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./app/gui/theme_v12.py:251:4
+250	        app.setStyleSheet(qss())
+251	    except Exception:
+252	        pass
+253	
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./app/gui/wizard.py:134:8
+133	            self.name.setText(get_artist_name())
+134	        except Exception:
+135	            pass
+136	
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./app/gui/wizard.py:142:8
+141	            set_artist_name(self.name.text().strip() or "ZSMM Artist")
+142	        except Exception:
+143	            pass
+144	        recipe["artist_name"] = self.name.text().strip() or "ZSMM Artist"
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./app/gui/wizard.py:553:8
+552	                )
+553	        except Exception:
+554	            pass
+555	
+
+--------------------------------------------------
+>> Issue: [B606:start_process_with_no_shell] Starting a process without a shell.
+   Severity: Low   Confidence: Medium
+   CWE: CWE-78 (https://cwe.mitre.org/data/definitions/78.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b606_start_process_with_no_shell.html
+   Location: ./app/gui/wizard.py:824:16
+823	            if sys.platform.startswith("win"):
+824	                os.startfile(str(p))
+825	            else:
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./app/gui/wizard.py:827:8
+826	                webbrowser.open(f"file://{p}")
+827	        except Exception:
+828	            pass
+829	
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./app/hw_probe.py:40:4
+39	            hw.backend = "cuda"
+40	    except Exception:
+41	        pass
+42	
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./app/hw_probe.py:53:8
+52	            hw.backend = "directml"
+53	        except Exception:
+54	            pass
+55	
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./app/logger.py:24:8
+23	            self.s.flush()
+24	        except Exception:
+25	            pass
+26	
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./app/runtime_orchestrator.py:45:8
+44	                print(msg)
+45	        except Exception:
+46	            pass
+47	
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./main.py:44:4
+43	            )
+44	    except Exception:
+45	        pass
+46	    return default_v, default_b
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./main.py:69:8
+68	                return
+69	        except Exception:
+70	            pass
+71	        try:
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./main.py:98:12
+97	                )
+98	            except Exception:
+99	                pass
+100	    except Exception:
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./main.py:100:4
+99	                pass
+100	    except Exception:
+101	        pass
+102	
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./main.py:110:8
+109	            sys.stdout.buffer.write((msg + "\n").encode("utf-8", "replace"))
+110	        except Exception:
+111	            pass
+112	
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./main.py:156:4
+155	        theme_v12.apply(app)
+156	    except Exception:
+157	        pass
+158	    try:
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./main.py:206:8
+205	                mod.register()
+206	        except Exception:
+207	            pass
+208	
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./modules/analyzer.py:86:4
+85	        essentia_desc["danceability"] = round(float(danceability[0]), 3)
+86	    except Exception:
+87	        pass
+88	
+
+--------------------------------------------------
+>> Issue: [B311:blacklist] Standard pseudo-random generators are not suitable for security/cryptographic purposes.
+   Severity: Low   Confidence: High
+   CWE: CWE-330 (https://cwe.mitre.org/data/definitions/330.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/blacklists/blacklist_calls.html#b311-random
+   Location: ./modules/anti_ai_polish.py:107:10
+106	        return y
+107	    rng = random.Random(seed or int(time.time()))
+108	    out = y.copy()
+
+--------------------------------------------------
+>> Issue: [B311:blacklist] Standard pseudo-random generators are not suitable for security/cryptographic purposes.
+   Severity: Low   Confidence: High
+   CWE: CWE-330 (https://cwe.mitre.org/data/definitions/330.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/blacklists/blacklist_calls.html#b311-random
+   Location: ./modules/anti_ai_polish.py:154:10
+153	        return y
+154	    rng = random.Random(seed or int(time.time()))
+155	    dur = len(y) / sr
+
+--------------------------------------------------
+>> Issue: [B311:blacklist] Standard pseudo-random generators are not suitable for security/cryptographic purposes.
+   Severity: Low   Confidence: High
+   CWE: CWE-330 (https://cwe.mitre.org/data/definitions/330.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/blacklists/blacklist_calls.html#b311-random
+   Location: ./modules/anti_neuro_v10.py:58:10
+57	
+58	    rng = random.Random(seed or 42)
+59	    seg = AudioSegment.from_file(vocal_wav)
+
+--------------------------------------------------
+>> Issue: [B311:blacklist] Standard pseudo-random generators are not suitable for security/cryptographic purposes.
+   Severity: Low   Confidence: High
+   CWE: CWE-330 (https://cwe.mitre.org/data/definitions/330.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/blacklists/blacklist_calls.html#b311-random
+   Location: ./modules/anti_neuro_v10.py:148:10
+147	
+148	    rng = random.Random(seed or 42)
+149	    try:
+
+--------------------------------------------------
+>> Issue: [B105:hardcoded_password_string] Possible hardcoded password: '14000'
+   Severity: Low   Confidence: Medium
+   CWE: CWE-259 (https://cwe.mitre.org/data/definitions/259.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b105_hardcoded_password_string.html
+   Location: ./modules/anti_neuro_v10.py:223:42
+222	                        )
+223	                        metrics[stage] = {"low_pass_hz": 14000}
+224	                    except Exception as e:
+
+--------------------------------------------------
+>> Issue: [B105:hardcoded_password_string] Possible hardcoded password: '14000'
+   Severity: Low   Confidence: Medium
+   CWE: CWE-259 (https://cwe.mitre.org/data/definitions/259.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b105_hardcoded_password_string.html
+   Location: ./modules/anti_neuro_v10.py:329:21
+328	        seg = seg.low_pass_filter(14000)
+329	        return seg, {"low_pass_hz": 14000}
+330	    if name == "ending":
+
+--------------------------------------------------
+>> Issue: [B311:blacklist] Standard pseudo-random generators are not suitable for security/cryptographic purposes.
+   Severity: Low   Confidence: High
+   CWE: CWE-330 (https://cwe.mitre.org/data/definitions/330.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/blacklists/blacklist_calls.html#b311-random
+   Location: ./modules/arrangement_engine.py:151:10
+150	    """
+151	    rng = random.Random(seed or int(time.time()))
+152	    sv = style_vector or {}
+
+--------------------------------------------------
+>> Issue: [B324:hashlib] Use of weak MD5 hash for security. Consider usedforsecurity=False
+   Severity: High   Confidence: High
+   CWE: CWE-327 (https://cwe.mitre.org/data/definitions/327.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b324_hashlib.html
+   Location: ./modules/author_ref_lyrics.py:118:12
+117	    author_slug = re.sub(r"[^a-zA-Zа-яА-Я0-9]+", "_", (author or "unknown")).lower()
+118	    fname = hashlib.md5(
+119	        (author_slug + "|" + title + "|" + text[:60]).encode()
+120	    ).hexdigest()[:12]
+121	    dst = CORPUS_DIR / author_slug
+
+--------------------------------------------------
+>> Issue: [B310:blacklist] Audit url open for permitted schemes. Allowing use of file:/ or custom schemes is often unexpected.
+   Severity: Medium   Confidence: High
+   CWE: CWE-22 (https://cwe.mitre.org/data/definitions/22.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/blacklists/blacklist_calls.html#b310-urllib-urlopen
+   Location: ./modules/author_ref_lyrics.py:252:13
+251	        )
+252	        with urllib.request.urlopen(req, timeout=8) as r:
+253	            html = r.read().decode("utf-8", errors="ignore")
+
+--------------------------------------------------
+>> Issue: [B311:blacklist] Standard pseudo-random generators are not suitable for security/cryptographic purposes.
+   Severity: Low   Confidence: High
+   CWE: CWE-330 (https://cwe.mitre.org/data/definitions/330.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/blacklists/blacklist_calls.html#b311-random
+   Location: ./modules/beat_constructor.py:140:24
+139	        if self.kick_samples:
+140	            kick_path = random.choice(self.kick_samples)
+141	            return self._load_audio(kick_path) * velocity
+
+--------------------------------------------------
+>> Issue: [B311:blacklist] Standard pseudo-random generators are not suitable for security/cryptographic purposes.
+   Severity: Low   Confidence: High
+   CWE: CWE-330 (https://cwe.mitre.org/data/definitions/330.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/blacklists/blacklist_calls.html#b311-random
+   Location: ./modules/beat_constructor.py:160:47
+159	        if snare_pattern[step % 16] == 0:
+160	            if step % 16 in [3, 6, 11, 14] and random.random() < 0.2:
+161	                is_ghost = True
+
+--------------------------------------------------
+>> Issue: [B311:blacklist] Standard pseudo-random generators are not suitable for security/cryptographic purposes.
+   Severity: Low   Confidence: High
+   CWE: CWE-330 (https://cwe.mitre.org/data/definitions/330.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/blacklists/blacklist_calls.html#b311-random
+   Location: ./modules/beat_constructor.py:165:47
+164	
+165	        velocity = 0.3 if is_ghost else (0.9 + random.random() * 0.15)
+166	
+
+--------------------------------------------------
+>> Issue: [B311:blacklist] Standard pseudo-random generators are not suitable for security/cryptographic purposes.
+   Severity: Low   Confidence: High
+   CWE: CWE-330 (https://cwe.mitre.org/data/definitions/330.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/blacklists/blacklist_calls.html#b311-random
+   Location: ./modules/beat_constructor.py:168:25
+167	        if self.snare_samples:
+168	            snare_path = random.choice(self.snare_samples)
+169	            return self._load_audio(snare_path) * velocity
+
+--------------------------------------------------
+>> Issue: [B311:blacklist] Standard pseudo-random generators are not suitable for security/cryptographic purposes.
+   Severity: Low   Confidence: High
+   CWE: CWE-330 (https://cwe.mitre.org/data/definitions/330.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/blacklists/blacklist_calls.html#b311-random
+   Location: ./modules/beat_constructor.py:186:15
+185	        # На нечётных шагах добавляем свинг (смещение)
+186	        play = random.random() < density
+187	        if step % 2 == 1 and random.random() < swing * 0.5:
+
+--------------------------------------------------
+>> Issue: [B311:blacklist] Standard pseudo-random generators are not suitable for security/cryptographic purposes.
+   Severity: Low   Confidence: High
+   CWE: CWE-330 (https://cwe.mitre.org/data/definitions/330.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/blacklists/blacklist_calls.html#b311-random
+   Location: ./modules/beat_constructor.py:187:29
+186	        play = random.random() < density
+187	        if step % 2 == 1 and random.random() < swing * 0.5:
+188	            play = True  # свинг добавляет доп. удары
+
+--------------------------------------------------
+>> Issue: [B311:blacklist] Standard pseudo-random generators are not suitable for security/cryptographic purposes.
+   Severity: Low   Confidence: High
+   CWE: CWE-330 (https://cwe.mitre.org/data/definitions/330.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/blacklists/blacklist_calls.html#b311-random
+   Location: ./modules/beat_constructor.py:194:22
+193	        if self.hihat_samples:
+194	            hh_path = random.choice(self.hihat_samples)
+195	            return self._load_audio(hh_path) * 0.5  # хэт тише
+
+--------------------------------------------------
+>> Issue: [B311:blacklist] Standard pseudo-random generators are not suitable for security/cryptographic purposes.
+   Severity: Low   Confidence: High
+   CWE: CWE-330 (https://cwe.mitre.org/data/definitions/330.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/blacklists/blacklist_calls.html#b311-random
+   Location: ./modules/beat_constructor.py:211:24
+210	        if self.bass_samples:
+211	            bass_path = random.choice(self.bass_samples)
+212	            bass = self._load_audio(bass_path)
+
+--------------------------------------------------
+>> Issue: [B311:blacklist] Standard pseudo-random generators are not suitable for security/cryptographic purposes.
+   Severity: Low   Confidence: High
+   CWE: CWE-330 (https://cwe.mitre.org/data/definitions/330.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/blacklists/blacklist_calls.html#b311-random
+   Location: ./modules/beat_constructor.py:260:23
+259	        if section in ("intro", "breakdown", "outro") and self.melody_samples:
+260	            mel_path = random.choice(self.melody_samples)
+261	            mel = self._load_audio(mel_path)
+
+--------------------------------------------------
+>> Issue: [B311:blacklist] Standard pseudo-random generators are not suitable for security/cryptographic purposes.
+   Severity: Low   Confidence: High
+   CWE: CWE-330 (https://cwe.mitre.org/data/definitions/330.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/blacklists/blacklist_calls.html#b311-random
+   Location: ./modules/beat_constructor.py:267:23
+266	        if section == "verse" and self.melody_samples and bar % 2 == 0:
+267	            mel_path = random.choice(self.melody_samples)
+268	            mel = self._load_audio(mel_path) * 0.25
+
+--------------------------------------------------
+>> Issue: [B311:blacklist] Standard pseudo-random generators are not suitable for security/cryptographic purposes.
+   Severity: Low   Confidence: High
+   CWE: CWE-330 (https://cwe.mitre.org/data/definitions/330.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/blacklists/blacklist_calls.html#b311-random
+   Location: ./modules/beat_constructor.py:279:22
+278	        if section == "pre_chorus" and self.fx_samples:
+279	            fx_path = random.choice(self.fx_samples)
+280	            fx = self._load_audio(fx_path)
+
+--------------------------------------------------
+>> Issue: [B311:blacklist] Standard pseudo-random generators are not suitable for security/cryptographic purposes.
+   Severity: Low   Confidence: High
+   CWE: CWE-330 (https://cwe.mitre.org/data/definitions/330.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/blacklists/blacklist_calls.html#b311-random
+   Location: ./modules/beat_constructor.py:339:57
+338	                    bar_audio[step_start:snare_end] += self._pan_audio(
+339	                        snare[: snare_end - step_start], random.uniform(-0.05, 0.05)
+340	                    )
+
+--------------------------------------------------
+>> Issue: [B311:blacklist] Standard pseudo-random generators are not suitable for security/cryptographic purposes.
+   Severity: Low   Confidence: High
+   CWE: CWE-330 (https://cwe.mitre.org/data/definitions/330.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/blacklists/blacklist_calls.html#b311-random
+   Location: ./modules/beat_constructor.py:352:46
+351	            mel = self._generate_melody(bar, section, bar_samples)
+352	            bar_audio += self._pan_audio(mel, random.uniform(-0.6, 0.6))
+353	
+
+--------------------------------------------------
+>> Issue: [B311:blacklist] Standard pseudo-random generators are not suitable for security/cryptographic purposes.
+   Severity: Low   Confidence: High
+   CWE: CWE-330 (https://cwe.mitre.org/data/definitions/330.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/blacklists/blacklist_calls.html#b311-random
+   Location: ./modules/beat_constructor.py:356:45
+355	            fx = self._generate_fx(bar, section, bar_samples)
+356	            bar_audio += self._pan_audio(fx, random.uniform(-0.85, 0.85))
+357	
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./modules/beat_constructor.py:468:8
+467	                    full_track[_idx - _fade : _idx] *= _env
+468	        except Exception:
+469	            pass
+470	
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./modules/beat_constructor.py:526:8
+525	                    _mi += 1
+526	        except Exception:
+527	            pass
+528	
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./modules/beat_constructor.py:563:8
+562	                stereo = stereo / _pk * 0.95
+563	        except Exception:
+564	            pass
+565	
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./modules/beat_constructor.py:578:12
+577	                wavfile.write(out_path, self.sr, (stereo * 32767).astype(np.int16))
+578	            except Exception:
+579	                pass
+580	
+
+--------------------------------------------------
+>> Issue: [B324:hashlib] Use of weak MD5 hash for security. Consider usedforsecurity=False
+   Severity: High   Confidence: High
+   CWE: CWE-327 (https://cwe.mitre.org/data/definitions/327.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b324_hashlib.html
+   Location: ./modules/cover_art_gen.py:56:19
+55	    if seed is None:
+56	        seed = int(hashlib.md5(f"{title}{artist}".encode()).hexdigest()[:8], 16)
+57	    rng = random.Random(seed)
+
+--------------------------------------------------
+>> Issue: [B311:blacklist] Standard pseudo-random generators are not suitable for security/cryptographic purposes.
+   Severity: Low   Confidence: High
+   CWE: CWE-330 (https://cwe.mitre.org/data/definitions/330.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/blacklists/blacklist_calls.html#b311-random
+   Location: ./modules/cover_art_gen.py:57:10
+56	        seed = int(hashlib.md5(f"{title}{artist}".encode()).hexdigest()[:8], 16)
+57	    rng = random.Random(seed)
+58	    palettes = STYLE_PALETTES.get(style, STYLE_PALETTES["gradient"])
+
+--------------------------------------------------
+>> Issue: [B112:try_except_continue] Try, Except, Continue detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b112_try_except_continue.html
+   Location: ./modules/cover_art_gen.py:181:8
+180	            return ImageFont.truetype(c, size)
+181	        except Exception:
+182	            continue
+183	    return ImageFont.load_default()
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./modules/female_backing.py:40:12
+39	                torch.save(model, model_path)
+40	            except Exception:
+41	                pass
+42	        else:
+
+--------------------------------------------------
+>> Issue: [B614:pytorch_load] Use of unsafe PyTorch load
+   Severity: Medium   Confidence: High
+   CWE: CWE-502 (https://cwe.mitre.org/data/definitions/502.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b614_pytorch_load.html
+   Location: ./modules/female_backing.py:43:20
+42	        else:
+43	            model = torch.load(model_path, map_location="cpu", weights_only=False)
+44	        audio = model.apply_tts(text=text or "мм", speaker=speaker, sample_rate=48000)
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./modules/female_backing.py:131:8
+130	            y = np.stack([shifted, shifted], axis=-1)
+131	        except Exception:
+132	            pass
+133	
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./modules/female_backing.py:141:8
+140	                y[:, ch] = sosfilt(sos, y[:, ch])
+141	        except Exception:
+142	            pass
+143	
+
+--------------------------------------------------
+>> Issue: [B112:try_except_continue] Try, Except, Continue detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b112_try_except_continue.html
+   Location: ./modules/female_backing.py:177:12
+176	                chunks.append(np.zeros((sr // 4, 2)))
+177	            except Exception:
+178	                continue
+179	        if not chunks:
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./modules/female_backing.py:211:12
+210	                b = librosa.resample(b.T, orig_sr=sr2, target_sr=sr).T
+211	            except Exception:
+212	                pass
+213	        n = max(len(v), len(b))
+
+--------------------------------------------------
+>> Issue: [B324:hashlib] Use of weak MD5 hash for security. Consider usedforsecurity=False
+   Severity: High   Confidence: High
+   CWE: CWE-327 (https://cwe.mitre.org/data/definitions/327.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b324_hashlib.html
+   Location: ./modules/freesound_client.py:124:26
+123	                {
+124	                    "id": hashlib.md5(str(p).encode()).hexdigest()[:8],
+125	                    "name": p.name,
+
+--------------------------------------------------
+>> Issue: [B324:hashlib] Use of weak MD5 hash for security. Consider usedforsecurity=False
+   Severity: High   Confidence: High
+   CWE: CWE-327 (https://cwe.mitre.org/data/definitions/327.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b324_hashlib.html
+   Location: ./modules/freesound_client.py:135:26
+134	                {
+135	                    "id": hashlib.md5(str(p).encode()).hexdigest()[:8],
+136	                    "name": p.name,
+
+--------------------------------------------------
+>> Issue: [B311:blacklist] Standard pseudo-random generators are not suitable for security/cryptographic purposes.
+   Severity: Low   Confidence: High
+   CWE: CWE-330 (https://cwe.mitre.org/data/definitions/330.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/blacklists/blacklist_calls.html#b311-random
+   Location: ./modules/genre_engine.py:82:14
+81	        
+82	        bpm = random.randint(profile.bpm_range[0], profile.bpm_range[1])
+83	        key = random.choice(profile.preferred_keys)
+
+--------------------------------------------------
+>> Issue: [B311:blacklist] Standard pseudo-random generators are not suitable for security/cryptographic purposes.
+   Severity: Low   Confidence: High
+   CWE: CWE-330 (https://cwe.mitre.org/data/definitions/330.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/blacklists/blacklist_calls.html#b311-random
+   Location: ./modules/genre_engine.py:83:14
+82	        bpm = random.randint(profile.bpm_range[0], profile.bpm_range[1])
+83	        key = random.choice(profile.preferred_keys)
+84	        
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./modules/hit_kpi_monitor_v11.py:177:12
+176	                    return v * 100.0
+177	            except Exception:
+178	                pass
+179	    for k in ("summary", "verdict", "final"):
+
+--------------------------------------------------
+>> Issue: [B112:try_except_continue] Try, Except, Continue detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b112_try_except_continue.html
+   Location: ./modules/hit_kpi_monitor_v11.py:305:8
+304	            out.append(json.loads(ln))
+305	        except Exception:
+306	            continue
+307	    return out
+
+--------------------------------------------------
+>> Issue: [B311:blacklist] Standard pseudo-random generators are not suitable for security/cryptographic purposes.
+   Severity: Low   Confidence: High
+   CWE: CWE-330 (https://cwe.mitre.org/data/definitions/330.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/blacklists/blacklist_calls.html#b311-random
+   Location: ./modules/humanization.py:54:23
+53	
+54	    timing_jitter_ms = random.uniform(3, 12) * intensity
+55	    shift_samples = int(sr * timing_jitter_ms / 1000)
+
+--------------------------------------------------
+>> Issue: [B311:blacklist] Standard pseudo-random generators are not suitable for security/cryptographic purposes.
+   Severity: Low   Confidence: High
+   CWE: CWE-330 (https://cwe.mitre.org/data/definitions/330.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/blacklists/blacklist_calls.html#b311-random
+   Location: ./modules/humanization.py:137:34
+136	                end = start + bar_samples
+137	                variation = 1.0 + random.uniform(-0.03, 0.03) * intensity
+138	                samples[start:end] *= variation
+
+--------------------------------------------------
+>> Issue: [B404:blacklist] Consider possible security implications associated with the subprocess module.
+   Severity: Low   Confidence: High
+   CWE: CWE-78 (https://cwe.mitre.org/data/definitions/78.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/blacklists/blacklist_imports.html#b404-import-subprocess
+   Location: ./modules/hw_directml.py:16:0
+15	import platform
+16	import subprocess
+17	from pathlib import Path
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./modules/hw_directml.py:52:12
+51	                out["gpu_name"] = props.name
+52	            except Exception:
+53	                pass
+54	    except Exception as e:
+
+--------------------------------------------------
+>> Issue: [B607:start_process_with_partial_path] Starting a process with a partial executable path
+   Severity: Low   Confidence: High
+   CWE: CWE-78 (https://cwe.mitre.org/data/definitions/78.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b607_start_process_with_partial_path.html
+   Location: ./modules/hw_directml.py:103:12
+102	    try:
+103	        r = subprocess.run(
+104	            ["wmic", "path", "win32_VideoController", "get", "AdapterRAM"],
+105	            capture_output=True,
+106	            text=True,
+107	            timeout=10,
+108	        )
+109	        max_bytes = 0
+
+--------------------------------------------------
+>> Issue: [B603:subprocess_without_shell_equals_true] subprocess call - check for execution of untrusted input.
+   Severity: Low   Confidence: High
+   CWE: CWE-78 (https://cwe.mitre.org/data/definitions/78.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b603_subprocess_without_shell_equals_true.html
+   Location: ./modules/hw_directml.py:103:12
+102	    try:
+103	        r = subprocess.run(
+104	            ["wmic", "path", "win32_VideoController", "get", "AdapterRAM"],
+105	            capture_output=True,
+106	            text=True,
+107	            timeout=10,
+108	        )
+109	        max_bytes = 0
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./modules/kpi_dashboard_v12.py:324:8
+323	            )
+324	        except Exception:
+325	            pass
+326	    return dash
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./modules/llm_clients_v15.py:286:8
+285	            text = j["candidates"][0]["content"]["parts"][0]["text"]
+286	        except Exception:
+287	            pass
+288	        return ProviderResult(
+
+--------------------------------------------------
+>> Issue: [B311:blacklist] Standard pseudo-random generators are not suitable for security/cryptographic purposes.
+   Severity: Low   Confidence: High
+   CWE: CWE-330 (https://cwe.mitre.org/data/definitions/330.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/blacklists/blacklist_calls.html#b311-random
+   Location: ./modules/llm_clients_v15.py:342:8
+341	
+342	    r = random.Random(hash((theme, genre, language)) & 0xFFFF)
+343	    for _ in range(4):
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./modules/llm_clients_v15.py:395:8
+394	            out["internet"] = True
+395	        except Exception:
+396	            pass
+397	        try:
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./modules/llm_clients_v15.py:406:8
+405	            out["ollama"] = True
+406	        except Exception:
+407	            pass
+408	        LLMRouter._preflight_cache = out
+
+--------------------------------------------------
+>> Issue: [B324:hashlib] Use of weak MD5 hash for security. Consider usedforsecurity=False
+   Severity: High   Confidence: High
+   CWE: CWE-327 (https://cwe.mitre.org/data/definitions/327.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b324_hashlib.html
+   Location: ./modules/lyric_vault_v10.py:63:14
+62	    entry = {
+63	        "id": hashlib.md5(f"{text}{time.time()}".encode()).hexdigest()[:10],
+64	        "text": text.strip(),
+
+--------------------------------------------------
+>> Issue: [B112:try_except_continue] Try, Except, Continue detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b112_try_except_continue.html
+   Location: ./modules/lyric_vault_v10.py:95:12
+94	                entry = json.loads(line)
+95	            except Exception:
+96	                continue
+97	            # v9 -> v10 нормализация
+
+--------------------------------------------------
+>> Issue: [B324:hashlib] Use of weak MD5 hash for security. Consider usedforsecurity=False
+   Severity: High   Confidence: High
+   CWE: CWE-327 (https://cwe.mitre.org/data/definitions/327.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b324_hashlib.html
+   Location: ./modules/lyric_vault_v10.py:100:30
+99	                base = str(entry.get("text") or entry.get("lyrics") or i)
+100	                entry["id"] = hashlib.md5(base.encode()).hexdigest()[:10]
+101	            if "text" not in entry:
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./modules/lyrics_gen.py:88:12
+87	                out.append(json.loads(line))
+88	            except Exception:
+89	                pass
+90	    return out
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./modules/lyrics_gen.py:126:4
+125	            return r.json().get("response", "").strip()
+126	    except Exception:
+127	        pass
+128	    return None
+
+--------------------------------------------------
+>> Issue: [B311:blacklist] Standard pseudo-random generators are not suitable for security/cryptographic purposes.
+   Severity: Low   Confidence: High
+   CWE: CWE-330 (https://cwe.mitre.org/data/definitions/330.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/blacklists/blacklist_calls.html#b311-random
+   Location: ./modules/lyrics_gen.py:142:19
+141	        else:
+142	            base = random.choice(punches) if punches else "движ на движ"
+143	            lines.append(base)
+
+--------------------------------------------------
+>> Issue: [B311:blacklist] Standard pseudo-random generators are not suitable for security/cryptographic purposes.
+   Severity: Low   Confidence: High
+   CWE: CWE-330 (https://cwe.mitre.org/data/definitions/330.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/blacklists/blacklist_calls.html#b311-random
+   Location: ./modules/lyrics_gen.py:155:15
+154	    while len(hook) < 2:
+155	        cand = random.choice(HOOKS_EN)
+156	        if cand not in hook:
+
+--------------------------------------------------
+>> Issue: [B311:blacklist] Standard pseudo-random generators are not suitable for security/cryptographic purposes.
+   Severity: Low   Confidence: High
+   CWE: CWE-330 (https://cwe.mitre.org/data/definitions/330.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/blacklists/blacklist_calls.html#b311-random
+   Location: ./modules/lyrics_gen_v8.py:141:63
+140	        except Exception:
+141	            raw = f"[Куплет 1]\n{seed}\n[Припев]\n{random.choice(slang) if slang else 'yeah'}\n"
+142	    except Exception as e:
+
+--------------------------------------------------
+>> Issue: [B311:blacklist] Standard pseudo-random generators are not suitable for security/cryptographic purposes.
+   Severity: Low   Confidence: High
+   CWE: CWE-330 (https://cwe.mitre.org/data/definitions/330.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/blacklists/blacklist_calls.html#b311-random
+   Location: ./modules/lyrics_gen_v8.py:159:26
+158	
+159	                hook_en = random.choice(scout(theme)["hooks_en"])
+160	                blocks["chorus"].append(hook_en)
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./modules/master_pipeline_v12.py:67:4
+66	            fh.write(line + "\n")
+67	    except Exception:
+68	        pass
+69	
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./modules/master_pipeline_v12.py:224:12
+223	                progress_cb(stage, pct, msg)
+224	            except Exception:
+225	                pass
+226	
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./modules/master_pipeline_v12.py:544:12
+543	                return hs.score({"dry_run": True})
+544	            except Exception:
+545	                pass
+546	        return {"total_score": 72, "verdict": "solid", "note": "dry-run heuristic"}
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./modules/mastering.py:114:12
+113	                out["lufs"] = float(meter.integrated_loudness(y))
+114	            except Exception:
+115	                pass
+116	        peak = float(np.max(np.abs(y)))
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./modules/mastering.py:252:4
+251	        y = np.stack([sosfilt(sos_hp, y[:, c]) for c in range(y.shape[1])], axis=1)
+252	    except Exception:
+253	        pass
+254	    ms = float(np.mean(y**2)) + 1e-12
+
+--------------------------------------------------
+>> Issue: [B311:blacklist] Standard pseudo-random generators are not suitable for security/cryptographic purposes.
+   Severity: Low   Confidence: High
+   CWE: CWE-330 (https://cwe.mitre.org/data/definitions/330.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/blacklists/blacklist_calls.html#b311-random
+   Location: ./modules/midi_generator.py:45:68
+44	                note = 36 if i % 8 == 0 else (38 if i % 8 == 4 else 42)
+45	                track.append(Message('note_on', note=note, velocity=random.randint(80, 110), time=0))
+46	                track.append(Message('note_off', note=note, velocity=80, time=ticks_per_16th))
+
+--------------------------------------------------
+>> Issue: [B311:blacklist] Standard pseudo-random generators are not suitable for security/cryptographic purposes.
+   Severity: Low   Confidence: High
+   CWE: CWE-330 (https://cwe.mitre.org/data/definitions/330.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/blacklists/blacklist_calls.html#b311-random
+   Location: ./modules/midi_generator.py:67:19
+66	        for _ in range(8):
+67	            note = random.choice(scale)
+68	            track.append(Message('note_on', note=note, velocity=random.randint(60, 90), time=0))
+
+--------------------------------------------------
+>> Issue: [B311:blacklist] Standard pseudo-random generators are not suitable for security/cryptographic purposes.
+   Severity: Low   Confidence: High
+   CWE: CWE-330 (https://cwe.mitre.org/data/definitions/330.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/blacklists/blacklist_calls.html#b311-random
+   Location: ./modules/midi_generator.py:68:64
+67	            note = random.choice(scale)
+68	            track.append(Message('note_on', note=note, velocity=random.randint(60, 90), time=0))
+69	            track.append(Message('note_off', note=note, velocity=60, time=ticks_per_8th))
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./modules/mixdown.py:125:4
+124	        )
+125	    except Exception:
+126	        pass
+127	    return out
+
+--------------------------------------------------
+>> Issue: [B404:blacklist] Consider possible security implications associated with the subprocess module.
+   Severity: Low   Confidence: High
+   CWE: CWE-78 (https://cwe.mitre.org/data/definitions/78.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/blacklists/blacklist_imports.html#b404-import-subprocess
+   Location: ./modules/notifier.py:12:0
+11	import shutil
+12	import subprocess
+13	import sys
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./modules/notifier.py:27:4
+26	        return {"ok": True, "backend": "plyer"}
+27	    except Exception:
+28	        pass
+29	
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./modules/notifier.py:36:8
+35	            return {"ok": True, "backend": "win10toast"}
+36	        except Exception:
+37	            pass
+38	        try:
+
+--------------------------------------------------
+>> Issue: [B607:start_process_with_partial_path] Starting a process with a partial executable path
+   Severity: Low   Confidence: High
+   CWE: CWE-78 (https://cwe.mitre.org/data/definitions/78.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b607_start_process_with_partial_path.html
+   Location: ./modules/notifier.py:43:12
+42	            )
+43	            subprocess.Popen(["powershell", "-NoProfile", "-Command", ps])
+44	            return {"ok": True, "backend": "powershell"}
+
+--------------------------------------------------
+>> Issue: [B603:subprocess_without_shell_equals_true] subprocess call - check for execution of untrusted input.
+   Severity: Low   Confidence: High
+   CWE: CWE-78 (https://cwe.mitre.org/data/definitions/78.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b603_subprocess_without_shell_equals_true.html
+   Location: ./modules/notifier.py:43:12
+42	            )
+43	            subprocess.Popen(["powershell", "-NoProfile", "-Command", ps])
+44	            return {"ok": True, "backend": "powershell"}
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./modules/notifier.py:45:8
+44	            return {"ok": True, "backend": "powershell"}
+45	        except Exception:
+46	            pass
+47	
+
+--------------------------------------------------
+>> Issue: [B607:start_process_with_partial_path] Starting a process with a partial executable path
+   Severity: Low   Confidence: High
+   CWE: CWE-78 (https://cwe.mitre.org/data/definitions/78.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b607_start_process_with_partial_path.html
+   Location: ./modules/notifier.py:50:12
+49	        try:
+50	            subprocess.Popen(["notify-send", title, message])
+51	            return {"ok": True, "backend": "notify-send"}
+
+--------------------------------------------------
+>> Issue: [B603:subprocess_without_shell_equals_true] subprocess call - check for execution of untrusted input.
+   Severity: Low   Confidence: High
+   CWE: CWE-78 (https://cwe.mitre.org/data/definitions/78.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b603_subprocess_without_shell_equals_true.html
+   Location: ./modules/notifier.py:50:12
+49	        try:
+50	            subprocess.Popen(["notify-send", title, message])
+51	            return {"ok": True, "backend": "notify-send"}
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./modules/notifier.py:52:8
+51	            return {"ok": True, "backend": "notify-send"}
+52	        except Exception:
+53	            pass
+54	
+
+--------------------------------------------------
+>> Issue: [B607:start_process_with_partial_path] Starting a process with a partial executable path
+   Severity: Low   Confidence: High
+   CWE: CWE-78 (https://cwe.mitre.org/data/definitions/78.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b607_start_process_with_partial_path.html
+   Location: ./modules/notifier.py:58:12
+57	            script = f'display notification "{message}" with title "{title}"'
+58	            subprocess.Popen(["osascript", "-e", script])
+59	            return {"ok": True, "backend": "osascript"}
+
+--------------------------------------------------
+>> Issue: [B603:subprocess_without_shell_equals_true] subprocess call - check for execution of untrusted input.
+   Severity: Low   Confidence: High
+   CWE: CWE-78 (https://cwe.mitre.org/data/definitions/78.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b603_subprocess_without_shell_equals_true.html
+   Location: ./modules/notifier.py:58:12
+57	            script = f'display notification "{message}" with title "{title}"'
+58	            subprocess.Popen(["osascript", "-e", script])
+59	            return {"ok": True, "backend": "osascript"}
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./modules/notifier.py:60:8
+59	            return {"ok": True, "backend": "osascript"}
+60	        except Exception:
+61	            pass
+62	
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./modules/onboarding_tour.py:144:8
+143	            return json.loads(TOUR_STATE.read_text(encoding="utf-8"))
+144	        except Exception:
+145	            pass
+146	    return {"tour_done": False, "last_step": 0}
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./modules/phoneme_coverage.py:53:8
+52	            texts.append(p.read_text(encoding="utf-8"))
+53	        except Exception:
+54	            pass
+55	    for p in VAULT_DIR.rglob("*.json"):
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./modules/phoneme_coverage.py:64:8
+63	                        texts.append(str(item["transcript"]))
+64	        except Exception:
+65	            pass
+66	    return texts
+
+--------------------------------------------------
+>> Issue: [B311:blacklist] Standard pseudo-random generators are not suitable for security/cryptographic purposes.
+   Severity: Low   Confidence: High
+   CWE: CWE-330 (https://cwe.mitre.org/data/definitions/330.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/blacklists/blacklist_calls.html#b311-random
+   Location: ./modules/recording_v13.py:391:25
+390	            s = 0.5 * math.sin(2 * math.pi * 220 * t)
+391	            s += 0.05 * (random.random() - 0.5)
+392	        else:
+
+--------------------------------------------------
+>> Issue: [B311:blacklist] Standard pseudo-random generators are not suitable for security/cryptographic purposes.
+   Severity: Low   Confidence: High
+   CWE: CWE-330 (https://cwe.mitre.org/data/definitions/330.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/blacklists/blacklist_calls.html#b311-random
+   Location: ./modules/recording_v13.py:394:25
+393	            # тишина — только микрофонный шум
+394	            s = 0.005 * (random.random() - 0.5)
+395	        samples.append(s)
+
+--------------------------------------------------
+>> Issue: [B324:hashlib] Use of weak MD5 hash for security. Consider usedforsecurity=False
+   Severity: High   Confidence: High
+   CWE: CWE-327 (https://cwe.mitre.org/data/definitions/327.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b324_hashlib.html
+   Location: ./modules/reference_ingest.py:51:8
+50	def _md5(path: str) -> str:
+51	    h = hashlib.md5()
+52	    with open(path, "rb") as f:
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./modules/release_pack_full.py:894:4
+893	                )
+894	    except Exception:
+895	        pass
+896	    id3.save(str(mp3_path))
+
+--------------------------------------------------
+>> Issue: [B404:blacklist] Consider possible security implications associated with the subprocess module.
+   Severity: Low   Confidence: High
+   CWE: CWE-78 (https://cwe.mitre.org/data/definitions/78.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/blacklists/blacklist_imports.html#b404-import-subprocess
+   Location: ./modules/release_pack_v6.py:16:0
+15	import shutil
+16	import subprocess
+17	from pathlib import Path
+
+--------------------------------------------------
+>> Issue: [B603:subprocess_without_shell_equals_true] subprocess call - check for execution of untrusted input.
+   Severity: Low   Confidence: High
+   CWE: CWE-78 (https://cwe.mitre.org/data/definitions/78.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b603_subprocess_without_shell_equals_true.html
+   Location: ./modules/release_pack_v6.py:50:16
+49	            try:
+50	                subprocess.run(
+51	                    [ff, "-y", "-i", str(pkg / "master_24bit.wav"), *args, str(outp)],
+52	                    capture_output=True,
+53	                    timeout=180,
+54	                )
+55	                if outp.exists():
+
+--------------------------------------------------
+>> Issue: [B108:hardcoded_tmp_directory] Probable insecure usage of temp file/directory.
+   Severity: Medium   Confidence: Medium
+   CWE: CWE-377 (https://cwe.mitre.org/data/definitions/377.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b108_hardcoded_tmp_directory.html
+   Location: ./modules/release_pack_v9.py:178:19
+177	        },
+178	        master_wav="/tmp/none.wav",
+179	    )
+
+--------------------------------------------------
+>> Issue: [B404:blacklist] Consider possible security implications associated with the subprocess module.
+   Severity: Low   Confidence: High
+   CWE: CWE-78 (https://cwe.mitre.org/data/definitions/78.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/blacklists/blacklist_imports.html#b404-import-subprocess
+   Location: ./modules/rvc_manager.py:21:0
+20	import shutil
+21	import subprocess
+22	import sys
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./modules/rvc_manager.py:84:4
+83	            return b
+84	    except Exception:
+85	        pass
+86	    # 2) DirectML (AMD/Intel iGPU на Windows)
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./modules/rvc_manager.py:99:4
+98	        return b
+99	    except Exception:
+100	        pass
+101	    # 3) ROCm (Linux, редко)
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./modules/rvc_manager.py:113:4
+112	            return b
+113	    except Exception:
+114	        pass
+115	    # 4) CPU fallback
+
+--------------------------------------------------
+>> Issue: [B607:start_process_with_partial_path] Starting a process with a partial executable path
+   Severity: Low   Confidence: High
+   CWE: CWE-78 (https://cwe.mitre.org/data/definitions/78.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b607_start_process_with_partial_path.html
+   Location: ./modules/rvc_manager.py:163:8
+162	        # depth=1 для скорости и экономии диска
+163	        subprocess.run(
+164	            ["git", "clone", "--depth", "1", url, str(target)],
+165	            check=True,
+166	            capture_output=True,
+167	            text=True,
+168	            timeout=600,
+169	        )
+170	        _p(f"{fork_name} успешно клонирован → {target}")
+
+--------------------------------------------------
+>> Issue: [B603:subprocess_without_shell_equals_true] subprocess call - check for execution of untrusted input.
+   Severity: Low   Confidence: High
+   CWE: CWE-78 (https://cwe.mitre.org/data/definitions/78.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b603_subprocess_without_shell_equals_true.html
+   Location: ./modules/rvc_manager.py:163:8
+162	        # depth=1 для скорости и экономии диска
+163	        subprocess.run(
+164	            ["git", "clone", "--depth", "1", url, str(target)],
+165	            check=True,
+166	            capture_output=True,
+167	            text=True,
+168	            timeout=600,
+169	        )
+170	        _p(f"{fork_name} успешно клонирован → {target}")
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./modules/rvc_manager.py:214:12
+213	                cb(self.job)
+214	            except Exception:
+215	                pass
+216	
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./modules/rvc_manager.py:231:16
+230	                    n += 1
+231	                except Exception:
+232	                    pass
+233	        return ds
+
+--------------------------------------------------
+>> Issue: [B603:subprocess_without_shell_equals_true] subprocess call - check for execution of untrusted input.
+   Severity: Low   Confidence: High
+   CWE: CWE-78 (https://cwe.mitre.org/data/definitions/78.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b603_subprocess_without_shell_equals_true.html
+   Location: ./modules/rvc_manager.py:333:15
+332	        """Запускаем subprocess и парсим stdout на предмет прогресса эпох."""
+333	        proc = subprocess.Popen(
+334	            cmd,
+335	            stdout=subprocess.PIPE,
+336	            stderr=subprocess.STDOUT,
+337	            text=True,
+338	            encoding="utf-8",
+339	            errors="replace",
+340	            bufsize=1,
+341	        )
+342	        for line in proc.stdout:
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./modules/rvc_manager.py:358:20
+357	                        self._emit()
+358	                    except Exception:
+359	                        pass
+360	        ret = proc.wait()
+
+--------------------------------------------------
+>> Issue: [B112:try_except_continue] Try, Except, Continue detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b112_try_except_continue.html
+   Location: ./modules/rvc_trainer_v9.py:228:8
+227	            out.append(json.loads(f.read_text(encoding="utf-8")))
+228	        except Exception:
+229	            continue
+230	    return out
+
+--------------------------------------------------
+>> Issue: [B404:blacklist] Consider possible security implications associated with the subprocess module.
+   Severity: Low   Confidence: High
+   CWE: CWE-78 (https://cwe.mitre.org/data/definitions/78.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/blacklists/blacklist_imports.html#b404-import-subprocess
+   Location: ./modules/stem_splitter.py:8:0
+7	import os
+8	import subprocess
+9	import sys
+
+--------------------------------------------------
+>> Issue: [B603:subprocess_without_shell_equals_true] subprocess call - check for execution of untrusted input.
+   Severity: Low   Confidence: High
+   CWE: CWE-78 (https://cwe.mitre.org/data/definitions/78.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b603_subprocess_without_shell_equals_true.html
+   Location: ./modules/stem_splitter.py:34:8
+33	    try:
+34	        subprocess.run(cmd, check=True)
+35	    except subprocess.CalledProcessError as e:
+
+--------------------------------------------------
+>> Issue: [B404:blacklist] Consider possible security implications associated with the subprocess module.
+   Severity: Low   Confidence: High
+   CWE: CWE-78 (https://cwe.mitre.org/data/definitions/78.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/blacklists/blacklist_imports.html#b404-import-subprocess
+   Location: ./modules/tiktok_edit_v9.py:23:0
+22	import shutil
+23	import subprocess
+24	from pathlib import Path
+
+--------------------------------------------------
+>> Issue: [B603:subprocess_without_shell_equals_true] subprocess call - check for execution of untrusted input.
+   Severity: Low   Confidence: High
+   CWE: CWE-78 (https://cwe.mitre.org/data/definitions/78.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b603_subprocess_without_shell_equals_true.html
+   Location: ./modules/tiktok_edit_v9.py:244:12
+243	    try:
+244	        p = subprocess.run(cmd, capture_output=True, timeout=180)
+245	        if p.returncode != 0:
+
+--------------------------------------------------
+>> Issue: [B112:try_except_continue] Try, Except, Continue detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b112_try_except_continue.html
+   Location: ./modules/track_templates.py:60:8
+59	            out.append(json.loads(f.read_text(encoding="utf-8")))
+60	        except Exception:
+61	            continue
+62	    out.sort(key=lambda d: d.get("created_at", 0), reverse=True)
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./modules/video_edit_v11.py:194:28
+193	                                out.append((secs, text))
+194	                            except Exception:
+195	                                pass
+196	                        i = j + 1
+
+--------------------------------------------------
+>> Issue: [B112:try_except_continue] Try, Except, Continue detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b112_try_except_continue.html
+   Location: ./modules/video_edit_v11.py:267:8
+266	            break
+267	        except Exception:
+268	            continue
+269	    if font_big is None:
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./modules/video_edit_v11.py:365:8
+364	            audio.close()
+365	        except Exception:
+366	            pass
+367	    return VideoEditResult(
+
+--------------------------------------------------
+>> Issue: [B108:hardcoded_tmp_directory] Probable insecure usage of temp file/directory.
+   Severity: Medium   Confidence: Medium
+   CWE: CWE-377 (https://cwe.mitre.org/data/definitions/377.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b108_hardcoded_tmp_directory.html
+   Location: ./modules/video_edit_v11.py:466:10
+465	def _self_test() -> bool:
+466	    tmp = "/tmp/_v11_lrc_test.lrc"
+467	    with open(tmp, "w", encoding="utf-8") as f:
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./modules/vocal_fx.py:334:12
+333	                cur = out_wav
+334	            except Exception:
+335	                pass
+336	
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./modules/vocal_fx.py:346:4
+345	            p.unlink()
+346	    except Exception:
+347	        pass
+348	
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./modules/voice_onboarding.py:174:8
+173	            return json.loads(MANIFEST.read_text(encoding="utf-8"))
+174	        except Exception:
+175	            pass
+176	    return {"steps": [], "started_at": None, "completed_at": None}
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./modules/voice_recording.py:105:8
+104	            self._emit_metrics(chunk)
+105	        except Exception:
+106	            pass
+107	
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./modules/voice_recording.py:139:8
+138	            )
+139	        except Exception:
+140	            pass
+141	
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./modules/voice_recording.py:181:8
+180	            self._stream.close()
+181	        except Exception:
+182	            pass
+183	        self._active = False
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./modules/voice_recording.py:367:4
+366	        )
+367	    except Exception:
+368	        pass
+369	
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./modules/voice_recording.py:383:8
+382	            ]
+383	        except Exception:
+384	            pass
+385	    return {
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./modules/voice_synth.py:123:4
+122	        OUT_DIR.mkdir(parents=True, exist_ok=True)
+123	    except Exception:
+124	        pass
+125	    out_path = str(OUT_DIR / (out_name or "draft.wav"))
+
+--------------------------------------------------
+>> Issue: [B324:hashlib] Use of weak MD5 hash for security. Consider usedforsecurity=False
+   Severity: High   Confidence: High
+   CWE: CWE-327 (https://cwe.mitre.org/data/definitions/327.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b324_hashlib.html
+   Location: ./modules/voice_vault_v9.py:85:8
+84	def _md5(path: Path, limit: int = 1 << 20) -> str:
+85	    h = hashlib.md5()
+86	    with open(path, "rb") as f:
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./modules/voice_vault_v9.py:135:4
+134	        return " ".join(s.text.strip() for s in segs)[:500]
+135	    except Exception:
+136	        pass
+137	    try:
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./modules/voice_vault_v9.py:142:4
+141	        return (m.transcribe(str(path)).get("text") or "")[:500]
+142	    except Exception:
+143	        pass
+144	    return None
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./modules/wizard_v12_integration.py:47:4
+46	        (LOGS / "app.log").open("a", encoding="utf-8").write(line + "\n")
+47	    except Exception:
+48	        pass
+49	
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./modules/wizard_v12_integration.py:143:12
+142	                )
+143	            except Exception:
+144	                pass
+145	    except Exception as e:  # noqa: BLE001
+
+--------------------------------------------------
+>> Issue: [B105:hardcoded_password_string] Possible hardcoded password: '1.0'
+   Severity: Low   Confidence: Medium
+   CWE: CWE-259 (https://cwe.mitre.org/data/definitions/259.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b105_hardcoded_password_string.html
+   Location: ./tools/readiness.py:35:4
+34	STATUS_WEIGHT = {
+35	    "REAL_PASS": 1.00,
+36	    "PARTIAL": 0.50,
+37	    "FALLBACK_ONLY": 0.25,
+38	    "MOCK": 0.00,
+39	    "FAILED": 0.00,
+40	    "MISSING": 0.00,
+41	    "NOT_TESTED": 0.00,
+42	    "BLOCKED": 0.00,
+43	}
+44	
+45	
+
+--------------------------------------------------
+>> Issue: [B112:try_except_continue] Try, Except, Continue detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b112_try_except_continue.html
+   Location: ./tools/smoke_v15.py:229:28
+228	                                break
+229	                            except Exception:
+230	                                continue
+231	                if not ran:
+
+--------------------------------------------------
+>> Issue: [B101:assert_used] Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b101_assert_used.html
+   Location: ./tools/smoke_v17.py:50:4
+49	    r = _stage_lyrics("ночь, движ", "phonk")
+50	    assert r.get("ok"), "lyrics stage not ok"
+51	    txt = r.get("text") or ""
+
+--------------------------------------------------
+>> Issue: [B101:assert_used] Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b101_assert_used.html
+   Location: ./tools/smoke_v17.py:53:4
+52	    lyr = r.get("lyrics") or {}
+53	    assert txt.strip(), "lyrics.text is empty (P0 regression)"
+54	    assert isinstance(lyr, dict) and (
+
+--------------------------------------------------
+>> Issue: [B101:assert_used] Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b101_assert_used.html
+   Location: ./tools/smoke_v17.py:54:4
+53	    assert txt.strip(), "lyrics.text is empty (P0 regression)"
+54	    assert isinstance(lyr, dict) and (
+55	        lyr.get("verse1") or lyr.get("chorus")
+56	    ), "lyrics.lyrics struct empty (P0 regression)"
+57	    return True
+
+--------------------------------------------------
+>> Issue: [B101:assert_used] Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b101_assert_used.html
+   Location: ./tools/smoke_v17.py:82:4
+81	
+82	    assert hasattr(an, "polish_vocal"), "anti_neuro_v10.polish_vocal missing (P0)"
+83	    assert hasattr(an, "apply_polish"), "anti_neuro_v10.apply_polish missing (v17)"
+
+--------------------------------------------------
+>> Issue: [B101:assert_used] Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b101_assert_used.html
+   Location: ./tools/smoke_v17.py:83:4
+82	    assert hasattr(an, "polish_vocal"), "anti_neuro_v10.polish_vocal missing (P0)"
+83	    assert hasattr(an, "apply_polish"), "anti_neuro_v10.apply_polish missing (v17)"
+84	    return True
+
+--------------------------------------------------
+>> Issue: [B101:assert_used] Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b101_assert_used.html
+   Location: ./tools/smoke_v17.py:130:4
+129	    mp = ROOT / "main.py"
+130	    assert vp.exists(), "version.json missing"
+131	    data = json.loads(vp.read_text(encoding="utf-8"))
+
+--------------------------------------------------
+>> Issue: [B101:assert_used] Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b101_assert_used.html
+   Location: ./tools/smoke_v17.py:141:8
+140	    ):
+141	        assert hard not in txt, f"VERSION hardcoded drift: {hard}"
+142	    # v18: тест версионно-нейтрален — важно отсутствие drift и чтение
+
+--------------------------------------------------
+>> Issue: [B101:assert_used] Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b101_assert_used.html
+   Location: ./tools/smoke_v17.py:145:4
+144	    # брать VERSION через _load_version_info(), а не хардкодить.
+145	    assert v_json and v_json[0].isdigit(), f"version.json version malformed: {v_json}"
+146	    assert (
+
+--------------------------------------------------
+>> Issue: [B101:assert_used] Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b101_assert_used.html
+   Location: ./tools/smoke_v17.py:146:4
+145	    assert v_json and v_json[0].isdigit(), f"version.json version malformed: {v_json}"
+146	    assert (
+147	        "_load_version_info" in txt
+148	    ), "main.py no longer reads version from version.json (drift risk)"
+149	    return True
+
+--------------------------------------------------
+>> Issue: [B101:assert_used] Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b101_assert_used.html
+   Location: ./tools/smoke_v18.py:81:4
+80	    r = vocal_fx.process_vocal(voc, out)
+81	    assert r.get("ok"), f"vocal_fx not ok: {r.get('reason')}"
+82	    assert "double" in r.get("stages", []), "double stage missing"
+
+--------------------------------------------------
+>> Issue: [B101:assert_used] Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b101_assert_used.html
+   Location: ./tools/smoke_v18.py:82:4
+81	    assert r.get("ok"), f"vocal_fx not ok: {r.get('reason')}"
+82	    assert "double" in r.get("stages", []), "double stage missing"
+83	    y, _ = sf.read(r["out_wav"], always_2d=True)
+
+--------------------------------------------------
+>> Issue: [B101:assert_used] Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b101_assert_used.html
+   Location: ./tools/smoke_v18.py:87:4
+86	    rms_old = float(np.sqrt(np.mean(y0**2)))
+87	    assert rms_new > rms_old * 0.5, "vocal_fx output suspiciously quiet"
+88	    return True
+
+--------------------------------------------------
+>> Issue: [B101:assert_used] Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b101_assert_used.html
+   Location: ./tools/smoke_v18.py:100:4
+99	    r = _stage_vocal_fx(voc, d)
+100	    assert isinstance(r, dict) and r.get("ok"), f"stage not ok: {r}"
+101	    assert r.get("path") or r.get("out_wav"), "no output path"
+
+--------------------------------------------------
+>> Issue: [B101:assert_used] Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b101_assert_used.html
+   Location: ./tools/smoke_v18.py:101:4
+100	    assert isinstance(r, dict) and r.get("ok"), f"stage not ok: {r}"
+101	    assert r.get("path") or r.get("out_wav"), "no output path"
+102	    return True
+
+--------------------------------------------------
+>> Issue: [B101:assert_used] Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b101_assert_used.html
+   Location: ./tools/smoke_v18.py:120:8
+119	        cap = sidechain.capability_report()
+120	        assert cap["real_sidechain_possible"], "sidechain impossible w/o scipy"
+121	        assert (
+
+--------------------------------------------------
+>> Issue: [B101:assert_used] Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b101_assert_used.html
+   Location: ./tools/smoke_v18.py:121:8
+120	        assert cap["real_sidechain_possible"], "sidechain impossible w/o scipy"
+121	        assert (
+122	            cap["onset_detector"] == "numpy_fft"
+123	        ), f"expected numpy_fft, got {cap['onset_detector']}"
+124	        # bus и key разнесены в разные переменные — чтобы регресс-страж
+
+--------------------------------------------------
+>> Issue: [B101:assert_used] Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b101_assert_used.html
+   Location: ./tools/smoke_v18.py:128:8
+127	        r = sidechain.apply_sidechain(bus_wav, key_wav, str(d / "d.wav"), intensity=0.6)
+128	        assert r["ok"], f"sidechain failed w/o scipy: {r.get('reason')}"
+129	        assert r["ducking_db"] > 2.0, f"ducking too low w/o scipy: {r['ducking_db']}"
+
+--------------------------------------------------
+>> Issue: [B101:assert_used] Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b101_assert_used.html
+   Location: ./tools/smoke_v18.py:129:8
+128	        assert r["ok"], f"sidechain failed w/o scipy: {r.get('reason')}"
+129	        assert r["ducking_db"] > 2.0, f"ducking too low w/o scipy: {r['ducking_db']}"
+130	    finally:
+
+--------------------------------------------------
+>> Issue: [B101:assert_used] Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b101_assert_used.html
+   Location: ./tools/smoke_v18.py:147:4
+146	    bad = re.search(r"apply_sidechain\(\s*([A-Za-z_]\w*)\s*,\s*\1\s*,", src)
+147	    assert not bad, f"self-duck regression found: {bad.group(0)}"
+148	    return True
+
+--------------------------------------------------
+>> Issue: [B101:assert_used] Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b101_assert_used.html
+   Location: ./tools/smoke_v18.py:157:4
+156	    src = inspect.getsource(mixdown.full_mixdown)
+157	    assert "used_matchering" in src, "used_matchering flag missing"
+158	    assert "fallback_used" in src, "fallback_used flag missing"
+
+--------------------------------------------------
+>> Issue: [B101:assert_used] Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b101_assert_used.html
+   Location: ./tools/smoke_v18.py:158:4
+157	    assert "used_matchering" in src, "used_matchering flag missing"
+158	    assert "fallback_used" in src, "fallback_used flag missing"
+159	    return True
+
+--------------------------------------------------
+>> Issue: [B101:assert_used] Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b101_assert_used.html
+   Location: ./tools/smoke_v18.py:165:4
+164	
+165	    assert "sidechain_self_duck" in fa.BAD_PATTERNS, "self-duck pattern not registered"
+166	    assert any(
+
+--------------------------------------------------
+>> Issue: [B101:assert_used] Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b101_assert_used.html
+   Location: ./tools/smoke_v18.py:166:4
+165	    assert "sidechain_self_duck" in fa.BAD_PATTERNS, "self-duck pattern not registered"
+166	    assert any(
+167	        "ZSMM_NOT_RVC" in m for m in fa.LEGIT_MARKERS
+168	    ), "ZSMM_NOT_RVC marker not honoured"
+169	    # pattern реально матчит само-дакание (строка-фикстура, не вызов;
+
+--------------------------------------------------
+>> Issue: [B101:assert_used] Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b101_assert_used.html
+   Location: ./tools/smoke_v18.py:175:4
+174	    sample_good = "apply_sidechain" + "(bus, kick_wav, out)"
+175	    assert re.search(fa.BAD_PATTERNS["sidechain_self_duck"], sample_bad)
+176	    assert not re.search(fa.BAD_PATTERNS["sidechain_self_duck"], sample_good)
+
+--------------------------------------------------
+>> Issue: [B101:assert_used] Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b101_assert_used.html
+   Location: ./tools/smoke_v18.py:176:4
+175	    assert re.search(fa.BAD_PATTERNS["sidechain_self_duck"], sample_bad)
+176	    assert not re.search(fa.BAD_PATTERNS["sidechain_self_duck"], sample_good)
+177	    return True
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./tools/smoke_v21.py:95:4
+94	        return True, "demucs installed — skipping"
+95	    except Exception:
+96	        pass
+97	    with tempfile.TemporaryDirectory() as td:
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./tools/smoke_v21.py:128:12
+127	                os.rmdir(tmp_missing)
+128	            except Exception:
+129	                pass
+130	    return True, "no side effects on import"
+
+--------------------------------------------------
+>> Issue: [B404:blacklist] Consider possible security implications associated with the subprocess module.
+   Severity: Low   Confidence: High
+   CWE: CWE-78 (https://cwe.mitre.org/data/definitions/78.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/blacklists/blacklist_imports.html#b404-import-subprocess
+   Location: ./tools/smoke_v23.py:15:0
+14	import shutil
+15	import subprocess
+16	import sys
+
+--------------------------------------------------
+>> Issue: [B603:subprocess_without_shell_equals_true] subprocess call - check for execution of untrusted input.
+   Severity: Low   Confidence: High
+   CWE: CWE-78 (https://cwe.mitre.org/data/definitions/78.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b603_subprocess_without_shell_equals_true.html
+   Location: ./tools/smoke_v23.py:47:12
+46	            shutil.copy(si, tmp)
+47	        r = subprocess.run(
+48	            [sys.executable, "-c", code], cwd=tmp, capture_output=True, text=True
+49	        )
+50	        ok = "CREATED: []" in r.stdout
+
+--------------------------------------------------
+>> Issue: [B404:blacklist] Consider possible security implications associated with the subprocess module.
+   Severity: Low   Confidence: High
+   CWE: CWE-78 (https://cwe.mitre.org/data/definitions/78.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/blacklists/blacklist_imports.html#b404-import-subprocess
+   Location: ./ui/karaoke_recorder.py:67:12
+66	        else:
+67	            import subprocess
+68	
+
+--------------------------------------------------
+>> Issue: [B607:start_process_with_partial_path] Starting a process with a partial executable path
+   Severity: Low   Confidence: High
+   CWE: CWE-78 (https://cwe.mitre.org/data/definitions/78.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b607_start_process_with_partial_path.html
+   Location: ./ui/karaoke_recorder.py:69:12
+68	
+69	            subprocess.Popen(["aplay", track_path], stderr=subprocess.DEVNULL)
+70	        return True
+
+--------------------------------------------------
+>> Issue: [B603:subprocess_without_shell_equals_true] subprocess call - check for execution of untrusted input.
+   Severity: Low   Confidence: High
+   CWE: CWE-78 (https://cwe.mitre.org/data/definitions/78.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b603_subprocess_without_shell_equals_true.html
+   Location: ./ui/karaoke_recorder.py:69:12
+68	
+69	            subprocess.Popen(["aplay", track_path], stderr=subprocess.DEVNULL)
+70	        return True
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./ui/karaoke_recorder.py:118:4
+117	        )
+118	    except Exception:
+119	        pass
+120	
+
+--------------------------------------------------
+>> Issue: [B404:blacklist] Consider possible security implications associated with the subprocess module.
+   Severity: Low   Confidence: High
+   CWE: CWE-78 (https://cwe.mitre.org/data/definitions/78.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/blacklists/blacklist_imports.html#b404-import-subprocess
+   Location: ./updater/updater.py:28:0
+27	import shutil
+28	import subprocess
+29	import sys
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./updater/updater.py:168:16
+167	                    z.write(str(fp), fp.relative_to(src))
+168	                except Exception:
+169	                    pass
+170	    prune_old_backups(keep=3)
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./updater/updater.py:184:8
+183	            removed.append(old)
+184	        except Exception:
+185	            pass
+186	    return removed
+
+--------------------------------------------------
+>> Issue: [B603:subprocess_without_shell_equals_true] subprocess call - check for execution of untrusted input.
+   Severity: Low   Confidence: High
+   CWE: CWE-78 (https://cwe.mitre.org/data/definitions/78.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b603_subprocess_without_shell_equals_true.html
+   Location: ./updater/updater.py:282:16
+281	        try:
+282	            r = subprocess.run(
+283	                [sys.executable, str(prog / "main.py"), "--smoke"],
+284	                capture_output=True,
+285	                timeout=180,
+286	            )
+287	            if r.returncode != 0:
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./updater/updater.py:305:8
+304	            }
+305	        except Exception:
+306	            pass
+307	
+
+--------------------------------------------------
+>> Issue: [B110:try_except_pass] Try, Except, Pass detected.
+   Severity: Low   Confidence: High
+   CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/plugins/b110_try_except_pass.html
+   Location: ./updater/updater.py:315:4
+314	            )
+315	    except Exception:
+316	        pass
+317	    return {"ok": True, "version": ver, "backup": str(bak)}
+
+--------------------------------------------------
+>> Issue: [B310:blacklist] Audit url open for permitted schemes. Allowing use of file:/ or custom schemes is often unexpected.
+   Severity: Medium   Confidence: High
+   CWE: CWE-22 (https://cwe.mitre.org/data/definitions/22.html)
+   More Info: https://bandit.readthedocs.io/en/1.9.4/blacklists/blacklist_calls.html#b310-urllib-urlopen
+   Location: ./updater/updater.py:348:13
+347	
+348	        with urlreq.urlopen(release_url, timeout=15) as resp:
+349	            data = json.loads(resp.read().decode("utf-8"))
+
+--------------------------------------------------
+
+Code scanned:
+	Total lines of code: 26435
+	Total lines skipped (#nosec): 0
+	Total potential issues skipped due to specifically being disabled (e.g., #nosec BXXX): 0
+
+Run metrics:
+	Total issues (by severity):
+		Undefined: 0
+		Low: 211
+		Medium: 10
+		High: 11
+	Total issues (by confidence):
+		Undefined: 0
+		Low: 0
+		Medium: 6
+		High: 226
+Files skipped (0):
+\n--- MAINTAINABILITY AUDIT (Radon MI) ---
+app/core/orchestrator.py - C
+\n--- TYPING AUDIT (Mypy) ---
+modules/beat_gen.py:90: error: Incompatible default for parameter "melody_ref" (default has type "None", parameter has type "str")  [assignment]
+modules/beat_gen.py:90: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+modules/beat_gen.py:90: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+modules/beat_gen.py:142: error: Argument "melody_ref" to "generate_beat" has incompatible type "Any | None"; expected "str"  [arg-type]
+ui/tutorial.py:225: error: Incompatible return value type (got "object", expected "dict[Any, Any]")  [return-value]
+ui/tutorial.py:226: error: Incompatible return value type (got "None", expected "dict[Any, Any]")  [return-value]
+ui/tutorial.py:274: error: Value of type "object" is not indexable  [index]
+modules/self_diag_v13.py:48: error: Module has no attribute "windll"  [attr-defined]
+modules/recipe_importer.py:98: error: Incompatible default for parameter "provenance" (default has type "None", parameter has type "list[Any]")  [assignment]
+modules/recipe_importer.py:98: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+modules/recipe_importer.py:98: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+modules/recipe_importer.py:99: error: Incompatible default for parameter "steal_notes" (default has type "None", parameter has type "list[Any]")  [assignment]
+modules/recipe_importer.py:99: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+modules/recipe_importer.py:99: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+modules/provenance.py:81: error: Incompatible default for parameter "tags" (default has type "None", parameter has type "list[Any]")  [assignment]
+modules/provenance.py:81: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+modules/provenance.py:81: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+modules/provenance.py:82: error: Incompatible default for parameter "bpm" (default has type "None", parameter has type "float")  [assignment]
+modules/provenance.py:82: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+modules/provenance.py:82: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+modules/kpi_dashboard_v12.py:175: error: Syntax error in type annotation  [syntax]
+modules/kpi_dashboard_v12.py:175: note: Suggestion: Use Tuple[T1, ..., Tn] instead of (T1, ..., Tn)
+modules/expert_mode_v11.py:153: error: Argument 1 to "fields" has incompatible type "object"; expected "DataclassInstance | type[DataclassInstance]"  [arg-type]
+app/core/hw_autodetect.py:90: error: Unsupported operand types for > ("float" and "object")  [operator]
+agents/training_texts.py:69: error: Incompatible default for parameter "style" (default has type "None", parameter has type "str")  [assignment]
+agents/training_texts.py:69: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+agents/training_texts.py:69: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+modules/voice_convert.py:93: error: Need type annotation for "by_style" (hint: "by_style: dict[<type>, <type>] = ...")  [var-annotated]
+modules/voice_convert.py:99: error: Incompatible types in assignment (expression has type "float", variable has type "int")  [assignment]
+modules/rvc_manager.py:342: error: Item "None" of "IO[Any] | None" has no attribute "__iter__" (not iterable)  [union-attr]
+safe_import.py:12: error: Incompatible default for parameter "package" (default has type "None", parameter has type "str")  [assignment]
+safe_import.py:12: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+safe_import.py:12: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+modules/hw_directml.py:83: error: "object" has no attribute "append"  [attr-defined]
+modules/hw_directml.py:87: error: Unsupported operand types for > ("int" and "object")  [operator]
+modules/hw_directml.py:88: error: "object" has no attribute "append"  [attr-defined]
+modules/hw_directml.py:92: error: Unsupported operand types for <= ("int" and "object")  [operator]
+modules/hw_directml.py:93: error: "object" has no attribute "append"  [attr-defined]
+modules/arrangement_engine.py:187: error: Need type annotation for "sections" (hint: "sections: list[<type>] = ...")  [var-annotated]
+modules/author_ref_lyrics.py:182: error: Need type annotation for "bigrams"  [var-annotated]
+modules/author_ref_lyrics.py:327: error: Incompatible default for parameter "references_dir" (default has type "None", parameter has type "str | Path")  [assignment]
+modules/author_ref_lyrics.py:327: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+modules/author_ref_lyrics.py:327: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+modules/author_ref_lyrics.py:327: error: Incompatible default for parameter "vault_dir" (default has type "None", parameter has type "str | Path")  [assignment]
+agents/trend_scout_v3.py:219: error: "object" has no attribute "extend"  [attr-defined]
+agents/trend_scout_v3.py:221: error: "object" has no attribute "extend"  [attr-defined]
+agents/trend_scout_v3.py:222: error: "object" has no attribute "extend"  [attr-defined]
+agents/trend_scout_v3.py:225: error: "object" has no attribute "__iter__"; maybe "__dir__" or "__str__"? (not iterable)  [attr-defined]
+agents/sample_hunter.py:92: error: Need type annotation for "results" (hint: "results: list[<type>] = ...")  [var-annotated]
+modules/freesound_client.py:31: error: Incompatible types in assignment (expression has type "None", variable has type Module)  [assignment]
+modules/freesound_client.py:85: error: Argument "params" to "get" has incompatible type "dict[str, object]"; expected "SupportsItems[str | bytes | int | float, str | bytes | int | float | Iterable[str | bytes | int | float] | None] | tuple[str | bytes | int | float, str | bytes | int | float | Iterable[str | bytes | int | float] | None] | Iterable[tuple[str | bytes | int | float, str | bytes | int | float | Iterable[str | bytes | int | float] | None]] | str | bytes | None"  [arg-type]
+agents/sample_hunter_v9.py:307: error: Argument 1 to "len" has incompatible type "object"; expected "Sized"  [arg-type]
+agents/github_scout.py:63: error: Argument "params" to "get" has incompatible type "dict[str, object]"; expected "SupportsItems[str | bytes | int | float, str | bytes | int | float | Iterable[str | bytes | int | float] | None] | tuple[str | bytes | int | float, str | bytes | int | float | Iterable[str | bytes | int | float] | None] | Iterable[tuple[str | bytes | int | float, str | bytes | int | float | Iterable[str | bytes | int | float] | None]] | str | bytes | None"  [arg-type]
+modules/llm_clients_v15.py:461: error: Incompatible types in assignment (expression has type "str", target has type "None")  [assignment]
+modules/llm_clients_v15.py:480: error: Incompatible types in assignment (expression has type "str", target has type "None")  [assignment]
+modules/llm_clients_v15.py:502: error: Incompatible types in assignment (expression has type "str", target has type "None")  [assignment]
+modules/llm_clients_v15.py:505: error: Incompatible types in assignment (expression has type "str", target has type "None")  [assignment]
+modules/llm_clients_v15.py:524: error: Incompatible types in assignment (expression has type "str", target has type "None")  [assignment]
+modules/lyrics_gen_v8.py:32: error: Need type annotation for "blocks"  [var-annotated]
+modules/lyrics_gen_v8.py:129: error: Unexpected keyword argument "bpm" for "generate_lyrics"  [call-arg]
+modules/lyrics_gen_v8.py:129: note: "generate_lyrics" defined in "modules.lyrics_gen"
+modules/lyrics_gen_v8.py:129: error: Unexpected keyword argument "style_prompt" for "generate_lyrics"  [call-arg]
+modules/lyrics_gen_v8.py:129: error: Unexpected keyword argument "target_lines" for "generate_lyrics"  [call-arg]
+modules/lyrics_gen_v8.py:139: error: Unexpected keyword argument "bpm" for "generate_lyrics"  [call-arg]
+modules/lyrics_gen_v8.py:139: note: "generate_lyrics" defined in "modules.lyrics_gen"
+modules/lyrics_gen_v8.py:141: error: Incompatible types in assignment (expression has type "str", variable has type "dict[Any, Any]")  [assignment]
+modules/lyrics_gen_v8.py:143: error: Incompatible types in assignment (expression has type "str", variable has type "dict[Any, Any]")  [assignment]
+agents/trend_scout.py:45: error: Module "modules.lyrics_gen" has no attribute "load_slang_dictionary"  [attr-defined]
+agents/trend_scout.py:67: error: Module has no attribute "quote"  [attr-defined]
+ui/karaoke_recorder.py:62: error: Module has no attribute "PlaySound"  [attr-defined]
+ui/karaoke_recorder.py:64: error: Module has no attribute "SND_FILENAME"  [attr-defined]
+ui/karaoke_recorder.py:64: error: Module has no attribute "SND_ASYNC"  [attr-defined]
+ui/karaoke_recorder.py:64: error: Module has no attribute "SND_LOOP"  [attr-defined]
+modules/voice_recording.py:42: error: Incompatible types in assignment (expression has type "None", variable has type Module)  [assignment]
+modules/vocal_fx.py:38: error: Incompatible types in assignment (expression has type "None", variable has type Module)  [assignment]
+modules/tiktok_edit_v9.py:29: error: Incompatible types in assignment (expression has type "None", variable has type Module)  [assignment]
+modules/tiktok_edit_v9.py:170: error: Argument 4 to "cut_slice" has incompatible type "float | None"; expected "float"  [arg-type]
+modules/mastering_v9.py:27: error: Incompatible types in assignment (expression has type "None", variable has type Module)  [assignment]
+modules/mastering_v9.py:192: error: "object" has no attribute "__iter__"; maybe "__dir__" or "__str__"? (not iterable)  [attr-defined]
+modules/mastering_v9.py:196: error: Argument 2 to "_widen_stereo" has incompatible type "object"; expected "float"  [arg-type]
+modules/mastering_v9.py:204: error: Unsupported operand types for - ("object" and "float")  [operator]
+modules/mastering_v9.py:208: error: Argument 2 to "_soft_limit" has incompatible type "object"; expected "float"  [arg-type]
+modules/mastering_v9.py:212: error: Unsupported operand types for / ("object" and "float")  [operator]
+modules/mastering_v9.py:214: error: Argument 2 to "_soft_limit" has incompatible type "object"; expected "float"  [arg-type]
+modules/mastering_v9.py:231: error: Incompatible types in assignment (expression has type "Path", variable has type "str")  [assignment]
+modules/mastering_v9.py:232: error: "str" has no attribute "mkdir"  [attr-defined]
+modules/mastering_v9.py:235: error: Unsupported left operand type for / ("str")  [operator]
+modules/beat_constructor.py:42: error: Incompatible default for parameter "groove" (default has type "None", parameter has type "dict[Any, Any]")  [assignment]
+modules/beat_constructor.py:42: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+modules/beat_constructor.py:42: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+modules/beat_constructor.py:43: error: Incompatible default for parameter "samples" (default has type "None", parameter has type "list[Any]")  [assignment]
+modules/beat_constructor.py:43: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+modules/beat_constructor.py:43: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+modules/beat_constructor.py:52: error: Need type annotation for "kick_samples" (hint: "kick_samples: list[<type>] = ...")  [var-annotated]
+modules/beat_constructor.py:53: error: Need type annotation for "snare_samples" (hint: "snare_samples: list[<type>] = ...")  [var-annotated]
+modules/beat_constructor.py:54: error: Need type annotation for "hihat_samples" (hint: "hihat_samples: list[<type>] = ...")  [var-annotated]
+modules/beat_constructor.py:55: error: Need type annotation for "bass_samples" (hint: "bass_samples: list[<type>] = ...")  [var-annotated]
+modules/beat_constructor.py:56: error: Need type annotation for "melody_samples" (hint: "melody_samples: list[<type>] = ...")  [var-annotated]
+modules/beat_constructor.py:57: error: Need type annotation for "fx_samples" (hint: "fx_samples: list[<type>] = ...")  [var-annotated]
+modules/beat_constructor.py:108: error: Incompatible types in assignment (expression has type "ndarray[tuple[Any, ...], dtype[float64]]", variable has type "ndarray[tuple[Any, ...], dtype[floating[_32Bit]]]")  [assignment]
+modules/beat_constructor.py:461: error: Unsupported operand types for * ("object" and "int")  [operator]
+modules/beat_constructor.py:505: error: Unsupported operand types for * ("object" and "int")  [operator]
+modules/beat_constructor.py:506: error: Unsupported operand types for * ("object" and "int")  [operator]
+modules/beat_constructor.py:509: error: Incompatible types in assignment (expression has type "ndarray[tuple[Any, ...], dtype[float64]]", variable has type "ndarray[tuple[Any, ...], dtype[floating[_32Bit]]]")  [assignment]
+modules/anti_ai_polish.py:33: error: Incompatible types in assignment (expression has type "None", variable has type Module)  [assignment]
+modules/sidechain.py:29: error: Incompatible types in assignment (expression has type "None", variable has type Module)  [assignment]
+modules/sidechain.py:38: error: Incompatible types in assignment (expression has type "None", variable has type Module)  [assignment]
+modules/phonk_engine.py:47: error: Argument 1 to "__call__" of "Plugin" has incompatible type "ndarray[tuple[int, int], dtype[float64]]"; expected "ndarray[tuple[Any, ...], dtype[floating[_32Bit]]]"  [arg-type]
+modules/mastering.py:72: error: Incompatible types in assignment (expression has type "None", variable has type Module)  [assignment]
+modules/mastering.py:113: error: Incompatible types in assignment (expression has type "float", target has type "None")  [assignment]
+modules/mastering.py:117: error: Incompatible types in assignment (expression has type "float", target has type "None")  [assignment]
+modules/mastering.py:123: error: Incompatible types in assignment (expression has type "float", target has type "None")  [assignment]
+modules/mastering.py:126: error: Incompatible return value type (got "dict[str, None]", expected "dict[str, float | None]")  [return-value]
+modules/mastering.py:126: note: "dict" is invariant -- see https://mypy.readthedocs.io/en/stable/common_issues.html#variance
+modules/mastering.py:126: note: Consider using "Mapping" instead, which is covariant in the value type
+modules/mastering.py:126: note: Perhaps you need a type annotation for "out"? Suggestion: "dict[str, float | None]"
+modules/video_edit_v11.py:101: error: Argument 1 to "append" of "list" has incompatible type "float"; expected "int"  [arg-type]
+modules/release_pack_full.py:62: error: Incompatible types in assignment (expression has type "None", variable has type Module)  [assignment]
+modules/cover_art_gen.py:130: error: Unsupported target for indexed assignment ("PixelAccess | None")  [index]
+app/core/cover_gen.py:38: error: Incompatible types in assignment (expression has type "FreeTypeFont | ImageFont", variable has type "FreeTypeFont")  [assignment]
+tools/ab_compare.py:98: error: Argument "extent" to "imshow" of "Axes" has incompatible type "list[Any]"; expected "tuple[float, float, float, float] | None"  [arg-type]
+modules/release_pack_v6.py:29: error: Incompatible types in assignment (expression has type "Path", variable has type "str")  [assignment]
+modules/release_pack_v6.py:30: error: Unsupported left operand type for / ("str")  [operator]
+modules/release_pack_v6.py:108: error: Argument 2 to "render_stands" has incompatible type "str"; expected "list[Any] | None"  [arg-type]
+tools/smoke_v15.py:92: error: Incompatible types in assignment (expression has type "None", variable has type Module)  [assignment]
+tools/smoke_v15.py:100: error: Cannot assign to a type  [misc]
+tools/smoke_v15.py:100: error: Incompatible types in assignment (expression has type "None", variable has type "type[LLMRouter]")  [assignment]
+tools/smoke_v15.py:108: error: Incompatible types in assignment (expression has type "None", variable has type Module)  [assignment]
+tools/smoke_v15.py:116: error: Incompatible types in assignment (expression has type "None", variable has type Module)  [assignment]
+modules/genre_engine.py:26: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]
+modules/genre_engine.py:69: error: Incompatible return value type (got "GenreProfile | None", expected "GenreProfile")  [return-value]
+modules/genre_engine.py:78: error: Incompatible default for parameter "override" (default has type "None", parameter has type "dict[Any, Any]")  [assignment]
+modules/genre_engine.py:78: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+modules/genre_engine.py:78: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+modules/phonk_engine_v2.py:27: error: Incompatible default for parameter "glide_to" (default has type "None", parameter has type "float")  [assignment]
+modules/phonk_engine_v2.py:27: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+modules/phonk_engine_v2.py:27: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+modules/reference_ingest.py:32: error: Incompatible types in assignment (expression has type "None", variable has type Module)  [assignment]
+modules/reference_ingest.py:190: error: Need type annotation for "tally" (hint: "tally: dict[<type>, <type>] = ...")  [var-annotated]
+modules/karaoke_engine.py:106: error: Unsupported operand types for + ("None" and "int")  [operator]
+modules/karaoke_engine.py:106: note: Left operand is of type "float | None"
+modules/karaoke_engine.py:110: error: Unsupported operand types for >= ("float" and "None")  [operator]
+modules/karaoke_engine.py:110: note: Right operand is of type "float | None"
+modules/karaoke_engine.py:113: error: Unsupported operand types for + ("None" and "float")  [operator]
+modules/karaoke_engine.py:113: note: Left operand is of type "float | None"
+modules/karaoke_engine.py:114: error: Unsupported operand types for - ("float" and "None")  [operator]
+modules/karaoke_engine.py:114: note: Right operand is of type "float | None"
+modules/humanization.py:33: error: Incompatible types in assignment (expression has type "ndarray[tuple[Any, ...], dtype[float64]]", variable has type "ndarray[tuple[Any, ...], dtype[floating[_32Bit]]]")  [assignment]
+modules/hit_scorer.py:47: error: Incompatible types in assignment (expression has type "None", variable has type Module)  [assignment]
+modules/groove_extractor.py:19: error: Incompatible types in assignment (expression has type "None", variable has type Module)  [assignment]
+modules/groove_extractor.py:22: error: Incompatible default for parameter "bpm" (default has type "None", parameter has type "float")  [assignment]
+modules/groove_extractor.py:22: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+modules/groove_extractor.py:22: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+modules/groove_extractor.py:121: error: Incompatible types in assignment (expression has type "SupportsDunderLT[Any] | SupportsDunderGT[Any]", variable has type "float")  [assignment]
+modules/groove_extractor.py:162: error: Incompatible types in assignment (expression has type "SupportsDunderLT[Any] | SupportsDunderGT[Any]", variable has type "float")  [assignment]
+modules/groove_extractor.py:185: error: Incompatible default for parameter "weights" (default has type "None", parameter has type "list[Any]")  [assignment]
+modules/groove_extractor.py:185: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+modules/groove_extractor.py:185: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+app/gui/wizard_v8_extensions.py:245: error: Argument 1 to "get" of "dict" has incompatible type "Any | None"; expected "str"  [arg-type]
+modules/essentia_analyzer.py:41: error: Incompatible types in assignment (expression has type "None", variable has type Module)  [assignment]
+modules/essentia_analyzer.py:42: error: Incompatible types in assignment (expression has type "None", variable has type Module)  [assignment]
+modules/essentia_analyzer.py:120: error: Incompatible types in assignment (expression has type "int | float", variable has type "int")  [assignment]
+modules/anti_neuro_v10.py:43: error: Incompatible types in assignment (expression has type "None", variable has type Module)  [assignment]
+modules/anti_neuro_v10.py:350: error: Incompatible types in assignment (expression has type "ndarray[tuple[Any, ...], dtype[float64]]", variable has type "ndarray[tuple[Any, ...], dtype[floating[_32Bit]]]")  [assignment]
+app/core/orchestrator_v10_patch.py:159: error: Module has no attribute "mix"  [attr-defined]
+modules/analyzer.py:19: error: Incompatible types in assignment (expression has type "None", variable has type Module)  [assignment]
+modules/analyzer.py:39: error: Value of type "builtins.bool | numpy.bool[builtins.bool] | int | integer[Any] | float | floating[Any] | ndarray[tuple[Any, ...], dtype[Any]]" is not indexable  [index]
+modules/analyzer.py:158: error: Incompatible default for parameter "weights" (default has type "None", parameter has type "list[Any]")  [assignment]
+modules/analyzer.py:158: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+modules/analyzer.py:158: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+modules/analyzer.py:158: error: Incompatible default for parameter "take_notes" (default has type "None", parameter has type "list[Any]")  [assignment]
+modules/analyzer.py:187: error: Need type annotation for "tag_weights" (hint: "tag_weights: dict[<type>, <type>] = ...")  [var-annotated]
+modules/analyzer.py:191: error: Argument "key" to "sorted" has incompatible type overloaded function; expected "Callable[[Any], SupportsDunderLT[Any] | SupportsDunderGT[Any]]"  [arg-type]
+app/core/orchestrator.py:31: error: Cannot assign to a type  [misc]
+app/core/orchestrator.py:31: error: Incompatible types in assignment (expression has type "None", variable has type "type[LLMRouter]")  [assignment]
+app/core/orchestrator.py:844: error: "Sequence[str]" has no attribute "format"  [attr-defined]
+app/core/orchestrator.py:878: error: Unsupported left operand type for + ("None")  [operator]
+app/core/orchestrator.py:878: note: Left operand is of type "Any | None"
+tools/smoke_v26.py:30: error: Need type annotation for "RESULTS" (hint: "RESULTS: list[<type>] = ...")  [var-annotated]
+tools/smoke_v25.py:41: error: Need type annotation for "RESULTS" (hint: "RESULTS: list[<type>] = ...")  [var-annotated]
+tools/smoke_v25.py:91: error: Item "None" of "Match[str] | None" has no attribute "group"  [union-attr]
+tools/smoke_v25.py:243: error: Argument 2 to "check" has incompatible type "Literal[False] | Any | None"; expected "bool"  [arg-type]
+tools/smoke_v24.py:30: error: Need type annotation for "RESULTS" (hint: "RESULTS: list[<type>] = ...")  [var-annotated]
+tools/smoke_v23.py:23: error: Need type annotation for "RESULTS" (hint: "RESULTS: list[<type>] = ...")  [var-annotated]
+tools/smoke_v22.py:13: error: Need type annotation for "RESULTS" (hint: "RESULTS: list[<type>] = ...")  [var-annotated]
+tools/smoke_v21.py:13: error: Need type annotation for "RESULTS" (hint: "RESULTS: list[<type>] = ...")  [var-annotated]
+tools/smoke_v20.py:10: error: Need type annotation for "RESULTS" (hint: "RESULTS: list[<type>] = ...")  [var-annotated]
+tools/smoke_v19.py:23: error: Need type annotation for "RESULTS" (hint: "RESULTS: list[<type>] = ...")  [var-annotated]
+modules/render_queue.py:157: error: Module "app.core.orchestrator" has no attribute "Orchestrator"  [attr-defined]
+modules/render_queue.py:158: error: Module "app.hw_probe" has no attribute "probe_hw"; maybe "probe"?  [attr-defined]
+modules/render_queue.py:159: error: Module "app.logger" has no attribute "make_logger"  [attr-defined]
+app/runtime_orchestrator.py:32: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]
+app/runtime_orchestrator.py:33: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]
+app/runtime_orchestrator.py:36: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]
+app/runtime_orchestrator.py:97: error: Need type annotation for "hit" (hint: "hit: dict[<type>, <type>] = ...")  [var-annotated]
+modules/rvc_trainer_v9.py:135: error: Assignment to variable "e" outside except: block  [misc]
+modules/rvc_trainer_v9.py:138: error: Trying to read deleted variable "e"  [misc]
+modules/rvc_trainer_v9.py:140: error: Trying to read deleted variable "e"  [misc]
+modules/rvc_trainer_v9.py:193: error: Module "modules.render_queue" has no attribute "enqueue"  [attr-defined]
+modules/voice_vault_v9.py:33: error: Incompatible types in assignment (expression has type "None", variable has type Module)  [assignment]
+modules/voice_vault_v9.py:230: error: Need type annotation for "by_style" (hint: "by_style: dict[<type>, <type>] = ...")  [var-annotated]
+app/core/orchestrator_god.py:99: error: Incompatible types in assignment (expression has type "Any | None", variable has type "str")  [assignment]
+app/core/orchestrator_god.py:107: error: Argument 1 to "clean_vocal" has incompatible type "Any | None"; expected "str"  [arg-type]
+app/core/orchestrator_god.py:124: error: Incompatible types in assignment (expression has type "dict[str, object]", variable has type "PipelineStage")  [assignment]
+app/core/orchestrator_god.py:131: error: Item "PipelineStage" of "dict[str, Any] | PipelineStage" has no attribute "get"  [union-attr]
+modules/auto_qa.py:111: error: "object" has no attribute "append"  [attr-defined]
+modules/auto_qa.py:119: error: "object" has no attribute "append"  [attr-defined]
+modules/auto_qa.py:141: error: Value of type "object" is not indexable  [index]
+modules/auto_qa.py:143: error: "object" has no attribute "append"  [attr-defined]
+modules/auto_qa.py:150: error: Value of type "object" is not indexable  [index]
+modules/auto_qa.py:151: error: "object" has no attribute "append"  [attr-defined]
+modules/auto_qa.py:158: error: Value of type "object" is not indexable  [index]
+modules/auto_qa.py:159: error: "object" has no attribute "append"  [attr-defined]
+modules/auto_qa.py:170: error: Argument 1 to "len" has incompatible type "object"; expected "Sized"  [arg-type]
+modules/auto_qa.py:177: error: "object" has no attribute "__iter__"; maybe "__dir__" or "__str__"? (not iterable)  [attr-defined]
+app/core/orchestrator_v8_patch.py:63: error: Need type annotation for "result" (hint: "result: dict[<type>, <type>] = ...")  [var-annotated]
+app/core/orchestrator_v8_patch.py:104: error: Incompatible types in assignment (expression has type "dict[Any, Any]", target has type "str")  [assignment]
+app/core/orchestrator_v9_patch.py:103: error: Need type annotation for "result" (hint: "result: dict[<type>, <type>] = ...")  [var-annotated]
+app/core/orchestrator_v9_patch.py:120: error: Incompatible types in assignment (expression has type "dict[Any, Any]", target has type "str")  [assignment]
+app/core/orchestrator_v9_patch.py:247: error: Incompatible types in assignment (expression has type "dict[Any, Any]", target has type "str")  [assignment]
+app/core/orchestrator_v9_patch.py:257: error: Dict entry 0 has incompatible type "str": "bool"; expected "str": "str"  [dict-item]
+app/core/orchestrator_v9_patch.py:258: error: Dict entry 1 has incompatible type "str": "str | Any | None"; expected "str": "str"  [dict-item]
+app/core/orchestrator_v9_patch.py:259: error: Dict entry 2 has incompatible type "str": "str | None"; expected "str": "str"  [dict-item]
+app/core/orchestrator_v9_patch.py:260: error: Dict entry 3 has incompatible type "str": "dict[str, Any]"; expected "str": "str"  [dict-item]
+app/core/orchestrator_v9_patch.py:261: error: Dict entry 4 has incompatible type "str": "dict[Any, Any]"; expected "str": "str"  [dict-item]
+app/core/orchestrator_v9_patch.py:262: error: Dict entry 5 has incompatible type "str": "dict[Any, Any] | None"; expected "str": "str"  [dict-item]
+app/core/orchestrator_v9_patch.py:263: error: Dict entry 6 has incompatible type "str": "str | None"; expected "str": "str"  [dict-item]
+main.py:67: error: Item "TextIO" of "TextIO | Any" has no attribute "reconfigure"  [union-attr]
+Found 183 errors in 70 files (checked 135 source files)

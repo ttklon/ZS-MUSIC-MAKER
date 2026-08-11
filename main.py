@@ -365,7 +365,8 @@ def _cli_console() -> int:
 def main() -> int:
     _setup_console_encoding()
     _header()
-    _register_patches()
+    # v26: Патчи больше не нужны, используем единое ядро
+    # _register_patches()
 
     args = set(sys.argv[1:])
     if "--smoke" in args:
@@ -387,6 +388,9 @@ def main() -> int:
     if "--console" in args:
         return _cli_console()
     if "--god" in args:
+        # v26: Используем новое PipelineCore для God Mode
+        from app.core.pipeline_core import ZSPipeline
+        from app.core.orchestrator_god import run_god_pipeline
         return _cli_god()
     if "--async" in args:
         import asyncio
