@@ -24,6 +24,7 @@ import json
 import os
 import sys
 import traceback
+import argparse
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
@@ -373,59 +374,66 @@ def _cli_console() -> int:
 def main() -> int:
     _setup_console_encoding()
     _header()
-    # v26: Патчи больше не нужны, используем единое ядро
-    # _register_patches()
+    
+    parser = argparse.ArgumentParser(description="ZS Music Maker — Professional AI Music Production Station")
+    parser.add_argument("--god", action="store_true", help="Launch the ULTIMATE GOD MODE pipeline")
+    parser.add_argument("--async-mode", action="store_true", help="Launch parallel async pipeline")
+    parser.add_argument("--genre", type=str, default="drift_phonk", help="Target genre (100+ available)")
+    parser.add_argument("--list-genres", action="store_true", help="Show all 119+ available genres")
+    parser.add_argument("--smoke", action="store_true", help="Run quality smoke tests")
+    parser.add_argument("--self-diag", action="store_true", help="Run system self-diagnostics")
+    parser.add_argument("--health", action="store_true", help="Check system health and GPU")
+    parser.add_argument("--version", "-V", action="store_true", help="Show version info")
+    parser.add_argument("--gradio", action="store_true", help="Launch Web UI (Gradio)")
+    parser.add_argument("--desktop", action="store_true", help="Launch Desktop UI (PySide6)")
+    
+    args = parser.parse_args()
 
-    args = set(sys.argv[1:])
-    if "--smoke" in args:
+    if args.version:
+        return _cli_version()
+    
+    if args.list_genres:
+        from modules.genre_engine import StyleRegistry
+        reg = StyleRegistry()
+        print("\nAvailable Genres:")
+        for g in sorted(reg.list_genres()):
+            print(f"  - {g}")
+        return 0
+
+    if args.smoke:
         return _cli_smoke()
-    if "--dry-run" in args:
-        return _cli_dry_run()
-    if "--dashboard" in args:
-        return _cli_dashboard()
-    if "--self-diag" in args:
+    
+    if args.self_diag:
         return _cli_self_diag()
-    if "--e2e" in args:
-        return _cli_e2e()
-    if "--onboarding" in args:
-        return _cli_onboarding()
-    if "--health" in args:
+    
+    if args.health:
         return _cli_health()
-    if "--readiness" in args:
-        return _cli_readiness()
-    if "--console" in args:
-        return _cli_console()
-    if "--god" in args:
-        # v26: Используем новое PipelineCore для God Mode
-        from app.core.pipeline_core import ZSPipeline
+
+    if args.god:
         from app.core.orchestrator_god import run_god_pipeline
-        return _cli_god()
-    if "--async" in args:
+        out = run_god_pipeline("god_cli", {"genre": args.genre})
+        print(f"GOD MODE Done: {out.get('master_path')}")
+        return 0
+    
+    if args.async_mode:
         import asyncio
         from app.core.orchestrator_async import AsyncOrchestrator
-
         orch = AsyncOrchestrator("async_cli", ROOT / "output" / "async_cli")
-        asyncio.run(orch.run_pipeline({"genre": "phonk", "bpm_override": 135}))
+        asyncio.run(orch.run_pipeline({"genre": args.genre}))
         return 0
-    if "--version" in args or "-V" in args:
-        return _cli_version()
-    if "--gradio" in args:
-        if _try_launch_gui_gradio():
-            return 0
-        _safe_print("[main] gradio requested, but unavailable.")
-        return 2
-    if "--desktop" in args:
-        if _try_launch_gui_pyside():
-            return 0
-        _safe_print("[main] desktop requested, but unavailable.")
+
+    if args.gradio:
+        if _try_launch_gui_gradio(): return 0
         return 2
 
+    if args.desktop:
+        if _try_launch_gui_pyside(): return 0
+        return 2
+
+    # Default behavior: try GUI, then console
     _health_snapshot()
-    if _try_launch_gui_pyside():
-        return 0
-    if _try_launch_gui_gradio():
-        return 0
-    _safe_print("[main] GUI недоступен, переключаемся в console-режим.")
+    if _try_launch_gui_pyside(): return 0
+    if _try_launch_gui_gradio(): return 0
     return _cli_console()
 
 

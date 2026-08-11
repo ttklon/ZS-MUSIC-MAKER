@@ -9,16 +9,22 @@ ZS Music Maker — logger.py (GOD MODE)
 import logging
 import os
 from pathlib import Path
+from logging.handlers import RotatingFileHandler
 
 def setup_logger(name: str, log_file: str = "app.log", level=logging.INFO):
-    """Настраивает профессиональный логгер с выводом в консоль и файл."""
+    """Настраивает профессиональный логгер с ротацией файлов."""
     log_dir = Path(__file__).resolve().parents[2] / "output" / "logs"
     log_dir.mkdir(parents=True, exist_ok=True)
     
     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
-    # Обработчик для файла
-    file_handler = logging.FileHandler(log_dir / log_file, encoding='utf-8')
+    # v26: Ротация логов (макс 10MB, храним 5 файлов)
+    file_handler = RotatingFileHandler(
+        log_dir / log_file, 
+        maxBytes=10*1024*1024, 
+        backupCount=5, 
+        encoding='utf-8'
+    )
     file_handler.setFormatter(formatter)
 
     # Обработчик для консоли

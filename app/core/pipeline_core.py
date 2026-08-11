@@ -10,6 +10,7 @@ import time
 import logging
 import gc
 import json
+import pickle
 import os
 from pathlib import Path
 from typing import Dict, Any, List, Callable, Optional
@@ -69,15 +70,15 @@ class ZSPipeline:
         return self
 
     def _save_checkpoint(self, stage_name: str, result: StageResult):
-        """Сохраняет состояние стадии на диск."""
-        cp_path = self.checkpoint_dir / f"{stage_name}.json"
+        """Сохраняет состояние стадии на диск (в бинарном формате)."""
+        cp_path = self.checkpoint_dir / f"{stage_name}.pkl"
         try:
-            with open(cp_path, "w", encoding="utf-8") as f:
-                json.dump({
+            with open(cp_path, "wb") as f:
+                pickle.dump({
                     "ok": result.ok,
                     "output": result.output,
                     "duration": result.duration_sec
-                }, f, default=str)
+                }, f)
         except Exception as e:
             logger.warning(f"Failed to save checkpoint for {stage_name}: {e}")
 
@@ -85,16 +86,19 @@ class ZSPipeline:
         logger.info(f"Launching pipeline for project: {self.context.project_id}")
         
         for stage in self.stages:
-            # Проверка чекпоинта
-            cp_path = self.checkpoint_dir / f"{stage.name}.json"
+            # Проверка чекпоинта (бинарный формат быстрее)
+            cp_path = self.checkpoint_dir / f"{stage.name}.pkl"
             if use_checkpoints and cp_path.exists():
                 logger.info(f"Loading checkpoint for stage: {stage.name}")
-                with open(cp_path, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-                    res = StageResult(name=stage.name, ok=data["ok"], output=data["output"], duration_sec=data["duration"])
-                    self.context.results[stage.name] = res
-                    if not res.ok: break
-                    continue
+                try:
+                    with open(cp_path, "rb") as f:
+                        data = pickle.load(f)
+                        res = StageResult(name=stage.name, ok=data["ok"], output=data["output"], duration_sec=data["duration"])
+                        self.context.results[stage.name] = res
+                        if not res.ok: break
+                        continue
+                except Exception as e:
+                    logger.warning(f"Checkpoint corrupted for {stage.name}, re-running. Error: {e}")
 
             res = stage.execute(self.context)
             self._save_checkpoint(stage.name, res)
