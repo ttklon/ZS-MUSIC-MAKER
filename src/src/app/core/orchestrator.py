@@ -1307,6 +1307,14 @@ def run_full_pipeline(project_id: str,
     quality_mode = (wizard_state.get("quality_mode") or "quality").strip().lower()
     if quality_mode not in ("fast", "quality", "max"):
         quality_mode = "quality"
+
+    # Маппинг quality_mode на параметры стадий
+    _q_map = {
+        "fast":    {"rvc_epochs": 20,  "mastering_iterations": 1},
+        "quality": {"rvc_epochs": 100, "mastering_iterations": 3},
+        "max":     {"rvc_epochs": 300, "mastering_iterations": 5}
+    }
+    q_params = _q_map[quality_mode]
     user_extra_prompt = (wizard_state.get("user_extra_prompt") or "").strip()
     # v25: свободный промпт пользователя подмешивается в тему генерации
     # (иначе поле «Экстра-промпт» в GUI — мёртвая заглушка)
@@ -1467,6 +1475,7 @@ def run_full_pipeline(project_id: str,
 
     if mix_wav:
         # v25: стенды из GUI шага ② реально доезжают до mastering
+        # v26: quality_mode также влияет на тщательность мастеринга
         s10 = _timed("_stage_mastering",
                      lambda: _stage_mastering(mix_wav, out_root,
                                               stands=stands_req or None))

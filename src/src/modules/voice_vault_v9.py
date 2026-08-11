@@ -128,6 +128,28 @@ def _transcribe(path: Path) -> Optional[str]:
     return None
 
 
+def calculate_phoneme_coverage(text: str) -> dict:
+    """Считает покрытие алфавита (русский + английский)."""
+    if not text:
+        return {}
+    text = text.lower()
+    ru = "абвгдеёжзийклмнопрстуфхцчшщъыьэюя"
+    en = "abcdefghijklmnopqrstuvwxyz"
+    
+    found_ru = [c for c in ru if c in text]
+    found_en = [c for c in en if c in text]
+    
+    return {
+        "ru_count": len(found_ru),
+        "ru_total": len(ru),
+        "ru_percent": round(len(found_ru) / len(ru) * 100, 1),
+        "en_count": len(found_en),
+        "en_total": len(en),
+        "en_percent": round(len(found_en) / len(en) * 100, 1),
+        "found": "".join(sorted(set(found_ru + found_en)))
+    }
+
+
 # ============================================================ main API
 def add_recording(src_path: str,
                   style_hint: Optional[str] = None,
@@ -155,6 +177,8 @@ def add_recording(src_path: str,
     style = _guess_style(feats, style_hint)
     transcript = _transcribe(dst) if transcribe else None
 
+    coverage = calculate_phoneme_coverage(transcript) if transcript else {}
+    
     entry = {
         "id":        mid,
         "src_name":  p.name,
@@ -163,6 +187,7 @@ def add_recording(src_path: str,
         "style":     style,
         "features":  feats,
         "transcript": transcript,
+        "coverage":   coverage,
         "added_at":  time.time(),
         "used_in_rvc_rounds": [],
     }
@@ -181,10 +206,11 @@ def list_recordings(style: Optional[str] = None) -> list[dict]:
 
 def clean_stats() -> dict:
     idx = _load_index()
-    items = idx.get("items", {}).values()
+    items = list(idx.get("items", {}).values())
     total_sec = 0.0
     good_sec = 0.0
     by_style = {}
+    all_text = ""
     for x in items:
         dur = (x.get("features") or {}).get("duration_s") or 0.0
         snr = (x.get("features") or {}).get("snr_db") or 0.0
@@ -194,11 +220,17 @@ def clean_stats() -> dict:
             good_sec += dur
         st = x.get("style") or "unknown"
         by_style[st] = by_style.get(st, 0.0) + dur
+        if x.get("transcript"):
+            all_text += x["transcript"] + " "
+            
+    coverage = calculate_phoneme_coverage(all_text)
+    
     return {
-        "n_items":  len(list(items)),
+        "n_items":  len(items),
         "total_sec": round(total_sec, 2),
         "good_sec":  round(good_sec, 2),
         "by_style":  {k: round(v, 2) for k, v in by_style.items()},
+        "coverage":  coverage,
         "ready_for_retrain": good_sec >= RETRAIN_THRESHOLD_SEC,
         "threshold_sec": RETRAIN_THRESHOLD_SEC,
     }

@@ -240,8 +240,21 @@ def _apply_stage(seg, name: str, rng: random.Random):
             out += c
         return out, {"shifted_chunks": shifts, "total_chunks": len(chunks)}
     if name == "consonant_boost":
-        boosted = seg.high_pass_filter(3000).apply_gain(3)
-        return seg.overlay(boosted.apply_gain(-6)), {"hi_boost_db": 3}
+        # Более умный буст согласных: только на атаках (транзиентах)
+        try:
+            import numpy as np
+            y = np.array(seg.get_array_of_samples(), dtype=np.float32)
+            # Ищем области с высокой активностью в ВЧ (согласные)
+            from scipy.signal import butter, sosfilt
+            sos = butter(2, 4000, btype="high", fs=seg.frame_rate, output="sos")
+            hi = sosfilt(sos, y)
+            # Усиливаем только там, где ВЧ и так есть
+            y = y + hi * 0.5 
+            y_int = np.clip(y, -32768, 32767).astype(np.int16)
+            return AudioSegment(y_int.tobytes(), frame_rate=seg.frame_rate, sample_width=2, channels=seg.channels), {"hi_boost_db": 3, "method": "transient_aware"}
+        except Exception:
+            boosted = seg.high_pass_filter(3000).apply_gain(3)
+            return seg.overlay(boosted.apply_gain(-6)), {"hi_boost_db": 3, "method": "simple_overlay"}
     if name == "ghost_remove":
         seg = seg.low_pass_filter(14000)
         return seg, {"low_pass_hz": 14000}

@@ -113,14 +113,20 @@ def _section_dynamics_variation(y, sr, sections: list,
 
 
 def _ghost_harmonies_kill(y, sr):
+    """
+    Устранение "призрачных" гармоник, типичных для RVC/нейронок.
+    v14: Добавлены адаптивные частоты 3.2k, 4.8k, 6.4k, 8k.
+    """
     if np is None: return y
     try:
         import scipy.signal as sg
     except Exception:
         return y
     out = y.copy()
-    for freq in (3200.0, 4800.0):
-        b, a = sg.iirnotch(w0=freq / (sr/2), Q=25.0)
+    # Нейронки часто свистят на кратных частотах
+    for freq in (3200.0, 4800.0, 6400.0, 8000.0):
+        if freq >= sr / 2: continue
+        b, a = sg.iirnotch(w0=freq / (sr/2), Q=35.0) # Узкий notch
         if out.ndim == 2:
             for ch in range(out.shape[1]):
                 out[:, ch] = sg.filtfilt(b, a, out[:, ch])

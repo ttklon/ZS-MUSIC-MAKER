@@ -325,6 +325,7 @@ def infer(input_wav: str, voice_name: str = "my_voice",
         raise RuntimeError("RVC model is not available; refusing pitch-shift fallback")
 
     # 1) rvc-python
+    backend = detect_backend()
     try:
         from rvc_python.infer import infer_file
         infer_file(input_path=input_wav,
@@ -332,14 +333,23 @@ def infer(input_wav: str, voice_name: str = "my_voice",
                    index_path=str(index_path) if index_path.exists() else None,
                    output_path=str(out_path),
                    f0up_key=pitch_shift, f0method="rmvpe",
-                   device=detect_backend().kind)
-        if out_path.exists():
+                   device=backend.kind)
+        if out_path.exists() and out_path.stat().st_size > 1000:
             return str(out_path)
+        else:
+            raise RuntimeError("RVC output file is empty or too small")
+    except ImportError:
+        # 2) AMD/DirectML/CPU: try fork if present
+        if backend.fork != "rvc-python":
+            fork_dir = FORKS_DIR / backend.fork
+            if fork_dir.exists():
+                # Здесь должна быть логика вызова CLI форка, 
+                # но для v14 мы оставляем это как задел для реального железа.
+                raise RuntimeError(f"RVC fork {backend.fork} is cloned but CLI integration is pending for this OS.")
+        raise RuntimeError("rvc-python not installed and no active fork integration found.")
     except Exception as e:
         print(f"[rvc_manager.infer] rvc-python failed: {e}")
-
-    # Do not disguise a failed RVC inference as voice conversion.
-    raise RuntimeError("RVC inference failed; no non-RVC fallback is permitted")
+        raise RuntimeError(f"RVC inference failed: {e}. No non-RVC fallback is permitted (TZ 33.5).")
 
 
 def _fallback_pitch(input_wav: str, out_path: str, pitch_shift: int) -> str:

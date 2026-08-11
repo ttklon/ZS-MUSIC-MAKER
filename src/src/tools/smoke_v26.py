@@ -57,7 +57,7 @@ def main():
     print("=" * 64)
 
     res = _run("p_v26", {"references": [], "theme": "лето, тачки",
-                         "genre": "drift_phonk", "duration_sec": 12,
+                         "genre": "drift_phonk", "duration_sec": 35,
                          "bpm_override": 130})
     root_out = ROOT / "output" / "smoke_v26" / "p_v26"
     beat = root_out / "beat.wav"

@@ -240,48 +240,61 @@ class BeatConstructor:
 
         return np.zeros(bar_samples, dtype=np.float32)
 
+    def _pan_audio(self, audio: np.ndarray, pan: float) -> np.ndarray:
+        """Панорамирует моно-сигнал. pan: -1 (L) .. 1 (R)."""
+        if audio.ndim > 1: return audio # уже стерео
+        # Constant power panning
+        angle = (pan + 1.0) * (math.pi / 4.0)
+        left = math.cos(angle)
+        right = math.sin(angle)
+        return np.stack([audio * left, audio * right], axis=1).astype(np.float32)
+
     def _build_section(self, section: str, n_bars: int, aggression: float = 0.7) -> np.ndarray:
-        """Строит секцию трека из нескольких тактов."""
+        """Строит секцию трека из нескольких тактов (СТЕРЕО)."""
         beat_sec = 60.0 / self.bpm
         bar_sec = beat_sec * 4
         bar_samples = int(self.sr * bar_sec)
         step_samples = bar_samples // 16
 
-        section_audio = np.zeros(bar_samples * n_bars, dtype=np.float32)
+        section_audio = np.zeros((bar_samples * n_bars, 2), dtype=np.float32)
 
         for bar in range(n_bars):
             bar_start = bar * bar_samples
-            bar_audio = np.zeros(bar_samples, dtype=np.float32)
+            bar_audio = np.zeros((bar_samples, 2), dtype=np.float32)
 
-            # Басовая линия (везде кроме брейков)
+            # Басовая линия (центр)
             if section not in ("intro_pad", "breakdown_silent", "outro_fade"):
                 bass = self._generate_bass_line(bar, bar_samples)
-                bar_audio += bass
+                bar_audio += self._pan_audio(bass, 0.0)
 
-            # Драм-паттерн (везде кроме silent брейков)
+            # Драм-паттерн
             if section not in ("intro_pad", "breakdown_silent"):
                 for step in range(16):
                     step_start = step * step_samples
 
+                    # Кик всегда в центре
                     kick = self._generate_kick(step, bar)
                     kick_end = min(step_start + len(kick), bar_samples)
-                    bar_audio[step_start:kick_end] += kick[:kick_end - step_start]
+                    bar_audio[step_start:kick_end] += self._pan_audio(kick[:kick_end - step_start], 0.0)
 
+                    # Снейр/клэп почти в центре
                     snare = self._generate_snare(step, bar)
                     snare_end = min(step_start + len(snare), bar_samples)
-                    bar_audio[step_start:snare_end] += snare[:snare_end - step_start]
+                    bar_audio[step_start:snare_end] += self._pan_audio(snare[:snare_end - step_start], random.uniform(-0.05, 0.05))
 
+                    # Хэты панорамируем
                     hh = self._generate_hihat(step, bar)
                     hh_end = min(step_start + len(hh), bar_samples)
-                    bar_audio[step_start:hh_end] += hh[:hh_end - step_start]
+                    hh_pan = 0.2 if step % 2 == 0 else -0.2
+                    bar_audio[step_start:hh_end] += self._pan_audio(hh[:hh_end - step_start], hh_pan)
 
-            # Мелодия
+            # Мелодия (шире)
             mel = self._generate_melody(bar, section, bar_samples)
-            bar_audio += mel
+            bar_audio += self._pan_audio(mel, random.uniform(-0.3, 0.3))
 
-            # FX
+            # FX (очень широко)
             fx = self._generate_fx(bar, section, bar_samples)
-            bar_audio += fx
+            bar_audio += self._pan_audio(fx, random.uniform(-0.6, 0.6))
 
             # Микро-мутации: во второй половине секции меняем хэт
             if bar >= n_bars // 2 and section in ("verse", "hook"):
@@ -365,7 +378,7 @@ class BeatConstructor:
             })
             current_time += n_bars * bar_sec
 
-        full_track = np.concatenate(all_audio)
+        full_track = np.concatenate(all_audio, axis=0)
 
         # v26 FIX (P0): 200 мс глубокий фейд перед первым hook = drop
         try:
@@ -377,7 +390,7 @@ class BeatConstructor:
                 _idx = int(_first_hook_sec * self.sr)
                 _fade = int(0.20 * self.sr)
                 if _idx - _fade > 0:
-                    _env = np.linspace(1.0, 0.02, _fade).astype(np.float32)
+                    _env = np.linspace(1.0, 0.02, _fade).astype(np.float32)[:, np.newaxis]
                     full_track[_idx - _fade:_idx] *= _env
         except Exception:
             pass
@@ -421,27 +434,22 @@ class BeatConstructor:
         if peak > 0:
             full_track = full_track / peak * 0.9
 
-        # v26 FIX (P0): СТЕРЕО (было моно → весь мастер corr=1.0)
-        stereo = None
+        # v26 FIX (P0): СТЕРЕО (уже собрано в стерео, добавляем финальную ширину)
+        stereo = full_track
         try:
+            # Дополнительное расширение ВЧ для воздуха
             from scipy.signal import butter as _bt26, sosfilt as _sf26
-            _sos_hp200 = _bt26(4, 200, btype="high", fs=self.sr, output="sos")
-            _mid_hi = _sf26(_sos_hp200, full_track)
-            _low_mid = full_track - _mid_hi
-            _d1 = int(self.sr * 0.010)
-            _mid_hi_r = np.concatenate([np.zeros(_d1, dtype=np.float32),
-                                        _mid_hi[:-_d1]])
             _sos_hp5k = _bt26(2, 5000, btype="high", fs=self.sr, output="sos")
-            _hi = _sf26(_sos_hp5k, full_track)
-            _d2 = int(self.sr * 0.007)
-            _hi_r = np.concatenate([np.zeros(_d2, dtype=np.float32), _hi[:-_d2]])
-            _left = _low_mid + _mid_hi + _hi * 0.25
-            _right = _low_mid + _mid_hi_r + _hi_r * 0.35
-            stereo = np.stack([_left, _right], axis=1).astype(np.float32)
+            _hi = _sf26(_sos_hp5k, stereo, axis=0)
+            _d2 = int(self.sr * 0.005)
+            # Сдвигаем только правый канал ВЧ
+            _hi_r_delayed = np.concatenate([np.zeros((_d2, 2), dtype=np.float32), _hi[:-(_d2)]], axis=0)
+            stereo[:, 1] += _hi_r_delayed[:, 1] * 0.2
+            
             _pk = float(np.max(np.abs(stereo)) + 1e-9)
             if _pk > 0.98: stereo = stereo / _pk * 0.95
         except Exception:
-            stereo = np.stack([full_track, full_track], axis=1).astype(np.float32)
+            pass
 
         os.makedirs(OUTPUT_DIR, exist_ok=True)
         out_path = os.path.join(OUTPUT_DIR, out_name)
@@ -451,17 +459,10 @@ class BeatConstructor:
         except Exception:
             try:
                 from scipy.io import wavfile
-                wavfile.write(out_path, self.sr,
-                              (stereo * 32767).astype(np.int16))
+                # Стерео запись через wavfile
+                wavfile.write(out_path, self.sr, (stereo * 32767).astype(np.int16))
             except Exception:
-                try:
-                    from pydub import AudioSegment
-                    _mono = (full_track * 32767).astype(np.int16)
-                    seg = AudioSegment(_mono.tobytes(), frame_rate=self.sr,
-                                       sample_width=2, channels=1)
-                    seg.export(out_path, format="wav")
-                except Exception:
-                    pass
+                pass
 
         return {
             "beat_path": out_path,

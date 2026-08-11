@@ -72,9 +72,22 @@ def _synth_pyttsx3(text: str, out_path: str) -> bool:
         engine = pyttsx3.init()
         engine.save_to_file(text, out_path)
         engine.runAndWait()
-        return os.path.exists(out_path) and os.path.getsize(out_path) > 100
+        if os.path.exists(out_path) and os.path.getsize(out_path) > 100:
+            return True
     except Exception as e:
         print(f"[voice_synth.pyttsx3] {e}")
+    return False
+
+
+def _synth_gtts(text: str, out_path: str) -> bool:
+    """Fallback для Linux через Google TTS (требует интернет)."""
+    try:
+        from gtts import gTTS
+        tts = gTTS(text=text, lang='ru')
+        tts.save(out_path)
+        return os.path.exists(out_path) and os.path.getsize(out_path) > 100
+    except Exception as e:
+        print(f"[voice_synth.gtts] {e}")
         return False
 
 
@@ -96,20 +109,22 @@ def synth(text: str,
         pass
     out_path = str(OUT_DIR / (out_name or "draft.wav"))
 
-    if engine == "auto":
-        # Пробуем от быстрого к качественному
-        for e in ("silero", "xtts", "bark", "pyttsx3"):
-            if synth(text, engine=e, out_name=out_name, speaker_wav=speaker_wav):
-                return out_path
-        return out_path
-
     engines = {
         "silero":   lambda: _synth_silero(text, out_path),
         "xtts":     lambda: _synth_xtts(text, out_path, speaker_wav=speaker_wav),
         "bark":     lambda: _synth_bark(text, out_path),
         "bark_full":lambda: _synth_bark(text, out_path),
         "pyttsx3":  lambda: _synth_pyttsx3(text, out_path),
+        "gtts":     lambda: _synth_gtts(text, out_path),
     }
+
+    if engine == "auto":
+        # Пробуем от быстрого к качественному
+        for e in ("silero", "xtts", "bark", "pyttsx3", "gtts"):
+            if engines[e]():
+                return out_path
+        return out_path
+
     fn = engines.get(engine)
     if not fn:
         print(f"[voice_synth] unknown engine={engine}, fallback silero")
@@ -118,7 +133,7 @@ def synth(text: str,
     ok = fn()
     if not ok:
         # цепочка fallback
-        for backup in ("silero", "pyttsx3"):
+        for backup in ("silero", "pyttsx3", "gtts"):
             if backup != engine:
                 if engines[backup]():
                     return out_path

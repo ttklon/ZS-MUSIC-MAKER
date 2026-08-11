@@ -227,9 +227,11 @@ def _try_numpy_dsp(target: str, out_wav: str, stand: str,
             y = np.repeat(y, 2, axis=1)
         y = y.astype("float32")
 
+        # 1. HPF для удаления инфразвука
         sos = butter(4, 30, btype="high", fs=sr, output="sos")
         y = np.stack([sosfilt(sos, y[:, c]) for c in range(y.shape[1])], axis=1)
 
+        # 2. EQ по стендам
         cfg = STANDS.get(stand, {})
         eq = cfg.get("eq") or {}
         if "low_boost_db" in eq:
@@ -250,27 +252,31 @@ def _try_numpy_dsp(target: str, out_wav: str, stand: str,
             hi = np.stack([sosfilt(sos_bp, y[:, c]) for c in range(y.shape[1])], axis=1)
             y = y - hi * gain
 
-        # v23: K-взвешенная оценка вместо RMS − 3 dB (который занижал
-        # громкость и приводил к чрезмерному гейну перед лимитером).
+        # 3. Сатурация (warmth) — мягкое ограничение до лимитера
+        # Добавляет четные гармоники и плотность
+        y = np.sign(y) * (1 - np.exp(-np.abs(y * 1.1)))
+
+        # 4. K-взвешенная оценка и гейн
         approx_lufs = _k_weighted_loudness_approx(y, sr)
         gain_db = max(-24.0, min(24.0, target_lufs - approx_lufs))
         y = y * (10 ** (gain_db / 20))
 
+        # 5. Лимитирование (soft-clip)
         tp = cfg.get("tp", -1.0)
         tp_lin = 10 ** (tp / 20)
-        y = np.tanh(y / tp_lin) * tp_lin * 0.98
-
-        # v26 FIX (P0): целимся в фактический dBFS (hit_scorer измеряет
-        # RMS без K-weighting), компенсация tanh-потерь до 3 итераций.
+        
+        # v26 FIX (P0): целимся в фактический dBFS, компенсация tanh-потерь до 3 итераций.
         for _ in range(3):
+            # Мягкий клиппинг
+            y = np.tanh(y / tp_lin) * tp_lin * 0.98
+            
             _rms_v = float(np.sqrt(np.mean(y ** 2))) + 1e-12
             _dbfs = 20.0 * math.log10(_rms_v)
             _diff = target_lufs - _dbfs
-            if abs(_diff) < 0.3:
+            if abs(_diff) < 0.2:
                 break
             _corr = max(-3.0, min(3.0, _diff))
             y = y * (10 ** (_corr / 20))
-            y = np.tanh(y / tp_lin) * tp_lin * 0.98
 
         Path(out_wav).parent.mkdir(parents=True, exist_ok=True)
         sf.write(out_wav, y, sr)
