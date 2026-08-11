@@ -1,0 +1,8 @@
+{
+  "electronic": ["Techno", "House", "Trance", "Dubstep", "Drum and Bass", "Hardstyle", "Ambient", "IDM", "Garage", "Deep House", "Minimal", "Psytrance", "Gabber", "Electro", "Vaporwave", "Synthwave", "Future Bass", "Trap", "Grime", "Glitch"],
+  "rock_metal": ["Heavy Metal", "Thrash Metal", "Death Metal", "Black Metal", "Nu Metal", "Metalcore", "Hard Rock", "Punk Rock", "Post-Punk", "Gothic Rock", "Grunge", "Alternative Rock", "Indie Rock", "Psychedelic Rock", "Stoner Rock", "Progressive Rock", "Math Rock", "Shoegaze", "Ska Punk", "Pop Punk"],
+  "hiphop_rnb": ["Boom Bap", "Trap", "Drill", "Phonk", "Cloud Rap", "G-Funk", "Old School", "Conscious Rap", "Lo-Fi Hip Hop", "Neo Soul", "Contemporary R&B", "Contemporary Jazz", "Afrobeats", "Dancehall", "Reggaeton", "Mumble Rap", "Grime", "Jersey Club", "UK Drill", "Chopped and Screwed"],
+  "jazz_blues": ["Swing", "Bebop", "Cool Jazz", "Fusion", "Acid Jazz", "Smooth Jazz", "Delta Blues", "Chicago Blues", "Boogie Woogie", "Ragtime", "Bossa Nova", "Latin Jazz", "Hard Bop", "Free Jazz", "Soul Jazz", "Jump Blues", "Texas Blues", "Electric Blues", "Piano Blues", "Jazz Funk"],
+  "classical_cinematic": ["Baroque", "Classical", "Romantic", "Modernist", "MinimalistClassical", "Film Score", "Epic Orchestral", "Horror Ambient", "Cyberpunk Soundtrack", "Fantasy Folk", "Neoclassical", "Opera", "Chamber Music", "Symphonic Metal", "Dark Ambient", "Drone", "Soundscape", "Industrial Ambient", "Ethereal", "New Age"],
+  "folk_world": ["Celtic", "Bluegrass", "Country", "Americana", "Flamenco", "Tango", "Samba", "K-Pop", "J-Pop", "City Pop", "Enka", "Chanson", "Fado", "Reggae", "Ska", "Dub", "Klezmer", "Balkan Brass", "Indian Classical", "Traditional Chinese"]
+}

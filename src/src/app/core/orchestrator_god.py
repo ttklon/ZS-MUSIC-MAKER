@@ -24,6 +24,10 @@ from modules import (
     phonk_engine,
     beat_constructor,
     phonk_engine_v2,
+    genre_engine,
+    ai_arranger,
+    midi_generator,
+    musical_intelligence,
 )
 from app.plugins.base import PluginChain
 from app.plugins.advanced import PhonkDistortion, AntiAINeuroObfuscator
@@ -51,36 +55,48 @@ def run_god_pipeline(
     stages = []
     import json
 
-    # 1. Анализ темы и жанра
-    theme = wizard_state.get("theme", "default")
-    genre = wizard_state.get("genre", "drift_phonk")
-    bpm = int(wizard_state.get("bpm_override") or 130)
+    # 1. Инициализация систем (GOD MODE)
+    reg = genre_engine.StyleRegistry()
+    factory = genre_engine.GenreFactory(reg)
+    arranger = ai_arranger.AIArranger()
+    midi_gen = midi_generator.MIDIGenerator()
+    
+    # Получаем профиль жанра и структуру
+    genre_name = wizard_state.get("genre", "drift_phonk")
+    state = factory.create_wizard_state(genre_name, override=wizard_state)
+    bpm = state["bpm_override"]
+    genre_tags = state["tags"]
+    
+    s0 = _timed("ai_arrangement", lambda: arranger.get_structure(genre_tags))
+    stages.append(s0.__dict__ if hasattr(s0, "__dict__") else s0)
+    structure = s0.output
 
-    # 2. Генерация бита (с использованием Phonk Engine если нужно)
-    s1 = _timed(
-        "god_beat_generation",
-        lambda: beat_constructor.construct_beat(
-            groove={},
-            samples=[],
-            style_vector={"target_bpm": bpm, "target_mode": "minor"},
-            out_name="beat.wav",
-        ),
-    )
+    # 2. Генерация MIDI (GOD MODE)
+    s1 = _timed("midi_generation", lambda: {
+        "ok": True,
+        "drums": midi_gen.generate_drum_pattern(genre_name, bpm),
+        "melody": midi_gen.generate_melody_pattern(genre_name, "A", "minor", bpm)
+    })
     stages.append(s1.__dict__ if hasattr(s1, "__dict__") else s1)
-    beat_wav = (s1.output or {}).get("beat_path")
 
-    # 3. Если жанр Phonk - используем Phonk Engine V2 (GOD MODE)
-    if "phonk" in genre.lower():
+    # 3. Генерация аудио (GOD MODE)
+    if "phonk" in genre_name.lower():
         phonk_wav = str(out_root / "phonk_v2_master.wav")
         engine_v2 = phonk_engine_v2.PhonkEngineV2()
-        s2 = _timed(
-            "phonk_engine_v2",
-            lambda: engine_v2.create_drift_track(
-                project_id, bpm, "A", "minor", phonk_wav
-            ),
-        )
+        s2 = _timed("phonk_engine_v2", lambda: engine_v2.create_drift_track(
+            project_id, bpm, "A", "minor", phonk_wav
+        ))
         stages.append(s2.__dict__ if hasattr(s2, "__dict__") else s2)
-        beat_wav = phonk_wav  # Используем результат V2 как основной бит
+        beat_wav = phonk_wav
+    else:
+        # Fallback на базовый конструктор для 100+ жанров
+        s2 = _timed("multi_genre_beat", lambda: beat_constructor.construct_beat(
+            groove={}, samples=[], 
+            style_vector={"target_bpm": bpm, "target_mode": "minor"},
+            out_name="multi_beat.wav"
+        ))
+        stages.append(s2.__dict__ if hasattr(s2, "__dict__") else s2)
+        beat_wav = (s2.output or {}).get("beat_path")
 
     # 4. Очистка вокала (если есть)
     vocal_wav = wizard_state.get("vocal_input_path")

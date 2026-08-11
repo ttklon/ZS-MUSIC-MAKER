@@ -311,10 +311,17 @@ def _cli_god() -> int:
     try:
         from app.core.orchestrator_god import run_god_pipeline
 
-        _safe_print("[main --god] Launching GOD MODE pipeline...")
-        out = run_god_pipeline(
-            "god_cli", {"theme": "drift_phonk", "genre": "drift_phonk"}
-        )
+        # Парсинг аргументов
+        genre = "drift_phonk"
+        theme = "drift_phonk"
+        for i, arg in enumerate(sys.argv):
+            if arg == "--genre" and i + 1 < len(sys.argv):
+                genre = sys.argv[i + 1]
+            if arg == "--theme" and i + 1 < len(sys.argv):
+                theme = sys.argv[i + 1]
+
+        _safe_print(f"[main --god] Launching GOD MODE pipeline (genre={genre}, theme={theme})...")
+        out = run_god_pipeline("god_cli", {"theme": theme, "genre": genre})
         _safe_print(
             f"GOD MODE COMPLETED: elapsed={out.get('elapsed_sec')}s master={out.get('master_path')}"
         )
