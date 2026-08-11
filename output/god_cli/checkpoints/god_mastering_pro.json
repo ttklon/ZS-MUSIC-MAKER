@@ -1,1 +1,1 @@
-{"ok": true, "output": {"ok": true, "path": "/home/ubuntu/ZS-MUSIC-MAKER/output/god_cli/masters/master_god.wav", "engine": "pedalboard_pro_safe", "input_lufs": -11.21, "target_lufs": -12.0}, "duration": 1.2584176063537598}
+{"ok": true, "output": {"ok": true, "path": "/home/ubuntu/ZS-MUSIC-MAKER/output/god_cli/masters/master_god.wav", "engine": "pedalboard_pro_safe", "input_lufs": -11.8, "target_lufs": -12.0}, "duration": 1.3191399574279785}

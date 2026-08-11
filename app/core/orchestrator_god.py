@@ -77,14 +77,20 @@ def run_god_pipeline(
         
         out_name = str(out_root / "multi_beat.wav")
         try:
-            from modules.cyber_synth import CyberSynth
-            synth = CyberSynth(sample_rate=44100)
-            res = synth.synthesize_track(bpm=bpm, duration_sec=120, out_path=out_name)
+            if "chanson" in genre_name.lower() or "шансон" in genre_name.lower():
+                from modules.chanson_engine import ChansonEngine
+                engine = ChansonEngine(sample_rate=44100)
+                res = engine.synthesize_chanson_track(bpm=max(80, min(bpm, 110)), duration_sec=120, out_path=out_name)
+            else:
+                from modules.cyber_synth import CyberSynth
+                synth = CyberSynth(sample_rate=44100)
+                res = synth.synthesize_track(bpm=bpm, duration_sec=120, out_path=out_name)
+            
             if res.get("ok"):
                 ctx.shared_data["beat_wav"] = out_name
                 return out_name
         except Exception as e:
-            print(f"[orchestrator_god] CyberSynth fallback due to: {e}")
+            print(f"[orchestrator_god] Engine fallback due to: {e}")
 
         # Fallback to beat_constructor if needed
         res = beat_constructor.construct_beat(
