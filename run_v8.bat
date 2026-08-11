@@ -1,32 +1,32 @@
 @echo off
+REM ZS Music Maker — Windows launcher (AUDIT-FIX)
+REM Раньше вызывал main_v8.py, которого НЕТ в репозитории — заменён
+REM на единый main.py (консолидированная точка входа).
 chcp 65001 >nul
 setlocal ENABLEEXTENSIONS
 cd /d "%~dp0"
 
-REM ---- ZS Music Maker v8 launcher ----
-echo ============================================
-echo   ZS Music Maker v8 — Night Drive Edition
-echo ============================================
-
-REM 1) find python
 where py >nul 2>&1
 if %ERRORLEVEL%==0 (
-    set "PY=py -3.11"
+    set "PY=py -3"
 ) else (
     where python >nul 2>&1
     if %ERRORLEVEL%==0 (
         set "PY=python"
     ) else (
-        echo Python не найден. Запусти windows_build.bat.
+        echo Python не найден. Установите Python 3.10+.
         pause & exit /b 1
     )
 )
 
-REM 2) HW detect print
-%PY% -c "from app.core.hw_autodetect import detect, human_summary; print(human_summary(detect()))"
+set "PYTHONIOENCODING=utf-8"
+set "PYTHONUTF8=1"
 
-REM 3) launch main_v8
-%PY% main_v8.py
+echo ============================================
+echo   ZS Music Maker — Unified Launcher
+echo ============================================
+
+%PY% main.py %*
 if %ERRORLEVEL% NEQ 0 (
     echo.
     echo Ошибка запуска. Логи: logs\session.log

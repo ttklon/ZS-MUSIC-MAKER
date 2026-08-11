@@ -56,6 +56,14 @@ class ProjectContext:
 
 ctx = ProjectContext()
 
+# AUDIT-FIX P0: VERSION/BUILD использовались в _try_launch_gui_pyside (строка
+# с setWindowTitle) и в _cli_version, но НИГДЕ не были определены как
+# module-level имена — это давало NameError и краш `main.py --version` и
+# запуска Desktop GUI. Определяем их из единственного источника правды
+# (version.json), как и задумано в docstring v17.
+VERSION = ctx.version
+BUILD = ctx.build
+
 
 def _setup_console_encoding() -> None:
     """
@@ -386,7 +394,16 @@ def main() -> int:
     parser.add_argument("--version", "-V", action="store_true", help="Show version info")
     parser.add_argument("--gradio", action="store_true", help="Launch Web UI (Gradio)")
     parser.add_argument("--desktop", action="store_true", help="Launch Desktop UI (PySide6)")
-    
+    # AUDIT-FIX P0: нижеперечисленные режимы имели реализации (_cli_*),
+    # рекламировались в docstring модуля, но НЕ были подключены к argparse —
+    # `main.py --dry-run` и др. падали с "unrecognized arguments".
+    parser.add_argument("--dry-run", action="store_true", help="Run pipeline in dry-run (no heavy deps)")
+    parser.add_argument("--dashboard", action="store_true", help="Show KPI dashboard")
+    parser.add_argument("--e2e", action="store_true", help="Run real end-to-end test")
+    parser.add_argument("--onboarding", action="store_true", help="Run voice onboarding CLI")
+    parser.add_argument("--readiness", action="store_true", help="Compute readiness percent")
+    parser.add_argument("--console", action="store_true", help="Force console REPL mode (no GUI)")
+
     args = parser.parse_args()
 
     if args.version:
@@ -408,6 +425,29 @@ def main() -> int:
     
     if args.health:
         return _cli_health()
+
+    # AUDIT-FIX P0: регистрация патчей оркестратора была написана
+    # (_register_patches), но НИГДЕ не вызывалась — патчи v8..v12
+    # просто не применялись.
+    _register_patches()
+
+    if args.dry_run:
+        return _cli_dry_run()
+
+    if args.dashboard:
+        return _cli_dashboard()
+
+    if args.e2e:
+        return _cli_e2e()
+
+    if args.onboarding:
+        return _cli_onboarding()
+
+    if args.readiness:
+        return _cli_readiness()
+
+    if args.console:
+        return _cli_console()
 
     if args.god:
         from app.core.orchestrator_god import run_god_pipeline
