@@ -66,7 +66,7 @@ class AsyncOrchestrator:
         tasks = [
             self._run_limited("beat_gen", lambda: beat_constructor.construct_beat(
                 groove={}, samples=[], 
-                style_vector={"target_bpm": bpm, "target_mode": "minor"},
+                style_vector={"target_bpm": bpm, "target_mode": "minor", "genre": genre},
                 out_name="beat.wav"
             )),
             self._run_limited("cowbell_gen", lambda: phonk_engine.create_cowbell_melody(

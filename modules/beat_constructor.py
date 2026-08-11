@@ -237,7 +237,6 @@ class BeatConstructor:
         kick_pattern = self.groove.get(
             "kick_pattern", [1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0]
         )
-        t = np.linspace(0, 60.0 / self.bpm * 4, bar_samples, endpoint=False)
         bass = np.zeros(bar_samples, dtype=np.float32)
 
         step_len = bar_samples // 16
@@ -410,6 +409,7 @@ class BeatConstructor:
         bar_sec = beat_sec * 4
         bars_needed = int(math.ceil(duration_sec / bar_sec))
 
+        # v26: Используем bars_needed для обеспечения целевой длительности
         # Распределяем такты по секциям
         intro_bars = 4 if include_intro else 0
         outro_bars = 4 if include_outro else 0

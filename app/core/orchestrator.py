@@ -1109,9 +1109,9 @@ def _stage_rvc(
                 "notice": "RVC BLOCKED — pitch-shift fallback refused (P0.05)",
             }
         r = rvc_manager.infer(
-            voice_wav, voice_name="my_voice", out_name="voice_rvc.wav"
+            voice_wav, voice_name="my_voice", out_name=out_wav
         )
-        return {"ok": bool(r), "path": r}
+        return {"ok": bool(r), "path": r or out_wav}
     except RuntimeError as e:
         return {"ok": True, "blocked": True, "path": "", "reason": str(e)}
     except Exception as e:
@@ -1636,11 +1636,11 @@ def run_full_pipeline(
     stages: list[dict[str, Any]] = []
     warnings: list[str] = []
 
-    s1 = _timed("_stage_analyze", lambda: _stage_analyze(refs, dry_run, genre))
+    s1 = _timed("_stage_analyze", lambda: _stage_analyze(refs, dry_run, genre, q_params=q_params))
     stages.append(s1.__dict__)
     analysis = s1.output.get("analysis") if isinstance(s1.output, dict) else None
 
-    s2 = _timed("_stage_groove", lambda: _stage_groove(refs, genre))
+    s2 = _timed("_stage_groove", lambda: _stage_groove(refs, genre, q_params=q_params))
     stages.append(s2.__dict__)
     groove = s2.output.get("groove") if isinstance(s2.output, dict) else None
 

@@ -823,7 +823,9 @@ class StepResult(StepBase):
             if sys.platform.startswith("win"):
                 os.startfile(str(p))
             else:
-                webbrowser.open(f"file://{p}")
+                import webbrowser
+                from pathlib import Path
+                webbrowser.open(Path(p).absolute().as_uri())
         except Exception:
             pass
 

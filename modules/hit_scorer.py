@@ -394,9 +394,10 @@ def _novelty(y, sr) -> tuple[float, float]:
         S = np.abs(librosa.stft(y, n_fft=2048))
         col_var = float(np.mean(np.var(S, axis=1)))
         row_var = float(np.mean(np.var(S, axis=0)))
-        # чем выше col_var (изменения во времени) — тем более событийный трек
-        score = min(100.0, col_var * 8e5 + 40.0) if col_var > 0 else 40.0
-        return score, col_var
+        # v26: Используем и col_var (время), и row_var (частоты)
+        combined_var = (col_var + row_var * 0.1) / 1.1
+        score = min(100.0, combined_var * 8e5 + 40.0) if combined_var > 0 else 40.0
+        return score, combined_var
     except Exception:
         return 60.0, 0.0
 
