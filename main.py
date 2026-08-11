@@ -341,34 +341,39 @@ def _cli_god() -> int:
         return 2
 
 
-def _cli_console() -> int:
-    _safe_print("[main --console] запущен без GUI. Команды:")
-    _safe_print("  smoke | e2e | diag | health | readiness | dry | version | exit")
-    while True:
-        try:
-            cmd = input("zsmm> ").strip().lower()
-        except (EOFError, KeyboardInterrupt):
-            return 0
-        if cmd in ("exit", "quit", "q"):
-            return 0
-        elif cmd == "smoke":
-            _cli_smoke()
-        elif cmd == "e2e":
-            _cli_e2e()
-        elif cmd == "diag":
-            _cli_self_diag()
-        elif cmd == "health":
-            _cli_health()
-        elif cmd == "readiness":
-            _cli_readiness()
-        elif cmd == "dry":
-            _cli_dry_run()
-        elif cmd == "version":
-            _cli_version()
-        else:
-            _safe_print(
-                "unknown; try: smoke|e2e|diag|health|readiness|dry|version|exit"
-            )
+    def _cli_console() -> int:
+        _safe_print("[main --console] запущен без GUI. Доступные команды:")
+        _safe_print("  smoke | e2e | diag | health | readiness | dry | version | genres | exit")
+        while True:
+            try:
+                cmd = input("zsmm> ").strip().lower()
+            except (EOFError, KeyboardInterrupt):
+                return 0
+            if cmd in ("exit", "quit", "q"):
+                return 0
+            elif cmd == "smoke":
+                _cli_smoke()
+            elif cmd == "e2e":
+                _cli_e2e()
+            elif cmd == "diag":
+                _cli_self_diag()
+            elif cmd == "health":
+                _cli_health()
+            elif cmd == "readiness":
+                _cli_readiness()
+            elif cmd == "dry":
+                _cli_dry_run()
+            elif cmd == "version":
+                _cli_version()
+            elif cmd == "genres":
+                from modules.genre_engine import StyleRegistry
+                reg = StyleRegistry()
+                for g in sorted(reg.list_genres()):
+                    print(f"  - {g}")
+            else:
+                _safe_print(
+                    "unknown; try: smoke|e2e|diag|health|readiness|dry|version|genres|exit"
+                )
 
 
 def main() -> int:

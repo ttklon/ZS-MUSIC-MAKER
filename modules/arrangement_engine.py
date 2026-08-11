@@ -156,7 +156,12 @@ def build_arrangement(
     genre = genre_override or sv.get("genre_hint") or _guess_genre(sv)
     mood = sv.get("mood", "energetic / driving")
 
-    template = GENRE_TEMPLATES.get(genre, GENRE_TEMPLATES["generic hit"])
+    template = GENRE_TEMPLATES.get(genre, GENRE_TEMPLATES.get("generic hit", [
+        ("intro", 4, 0.35, "silence"),
+        ("verse1", 8, 0.55, "rap"),
+        ("chorus1", 8, 0.90, "hook_ru_en"),
+        ("outro", 4, 0.30, "silence")
+    ]))
 
     # Подгоняем общую длину под total_seconds — масштабируем bars
     default_seconds = sum(_bars_to_seconds(b, bpm) for _, b, _, _ in template)
