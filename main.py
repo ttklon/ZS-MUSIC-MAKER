@@ -324,18 +324,12 @@ def _cli_version() -> int:
     return 0
 
 
-def _cli_god() -> int:
+def _cli_god(args) -> int:
     try:
         from app.core.orchestrator_god import run_god_pipeline
 
-        # Парсинг аргументов
-        genre = "drift_phonk"
-        theme = "drift_phonk"
-        for i, arg in enumerate(sys.argv):
-            if arg == "--genre" and i + 1 < len(sys.argv):
-                genre = sys.argv[i + 1]
-            if arg == "--theme" and i + 1 < len(sys.argv):
-                theme = sys.argv[i + 1]
+        genre = getattr(args, "genre", "drift_phonk")
+        theme = getattr(args, "theme", genre)
 
         _safe_print(f"[main --god] Launching GOD MODE pipeline (genre={genre}, theme={theme})...")
         out = run_god_pipeline("god_cli", {"theme": theme, "genre": genre})
@@ -387,6 +381,7 @@ def main() -> int:
     parser.add_argument("--god", action="store_true", help="Launch the ULTIMATE GOD MODE pipeline")
     parser.add_argument("--async-mode", action="store_true", help="Launch parallel async pipeline")
     parser.add_argument("--genre", type=str, default="drift_phonk", help="Target genre (100+ available)")
+    parser.add_argument("--theme", type=str, default="drift_phonk", help="Target theme/mood")
     parser.add_argument("--list-genres", action="store_true", help="Show all 119+ available genres")
     parser.add_argument("--smoke", action="store_true", help="Run quality smoke tests")
     parser.add_argument("--self-diag", action="store_true", help="Run system self-diagnostics")
@@ -450,10 +445,7 @@ def main() -> int:
         return _cli_console()
 
     if args.god:
-        from app.core.orchestrator_god import run_god_pipeline
-        out = run_god_pipeline("god_cli", {"genre": args.genre})
-        print(f"GOD MODE Done: {out.get('master_path')}")
-        return 0
+        return _cli_god(args)
     
     if args.async_mode:
         import asyncio
