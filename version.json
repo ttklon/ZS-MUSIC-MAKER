@@ -2,5 +2,5 @@
  "version": "28.0.0",
  "build": "v28-cleanup-godmode-ci-build-2026-08-12",
  "based_on": "v27-mastering-module-stereo-import-fallback-2026-08-12",
- "changes": "v28: (1) git-индекс очищен от 72 артефактов output/ (~262MB), .gitignore расширен. (2) God Mode run_god_pipeline не падает при wizard_state=None. (3) build.yml — автосборка Windows EXE на push в main. (4) SESSION_LOG.md — канонический журнал."
+ "changes": "v28: git-индекс очищен от output/ артефактов (~262MB); God Mode wizard_state=None crash fix; build.yml Windows EXE; SESSION_LOG.md"
 }
