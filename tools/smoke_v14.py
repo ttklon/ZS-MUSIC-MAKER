@@ -71,11 +71,14 @@ def main() -> int:
         ("capability.mastering", _capability("modules.mastering")),
         ("capability.sidechain", _capability("modules.sidechain")),
         ("capability.voice_recording", _capability("modules.voice_recording")),
-        ("legacy.mains_isolated", lambda: (ROOT / "legacy" / "mains").exists()),
-        ("legacy.patches_isolated", lambda: (ROOT / "legacy" / "patches").exists()),
+        # v27: legacy/* и TZ.txt/PROMPT.txt — устаревшие артефакты v14,
+        # счищены в v17+ (всё консолидировано в main.py + одном orchestrator).
+        # Проверяем что их НЕТ — это и есть корректное состояние чистоты репо.
+        ("legacy.mains_cleaned", lambda: not (ROOT / "legacy" / "mains").exists()),
+        ("legacy.patches_cleaned", lambda: not (ROOT / "legacy" / "patches").exists()),
         ("main.py.unified", lambda: len(list(ROOT.glob("main_v*.py"))) == 0),
-        ("TZ.txt.present", lambda: (ROOT / "TZ.txt").exists()),
-        ("PROMPT.txt.present", lambda: (ROOT / "PROMPT.txt").exists()),
+        ("TZ.txt.obsolete_removed", lambda: not (ROOT / "TZ.txt").exists()),
+        ("PROMPT.txt.obsolete_removed", lambda: not (ROOT / "PROMPT.txt").exists()),
         (
             "genre_presets.50",
             lambda: len(list((ROOT / "data" / "genre_presets").glob("*.json"))) >= 50,

@@ -46,3 +46,8 @@ ENV/
 .vscode/
 .idea/
 .aider*
+
+# v27: build/runtime output — never commit
+output/
+!output/.gitkeep
+*.pyc

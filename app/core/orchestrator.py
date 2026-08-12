@@ -893,6 +893,46 @@ def _stage_lyrics(theme: str, genre: str) -> dict[str, Any]:
     }
 
 
+def _is_real_tts_backend_available() -> bool:
+    """v27: честная проверка — есть ли хотя бы один реальный TTS
+    (silero / xtts / bark / pyttsx3 с espeak). gTTS считается внешним
+    сетевым и не даёт качественного вокала — не выдаём его
+    вывод за реальный вокал, откатываемся в rap_scaffold+synthetic=True."""
+    try:
+        import importlib.util as _u
+
+        for mod in ("torch", "TTS", "bark"):
+            if _u.find_spec(mod) is not None:
+                return True
+        try:
+            import pyttsx3
+
+            eng = pyttsx3.init()
+            voices = eng.getProperty("voices") or []
+            if voices:
+                return True
+        except Exception:
+            pass
+    except Exception:
+        pass
+    return False
+
+
+def _validate_voice_wav(path: str) -> tuple[bool, str]:
+    """v27: выданный TTS файл — действительно WAV (не gTTS-mp3 с .wav)?"""
+    try:
+        p = Path(path)
+        if not p.exists() or p.stat().st_size < 1000:
+            return False, "missing or too small"
+        with open(p, "rb") as f:
+            head = f.read(12)
+        if head[:4] == b"RIFF" and head[8:12] == b"WAVE":
+            return True, "wav"
+        return False, f"not-wav header={head[:4].hex()}"
+    except Exception as e:
+        return False, f"validate error: {e}"
+
+
 def _stage_voice_synth(lyrics_text: str, out_dir: Path) -> dict[str, Any]:
     out_wav = str(out_dir / "voice_preview.wav")
     if not lyrics_text or not lyrics_text.strip():
@@ -901,6 +941,16 @@ def _stage_voice_synth(lyrics_text: str, out_dir: Path) -> dict[str, Any]:
             "reason": "empty lyrics",
             "notice": "voice synth requires lyrics text",
         }
+
+    # v27 (P0): если реального TTS нет, сразу в rap_scaffold+synthetic=True.
+    # Иначе gTTS выдаёт mp3 под .wav — выглядит как готовый вокал,
+    # ломает downstream и даёт ложную готовность (запрещено).
+    try:
+        if not _is_real_tts_backend_available():
+            return _pyttsx3_speak(lyrics_text, out_wav)
+    except Exception:
+        pass
+
     try:
         from modules import voice_synth
 
@@ -910,7 +960,10 @@ def _stage_voice_synth(lyrics_text: str, out_dir: Path) -> dict[str, Any]:
                     lyrics_text, engine="auto", out_name=Path(out_wav).name
                 )
                 if path and Path(path).exists() and Path(path).stat().st_size > 1000:
-                    return {"ok": True, "path": path, "engine": "voice_synth.synth"}
+                    valid_wav, _ = _validate_voice_wav(path)
+                    if valid_wav:
+                        return {"ok": True, "path": path, "engine": "voice_synth.synth"}
+                    # v27: mp3/мусор под .wav — откат в scaffold
             except Exception:
                 pass
         if hasattr(voice_synth, "synthesize"):
@@ -918,7 +971,9 @@ def _stage_voice_synth(lyrics_text: str, out_dir: Path) -> dict[str, Any]:
             if isinstance(r, dict):
                 return r
             if isinstance(r, str) and Path(r).exists():
-                return {"ok": True, "path": r, "engine": "voice_synth"}
+                valid_wav, _ = _validate_voice_wav(r)
+                if valid_wav:
+                    return {"ok": True, "path": r, "engine": "voice_synth"}
         return _pyttsx3_speak(lyrics_text, out_wav)
     except Exception:
         return _pyttsx3_speak(lyrics_text, out_wav)

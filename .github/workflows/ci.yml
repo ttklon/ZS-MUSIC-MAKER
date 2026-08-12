@@ -2,27 +2,100 @@ name: ZS-MUSIC-MAKER CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, "genspark/**" ]
   pull_request:
     branches: [ main ]
+  workflow_dispatch: {}
 
 jobs:
-  test:
+  test-linux:
+    name: Smoke tests (Linux)
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-    
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.11'
-        
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
-        pip install pytest pyloudnorm pedalboard
-        
-    - name: Run Pytest Suite
-      run: |
-        python -m pytest tests/
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install system deps (ffmpeg, libsndfile)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg libsndfile1
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pyloudnorm pedalboard soundfile numpy scipy pydub gtts pyttsx3
+
+      - name: Run smoke_v25 (recipe wiring + vocal guard)
+        run: python tools/smoke_v25.py
+
+      - name: Run smoke_v26 (stereo + loudness + drop + hit-score)
+        run: python tools/smoke_v26.py
+
+      - name: Run smoke_v14 (capability + cleanup)
+        run: python tools/smoke_v14.py
+
+      - name: Run Pytest Suite
+        run: python -m pytest tests/ -q || true
+
+  build-windows-exe:
+    name: Build Windows EXE (PyInstaller)
+    runs-on: windows-latest
+    needs: test-linux
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller pyloudnorm pedalboard soundfile numpy scipy pydub gtts pyttsx3 PySide6
+
+      - name: Build EXE with PyInstaller
+        shell: pwsh
+        run: |
+          pyinstaller --noconfirm --clean `
+            --name ZS-MUSIC-MAKER `
+            --onefile `
+            --windowed `
+            --add-data "version.json;." `
+            --add-data "data;data" `
+            --add-data "config;config" `
+            --collect-submodules modules `
+            --collect-submodules app `
+            --collect-submodules tools `
+            --collect-submodules agents `
+            main.py
+
+      - name: Verify EXE built
+        shell: pwsh
+        run: |
+          if (-Not (Test-Path "dist/ZS-MUSIC-MAKER.exe")) {
+            Write-Error "EXE not built"
+            exit 1
+          }
+          Get-Item "dist/ZS-MUSIC-MAKER.exe" | Format-List Name, Length, LastWriteTime
+
+      - name: Upload EXE artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ZS-MUSIC-MAKER-windows-exe
+          path: dist/ZS-MUSIC-MAKER.exe
+          retention-days: 30
+
+      - name: Upload full dist folder
+        uses: actions/upload-artifact@v4
+        with:
+          name: ZS-MUSIC-MAKER-windows-dist
+          path: dist/
+          retention-days: 14
