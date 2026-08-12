@@ -1,6 +1,6 @@
 {
- "version": "27.0.0",
- "build": "v27-mastering-module-stereo-import-fallback-2026-08-12",
- "based_on": "v26-stereo-loudness-hook-drop-2026-08-11",
- "changes": "v27 (P0/P1): (1) Создан отсутствующий modules/mastering.py — канонический вход мастеринга. Раньше orchestrator._stage_mastering делал 'from modules import mastering', но файла НЕ БЫЛО → стадия мастеринга ВСЕГДА падала → master_streaming.wav никогда не создавался → smoke_v26: master missing + hit_score missing (3/6 FAIL). Теперь: per-stand EQ (one-pole shelf), tanh-limiter, итеративная dBFS-компенсация, целевые уровни стендов, сохранение СТЕРЕО, опциональный pyloudnorm LUFS. (2) voice_cleaner: noisereduce переведён на ленивый импорт с честным fallback (DC-removal + 80Hz highpass, fallback_used=True) — раньше жёсткий import ломал orchestrator_god. (3) plugins/advanced: pedalboard+audiomentations ленивые с no-op заглушками. (4) mastering_stands: убран монодаунмикс (убивал стерео-ширину). Ожидается: smoke_v26 3/6 → 6/6, orchestrator_god импортируется."
+ "version": "28.0.0",
+ "build": "v28-cleanup-godmode-ci-build-2026-08-12",
+ "based_on": "v27-mastering-module-stereo-import-fallback-2026-08-12",
+ "changes": "v28 (P0/P1): (1) Очищен git-индекс от 72 артефактов output/ (~262MB), расширен .gitignore (release/, *.zip, models/rvc_forks/). (2) God Mode run_god_pipeline не падает при wizard_state=None (Optional+дефолт) — был крах на ai_arrangement. (3) Добавлен .github/workflows/build.yml — автосборка Windows EXE (PyInstaller) на push в main. (4) Создан SESSION_LOG.md (правило 11)."
 }

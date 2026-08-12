@@ -28,6 +28,13 @@ lyric_vault/lyrics_memory.jsonl
 *.wav
 *.mp3
 *.pkl
+# Build artifacts
+release/
+*.zip
+# RVC forks and model binaries (heavy, pulled on user PC)
+models/rvc_forks/
+models/rvc/*.pth
+models/rvc/*.index
 # Ignore all json in root but keep specific ones
 *.json
 !version.json

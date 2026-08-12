@@ -32,13 +32,23 @@ def _save_project_meta(project_id: str, data: dict, out_root: Path):
 
 def run_god_pipeline(
     project_id: str,
-    wizard_state: dict,
+    wizard_state: Optional[dict] = None,
     dry_run: bool = False,
     out_root: Optional[Path] = None,
 ) -> dict:
     """
     Запускает God Mode пайплайн через новое ядро.
+
+    v28 (P1): wizard_state теперь Optional — раньше вызов
+    run_god_pipeline(pid, None) (например, из GUI без wizard или из
+    smoke-теста) мгновенно падал на стадии ai_arrangement с
+    "'NoneType' object has no attribute 'get'". Теперь None/пустой
+    dict заменяется на безопасный дефолт {genre: drift_phonk} —
+    пайплайн доезжает до мастеринга вместо краха на первой стадии.
     """
+    if not isinstance(wizard_state, dict):
+        wizard_state = {}
+    wizard_state.setdefault("genre", "drift_phonk")
     if not out_root:
         out_root = Path(__file__).resolve().parents[2] / "output" / project_id
     out_root.mkdir(parents=True, exist_ok=True)
