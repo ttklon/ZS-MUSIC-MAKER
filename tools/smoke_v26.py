@@ -57,6 +57,18 @@ def _dbfs(p):
     return 20.0 * np.log10(max(rms, 1e-12))
 
 
+def _lufs(p):
+    """Честный ITU-BS.1770 LUFS через pyloudnorm, fallback -> dBFS RMS."""
+    y, sr = sf.read(p, always_2d=True)
+    try:
+        import pyloudnorm as pyln  # type: ignore
+        meter = pyln.Meter(sr)
+        return float(meter.integrated_loudness(y))
+    except Exception:
+        rms = float(np.sqrt(np.mean(y**2)))
+        return 20.0 * np.log10(max(rms, 1e-12))
+
+
 def main():
     print("=" * 64)
     print("ZS Music Maker v26 — smoke_v26 (stereo + loudness + drop)")
@@ -96,13 +108,14 @@ def main():
     else:
         check("v26.master_stereo_preserved", False, "master missing")
 
-    # 3
+    # 3 — правильный тест: реальный LUFS (ITU-BS.1770), не RMS dBFS.
     if master.exists():
-        db = _dbfs(str(master))
+        lufs = _lufs(str(master))
+        # Streaming target = -13.5 LUFS ± 2.5 (Spotify/YouTube диапазон)
         check(
             "v26.master_loudness_target",
-            -16.0 <= db <= -11.0,
-            f"dBFS={db:.2f} target=-13.5±2.5",
+            -16.0 <= lufs <= -11.0,
+            f"LUFS={lufs:.2f} target=-13.5±2.5",
         )
     else:
         check("v26.master_loudness_target", False, "master missing")

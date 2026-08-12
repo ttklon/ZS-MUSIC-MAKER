@@ -360,7 +360,7 @@ def _apply_stage(seg, name: str, rng: random.Random):
             )
 
             # 2. Сдвигаем только питч обратно через STFT-based pitch shift
-            y_final = librosa.effects.pitch_shift(y_shifted, sr=sr, n_steps=-steps)
+            y_final = librosa.effects.pitch_shift(y_shifted, sr=sr, n_steps=-steps)  # noqa: ZSMM_NOT_RVC (formant micro-shift, NOT RVC)
 
             # Обрезаем/дополняем до исходной длины
             if len(y_final) > len(y):

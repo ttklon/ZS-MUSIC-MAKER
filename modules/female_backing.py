@@ -124,9 +124,9 @@ def sweeten_backing(
 
             mono = y.mean(axis=1) if y.ndim > 1 else y
             # Real DSP pitch-shift for backing vocal harmony (NOT RVC substitute).
-            shifted = librosa.effects.pitch_shift(
+            shifted = librosa.effects.pitch_shift(  # noqa: ZSMM_NOT_RVC (backing vocal DSP, NOT RVC)
                 mono, sr=sr, n_steps=pitch_semitones
-            )  # noqa: ZSMM_NOT_RVC
+            )
             y = np.stack([shifted, shifted], axis=-1)
         except Exception:
             pass

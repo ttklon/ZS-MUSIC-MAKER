@@ -304,12 +304,18 @@ def run(save_to_log: bool = True) -> dict[str, Any]:
     }
 
     if save_to_log:
-        (LOGS / "self_diag_v13.txt").write_text(
-            report
-            + "\n\n# JSON snapshot #\n"
-            + json.dumps(out, ensure_ascii=False, indent=2),
-            encoding="utf-8",
-        )
+        try:
+            LOGS.mkdir(parents=True, exist_ok=True)
+            (LOGS / "self_diag_v13.txt").write_text(
+                report
+                + "\n\n# JSON snapshot #\n"
+                + json.dumps(out, ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
+        except Exception as _e:
+            # AUDIT-FIX P1: LOGS мог не существовать — отсутствие лога
+            # не должно ронять self-diag (--self-diag возвращал код 2).
+            print(f"[self_diag_v13] warn: cannot write log: {_e}")
     return out
 
 

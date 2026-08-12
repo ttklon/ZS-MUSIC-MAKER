@@ -225,8 +225,9 @@ def _register_patches() -> None:
 
 
 def _cli_smoke() -> int:
-    """Runs the most recent smoke test (v26) with fallback to older versions."""
+    """Runs the most recent smoke test (v27) with fallback to older versions."""
     for name in (
+        "tools.smoke_v27",
         "tools.smoke_v26",
         "tools.smoke_v25",
         "tools.smoke_v24",
