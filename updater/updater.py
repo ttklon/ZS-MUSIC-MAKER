@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 r"""
 ZS Music Maker v14 — updater/updater.py (P0.10..P0.13, TZ 31)
 ==============================================================
@@ -30,7 +31,7 @@ import sys
 import time
 import zipfile
 from pathlib import Path
-from typing import Any
+from typing import Any, Dict, List, Optional
 
 
 def program_dir() -> Path:
@@ -48,7 +49,8 @@ def user_data_dir() -> Path:
     if env:
         return Path(env)
     if sys.platform == "win32":
-        appdata = os.environ.get("LOCALAPPDATA", os.path.expanduser(r"~\AppData\Local"))
+        appdata = os.environ.get("LOCALAPPDATA",
+                                 os.path.expanduser(r"~\AppData\Local"))
         return Path(appdata) / "ZS Music Maker"
     if sys.platform == "darwin":
         return Path.home() / "Library" / "Application Support" / "ZS Music Maker"
@@ -69,32 +71,16 @@ def staging_dir() -> Path:
 
 
 USER_PRESERVED = [
-    "projects",
-    "voice_vault",
-    "lyric_vault",
-    "presets",
-    "prompts",
-    "secrets.enc",
-    "settings.json",
-    "output",
-    "cache",
-    "logs",
+    "projects", "voice_vault", "lyric_vault", "presets", "prompts",
+    "secrets.enc", "settings.json", "output", "cache", "logs",
 ]
 
 
 def ensure_user_dirs() -> None:
     root = user_data_dir()
     root.mkdir(parents=True, exist_ok=True)
-    for sub in (
-        "projects",
-        "voice_vault",
-        "lyric_vault",
-        "presets",
-        "prompts",
-        "output",
-        "cache",
-        "logs",
-    ):
+    for sub in ("projects", "voice_vault", "lyric_vault", "presets",
+                "prompts", "output", "cache", "logs"):
         (root / sub).mkdir(parents=True, exist_ok=True)
 
 
@@ -106,8 +92,9 @@ def compute_sha256(path: Path) -> str:
     return h.hexdigest()
 
 
-def verify_zip(zip_path: Path, expected_sha256: str | None = None) -> dict[str, Any]:
-    result: dict[str, Any] = {"ok": False, "sha256": None, "size": 0, "checks": {}}
+def verify_zip(zip_path: Path, expected_sha256: Optional[str] = None) -> Dict[str, Any]:
+    result: Dict[str, Any] = {"ok": False, "sha256": None,
+                              "size": 0, "checks": {}}
     p = Path(zip_path)
     if not p.exists():
         result["reason"] = "zip not found"
@@ -124,7 +111,7 @@ def verify_zip(zip_path: Path, expected_sha256: str | None = None) -> dict[str, 
     result["checks"]["sha256_computed"] = True
     if expected_sha256:
         if sha.lower() != expected_sha256.lower():
-            result["reason"] = "sha256 mismatch"
+            result["reason"] = f"sha256 mismatch"
             return result
         result["checks"]["sha256_match"] = True
 
@@ -149,7 +136,7 @@ def verify_zip(zip_path: Path, expected_sha256: str | None = None) -> dict[str, 
     return result
 
 
-def make_backup(reason: str = "pre_update") -> Path | None:
+def make_backup(reason: str = "pre_update") -> Optional[Path]:
     src = program_dir()
     if not src.exists():
         return None
@@ -171,11 +158,10 @@ def make_backup(reason: str = "pre_update") -> Path | None:
     return dst
 
 
-def prune_old_backups(keep: int = 3) -> list[Path]:
+def prune_old_backups(keep: int = 3) -> List[Path]:
     bd = backup_dir()
-    backups = sorted(
-        bd.glob("backup_*.zip"), key=lambda p: p.stat().st_mtime, reverse=True
-    )
+    backups = sorted(bd.glob("backup_*.zip"),
+                     key=lambda p: p.stat().st_mtime, reverse=True)
     removed = []
     for old in backups[keep:]:
         try:
@@ -186,33 +172,27 @@ def prune_old_backups(keep: int = 3) -> list[Path]:
     return removed
 
 
-def list_backups() -> list[dict[str, Any]]:
+def list_backups() -> List[Dict[str, Any]]:
     bd = backup_dir()
-    return [
-        {"path": str(p), "size": p.stat().st_size, "mtime": p.stat().st_mtime}
-        for p in sorted(
-            bd.glob("backup_*.zip"), key=lambda x: x.stat().st_mtime, reverse=True
-        )
-    ]
+    return [{"path": str(p), "size": p.stat().st_size,
+             "mtime": p.stat().st_mtime}
+            for p in sorted(bd.glob("backup_*.zip"),
+                            key=lambda x: x.stat().st_mtime, reverse=True)]
 
 
-def migrate_settings(old_path: Path, new_path: Path) -> dict[str, Any]:
+def migrate_settings(old_path: Path, new_path: Path) -> Dict[str, Any]:
     conflicts = []
     try:
-        old = (
-            json.loads(old_path.read_text(encoding="utf-8"))
-            if old_path.exists()
-            else {}
-        )
+        old = json.loads(old_path.read_text(encoding="utf-8")) \
+              if old_path.exists() else {}
     except Exception as e:
         old = {}
         conflicts.append(f"read old: {e}")
     merged = dict(old)
     try:
         new_path.parent.mkdir(parents=True, exist_ok=True)
-        new_path.write_text(
-            json.dumps(merged, ensure_ascii=False, indent=2), encoding="utf-8"
-        )
+        new_path.write_text(json.dumps(merged, ensure_ascii=False, indent=2),
+                            encoding="utf-8")
     except Exception as e:
         conflicts.append(f"write new: {e}")
     log_p = user_data_dir() / "logs" / "migration_conflicts.log"
@@ -220,24 +200,21 @@ def migrate_settings(old_path: Path, new_path: Path) -> dict[str, Any]:
         log_p.parent.mkdir(parents=True, exist_ok=True)
         with open(log_p, "a", encoding="utf-8") as f:
             f.write(f"=== migration @ {time.ctime()} ===\n")
-            f.writelines(c + "\n" for c in conflicts)
+            for c in conflicts:
+                f.write(c + "\n")
     return {"ok": len(conflicts) == 0, "conflicts": conflicts}
 
 
-def install_from_zip(
-    zip_path: str, expected_sha256: str | None = None, smoke_test: bool = True
-) -> dict[str, Any]:
+def install_from_zip(zip_path: str,
+                     expected_sha256: Optional[str] = None,
+                     smoke_test: bool = True) -> Dict[str, Any]:
     zip_p = Path(zip_path)
     prog = program_dir()
 
     v = verify_zip(zip_p, expected_sha256)
     if not v.get("ok"):
-        return {
-            "ok": False,
-            "stage": "verify",
-            "error": v.get("reason", "verification failed"),
-            "verify": v,
-        }
+        return {"ok": False, "stage": "verify",
+                "error": v.get("reason", "verification failed"), "verify": v}
 
     bak = make_backup(reason="pre_install")
     if bak is None:
@@ -251,7 +228,8 @@ def install_from_zip(
         with zipfile.ZipFile(str(zip_p), "r") as z:
             z.extractall(str(stg))
     except Exception as e:
-        return {"ok": False, "stage": "extract", "error": str(e), "backup": str(bak)}
+        return {"ok": False, "stage": "extract", "error": str(e),
+                "backup": str(bak)}
 
     try:
         for item in prog.iterdir():
@@ -269,39 +247,26 @@ def install_from_zip(
                 shutil.copy2(str(item), str(dst))
     except Exception as e:
         rb = rollback_last()
-        return {
-            "ok": False,
-            "stage": "replace",
-            "error": str(e),
-            "rolled_back": rb.get("ok", False),
-            "backup": str(bak),
-        }
+        return {"ok": False, "stage": "replace", "error": str(e),
+                "rolled_back": rb.get("ok", False), "backup": str(bak)}
 
     if smoke_test:
         try:
             r = subprocess.run(
                 [sys.executable, str(prog / "main.py"), "--smoke"],
-                capture_output=True,
-                timeout=180,
+                capture_output=True, timeout=180
             )
             if r.returncode != 0:
                 rb = rollback_last()
-                return {
-                    "ok": False,
-                    "stage": "smoke_test",
-                    "error": f"smoke failed rc={r.returncode}",
-                    "rolled_back": rb.get("ok", False),
-                    "backup": str(bak),
-                }
+                return {"ok": False, "stage": "smoke_test",
+                        "error": f"smoke failed rc={r.returncode}",
+                        "rolled_back": rb.get("ok", False),
+                        "backup": str(bak)}
         except subprocess.TimeoutExpired:
             rb = rollback_last()
-            return {
-                "ok": False,
-                "stage": "smoke_test",
-                "error": "smoke timeout",
-                "rolled_back": rb.get("ok", False),
-                "backup": str(bak),
-            }
+            return {"ok": False, "stage": "smoke_test",
+                    "error": "smoke timeout",
+                    "rolled_back": rb.get("ok", False), "backup": str(bak)}
         except Exception:
             pass
 
@@ -309,19 +274,16 @@ def install_from_zip(
     ver = "unknown"
     try:
         if ver_p.exists():
-            ver = json.loads(ver_p.read_text(encoding="utf-8")).get(
-                "version", "unknown"
-            )
+            ver = json.loads(ver_p.read_text(encoding="utf-8")).get("version", "unknown")
     except Exception:
         pass
     return {"ok": True, "version": ver, "backup": str(bak)}
 
 
-def rollback_last() -> dict[str, Any]:
+def rollback_last() -> Dict[str, Any]:
     bd = backup_dir()
-    backups = sorted(
-        bd.glob("backup_*.zip"), key=lambda p: p.stat().st_mtime, reverse=True
-    )
+    backups = sorted(bd.glob("backup_*.zip"),
+                     key=lambda p: p.stat().st_mtime, reverse=True)
     if not backups:
         return {"ok": False, "error": "no backups"}
     last = backups[0]
@@ -341,10 +303,9 @@ def rollback_last() -> dict[str, Any]:
         return {"ok": False, "error": str(e)}
 
 
-def check_updates(release_url: str) -> dict[str, Any]:
+def check_updates(release_url: str) -> Dict[str, Any]:
     try:
         import urllib.request as urlreq
-
         with urlreq.urlopen(release_url, timeout=15) as resp:
             data = json.loads(resp.read().decode("utf-8"))
     except Exception as e:
@@ -354,7 +315,6 @@ def check_updates(release_url: str) -> dict[str, Any]:
 
 def main() -> int:
     import argparse
-
     ap = argparse.ArgumentParser("zsmm-updater")
     ap.add_argument("--install", help="Установить из ZIP")
     ap.add_argument("--sha256", help="Ожидаемый SHA-256")
@@ -365,17 +325,12 @@ def main() -> int:
     args = ap.parse_args()
 
     if args.info:
-        print(
-            json.dumps(
-                {
-                    "program_dir": str(program_dir()),
-                    "user_data_dir": str(user_data_dir()),
-                    "backup_dir": str(backup_dir()),
-                    "user_preserved": USER_PRESERVED,
-                },
-                indent=2,
-            )
-        )
+        print(json.dumps({
+            "program_dir": str(program_dir()),
+            "user_data_dir": str(user_data_dir()),
+            "backup_dir": str(backup_dir()),
+            "user_preserved": USER_PRESERVED,
+        }, indent=2))
         return 0
     if args.install:
         r = install_from_zip(args.install, args.sha256, smoke_test=False)

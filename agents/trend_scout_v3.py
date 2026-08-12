@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 [v8] trend_scout_v3.py — актуальный сленг и темы на день создания трека.
 
@@ -12,14 +13,8 @@
   • Кэш 24 ч в lyric_vault/trends_cache_v3.json.
   • Полный офлайн-фолбэк с богатым словарём 2026.
 """
-
 from __future__ import annotations
-
-import json
-import re
-import time
-import urllib.parse
-import urllib.request
+import os, json, re, time, urllib.parse, urllib.request
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -32,39 +27,11 @@ UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) MMZS/v8"
 # Богатый словарь актуального сленга 2026 (офлайн-база)
 FALLBACK_2026 = {
     "hype_words": [
-        "залетело",
-        "имба",
-        "база",
-        "кринж",
-        "флекс",
-        "движ",
-        "качает",
-        "поднимает",
-        "по кайфу",
-        "на волне",
-        "в теме",
-        "разрыв",
-        "убойный",
-        "огонь",
-        "краш",
-        "хайп",
-        "чек",
-        "тэйк",
-        "мув",
-        "ноу-мув",
-        "вайб",
-        "стайл",
-        "флоу",
-        "дроп",
-        "рил",
-        "фит",
-        "коллаб",
-        "фитбэк",
-        "релевант",
-        "жирный",
-        "тухлый",
-        "жёсткий",
-        "мощный",
+        "залетело", "имба", "база", "кринж", "флекс", "движ", "качает",
+        "поднимает", "по кайфу", "на волне", "в теме", "разрыв", "убойный",
+        "огонь", "краш", "хайп", "чек", "тэйк", "мув", "ноу-мув", "вайб",
+        "стайл", "флоу", "дроп", "рил", "фит", "коллаб", "фитбэк",
+        "релевант", "жирный", "тухлый", "жёсткий", "мощный",
     ],
     "punchlines_ru": [
         "деньги — фон, я — сюжет",
@@ -89,38 +56,13 @@ FALLBACK_2026 = {
         "on the wave, misbehave",
     ],
     "brand_names": [
-        "Supra",
-        "AMG",
-        "GT-R",
-        "Skyline",
-        "M5",
-        "Camry",
-        "Prado",
-        "BMW",
-        "Mercedes",
-        "Toyota",
-        "Nissan",
-        "Balenciaga",
-        "Off-White",
-        "Rolex",
-        "AP",
-        "Rimowa",
-        "Dior",
-        "Nike TN",
+        "Supra", "AMG", "GT-R", "Skyline", "M5", "Camry", "Prado",
+        "BMW", "Mercedes", "Toyota", "Nissan", "Balenciaga", "Off-White",
+        "Rolex", "AP", "Rimowa", "Dior", "Nike TN",
     ],
     "city_names": [
-        "Стамбул",
-        "Дубай",
-        "Москва",
-        "Питер",
-        "Казань",
-        "Сочи",
-        "Анталия",
-        "Босфор",
-        "Кемер",
-        "Тбилиси",
-        "Ереван",
-        "Алматы",
+        "Стамбул", "Дубай", "Москва", "Питер", "Казань", "Сочи",
+        "Анталия", "Босфор", "Кемер", "Тбилиси", "Ереван", "Алматы",
     ],
     "themes_2026": [
         "летний драйв на юге",
@@ -145,7 +87,8 @@ def _load_cache() -> dict:
 
 
 def _save_cache(d: dict) -> None:
-    CACHE_FILE.write_text(json.dumps(d, ensure_ascii=False, indent=2), encoding="utf-8")
+    CACHE_FILE.write_text(json.dumps(d, ensure_ascii=False, indent=2),
+                          encoding="utf-8")
 
 
 def _ddg(query: str, max_res: int = 5) -> list[str]:
@@ -155,7 +98,8 @@ def _ddg(query: str, max_res: int = 5) -> list[str]:
         req = urllib.request.Request(url, headers={"User-Agent": UA})
         with urllib.request.urlopen(req, timeout=8) as r:
             html = r.read().decode("utf-8", errors="ignore")
-        snippets = re.findall(r'result__snippet"[^>]*>(.*?)</a>', html, re.DOTALL)
+        snippets = re.findall(
+            r'result__snippet"[^>]*>(.*?)</a>', html, re.DOTALL)
         out = []
         for s in snippets:
             t = re.sub(r"<[^>]+>", "", s).strip()
@@ -198,15 +142,15 @@ def scout(theme: str, offline_only: bool = False) -> dict:
         return cache[cache_key]["data"]
 
     result = {
-        "hype_words": list(FALLBACK_2026["hype_words"]),
-        "punchlines": list(FALLBACK_2026["punchlines_ru"]),
-        "hooks_en": list(FALLBACK_2026["hooks_en_2026"]),
-        "brands": list(FALLBACK_2026["brand_names"]),
-        "cities": list(FALLBACK_2026["city_names"]),
-        "themes": list(FALLBACK_2026["themes_2026"]),
+        "hype_words":   list(FALLBACK_2026["hype_words"]),
+        "punchlines":   list(FALLBACK_2026["punchlines_ru"]),
+        "hooks_en":     list(FALLBACK_2026["hooks_en_2026"]),
+        "brands":       list(FALLBACK_2026["brand_names"]),
+        "cities":       list(FALLBACK_2026["city_names"]),
+        "themes":       list(FALLBACK_2026["themes_2026"]),
         "external_snippets": [],
-        "updated_ts": time.time(),
-        "year": year,
+        "updated_ts":   time.time(),
+        "year":         year,
     }
 
     if not offline_only:
@@ -221,9 +165,8 @@ def scout(theme: str, offline_only: bool = False) -> dict:
         result["external_snippets"].extend(_reddit_hot("rap_ru", 5))
         result["external_snippets"].extend(_reddit_hot("hiphopheads", 5))
         # dedup
-        result["external_snippets"] = list(
-            dict.fromkeys(s for s in result["external_snippets"] if s.strip())
-        )[:20]
+        result["external_snippets"] = list(dict.fromkeys(
+            s for s in result["external_snippets"] if s.strip()))[:20]
 
     cache[cache_key] = {"ts": time.time(), "data": result}
     _save_cache(cache)
@@ -233,15 +176,15 @@ def scout(theme: str, offline_only: bool = False) -> dict:
 def actual_slang_for_prompt(theme: str, n_words: int = 20) -> list[str]:
     """Мини-API для lyrics_gen: пачка «прямо сейчас модных» слов под тему."""
     r = scout(theme)
-    pool = r["hype_words"] + [w for w in r["brands"] if len(w) <= 12] + r["cities"]
+    pool = r["hype_words"] + [w for w in r["brands"] if len(w) <= 12] \
+                            + r["cities"]
     import random
-
     random.shuffle(pool)
     return pool[:n_words]
 
 
 if __name__ == "__main__":
     import sys
-
     theme = sys.argv[1] if len(sys.argv) > 1 else "лето тачки"
-    print(json.dumps(scout(theme, offline_only=True), ensure_ascii=False, indent=2))
+    print(json.dumps(scout(theme, offline_only=True),
+                     ensure_ascii=False, indent=2))

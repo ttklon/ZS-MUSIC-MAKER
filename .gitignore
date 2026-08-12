@@ -1,48 +1,33 @@
-# Python
+# --- Python ---
 __pycache__/
 *.py[cod]
-*$py.class
-*.so
-.Python
-env/
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
 *.egg-info/
-.installed.cfg
-*.egg
+.pytest_cache/
+.mypy_cache/
+.tox/
 
-# ZS-MUSIC-MAKER Specific
+# --- ZS Music Maker runtime artifacts ---
 output/
-checkpoints/
-lyric_vault/lyrics_memory.jsonl
+logs/
+tmp/
+temp/
+build/
+dist/
+*.spec
+
+# --- Тестовые аудио-выхлопы ---
 *.wav
 *.mp3
-*.pkl
-# Ignore all json in root but keep specific ones
-*.json
-!version.json
-!config/*.json
-!.github/**/*.yml
-!AUDIT_50_DEEP.md
-!GLOBAL_AUDIT_ULTIMATUM_V7.md
+*.flac
+*.pth
+*.pt
+!data/**/*.wav
+!data/**/*.mp3
+!references/**/*.wav
+!references/**/*.mp3
 
-# Environments
-.env
-.venv
-venv/
-ENV/
-
-# IDEs
+# --- ОС / редакторы ---
+.DS_Store
+Thumbs.db
 .vscode/
 .idea/
-.aider*

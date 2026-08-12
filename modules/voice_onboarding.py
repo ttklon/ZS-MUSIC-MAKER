@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 ZS Music Maker v14 — voice_onboarding.py (P0.07, TZ 14)
 ========================================================
@@ -22,9 +23,9 @@ from __future__ import annotations
 
 import json
 import time
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field, asdict
 from pathlib import Path
-from typing import Any
+from typing import Any, Dict, List, Optional
 
 ROOT = Path(__file__).resolve().parents[1]
 VAULT_DIR = ROOT / "voice_vault"
@@ -35,21 +36,15 @@ MANIFEST = VAULT_DIR / "onboarding_manifest.json"
 RUS_PHONEMES = list("абвгдеёжзийклмнопрстуфхцчшщъыьэюя")
 
 STYLES = [
-    "slow_clear",
-    "fast_clear",
-    "conversational",
-    "aggressive",
-    "whisper",
-    "raspy",
-    "singing",
-    "semi_recitative",
+    "slow_clear", "fast_clear", "conversational", "aggressive",
+    "whisper", "raspy", "singing", "semi_recitative",
 ]
 
 PLAN = {
-    "phoneme_text": 120,
-    "styles_total": 120,
-    "karaoke": 60,
-    "total": 300,
+    "phoneme_text":  120,
+    "styles_total":  120,
+    "karaoke":        60,
+    "total":         300,
 }
 
 PHONEME_SCRIPT = [
@@ -82,16 +77,16 @@ class OnboardingStep:
     label: str
     target_sec: int
     text_or_prompt: str
-    recorded_path: str | None = None
+    recorded_path: Optional[str] = None
     duration_sec: float = 0.0
     rms_db: float = -100.0
     peak_db: float = -100.0
     clipping_pct: float = 0.0
     snr_db: float = 0.0
-    covered_phonemes: list[str] = field(default_factory=list)
+    covered_phonemes: List[str] = field(default_factory=list)
     ok: bool = False
 
-    def as_dict(self) -> dict[str, Any]:
+    def as_dict(self) -> Dict[str, Any]:
         return asdict(self)
 
 
@@ -106,50 +101,38 @@ class OnboardingProgress:
     percent: float = 0.0
     ready_for_rvc: bool = False
 
-    def as_dict(self) -> dict[str, Any]:
+    def as_dict(self) -> Dict[str, Any]:
         return asdict(self)
 
 
-def build_plan() -> list[OnboardingStep]:
-    steps: list[OnboardingStep] = []
+def build_plan() -> List[OnboardingStep]:
+    steps: List[OnboardingStep] = []
     per_phrase = int(PLAN["phoneme_text"] / len(PHONEME_SCRIPT))
     for i, text in enumerate(PHONEME_SCRIPT, 1):
-        steps.append(
-            OnboardingStep(
-                step_id=f"phon_{i:02d}",
-                kind="phoneme_text",
-                label=f"Фонемный текст {i}/{len(PHONEME_SCRIPT)}",
-                target_sec=per_phrase,
-                text_or_prompt=text,
-            )
-        )
+        steps.append(OnboardingStep(
+            step_id=f"phon_{i:02d}", kind="phoneme_text",
+            label=f"Фонемный текст {i}/{len(PHONEME_SCRIPT)}",
+            target_sec=per_phrase, text_or_prompt=text,
+        ))
     per_style = int(PLAN["styles_total"] / len(STYLES))
     for st in STYLES:
-        steps.append(
-            OnboardingStep(
-                step_id=f"style_{st}",
-                kind="style",
-                label=f"Стиль: {st}",
-                target_sec=per_style,
-                text_or_prompt=(
-                    f"Прочитайте 2-3 фразы в стиле «{st}». "
-                    f"Например: «В машине бас качает, ночь горит»."
-                ),
-            )
-        )
-    steps.append(
-        OnboardingStep(
-            step_id="karaoke_01",
-            kind="karaoke",
-            label="Караоке под бит",
-            target_sec=PLAN["karaoke"],
-            text_or_prompt="\n".join(KARAOKE_LINES),
-        )
-    )
+        steps.append(OnboardingStep(
+            step_id=f"style_{st}", kind="style",
+            label=f"Стиль: {st}", target_sec=per_style,
+            text_or_prompt=(
+                f"Прочитайте 2-3 фразы в стиле «{st}». "
+                f"Например: «В машине бас качает, ночь горит»."
+            ),
+        ))
+    steps.append(OnboardingStep(
+        step_id="karaoke_01", kind="karaoke",
+        label="Караоке под бит", target_sec=PLAN["karaoke"],
+        text_or_prompt="\n".join(KARAOKE_LINES),
+    ))
     return steps
 
 
-def compute_phoneme_coverage(texts: list[str]) -> dict[str, Any]:
+def compute_phoneme_coverage(texts: List[str]) -> Dict[str, Any]:
     seen = set()
     for t in texts:
         for ch in t.lower():
@@ -159,15 +142,11 @@ def compute_phoneme_coverage(texts: list[str]) -> dict[str, Any]:
     covered = len(seen)
     pct = 100 * covered / total if total else 0.0
     missing = sorted(set(RUS_PHONEMES) - seen)
-    return {
-        "covered": sorted(seen),
-        "missing": missing,
-        "percent": round(pct, 1),
-        "total": total,
-    }
+    return {"covered": sorted(seen), "missing": missing,
+            "percent": round(pct, 1), "total": total}
 
 
-def _load_manifest() -> dict[str, Any]:
+def _load_manifest() -> Dict[str, Any]:
     if MANIFEST.exists():
         try:
             return json.loads(MANIFEST.read_text(encoding="utf-8"))
@@ -176,14 +155,15 @@ def _load_manifest() -> dict[str, Any]:
     return {"steps": [], "started_at": None, "completed_at": None}
 
 
-def _save_manifest(m: dict[str, Any]) -> None:
-    MANIFEST.write_text(json.dumps(m, ensure_ascii=False, indent=2), encoding="utf-8")
+def _save_manifest(m: Dict[str, Any]) -> None:
+    MANIFEST.write_text(json.dumps(m, ensure_ascii=False, indent=2),
+                        encoding="utf-8")
 
 
 def record_step(step: OnboardingStep, mode: str = "auto") -> OnboardingStep:
     try:
         from modules import voice_recording as vr
-    except Exception:
+    except Exception as e:
         step.ok = False
         return step
 
@@ -201,20 +181,21 @@ def record_step(step: OnboardingStep, mode: str = "auto") -> OnboardingStep:
     return step
 
 
-def compute_progress(steps: list[OnboardingStep]) -> OnboardingProgress:
+def compute_progress(steps: List[OnboardingStep]) -> OnboardingProgress:
     total_rec = sum(s.duration_sec for s in steps)
-    styles_done = sum(
-        1 for s in steps if s.kind == "style" and s.ok and s.duration_sec >= 10
-    )
-    karaoke_done = any(
-        s.kind == "karaoke" and s.ok and s.duration_sec >= 30 for s in steps
-    )
-    phon_texts = [s.text_or_prompt for s in steps if s.kind == "phoneme_text" and s.ok]
+    styles_done = sum(1 for s in steps
+                      if s.kind == "style" and s.ok
+                      and s.duration_sec >= 10)
+    karaoke_done = any(s.kind == "karaoke" and s.ok
+                       and s.duration_sec >= 30 for s in steps)
+    phon_texts = [s.text_or_prompt for s in steps
+                  if s.kind == "phoneme_text" and s.ok]
     ph_cov = compute_phoneme_coverage(phon_texts)
     ph_pct = ph_cov["percent"]
 
     pct = min(100.0, 100 * total_rec / PLAN["total"])
-    ready = total_rec >= 300 and ph_pct >= 80 and styles_done >= 6 and karaoke_done
+    ready = (total_rec >= 300 and ph_pct >= 80 and styles_done >= 6
+             and karaoke_done)
 
     return OnboardingProgress(
         total_target_sec=PLAN["total"],
@@ -246,7 +227,6 @@ def run_cli() -> int:
     print()
     try:
         from modules import voice_recording as vr
-
         cap = vr.capability_report()
     except Exception as e:
         cap = {"real_recording_possible": False, "error": str(e)}

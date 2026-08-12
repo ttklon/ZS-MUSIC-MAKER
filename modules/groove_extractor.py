@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 [2b] groove_extractor.py — Rhythm DNA / Groove Extractor v2 (НОВЫЙ)
 Извлекает из референса не ноты и не лупы, а ритмическую ДНК:
@@ -7,11 +8,7 @@
   • "кач" дропа
 Создаёт абстрактный groove_template для пересборки другими звуками.
 """
-
-import json
-import os
-
-import numpy as np
+import os, json, numpy as np
 
 try:
     import librosa
@@ -59,9 +56,7 @@ def extract_groove(audio_path: str, bpm: float = None) -> dict:
 
     # Извлекаем hihat (высокие частоты > 5000 Hz)
     hihat_mask = freqs > 5000
-    hihat_envelope = (
-        S[hihat_mask].mean(axis=0) if hihat_mask.any() else np.zeros(S.shape[1])
-    )
+    hihat_envelope = S[hihat_mask].mean(axis=0) if hihat_mask.any() else np.zeros(S.shape[1])
 
     # Вычисляем огибающие по 16 шагам в такте
     hop = 512
@@ -111,18 +106,12 @@ def extract_groove(audio_path: str, bpm: float = None) -> dict:
                 swing_vals.append(kick_pattern[idx])
     swing = 0.0
     if swing_vals:
-        even_vals = [
-            kick_pattern[bar * steps_per_bar + step]
-            for bar in range(n_bars)
-            for step in range(0, steps_per_bar, 2)
-            if bar * steps_per_bar + step < len(kick_pattern)
-        ]
+        even_vals = [kick_pattern[bar * steps_per_bar + step]
+                     for bar in range(n_bars) for step in range(0, steps_per_bar, 2)
+                     if bar * steps_per_bar + step < len(kick_pattern)]
         if even_vals and swing_vals:
-            swing = min(
-                1.0,
-                abs(np.mean(swing_vals) - np.mean(even_vals))
-                / (np.mean(even_vals) + 1e-9),
-            )
+            swing = min(1.0, abs(np.mean(swing_vals) - np.mean(even_vals)) /
+                        (np.mean(even_vals) + 1e-9))
 
     # Triplet rolls: ищем триольные группы
     triplet_rolls = False
@@ -133,7 +122,7 @@ def extract_groove(audio_path: str, bpm: float = None) -> dict:
             for step in range(steps_per_bar - 2):
                 idx = bar_start + step
                 if idx + 2 < len(kick_binary):
-                    if sum(kick_binary[idx : idx + 3]) >= 2:
+                    if sum(kick_binary[idx:idx+3]) >= 2:
                         triplet_rolls = True
                         break
 
@@ -143,12 +132,10 @@ def extract_groove(audio_path: str, bpm: float = None) -> dict:
         for bar in range(1, n_bars):
             prev_start = (bar - 1) * steps_per_bar
             curr_start = bar * steps_per_bar
-            prev_pat = kick_binary[prev_start : prev_start + steps_per_bar]
-            curr_pat = kick_binary[curr_start : curr_start + steps_per_bar]
+            prev_pat = kick_binary[prev_start:prev_start + steps_per_bar]
+            curr_pat = kick_binary[curr_start:curr_start + steps_per_bar]
             if prev_pat != curr_pat:
-                pattern_changes.append(
-                    {"bar": bar, "time_sec": round(bar * bar_sec, 2)}
-                )
+                pattern_changes.append({"bar": bar, "time_sec": round(bar * bar_sec, 2)})
 
     # Drop intensity: разница между самым энергичным и средним тактом
     bar_energies = []
@@ -159,9 +146,7 @@ def extract_groove(audio_path: str, bpm: float = None) -> dict:
             bar_energies.append(float(np.mean(kick_pattern[bar_start:bar_end])))
     drop_intensity = 0.0
     if bar_energies:
-        drop_intensity = min(
-            1.0, max(bar_energies) / (np.mean(bar_energies) + 1e-9) - 1.0
-        )
+        drop_intensity = min(1.0, max(bar_energies) / (np.mean(bar_energies) + 1e-9) - 1.0)
 
     groove_template = {
         "source": os.path.basename(audio_path),
@@ -227,7 +212,6 @@ def merge_grooves(grooves: list, weights: list = None) -> dict:
 
 if __name__ == "__main__":
     import sys
-
     if len(sys.argv) < 2:
         print("Usage: python groove_extractor.py <track.mp3>")
     else:

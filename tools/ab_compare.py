@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 ZS Music Maker v15 — tools/ab_compare.py
 ==============================================
@@ -13,29 +14,26 @@ TZ раздел 20 (A/B сравнение). Сравнивает пользов
 
 CLI: python tools/ab_compare.py user.wav ref.wav [--out dir]
 """
-
 from __future__ import annotations
 
 import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Dict, Any
 
 try:
     import numpy as np
-    import pyloudnorm as pyln
     import soundfile as sf
+    import pyloudnorm as pyln
 except Exception as e:
     print(f"[ab_compare] deps missing: {e}", file=sys.stderr)
     raise
 
 try:
     import matplotlib
-
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
-
     HAS_PLT = True
 except Exception:
     HAS_PLT = False
@@ -83,7 +81,6 @@ def _spectrogram(data, sr, out_png: Path, title: str):
     hop = 512
     # numpy-based simple STFT
     from numpy.lib.stride_tricks import sliding_window_view
-
     if len(mono) < n_fft:
         return False
     window = np.hanning(n_fft)
@@ -91,17 +88,10 @@ def _spectrogram(data, sr, out_png: Path, title: str):
     spec = np.abs(np.fft.rfft(frames * window, axis=1)).T
     spec_db = 20.0 * np.log10(spec + 1e-9)
     fig, ax = plt.subplots(figsize=(10, 4))
-    ax.imshow(
-        spec_db,
-        aspect="auto",
-        origin="lower",
-        extent=[0, len(mono) / sr, 0, sr / 2 / 1000],
-        cmap="viridis",
-        vmin=-80,
-        vmax=0,
-    )
-    ax.set_xlabel("Time (s)")
-    ax.set_ylabel("Freq (kHz)")
+    ax.imshow(spec_db, aspect="auto", origin="lower",
+              extent=[0, len(mono)/sr, 0, sr/2/1000],
+              cmap="viridis", vmin=-80, vmax=0)
+    ax.set_xlabel("Time (s)"); ax.set_ylabel("Freq (kHz)")
     ax.set_title(title)
     fig.tight_layout()
     fig.savefig(out_png, dpi=100)
@@ -109,24 +99,17 @@ def _spectrogram(data, sr, out_png: Path, title: str):
     return True
 
 
-def compare(user_wav: str, ref_wav: str, out_dir: str) -> dict[str, Any]:
-    out = Path(out_dir)
-    out.mkdir(parents=True, exist_ok=True)
+def compare(user_wav: str, ref_wav: str, out_dir: str) -> Dict[str, Any]:
+    out = Path(out_dir); out.mkdir(parents=True, exist_ok=True)
     u_data, u_sr = _load_stereo(user_wav)
     r_data, r_sr = _load_stereo(ref_wav)
-    u_lufs = _lufs(u_data, u_sr)
-    r_lufs = _lufs(r_data, r_sr)
-    u_tp = _true_peak_db(u_data)
-    r_tp = _true_peak_db(r_data)
-    u_rms = float(np.sqrt(np.mean(u_data**2)))
-    r_rms = float(np.sqrt(np.mean(r_data**2)))
-    u_w = _stereo_width(u_data)
-    r_w = _stereo_width(r_data)
-    u_dur = u_data.shape[0] / u_sr
-    r_dur = r_data.shape[0] / r_sr
+    u_lufs = _lufs(u_data, u_sr); r_lufs = _lufs(r_data, r_sr)
+    u_tp = _true_peak_db(u_data); r_tp = _true_peak_db(r_data)
+    u_rms = float(np.sqrt(np.mean(u_data**2))); r_rms = float(np.sqrt(np.mean(r_data**2)))
+    u_w = _stereo_width(u_data); r_w = _stereo_width(r_data)
+    u_dur = u_data.shape[0] / u_sr; r_dur = r_data.shape[0] / r_sr
 
-    u_png = out / "spec_user.png"
-    r_png = out / "spec_ref.png"
+    u_png = out / "spec_user.png"; r_png = out / "spec_ref.png"
     _spectrogram(u_data, u_sr, u_png, "USER — spectrogram")
     _spectrogram(r_data, r_sr, r_png, "REF  — spectrogram")
 
@@ -136,43 +119,26 @@ def compare(user_wav: str, ref_wav: str, out_dir: str) -> dict[str, Any]:
         try:
             combo_png = out / "ab_combined.png"
             fig, axes = plt.subplots(2, 1, figsize=(12, 6))
-            for ax, path, title in ((axes[0], u_png, "USER"), (axes[1], r_png, "REF")):
+            for ax, path, title in ((axes[0], u_png, "USER"),
+                                     (axes[1], r_png, "REF")):
                 if path.exists():
                     img = plt.imread(path)
-                    ax.imshow(img)
-                    ax.axis("off")
-                    ax.set_title(title)
+                    ax.imshow(img); ax.axis("off"); ax.set_title(title)
             fig.tight_layout()
-            fig.savefig(combo_png, dpi=100)
-            plt.close(fig)
+            fig.savefig(combo_png, dpi=100); plt.close(fig)
         except Exception:
             combo_png = None
 
     result = {
-        "user": {
-            "path": user_wav,
-            "sr": u_sr,
-            "duration_sec": round(u_dur, 3),
-            "lufs_integrated": u_lufs,
-            "true_peak_dbfs": u_tp,
-            "rms": u_rms,
-            "stereo_width": u_w,
-        },
-        "ref": {
-            "path": ref_wav,
-            "sr": r_sr,
-            "duration_sec": round(r_dur, 3),
-            "lufs_integrated": r_lufs,
-            "true_peak_dbfs": r_tp,
-            "rms": r_rms,
-            "stereo_width": r_w,
-        },
+        "user": {"path": user_wav, "sr": u_sr, "duration_sec": round(u_dur, 3),
+                 "lufs_integrated": u_lufs, "true_peak_dbfs": u_tp,
+                 "rms": u_rms, "stereo_width": u_w},
+        "ref":  {"path": ref_wav, "sr": r_sr, "duration_sec": round(r_dur, 3),
+                 "lufs_integrated": r_lufs, "true_peak_dbfs": r_tp,
+                 "rms": r_rms, "stereo_width": r_w},
         "delta": {
-            "lufs": (
-                round(u_lufs - r_lufs, 2)
-                if u_lufs is not None and r_lufs is not None
-                else None
-            ),
+            "lufs": (round(u_lufs - r_lufs, 2)
+                     if u_lufs is not None and r_lufs is not None else None),
             "true_peak_db": round(u_tp - r_tp, 2),
             "rms": round(u_rms - r_rms, 4),
             "stereo_width": round(u_w - r_w, 3),
@@ -180,14 +146,13 @@ def compare(user_wav: str, ref_wav: str, out_dir: str) -> dict[str, Any]:
         },
         "spectrograms": {
             "user": str(u_png) if u_png.exists() else None,
-            "ref": str(r_png) if r_png.exists() else None,
+            "ref":  str(r_png) if r_png.exists() else None,
             "combined": str(combo_png) if combo_png else None,
         },
         "verdict": _verdict(u_lufs, r_lufs, u_tp, r_tp, u_w, r_w),
     }
     (out / "ab_report.json").write_text(
-        json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8"
-    )
+        json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
     return result
 
 
@@ -218,17 +183,9 @@ def main():
     a = p.parse_args()
     r = compare(a.user_wav, a.ref_wav, a.out)
     # Печатаем без spectrograms полных путей (короткая версия)
-    print(
-        json.dumps(
-            {
-                "delta": r["delta"],
-                "verdict": r["verdict"],
-                "report_path": str(Path(a.out) / "ab_report.json"),
-            },
-            ensure_ascii=False,
-            indent=2,
-        )
-    )
+    print(json.dumps({"delta": r["delta"], "verdict": r["verdict"],
+                      "report_path": str(Path(a.out) / "ab_report.json")},
+                     ensure_ascii=False, indent=2))
     return 0
 
 

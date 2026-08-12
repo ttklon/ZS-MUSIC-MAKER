@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 [v8] author_ref_lyrics.py — Author-Referenced Lyrics Engine.
 
@@ -17,19 +18,15 @@
   • Отдаёт «стилевой промт» для lyrics_gen (Ollama/fallback).
   • Полностью офлайн-совместим: если интернета нет — работает по локальному корпусу.
 """
-
 from __future__ import annotations
-
-import hashlib
-import json
-import re
-import time
-from collections import Counter
+import os, re, json, time, random, hashlib
 from pathlib import Path
+from collections import Counter
+from typing import Optional
 
 ROOT = Path(__file__).resolve().parents[1]
 CORPUS_DIR = ROOT / "lyric_vault" / "author_corpus"
-STYLE_DIR = ROOT / "lyric_vault" / "author_styles"
+STYLE_DIR  = ROOT / "lyric_vault" / "author_styles"
 CACHE_FILE = ROOT / "lyric_vault" / "author_index.json"
 for p in (CORPUS_DIR, STYLE_DIR):
     p.mkdir(parents=True, exist_ok=True)
@@ -37,45 +34,10 @@ for p in (CORPUS_DIR, STYLE_DIR):
 # ------------------------------------------------------------- utils
 _WORD_RE = re.compile(r"[а-яА-Яёa-zA-Z0-9']+")
 _STOPWORDS = {
-    "и",
-    "а",
-    "но",
-    "или",
-    "что",
-    "как",
-    "это",
-    "то",
-    "же",
-    "бы",
-    "не",
-    "в",
-    "на",
-    "с",
-    "по",
-    "за",
-    "из",
-    "от",
-    "до",
-    "у",
-    "к",
-    "о",
-    "об",
-    "the",
-    "a",
-    "an",
-    "of",
-    "to",
-    "and",
-    "in",
-    "is",
-    "it",
-    "on",
-    "for",
-    "my",
-    "your",
-    "we",
-    "you",
-    "i",
+    "и", "а", "но", "или", "что", "как", "это", "то", "же", "бы", "не",
+    "в", "на", "с", "по", "за", "из", "от", "до", "у", "к", "о", "об",
+    "the", "a", "an", "of", "to", "and", "in", "is", "it", "on", "for",
+    "my", "your", "we", "you", "i",
 }
 
 
@@ -97,9 +59,8 @@ def _load_index() -> dict:
 
 
 def _save_index(idx: dict) -> None:
-    CACHE_FILE.write_text(
-        json.dumps(idx, ensure_ascii=False, indent=2), encoding="utf-8"
-    )
+    CACHE_FILE.write_text(json.dumps(idx, ensure_ascii=False, indent=2),
+                          encoding="utf-8")
 
 
 # ------------------------------------------------------------- ingest
@@ -115,43 +76,35 @@ def ingest_lyrics_file(path: str | Path, author: str, title: str = "") -> dict:
 def ingest_lyrics_text(text: str, author: str, title: str = "") -> dict:
     """Индексируем сырой текст."""
     author_slug = re.sub(r"[^a-zA-Zа-яА-Я0-9]+", "_", (author or "unknown")).lower()
-    fname = hashlib.md5(
-        (author_slug + "|" + title + "|" + text[:60]).encode()
-    ).hexdigest()[:12]
+    fname = hashlib.md5((author_slug + "|" + title + "|" + text[:60]).encode()).hexdigest()[:12]
     dst = CORPUS_DIR / author_slug
     dst.mkdir(parents=True, exist_ok=True)
     (dst / f"{fname}.txt").write_text(text, encoding="utf-8")
 
     idx = _load_index()
     idx.setdefault(author_slug, {"display_name": author, "files": []})
-    idx[author_slug]["files"].append(
-        {
-            "id": fname,
-            "title": title,
-            "chars": len(text),
-            "ts": time.time(),
-        }
-    )
+    idx[author_slug]["files"].append({
+        "id": fname, "title": title, "chars": len(text), "ts": time.time(),
+    })
     _save_index(idx)
     return {"ok": True, "author": author_slug, "id": fname}
 
 
-def ingest_reference_audio(
-    audio_path: str | Path, author: str = "unknown", title: str = ""
-) -> dict:
+def ingest_reference_audio(audio_path: str | Path, author: str = "unknown",
+                           title: str = "") -> dict:
     """Через Whisper вытаскиваем текст из аудио-референса и кладём в корпус."""
     audio_path = Path(audio_path)
     if not audio_path.exists():
         return {"ok": False, "error": "no audio"}
     try:
         import whisper
-
         model = whisper.load_model("base")
         res = model.transcribe(str(audio_path), fp16=False)
         text = (res.get("text") or "").strip()
         if not text:
             return {"ok": False, "error": "empty transcription"}
-        return ingest_lyrics_text(text, author=author, title=title or audio_path.stem)
+        return ingest_lyrics_text(text, author=author,
+                                  title=title or audio_path.stem)
     except Exception as e:
         return {"ok": False, "error": f"whisper failed: {e}"}
 
@@ -181,7 +134,7 @@ def build_style_profile(author: str) -> dict:
     # Биграммы (характерные обороты)
     bigrams = Counter()
     for i in range(len(tokens) - 1):
-        a, b = tokens[i], tokens[i + 1]
+        a, b = tokens[i], tokens[i+1]
         if a not in _STOPWORDS and b not in _STOPWORDS:
             bigrams[f"{a} {b}"] += 1
     top_bigrams = [bg for bg, c in bigrams.most_common(30) if c >= 2]
@@ -206,21 +159,21 @@ def build_style_profile(author: str) -> dict:
     profile = {
         "author": author,
         "author_slug": author_slug,
-        "top_words": [{"w": w, "n": n} for w, n in top_words],
+        "top_words":   [{"w": w, "n": n} for w, n in top_words],
         "top_bigrams": top_bigrams,
         "avg_syll_per_line": avg_syll,
-        "rhyme_endings": [r for r, _ in rhyme_counter.most_common(20)],
-        "sample_lines": [l.strip() for l in lines if 6 <= len(_tokenize(l)) <= 14][:12],
+        "rhyme_endings":  [r for r, _ in rhyme_counter.most_common(20)],
+        "sample_lines":   [l.strip() for l in lines
+                           if 6 <= len(_tokenize(l)) <= 14][:12],
         "corpus_size_chars": len(all_text),
         "built_at": time.time(),
     }
     (STYLE_DIR / f"{author_slug}.json").write_text(
-        json.dumps(profile, ensure_ascii=False, indent=2), encoding="utf-8"
-    )
+        json.dumps(profile, ensure_ascii=False, indent=2), encoding="utf-8")
     return {"ok": True, "profile": profile}
 
 
-def get_style_profile(author: str) -> dict | None:
+def get_style_profile(author: str) -> Optional[dict]:
     author_slug = re.sub(r"[^a-zA-Zа-яА-Я0-9]+", "_", author).lower()
     f = STYLE_DIR / f"{author_slug}.json"
     if f.exists():
@@ -240,15 +193,12 @@ def search_author_online(author: str, max_tracks: int = 20) -> list[dict]:
     Использует DuckDuckGo html endpoint (без API-ключа).
     Возвращает список {title, url, snippet}.
     """
-    import urllib.parse
-    import urllib.request
-
+    import urllib.parse, urllib.request
     q = urllib.parse.quote(f"{author} lyrics текст песни")
     url = f"https://html.duckduckgo.com/html/?q={q}"
     try:
-        req = urllib.request.Request(
-            url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
-        )
+        req = urllib.request.Request(url, headers={
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
         with urllib.request.urlopen(req, timeout=8) as r:
             html = r.read().decode("utf-8", errors="ignore")
     except Exception as e:
@@ -256,14 +206,11 @@ def search_author_online(author: str, max_tracks: int = 20) -> list[dict]:
 
     results = []
     for m in re.finditer(
-        r'result__a"[^>]*href="([^"]+)"[^>]*>(.*?)</a>.*?'
-        r'result__snippet"[^>]*>(.*?)</a>',
-        html,
-        re.DOTALL,
-    ):
+            r'result__a"[^>]*href="([^"]+)"[^>]*>(.*?)</a>.*?'
+            r'result__snippet"[^>]*>(.*?)</a>', html, re.DOTALL):
         u, t, s = m.groups()
         title = re.sub(r"<[^>]+>", "", t).strip()
-        snip = re.sub(r"<[^>]+>", "", s).strip()
+        snip  = re.sub(r"<[^>]+>", "", s).strip()
         if title and snip:
             results.append({"title": title, "url": u, "snippet": snip})
         if len(results) >= max_tracks:
@@ -295,15 +242,14 @@ def fetch_and_ingest_author(author: str, max_tracks: int = 5) -> dict:
 
 
 # ------------------------------------------------------------- prompt builder
-def build_style_prompt(
-    author: str, theme: str, user_words: list[str], bpm: int, target_lines: int = 16
-) -> str:
+def build_style_prompt(author: str, theme: str, user_words: list[str],
+                       bpm: int, target_lines: int = 16) -> str:
     """
     Строим промт для Ollama/лирического движка с учётом стилевого профиля автора.
     """
     profile = get_style_profile(author) or {}
     words = ", ".join(w["w"] for w in profile.get("top_words", [])[:20])
-    bigs = ", ".join(profile.get("top_bigrams", [])[:10])
+    bigs  = ", ".join(profile.get("top_bigrams", [])[:10])
     samples = "\n".join(f"  • {s}" for s in profile.get("sample_lines", [])[:6])
     avg = profile.get("avg_syll_per_line", 9.0)
     user_line = ", ".join(user_words or []) or "(нет)"
@@ -311,7 +257,7 @@ def build_style_prompt(
         f"Пиши текст в стиле «{profile.get('author', author) or author}».",
         f"Тема: {theme}. Обязательно впиши слова пользователя: {user_line}.",
         f"BPM трека: {bpm}. Средняя длина строки — около {avg} слогов.",
-        "Куплеты на русском, припев/хук может быть на английском.",
+        f"Куплеты на русском, припев/хук может быть на английском.",
         f"Целевая длина: {target_lines} строк, без нейроношных повторов, "
         "с рифмой AABB или ABAB.",
         f"Характерные слова автора: {words}." if words else "",
@@ -323,15 +269,14 @@ def build_style_prompt(
 
 
 # ------------------------------------------------------------- library sweep
-def scan_library(
-    references_dir: str | Path = None, vault_dir: str | Path = None
-) -> dict:
+def scan_library(references_dir: str | Path = None,
+                 vault_dir:      str | Path = None) -> dict:
     """
     Проход по всей библиотеке пользователя: references/*.mp3 → whisper →
     ingest; lyric_vault/*.txt → ingest как unknown если автор неизвестен.
     """
     references_dir = Path(references_dir or ROOT / "references")
-    vault_dir = Path(vault_dir or ROOT / "lyric_vault")
+    vault_dir      = Path(vault_dir      or ROOT / "lyric_vault")
     added_audio = added_text = 0
     for ext in ("*.mp3", "*.wav", "*.flac", "*.m4a"):
         for f in references_dir.rglob(ext):
@@ -342,28 +287,25 @@ def scan_library(
     for f in vault_dir.rglob("*.txt"):
         if "author_corpus" in str(f) or "slang" in f.name:
             continue
-        r = ingest_lyrics_file(f, author=f.parent.name or "unknown", title=f.stem)
+        r = ingest_lyrics_file(f, author=f.parent.name or "unknown",
+                               title=f.stem)
         if r.get("ok"):
             added_text += 1
-    return {"ok": True, "audio_ingested": added_audio, "text_ingested": added_text}
+    return {"ok": True, "audio_ingested": added_audio,
+            "text_ingested": added_text}
 
 
 def list_authors() -> list[dict]:
     idx = _load_index()
-    return [
-        {"slug": s, "name": d.get("display_name", s), "files": len(d.get("files", []))}
-        for s, d in idx.items()
-    ]
+    return [{"slug": s, "name": d.get("display_name", s),
+             "files": len(d.get("files", []))} for s, d in idx.items()]
 
 
 if __name__ == "__main__":
     import sys
-
     if len(sys.argv) > 1 and sys.argv[1] == "scan":
         print(json.dumps(scan_library(), ensure_ascii=False, indent=2))
     elif len(sys.argv) > 2 and sys.argv[1] == "profile":
-        print(
-            json.dumps(build_style_profile(sys.argv[2]), ensure_ascii=False, indent=2)
-        )
+        print(json.dumps(build_style_profile(sys.argv[2]), ensure_ascii=False, indent=2))
     else:
         print(json.dumps(list_authors(), ensure_ascii=False, indent=2))

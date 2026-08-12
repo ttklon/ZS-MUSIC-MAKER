@@ -1,12 +1,10 @@
+# -*- coding: utf-8 -*-
 """
 [2a] stem_splitter.py — Demucs v4 (анализ, не копирование)
 Разбирает референс на vocals / drums / bass / other.
 Используется ТОЛЬКО для АНАЛИЗА структуры, НЕ для прямого копирования.
 """
-
-import os
-import subprocess
-import sys
+import os, subprocess, sys
 
 OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "..", "output", "stems")
 
@@ -20,13 +18,9 @@ def split_stems(input_path: str, model: str = "htdemucs") -> dict:
         return {"error": "Demucs не установлен. pip install demucs"}
 
     cmd = [
-        sys.executable,
-        "-m",
-        "demucs.separate",
-        "-n",
-        model,
-        "-o",
-        OUTPUT_DIR,
+        sys.executable, "-m", "demucs.separate",
+        "-n", model,
+        "-o", OUTPUT_DIR,
         "--mp3",
         input_path,
     ]
@@ -44,17 +38,14 @@ def split_stems(input_path: str, model: str = "htdemucs") -> dict:
             if os.path.exists(p):
                 result[stem] = p
                 break
-    result["note"] = (
-        "Стемы используются только как АНАЛИТИЧЕСКАЯ ссылка. Прямое копирование отключено."
-    )
+    result["note"] = "Стемы используются только как АНАЛИТИЧЕСКАЯ ссылка. Прямое копирование отключено."
     return result
 
 
 def analyze_arrangement(stems: dict) -> dict:
     """Анализирует плотность стемов -> подсказка для BeatConstructor."""
     try:
-        import librosa
-        import numpy as np
+        import librosa, numpy as np
     except ImportError:
         return {"error": "librosa не установлен"}
     report = {}

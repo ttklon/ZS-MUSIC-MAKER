@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 [v7] onboarding.py — Scriptable Tour при первом запуске.
 
@@ -5,18 +6,14 @@
 Появляется автоматически при первом запуске (user_profile.first_run=True).
 Можно вручную запустить из меню "Помощь".
 """
-
 from __future__ import annotations
-
+from PySide6.QtCore import Qt
+from PySide6.QtGui  import QFont
 from PySide6.QtWidgets import (
-    QCheckBox,
-    QDialog,
-    QHBoxLayout,
-    QLabel,
-    QPushButton,
-    QTextBrowser,
-    QVBoxLayout,
+    QDialog, QVBoxLayout, QLabel, QPushButton, QHBoxLayout, QCheckBox,
+    QTextBrowser, QMessageBox
 )
+
 
 TOUR_STEPS = [
     {
@@ -144,14 +141,11 @@ class OnboardingDialog(QDialog):
 
         v = QVBoxLayout(self)
 
-        self.title = QLabel()
-        self.title.setStyleSheet("font-size:22px;font-weight:700;color:#ff5a28;")
+        self.title = QLabel(); self.title.setStyleSheet("font-size:22px;font-weight:700;color:#ff5a28;")
         v.addWidget(self.title)
 
         self.body = QTextBrowser()
-        self.body.setStyleSheet(
-            "background:#17171d;color:#e8e8ee;border:1px solid #2a2a34;padding:12px;font-size:14px;"
-        )
+        self.body.setStyleSheet("background:#17171d;color:#e8e8ee;border:1px solid #2a2a34;padding:12px;font-size:14px;")
         v.addWidget(self.body, 1)
 
         self.dont_show = QCheckBox("Больше не показывать при запуске")
@@ -163,11 +157,8 @@ class OnboardingDialog(QDialog):
         self.btn_next = QPushButton("Далее →")
         self.progress = QLabel()
         self.progress.setStyleSheet("color:#9a9aa4;")
-        for b in (self.btn_prev, self.btn_skip):
-            bar.addWidget(b)
-        bar.addStretch()
-        bar.addWidget(self.progress)
-        bar.addStretch()
+        for b in (self.btn_prev, self.btn_skip): bar.addWidget(b)
+        bar.addStretch(); bar.addWidget(self.progress); bar.addStretch()
         bar.addWidget(self.btn_next)
         v.addLayout(bar)
 
@@ -182,24 +173,17 @@ class OnboardingDialog(QDialog):
         self.title.setText(s["title"])
         # HTML для абзацев + сохранения переносов
         html = s["text"].replace("\n\n", "<br><br>").replace("\n", "<br>")
-        self.body.setHtml(
-            f"<div style='font-family:Segoe UI,Arial;line-height:1.5;'>{html}</div>"
-        )
+        self.body.setHtml(f"<div style='font-family:Segoe UI,Arial;line-height:1.5;'>{html}</div>")
         self.progress.setText(f"Шаг {self.step+1} / {len(TOUR_STEPS)}")
         self.btn_prev.setEnabled(self.step > 0)
-        self.btn_next.setText(
-            "Закрыть ✓" if self.step == len(TOUR_STEPS) - 1 else "Далее →"
-        )
+        self.btn_next.setText("Закрыть ✓" if self.step == len(TOUR_STEPS)-1 else "Далее →")
 
     def prev(self):
-        if self.step > 0:
-            self.step -= 1
-            self.render()
+        if self.step > 0: self.step -= 1; self.render()
 
     def next(self):
-        if self.step < len(TOUR_STEPS) - 1:
-            self.step += 1
-            self.render()
+        if self.step < len(TOUR_STEPS)-1:
+            self.step += 1; self.render()
         else:
             self.accept()
 
@@ -216,7 +200,7 @@ def maybe_show_onboarding(parent=None) -> bool:
         return False
     d = OnboardingDialog(parent)
     d.exec()
-    if d.dont_show.isChecked() or True:  # всегда фиксируем, что первый запуск прошёл
+    if d.dont_show.isChecked() or True:   # всегда фиксируем, что первый запуск прошёл
         mark_onboarded()
     return True
 
@@ -227,10 +211,7 @@ def show_help_tour(parent=None) -> None:
 
 
 if __name__ == "__main__":
-    import sys
-
     from PySide6.QtWidgets import QApplication
-
+    import sys
     a = QApplication(sys.argv)
-    d = OnboardingDialog()
-    d.exec()
+    d = OnboardingDialog(); d.exec()

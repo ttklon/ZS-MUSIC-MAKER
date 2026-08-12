@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 ZS Music Maker v14 — tools/real_e2e_v14.py
 
@@ -25,9 +26,8 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 
-def _synthesize_reference(
-    out_wav: Path, duration: float = 15.0, sr: int = 44100, bpm: int = 140
-) -> dict:
+def _synthesize_reference(out_wav: Path, duration: float = 15.0,
+                          sr: int = 44100, bpm: int = 140) -> dict:
     import numpy as np
     import soundfile as sf
 
@@ -65,16 +65,11 @@ def _synthesize_reference(
 def _check_wav(path: str) -> dict:
     try:
         import soundfile as sf
-
         info = sf.info(path)
-        return {
-            "exists": True,
-            "path": path,
-            "sr": info.samplerate,
-            "channels": info.channels,
-            "duration_sec": round(info.frames / info.samplerate, 2),
-            "size_bytes": Path(path).stat().st_size,
-        }
+        return {"exists": True, "path": path,
+                "sr": info.samplerate, "channels": info.channels,
+                "duration_sec": round(info.frames / info.samplerate, 2),
+                "size_bytes": Path(path).stat().st_size}
     except Exception as e:
         return {"exists": False, "path": path, "error": str(e)}
 
@@ -90,12 +85,9 @@ def main() -> int:
 
     ref_path = workdir / "reference.wav"
     ref_meta = _synthesize_reference(ref_path, duration=15.0, bpm=140)
-    print(
-        f"[e2e] synthetic reference: {ref_path}  (sr={ref_meta['sr']}, dur={ref_meta['duration']}s)"
-    )
+    print(f"[e2e] synthetic reference: {ref_path}  (sr={ref_meta['sr']}, dur={ref_meta['duration']}s)")
 
     from app.core.orchestrator import run_full_pipeline
-
     result = run_full_pipeline(
         project_id=f"e2e_v14_{ts}",
         wizard_state={
@@ -109,7 +101,8 @@ def main() -> int:
     )
 
     (workdir / "pipeline_result.json").write_text(
-        json.dumps(result, ensure_ascii=False, indent=2, default=str), encoding="utf-8"
+        json.dumps(result, ensure_ascii=False, indent=2, default=str),
+        encoding="utf-8"
     )
 
     artifacts = {}
@@ -132,7 +125,6 @@ def main() -> int:
                 release_check[f.name] = {"size": f.stat().st_size, "path": str(f)}
 
     from tools import fallback_audit, readiness
-
     fb = fallback_audit.scan_all()
     pct, blocks = readiness.compute()
 
@@ -144,22 +136,19 @@ def main() -> int:
         "pipeline_percent": result.get("percent"),
         "pipeline_stages": len(result.get("stages", [])),
         "stages_ok": sum(1 for s in result.get("stages", []) if s.get("ok")),
-        "stages_fallback": sum(
-            1 for s in result.get("stages", []) if s.get("fallback_used")
-        ),
+        "stages_fallback": sum(1 for s in result.get("stages", []) if s.get("fallback_used")),
         "warnings": result.get("warnings", []),
         "artifacts_present": artifacts,
         "mastering_stands_present": stands_check,
         "release_pack_files": release_check,
         "fallback_audit_summary": fb.get("summary", {}),
-        "fallback_red_flags_count": {
-            k: len(v) for k, v in fb.get("red_flags", {}).items()
-        },
+        "fallback_red_flags_count": {k: len(v) for k, v in fb.get("red_flags", {}).items()},
         "readiness_percent": pct,
         "readiness_caps": blocks.get("caps_triggered", []),
     }
     (workdir / "e2e_summary.json").write_text(
-        json.dumps(summary, ensure_ascii=False, indent=2, default=str), encoding="utf-8"
+        json.dumps(summary, ensure_ascii=False, indent=2, default=str),
+        encoding="utf-8"
     )
 
     print()
@@ -174,10 +163,8 @@ def main() -> int:
     print(f"Full JSON:          {workdir / 'e2e_summary.json'}")
     print()
 
-    if (
-        summary["pipeline_stages"]
-        and summary["stages_ok"] / summary["pipeline_stages"] >= 0.6
-    ):
+    if summary["pipeline_stages"] and \
+       summary["stages_ok"] / summary["pipeline_stages"] >= 0.6:
         return 0
     return 1
 

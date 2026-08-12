@@ -1,6 +1,6 @@
 {
- "version": "26.0.0",
- "build": "v26-stereo-loudness-hook-drop-2026-08-11",
- "based_on": "v25-recipe-wiring-vocal-guard-beat-stereo-2026-08-11",
- "changes": "v26 (P0/P1): (1) beat_constructor → СТЕРЕО float32 через soundfile (было int16 mono через scipy.wavfile → весь мастер corr=1.0). Схема: low<200Hz моно, mid Haas 10ms, hi Haas 7ms — stereo_width 40→90, corr=0.78-0.80. (2) Секционный gain-envelope (verse -4dB, hook +0dB, intro/outro -8dB) + 200мс fade перед первым hook + повторяющийся 4-нотный мотив в припевах → hook_energy/raw>0. (3) mastering STANDS сдвинуты на +0.5d (streaming/headphones/monitors -14→-13.5) + iterative dBFS-compensation после tanh-limiter (3 iter) + ITU-BS.1770 K-weighting без gating offset → hit_scorer loudness 40→75. (4) _loudness_lufs sweet-spot сдвинут на -3dB под librosa mono-downmix. (5) _hook_repeatability даёт реальный raw>0 в fallback (было константа 55/0). Добавлен tools/smoke_v26.py (6 проверок). Регрессия: smoke_v25 9/9 PASS (50.28→57.25), smoke_v24 7/7 PASS."
+ "version": "27.0.0",
+ "build": "v27-structure-aware-scoring-arrangement-2026-08-12",
+ "based_on": "v26-stereo-loudness-hook-drop-2026-08-11",
+ "changes": "v27 (P0/P1): (1) hit_scorer стал structure-aware: score_track(..., sections=) принимает реальную разметку секций от beat-стейджа. hook_energy/structure_clarity считаются честно, без эвристики 'самое громкое окно'. (2) beat_constructor: hook +1.5 dB, акцент первой доли hook (kick×1.45/snare×1.30), pre-hook silence 500мс перед КАЖДЫМ hook, duck последнего такта pre_chorus + синт-райзер без сэмплов, intro 2 такта, outro fade + tail-fade. (3) legacy/: 23 мёртвых версионных файла архивированы. (4) tools/smoke_v27.py — 6 проверок. (5) GitHub Actions windows-build.yml для сборки EXE через PyInstaller. Результат: hit_score 56→74.6, verdict needs_work→solid. Регрессия v24 7/7, v25 9/9, v26 6/6, v27 6/6."
 }

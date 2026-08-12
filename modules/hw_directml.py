@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 ZS Music Maker v10 — DirectML / AMD ускорение
 ==============================================
@@ -7,20 +8,18 @@ ZS Music Maker v10 — DirectML / AMD ускорение
 Автодетект и настройка torch-directml для AMD RX 580 на Windows.
 Также логика fallback на CPU и оценка VRAM.
 """
-
 from __future__ import annotations
-
 import json
 import logging
 import platform
 import subprocess
 from pathlib import Path
-from typing import Any
+from typing import Dict, Any, Optional
 
 log = logging.getLogger("zsmm.hw_directml")
 
 
-def detect() -> dict[str, Any]:
+def detect() -> Dict[str, Any]:
     """
     Возвращает {gpu_kind, backend, device_str, vram_mb, recommendations}
     """
@@ -39,7 +38,6 @@ def detect() -> dict[str, Any]:
     # 1) torch + CUDA
     try:
         import torch
-
         if torch.cuda.is_available():
             out["torch_cuda"] = True
             out["gpu_kind"] = "nvidia"
@@ -58,7 +56,6 @@ def detect() -> dict[str, Any]:
     if out["backend"] == "cpu":
         try:
             import torch_directml  # type: ignore
-
             out["torch_directml"] = True
             n = torch_directml.device_count()
             if n > 0:
@@ -70,10 +67,7 @@ def detect() -> dict[str, Any]:
             log.debug("no directml: %s", e)
 
     # 3) Оценка VRAM через wmic (Windows only) для AMD
-    if (
-        out["gpu_kind"] in ("amd_or_intel", "unknown")
-        and platform.system() == "Windows"
-    ):
+    if out["gpu_kind"] in ("amd_or_intel", "unknown") and platform.system() == "Windows":
         vram = _wmic_vram_mb()
         if vram > 0:
             out["vram_mb"] = vram
@@ -102,9 +96,7 @@ def _wmic_vram_mb() -> int:
     try:
         r = subprocess.run(
             ["wmic", "path", "win32_VideoController", "get", "AdapterRAM"],
-            capture_output=True,
-            text=True,
-            timeout=10,
+            capture_output=True, text=True, timeout=10
         )
         max_bytes = 0
         for line in r.stdout.splitlines():
@@ -116,7 +108,7 @@ def _wmic_vram_mb() -> int:
         return 0
 
 
-def save_profile(out_json: str = "data/hw_profile_v10.json") -> dict[str, Any]:
+def save_profile(out_json: str = "data/hw_profile_v10.json") -> Dict[str, Any]:
     prof = detect()
     Path(out_json).parent.mkdir(parents=True, exist_ok=True)
     with open(out_json, "w", encoding="utf-8") as f:
@@ -124,7 +116,7 @@ def save_profile(out_json: str = "data/hw_profile_v10.json") -> dict[str, Any]:
     return prof
 
 
-def choose_musicgen_variant(profile: dict[str, Any] | None = None) -> str:
+def choose_musicgen_variant(profile: Optional[Dict[str, Any]] = None) -> str:
     """
     Возвращает 'small' / 'medium' / 'large' в зависимости от железа.
     """

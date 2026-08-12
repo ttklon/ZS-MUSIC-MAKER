@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 ZS Music Maker v12 «Hit Locked Pro» — theme_v12.py
 ==================================================
@@ -21,34 +22,39 @@ from __future__ import annotations
 
 # Токены дизайн-системы v12 (RGB, без градиентов).
 TOKENS = {
-    "bg.canvas": "#0B0D10",  # почти-чёрный фон
-    "bg.surface": "#12161B",  # карточки/панели
-    "bg.raised": "#171C22",  # диалоги, поповеры
-    "bg.hover": "#1D242C",
-    "bg.pressed": "#232B34",
-    "line.subtle": "#232830",
-    "line.strong": "#2E3540",
-    "text.primary": "#EAF0F6",
+    "bg.canvas":    "#0B0D10",   # почти-чёрный фон
+    "bg.surface":   "#12161B",   # карточки/панели
+    "bg.raised":    "#171C22",   # диалоги, поповеры
+    "bg.hover":     "#1D242C",
+    "bg.pressed":   "#232B34",
+
+    "line.subtle":  "#232830",
+    "line.strong":  "#2E3540",
+
+    "text.primary":   "#EAF0F6",
     "text.secondary": "#A8B0BB",
-    "text.muted": "#6E7684",
+    "text.muted":     "#6E7684",
     "text.on_accent": "#001318",
-    "accent": "#22D3EE",  # electric cyan
-    "accent.hover": "#38DEEE",
+
+    "accent":         "#22D3EE",  # electric cyan
+    "accent.hover":   "#38DEEE",
     "accent.pressed": "#1AB4CC",
-    "warn": "#F5B441",
-    "danger": "#F87171",
-    "success": "#34D399",
-    "focus.ring": "#22D3EE",
+
+    "warn":           "#F5B441",
+    "danger":         "#F87171",
+    "success":        "#34D399",
+
+    "focus.ring":     "#22D3EE",
 }
 
 FONTS = {
-    "family_ui": "Inter, 'Segoe UI Variable', 'Segoe UI', Arial",
+    "family_ui":   "Inter, 'Segoe UI Variable', 'Segoe UI', Arial",
     "family_mono": "'JetBrains Mono', Consolas, monospace",
-    "size_body": "13px",
-    "size_h1": "22px",
-    "size_h2": "17px",
-    "size_h3": "14px",
-    "size_small": "11px",
+    "size_body":   "13px",
+    "size_h1":     "22px",
+    "size_h2":     "17px",
+    "size_h3":     "14px",
+    "size_small":  "11px",
 }
 
 
@@ -255,7 +261,5 @@ def apply(app) -> None:
 # Простой self-test — QSS должен сгенерироваться без ошибок.
 if __name__ == "__main__":
     s = qss()
-    print(
-        f"theme_v12 QSS length = {len(s)} chars, "
-        f"tokens = {len(TOKENS)}, fonts = {len(FONTS)}"
-    )
+    print(f"theme_v12 QSS length = {len(s)} chars, "
+          f"tokens = {len(TOKENS)}, fonts = {len(FONTS)}")

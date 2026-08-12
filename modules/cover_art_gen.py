@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 ZS Music Maker v10 — Cover Art Generator
 ==========================================
@@ -8,44 +9,37 @@ ZS Music Maker v10 — Cover Art Generator
 
 Автор выбирается из recipe.json или задаётся вручную.
 """
-
 from __future__ import annotations
-
-import hashlib
 import random
+import hashlib
 from pathlib import Path
-from typing import Any
+from typing import Dict, Any, Optional, Tuple
 
 try:
-    from PIL import Image, ImageDraw, ImageFilter, ImageFont
-
+    from PIL import Image, ImageDraw, ImageFont, ImageFilter
     PIL_OK = True
 except Exception:
     PIL_OK = False
 
 
 STYLE_PALETTES = {
-    "minimal": [((20, 20, 25), (240, 240, 245))],
-    "gradient": [
-        ((255, 94, 77), (255, 175, 64)),
-        ((94, 33, 175), (33, 150, 243)),
-        ((0, 200, 150), (10, 20, 40)),
-    ],
-    "glitch": [((255, 0, 100), (0, 255, 200)), ((20, 0, 40), (255, 60, 60))],
-    "retro": [((255, 200, 100), (60, 30, 60))],
-    "neon": [((15, 15, 40), (255, 0, 200)), ((0, 20, 50), (0, 255, 255))],
-    "chrome": [((30, 30, 30), (200, 200, 220))],
+    "minimal":  [((20, 20, 25), (240, 240, 245))],
+    "gradient": [((255, 94, 77), (255, 175, 64)),
+                 ((94, 33, 175), (33, 150, 243)),
+                 ((0, 200, 150), (10, 20, 40))],
+    "glitch":   [((255, 0, 100), (0, 255, 200)), ((20, 0, 40), (255, 60, 60))],
+    "retro":    [((255, 200, 100), (60, 30, 60))],
+    "neon":     [((15, 15, 40), (255, 0, 200)), ((0, 20, 50), (0, 255, 255))],
+    "chrome":   [((30, 30, 30), (200, 200, 220))],
 }
 
 
-def generate(
-    title: str,
-    artist: str,
-    out_path: str,
-    style: str = "gradient",
-    size: int = 1400,
-    seed: int | None = None,
-) -> dict[str, Any]:
+def generate(title: str,
+             artist: str,
+             out_path: str,
+             style: str = "gradient",
+             size: int = 1400,
+             seed: Optional[int] = None) -> Dict[str, Any]:
     """
     Генерирует обложку 1400x1400 (Spotify/Apple Music стандарт).
     """
@@ -79,46 +73,27 @@ def generate(
     artist_txt = (artist or "ZS").upper()[:24]
     title_txt = (title or "Untitled").upper()
 
-    _center_text(
-        draw,
-        artist_txt,
-        (size // 2, int(size * 0.12)),
-        font_sml,
-        fill=_contrast(c2),
-        letter_spacing=int(size * 0.015),
-    )
+    _center_text(draw, artist_txt, (size // 2, int(size * 0.12)), font_sml,
+                 fill=_contrast(c2), letter_spacing=int(size * 0.015))
 
     lines = _wrap_title(title_txt, max_chars=14)
     total_h = len(lines) * int(size * 0.11)
     y = (size - total_h) // 2
     for line in lines:
-        _center_text(
-            draw,
-            line,
-            (size // 2, y),
-            font_big,
-            fill=_contrast(c1),
-            stroke_fill=_contrast(c2),
-            stroke_width=2,
-        )
+        _center_text(draw, line, (size // 2, y), font_big, fill=_contrast(c1),
+                     stroke_fill=_contrast(c2), stroke_width=2)
         y += int(size * 0.11)
 
     # Нижний блок: MM ZS watermark
-    _center_text(
-        draw,
-        "MM · ZS MUSIC MAKER",
-        (size // 2, int(size * 0.94)),
-        font_sml,
-        fill=_contrast(c2),
-        letter_spacing=int(size * 0.01),
-    )
+    _center_text(draw, "MM · ZS MUSIC MAKER", (size // 2, int(size * 0.94)),
+                 font_sml, fill=_contrast(c2), letter_spacing=int(size * 0.01))
 
     Path(out_path).parent.mkdir(parents=True, exist_ok=True)
     img.save(out_path, "PNG", optimize=True)
     return {"ok": True, "path": out_path, "style": style, "seed": seed, "size": size}
 
 
-def _fill_gradient(img: Image.Image, c1, c2) -> None:
+def _fill_gradient(img: "Image.Image", c1, c2) -> None:
     w, h = img.size
     px = img.load()
     for y in range(h):
@@ -158,7 +133,8 @@ def _apply_sun(img, rng):
     cx, cy = w // 2, int(h * 0.62)
     for r in range(min(w, h) // 3, 0, -6):
         alpha = int(255 * (1 - r / (min(w, h) // 3)) * 0.15)
-        d.ellipse((cx - r, cy - r, cx + r, cy + r), fill=(255, 220, 90, alpha))
+        d.ellipse((cx - r, cy - r, cx + r, cy + r),
+                  fill=(255, 220, 90, alpha))
     return img
 
 
@@ -169,8 +145,7 @@ def _apply_chrome(img, rng):
 
 def _load_font(size: int):
     candidates = [
-        "arialbd.ttf",
-        "Arial Bold.ttf",
+        "arialbd.ttf", "Arial Bold.ttf",
         "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
         "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
         "C:\\Windows\\Fonts\\arialbd.ttf",
@@ -183,16 +158,8 @@ def _load_font(size: int):
     return ImageFont.load_default()
 
 
-def _center_text(
-    draw,
-    text,
-    xy,
-    font,
-    fill=(255, 255, 255),
-    stroke_fill=None,
-    stroke_width=0,
-    letter_spacing=0,
-):
+def _center_text(draw, text, xy, font, fill=(255, 255, 255),
+                 stroke_fill=None, stroke_width=0, letter_spacing=0):
     if letter_spacing > 0:
         # рисуем побуквенно
         total_w = 0
@@ -205,27 +172,15 @@ def _center_text(
         x = xy[0] - total_w // 2
         y = xy[1]
         for ch, cw in zip(text, widths):
-            draw.text(
-                (x, y),
-                ch,
-                font=font,
-                fill=fill,
-                stroke_fill=stroke_fill,
-                stroke_width=stroke_width,
-            )
+            draw.text((x, y), ch, font=font, fill=fill,
+                      stroke_fill=stroke_fill, stroke_width=stroke_width)
             x += cw + letter_spacing
     else:
         bbox = draw.textbbox((0, 0), text, font=font)
         w = bbox[2] - bbox[0]
         h = bbox[3] - bbox[1]
-        draw.text(
-            (xy[0] - w // 2, xy[1] - h // 2),
-            text,
-            font=font,
-            fill=fill,
-            stroke_fill=stroke_fill,
-            stroke_width=stroke_width,
-        )
+        draw.text((xy[0] - w // 2, xy[1] - h // 2), text, font=font,
+                  fill=fill, stroke_fill=stroke_fill, stroke_width=stroke_width)
 
 
 def _wrap_title(text: str, max_chars: int = 14):
@@ -243,16 +198,15 @@ def _wrap_title(text: str, max_chars: int = 14):
     return out or [text[:max_chars]]
 
 
-def _contrast(rgb: tuple[int, int, int]) -> tuple[int, int, int]:
+def _contrast(rgb: Tuple[int, int, int]) -> Tuple[int, int, int]:
     lum = 0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2]
     return (20, 20, 25) if lum > 140 else (245, 245, 250)
 
 
 if __name__ == "__main__":
     if PIL_OK:
-        r = generate(
-            "Turkish Nights", "ZS", "output/covers/test_cover.png", style="neon"
-        )
+        r = generate("Turkish Nights", "ZS", "output/covers/test_cover.png",
+                     style="neon")
         print(r)
     else:
         print("PIL missing")

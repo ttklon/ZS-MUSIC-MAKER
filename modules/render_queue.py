@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 [v8] render_queue.py — Рендер-очередь для ночных пачек (5+ треков).
 
@@ -7,28 +8,22 @@
 Работает поверх Orchestrator: принимает список recipe.json, запускает их
 последовательно, ведёт state, умеет восстанавливаться после перезапуска.
 """
-
 from __future__ import annotations
-
-import json
-import threading
-import time
-import uuid
-from collections.abc import Callable
-from dataclasses import asdict, dataclass, field
+import os, json, time, uuid, threading
 from pathlib import Path
+from dataclasses import dataclass, field, asdict
+from typing import Optional, Callable
 
 ROOT = Path(__file__).resolve().parents[1]
-QUEUE_DIR = ROOT / "output" / "queue"
-STATE_FILE = QUEUE_DIR / "queue_state.json"
+QUEUE_DIR   = ROOT / "output" / "queue"
+STATE_FILE  = QUEUE_DIR / "queue_state.json"
 # v22: ленивое создание (не при импорте)
-
 
 @dataclass
 class QueueItem:
     id: str
     recipe: dict
-    status: str = "pending"  # pending | running | done | error
+    status: str = "pending"   # pending | running | done | error
     progress: float = 0.0
     stage: str = ""
     project_dir: str = ""
@@ -37,8 +32,7 @@ class QueueItem:
     finished_at: float = 0.0
     result_paths: dict = field(default_factory=dict)
 
-    def to_dict(self):
-        return asdict(self)
+    def to_dict(self): return asdict(self)
 
 
 def _load_state() -> list[dict]:
@@ -53,8 +47,7 @@ def _load_state() -> list[dict]:
 def _save_state(items: list[QueueItem]) -> None:
     STATE_FILE.write_text(
         json.dumps([i.to_dict() for i in items], ensure_ascii=False, indent=2),
-        encoding="utf-8",
-    )
+        encoding="utf-8")
 
 
 class RenderQueue:
@@ -62,13 +55,12 @@ class RenderQueue:
     Автономная очередь. Использует Orchestrator для реального рендера.
     Работает в фоне (демонический поток).
     """
-
     def __init__(self, orchestrator=None, log: Callable[[str], None] = print):
         self.items: list[QueueItem] = []
         self.orchestrator = orchestrator
         self.log = log
         self._stop = threading.Event()
-        self._worker: threading.Thread | None = None
+        self._worker: Optional[threading.Thread] = None
         self._restore()
 
     # ------------------------------------------------------- persistence
@@ -77,9 +69,8 @@ class RenderQueue:
             # Возвращаем running → pending при рестарте.
             if d.get("status") == "running":
                 d["status"] = "pending"
-            item = QueueItem(
-                **{k: v for k, v in d.items() if k in QueueItem.__dataclass_fields__}
-            )
+            item = QueueItem(**{k: v for k, v in d.items()
+                                 if k in QueueItem.__dataclass_fields__})
             self.items.append(item)
 
     def _persist(self):
@@ -109,10 +100,8 @@ class RenderQueue:
     def cancel(self, item_id: str) -> bool:
         for it in self.items:
             if it.id == item_id and it.status == "pending":
-                it.status = "error"
-                it.error = "cancelled"
-                self._persist()
-                return True
+                it.status = "error"; it.error = "cancelled"
+                self._persist(); return True
         return False
 
     def clear_done(self):
@@ -136,11 +125,10 @@ class RenderQueue:
         while not self._stop.is_set():
             next_item = self._pick_next()
             if not next_item:
-                time.sleep(3)
-                continue
+                time.sleep(3); continue
             self._process(next_item)
 
-    def _pick_next(self) -> QueueItem | None:
+    def _pick_next(self) -> Optional[QueueItem]:
         for it in self.items:
             if it.status == "pending":
                 return it
@@ -157,7 +145,6 @@ class RenderQueue:
                 from app.core.orchestrator import Orchestrator
                 from app.hw_probe import probe_hw
                 from app.logger import make_logger
-
                 self.orchestrator = Orchestrator(probe_hw(), make_logger())
 
             def on_stage(stage: str, progress: float):
@@ -165,7 +152,8 @@ class RenderQueue:
                 item.progress = float(progress)
                 self._persist()
 
-            res = self.orchestrator.run_pipeline(item.recipe, stage_hook=on_stage)
+            res = self.orchestrator.run_pipeline(item.recipe,
+                                                 stage_hook=on_stage)
             item.result_paths = res or {}
             item.status = "done"
             item.progress = 1.0
@@ -179,13 +167,13 @@ class RenderQueue:
 
     # ------------------------------------------------------- morning report
     def morning_report(self) -> dict:
-        done = [i for i in self.items if i.status == "done"]
-        errs = [i for i in self.items if i.status == "error"]
-        pend = [i for i in self.items if i.status == "pending"]
+        done  = [i for i in self.items if i.status == "done"]
+        errs  = [i for i in self.items if i.status == "error"]
+        pend  = [i for i in self.items if i.status == "pending"]
         return {
-            "total": len(self.items),
-            "done": len(done),
-            "errors": len(errs),
+            "total":   len(self.items),
+            "done":    len(done),
+            "errors":  len(errs),
             "pending": len(pend),
             "delivered_paths": [i.result_paths for i in done],
             "generated_at": time.strftime("%Y-%m-%d %H:%M:%S"),

@@ -1,12 +1,12 @@
+# -*- coding: utf-8 -*-
 """
 Agent: TrainingTexts v2
 Банк текстов в 8 стилях + отслеживание прогресса + phoneme coverage.
 Стили: slow_clear, fast_loud, fast_quiet, conversational, aggressive,
        whisper, singing, phonetics_panagrams.
 """
-
-import json
-import os
+import os, json, random
+from pathlib import Path
 
 TEXTS_DIR = os.path.join(os.path.dirname(__file__), "..", "training_texts")
 os.makedirs(TEXTS_DIR, exist_ok=True)
@@ -69,9 +69,7 @@ BANK = {
 def get_next_text(style: str = None) -> dict:
     """Возвращает следующий текст для записи. Балансирует по стилям."""
     idx_file = os.path.join(TEXTS_DIR, "progress.json")
-    progress = (
-        json.load(open(idx_file, encoding="utf-8")) if os.path.exists(idx_file) else {}
-    )
+    progress = json.load(open(idx_file, encoding="utf-8")) if os.path.exists(idx_file) else {}
 
     if style is None:
         counts = {s: progress.get(s, 0) for s in BANK}
@@ -82,9 +80,7 @@ def get_next_text(style: str = None) -> dict:
     text = variants[used % len(variants)]
 
     progress[style] = used + 1
-    json.dump(
-        progress, open(idx_file, "w", encoding="utf-8"), ensure_ascii=False, indent=2
-    )
+    json.dump(progress, open(idx_file, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
 
     return {
         "style": style,
@@ -120,9 +116,7 @@ def all_styles() -> list:
 def progress_summary() -> dict:
     """Сводка прогресса по всем стилям."""
     idx_file = os.path.join(TEXTS_DIR, "progress.json")
-    progress = (
-        json.load(open(idx_file, encoding="utf-8")) if os.path.exists(idx_file) else {}
-    )
+    progress = json.load(open(idx_file, encoding="utf-8")) if os.path.exists(idx_file) else {}
     summary = {}
     for style in BANK:
         done = progress.get(style, 0)

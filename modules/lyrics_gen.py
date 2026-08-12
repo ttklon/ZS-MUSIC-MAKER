@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 [v7] lyrics_gen.py — генератор текстов с ОБЯЗАТЕЛЬНЫМ впитыванием
 пользовательских строк и bilingual структурой (RU куплеты + EN хуки).
@@ -11,98 +12,45 @@
 Ключевое требование ТЗ 20.2 (вопрос 3): user_lyrics_lines — если
 пользователь указал свои строки, они ОБЯЗАНЫ попасть в трек, дословно.
 """
-
 from __future__ import annotations
-
-import json
-import random
-import time
+import os, json, random, time
 from pathlib import Path
+from typing import Optional
 
 ROOT = Path(__file__).resolve().parents[1]
 VAULT_DIR = ROOT / "lyric_vault"
 # v22: ленивое создание (не при импорте)
 
 LYRIC_MEMORY = VAULT_DIR / "lyrics_memory.jsonl"
-SLANG_FILE = VAULT_DIR / "slang.txt"
+SLANG_FILE   = VAULT_DIR / "slang.txt"
 
 # Панчи по темам — используются как fallback и как затравка для Llama
 PUNCHES_RU = {
-    "лето": [
-        "солнце жарит, плавит асфальт",
-        "лето без страховки, полный газ вдаль",
-        "тачка без крыши, ветер в лицо",
-        "закат на Стамбул, золотое кольцо",
-        "море, деньги, драйв — это наш финал",
-        "жаркие ночи, танцпол закипал",
-        "песок под ногами, ритм в груди",
-        "лето не кончится, всё впереди",
-    ],
-    "тачки": [
-        "Supra рвёт тишину, турбина свистит",
-        "AMG в ночи, как чёрный магнит",
-        "мотор кричит, просит ещё",
-        "полёт по трассе, время течёт",
-        "дрифт в тумане, жжёная резина",
-        "скорость — мой яд, адреналин — бензин",
-        "низкий клиренс, дерзкий обвес",
-        "мы короли улиц, у нас есть вес",
-    ],
-    "деньги": [
-        "кэш на кэше, стопки до небес",
-        "чек за чеком, ловим интерес",
-        "мани мани моуш, крутим дела",
-        "деньги в кармане, удача пришла",
-        "бриллианты блестят, как звёзды в ночи",
-        "золотые цепи, от сейфа ключи",
-        "успех — это труд, а не просто фарт",
-        "мы строим империю, это наш старт",
-    ],
-    "движ": [
-        "ночь моя, я в центре огней",
-        "движ до утра, зови всех друзей",
-        "клуб на пике, бас бьёт в висок",
-        "звук качает, просыпайся, город-игрок",
-        "лица в свете, тени в углах",
-        "энергия прёт, забыли про страх",
-        "мы здесь и сейчас, это наш момент",
-        "музыка — жизнь, лучший элемент",
-    ],
-    "турция": [
-        "Стамбул горит миллионами ламп",
-        "Босфор шумит, проплывая сквозь храм",
-        "чай крепче кофе, разговор до утра",
-        "Турция как второй дом, родная земля",
-        "Анталия ждёт, тёплый бриз у воды",
-        "древние камни, наши следы",
-        "восточная сказка в реальности дня",
-        "здесь каждый закат — для тебя и меня",
-    ],
-    "агрессия": [
-        "без тормозов, летим напролом",
-        "рубим наотмашь, крушим этот дом",
-        "молчание — предатель, кричи во весь голос",
-        "рвём этот бит, как коса спелый колос",
-        "ярость в глазах, сила в руках",
-        "мы победим, оставив всех в дураках",
-        "сталь в характере, лёд в словах",
-        "путь к вершине — через боль и страх",
-    ],
+    "лето":    ["солнце жарит", "лето без страховки", "тачка без крыши",
+                "закат на Стамбул", "море, деньги, драйв"],
+    "тачки":   ["Supra рвёт", "AMG в ночи", "мотор кричит",
+                "полёт по трассе", "дрифт в тумане"],
+    "деньги":  ["кэш на кэше", "чек за чеком", "мани мани моуш",
+                "деньги в кармане, вайб на автомате"],
+    "движ":    ["ночь моя", "движ до утра", "клуб на пике",
+                "звук качает", "лица в свете"],
+    "турция":  ["Стамбул горит", "Босфор шумит", "чай крепче кофе",
+                "Турция как второй дом"],
+    "агрессия":["без тормозов", "рубим наотмашь", "молчание — предатель",
+                "рвём этот бит"],
 }
 
 HOOKS_EN = [
-    "money over everything, we never look back",
-    "night, drift, we ride, strictly on track",
-    "summer, cars, get high, feel the heat",
-    "no brakes, we win, victory is sweet",
-    "vibe on repeat, loud in the street",
-    "shining like a star, never accept defeat",
-    "put your hands up, touch the sky",
-    "let it burn tonight, let the sparks fly",
-    "we don't stop, we own the game",
-    "living on the edge, remember the name",
-    "top down, cruising, feeling so free",
-    "this is the life, how it's meant to be",
+    "money over everything",
+    "night, drift, we ride",
+    "summer, cars, get high",
+    "no brakes, we win",
+    "vibe on repeat",
+    "shining like a star",
+    "put your hands up",
+    "let it burn tonight",
+    "we don't stop",
+    "living on the edge",
 ]
 
 
@@ -112,10 +60,8 @@ def _load_lyric_memory() -> list:
     out = []
     for line in LYRIC_MEMORY.read_text(encoding="utf-8").splitlines():
         if line.strip():
-            try:
-                out.append(json.loads(line))
-            except Exception:
-                pass
+            try: out.append(json.loads(line))
+            except Exception: pass
     return out
 
 
@@ -129,42 +75,24 @@ def _pick_punches(theme: str, count: int = 4) -> list[str]:
     """Собираем панчи по темам из строки-запроса."""
     theme_lower = (theme or "").lower()
     collected = []
-    
-    # Если это шансон или тюремная/жизненная лирика
-    if "шансон" in theme_lower or "централ" in theme_lower or "ветер" in theme_lower or "жиган" in theme_lower:
-        collected.extend([
-            "Владимирский централ, ветер северный,",
-            "Этапный путь до тюрьмы, до каторги.",
-            "Кольщик, наколо мне купола да кресты,",
-            "Чтобы память жила до черты.",
-            "А на воле весна, магаданский туман,",
-            "Облака плывут в океан.",
-            "Жиган-монпансье, воля вольная,",
-            "Душа моя больная, доля горькая."
-        ])
-        
     for key, punches in PUNCHES_RU.items():
         if key in theme_lower:
             collected.extend(punches)
-            
     if not collected:
+        # Дефолт — микс всего
         for punches in PUNCHES_RU.values():
             collected.extend(punches)
-            
     random.shuffle(collected)
     return collected[:count]
 
 
-def _try_ollama(prompt: str, model: str = "llama3") -> str | None:
+def _try_ollama(prompt: str, model: str = "llama3") -> Optional[str]:
     """Пробуем Ollama через локальный HTTP API."""
     try:
         import requests
-
-        r = requests.post(
-            "http://127.0.0.1:11434/api/generate",
-            json={"model": model, "prompt": prompt, "stream": False},
-            timeout=60,
-        )
+        r = requests.post("http://127.0.0.1:11434/api/generate",
+                          json={"model": model, "prompt": prompt, "stream": False},
+                          timeout=60)
         if r.status_code == 200:
             return r.json().get("response", "").strip()
     except Exception:
@@ -172,9 +100,8 @@ def _try_ollama(prompt: str, model: str = "llama3") -> str | None:
     return None
 
 
-def _template_verse(
-    punches: list[str], user_lines: list[str], bpm: int, syllable_target: int
-) -> list[str]:
+def _template_verse(punches: list[str], user_lines: list[str],
+                    bpm: int, syllable_target: int) -> list[str]:
     """Собираем куплет из панчей и пользовательских строк."""
     lines = []
     used_user = 0
@@ -199,27 +126,23 @@ def _template_hook_en(user_hooks: list[str]) -> list[str]:
         cand = random.choice(HOOKS_EN)
         if cand not in hook:
             hook.append(cand)
-    return hook * 2  # 4 строки припева
+    return hook * 2   # 4 строки припева
 
 
 def _is_english(s: str) -> bool:
     """Груборечивая эвристика: строка содержит только ASCII/латиницу."""
-    if not s:
-        return False
+    if not s: return False
     letters = [c for c in s if c.isalpha()]
-    if not letters:
-        return False
+    if not letters: return False
     ascii_letters = sum(1 for c in letters if ord(c) < 128)
     return ascii_letters / len(letters) > 0.8
 
 
-def generate_lyrics(
-    theme: str,
-    style_vector: dict | None = None,
-    n_verses: int = 2,
-    user_lyrics_lines: list[str] | None = None,
-    bilingual: bool = True,
-) -> dict:
+def generate_lyrics(theme: str,
+                    style_vector: Optional[dict] = None,
+                    n_verses: int = 2,
+                    user_lyrics_lines: Optional[list[str]] = None,
+                    bilingual: bool = True) -> dict:
     """
     Главный API. Всегда возвращает {'lyrics': str, 'structure': [...], ...}.
     """
@@ -240,8 +163,7 @@ def generate_lyrics(
         f"тема: {theme}. Куплеты — по-русски, короткие рэп-строчки, "
         f"хук — по-английски, {2 if bilingual else 0} английских строк. "
         f"Обязательные строки: {', '.join(user_lyrics_lines) if user_lyrics_lines else 'нет'}. "
-        f"Не пиши комментарии, только текст трека."
-    )
+        f"Не пиши комментарии, только текст трека.")
     ollama_out = _try_ollama(ollama_prompt)
 
     if ollama_out and len(ollama_out) > 50:
@@ -253,11 +175,7 @@ def generate_lyrics(
         blocks = []
         for i in range(n_verses):
             blocks.append(f"[Куплет {i+1}]")
-            blocks.extend(
-                _template_verse(
-                    punches, user_ru if i == 0 else [], bpm, syllable_target
-                )
-            )
+            blocks.extend(_template_verse(punches, user_ru if i == 0 else [], bpm, syllable_target))
             if bilingual:
                 blocks.append("[Hook]")
                 blocks.extend(_template_hook_en(user_en))
@@ -269,15 +187,8 @@ def generate_lyrics(
         if line.strip() and line.strip() not in lyrics_text:
             lyrics_text += f"\n[User]\n{line.strip()}"
 
-    _save_lyric_memory(
-        {
-            "theme": theme,
-            "bpm": bpm,
-            "lyrics": lyrics_text,
-            "source": source,
-            "user_lines": user_lyrics_lines,
-        }
-    )
+    _save_lyric_memory({"theme": theme, "bpm": bpm, "lyrics": lyrics_text,
+                        "source": source, "user_lines": user_lyrics_lines})
 
     return {
         "ok": True,
@@ -286,9 +197,7 @@ def generate_lyrics(
         "bilingual": bilingual,
         "n_verses": n_verses,
         "bpm": bpm,
-        "user_lines_included": all(
-            l.strip() in lyrics_text for l in user_lyrics_lines if l.strip()
-        ),
+        "user_lines_included": all(l.strip() in lyrics_text for l in user_lyrics_lines if l.strip()),
     }
 
 
@@ -299,12 +208,9 @@ def get_lyric_memory(limit: int = 20) -> list:
 
 
 if __name__ == "__main__":
-    r = generate_lyrics(
-        "лето, тачки, деньги",
-        style_vector={"target_bpm": 140},
-        user_lyrics_lines=["ночь горит, Supra летит", "money over everything"],
-        bilingual=True,
-    )
+    r = generate_lyrics("лето, тачки, деньги", style_vector={"target_bpm": 140},
+                        user_lyrics_lines=["ночь горит, Supra летит", "money over everything"],
+                        bilingual=True)
     print(r["lyrics"])
     print("---")
     print("user_included:", r["user_lines_included"])

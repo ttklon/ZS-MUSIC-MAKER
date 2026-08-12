@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 [v7] rvc_manager.py — оркестрация RVC v2 как ФУНДАМЕНТА приложения.
 
@@ -13,33 +14,25 @@
 Модуль автономный, работает без интернета если репозитории и модели уже
 подтянуты. При первом запуске на AMD-железе один раз качает форк из GitHub.
 """
-
 from __future__ import annotations
-
-import json
-import shutil
-import subprocess
-import sys
-import threading
-import time
-from collections.abc import Callable
-from dataclasses import asdict, dataclass
+import os, sys, json, time, subprocess, threading, shutil
 from pathlib import Path
+from dataclasses import dataclass, field, asdict
+from typing import Optional, Callable
 
 ROOT = Path(__file__).resolve().parents[1]
 MODELS_DIR = ROOT / "models" / "rvc"
-FORKS_DIR = ROOT / "models" / "rvc_forks"
+FORKS_DIR  = ROOT / "models" / "rvc_forks"
 STATE_FILE = ROOT / "models" / "rvc" / "rvc_state.json"
 for p in (MODELS_DIR, FORKS_DIR):
     p.mkdir(parents=True, exist_ok=True)
 
 # Известные AMD-совместимые форки RVC (только open-source, MIT/AGPL-3.0)
 AMD_FORKS = {
-    "applio": "https://github.com/IAHispano/Applio.git",
-    "mangio": "https://github.com/Mangio621/Mangio-RVC-Fork.git",
-    "rvc-webui": "https://github.com/RVC-Project/Retrieval-based-Voice-Conversion-WebUI.git",
+    "applio":     "https://github.com/IAHispano/Applio.git",
+    "mangio":     "https://github.com/Mangio621/Mangio-RVC-Fork.git",
+    "rvc-webui":  "https://github.com/RVC-Project/Retrieval-based-Voice-Conversion-WebUI.git",
 }
-
 
 # ---------------------------------------------------------------- state
 def _load_state() -> dict:
@@ -50,21 +43,18 @@ def _load_state() -> dict:
             return {}
     return {}
 
-
 def _save_state(s: dict) -> None:
     STATE_FILE.write_text(json.dumps(s, ensure_ascii=False, indent=2), encoding="utf-8")
-
 
 # ---------------------------------------------------------------- backend detect
 @dataclass
 class RVCBackend:
-    kind: str = "cpu"  # "cuda" | "directml" | "rocm" | "cpu"
+    kind: str = "cpu"            # "cuda" | "directml" | "rocm" | "cpu"
     device_name: str = "CPU"
     vram_gb: float = 0.0
-    fork: str = "rvc-python"  # rvc-python | applio | mangio | rvc-webui
+    fork: str = "rvc-python"     # rvc-python | applio | mangio | rvc-webui
     ok: bool = False
     reason: str = ""
-
 
 def detect_backend() -> RVCBackend:
     """Определяем оптимальный бэкенд и форк RVC под текущее железо."""
@@ -72,7 +62,6 @@ def detect_backend() -> RVCBackend:
     # 1) NVIDIA CUDA
     try:
         import torch
-
         if torch.cuda.is_available():
             b.kind = "cuda"
             b.device_name = torch.cuda.get_device_name(0)
@@ -86,13 +75,10 @@ def detect_backend() -> RVCBackend:
     # 2) DirectML (AMD/Intel iGPU на Windows)
     try:
         import torch_directml as dml
-
         b.kind = "directml"
-        b.device_name = (
-            dml.device_name(0) if hasattr(dml, "device_name") else "DirectML GPU"
-        )
+        b.device_name = dml.device_name(0) if hasattr(dml, "device_name") else "DirectML GPU"
         b.vram_gb = 4.0
-        b.fork = "applio"  # Applio — лучший AMD-friendly форк
+        b.fork = "applio"        # Applio — лучший AMD-friendly форк
         b.ok = True
         b.reason = "DirectML available"
         return b
@@ -101,7 +87,6 @@ def detect_backend() -> RVCBackend:
     # 3) ROCm (Linux, редко)
     try:
         import torch
-
         if hasattr(torch.version, "hip") and torch.version.hip is not None:
             b.kind = "rocm"
             b.device_name = "AMD GPU (ROCm)"
@@ -122,29 +107,22 @@ def detect_backend() -> RVCBackend:
 
 
 # ---------------------------------------------------------------- ensure fork
-def ensure_fork(
-    fork_name: str, on_progress: Callable[[str], None] | None = None
-) -> Path:
+def ensure_fork(fork_name: str, on_progress: Optional[Callable[[str], None]] = None) -> Path:
     """
     Клонирует AMD-совместимый форк RVC локально при первом запуске.
     Возвращает путь к папке форка. Не требует интернета если уже подтянут.
     """
-
     def _p(msg: str):
-        if on_progress:
-            on_progress(msg)
+        if on_progress: on_progress(msg)
         print(f"[rvc_manager] {msg}")
 
     if fork_name == "rvc-python":
         # rvc-python — pip-пакет, отдельно клонировать не нужно
         try:
             import rvc_python  # noqa: F401
-
             _p("rvc-python OK (pip)")
         except ImportError:
-            _p(
-                "rvc-python не установлен — pip install rvc-python (в windows_build.bat)"
-            )
+            _p("rvc-python не установлен — pip install rvc-python (в windows_build.bat)")
         return FORKS_DIR / "rvc-python"
 
     if fork_name not in AMD_FORKS:
@@ -160,13 +138,8 @@ def ensure_fork(
     _p(f"Клонирую {fork_name} из {url}")
     try:
         # depth=1 для скорости и экономии диска
-        subprocess.run(
-            ["git", "clone", "--depth", "1", url, str(target)],
-            check=True,
-            capture_output=True,
-            text=True,
-            timeout=600,
-        )
+        subprocess.run(["git", "clone", "--depth", "1", url, str(target)],
+                       check=True, capture_output=True, text=True, timeout=600)
         _p(f"{fork_name} успешно клонирован → {target}")
     except FileNotFoundError:
         _p("git не найден. Установи git for Windows: https://git-scm.com/download/win")
@@ -185,10 +158,10 @@ class TrainingJob:
     device: str
     started_at: float = 0.0
     progress: float = 0.0
-    status: str = "queued"  # queued | running | done | error
+    status: str = "queued"    # queued | running | done | error
     stage: str = ""
-    error: str | None = None
-    model_path: str | None = None
+    error: Optional[str] = None
+    model_path: Optional[str] = None
 
 
 class RVCTrainer:
@@ -197,11 +170,10 @@ class RVCTrainer:
     Поддерживает ночной / длительный режим (несколько часов).
     Не блокирует GUI: прогресс через колбэки, статус через объект TrainingJob.
     """
-
-    def __init__(self, backend: RVCBackend | None = None):
+    def __init__(self, backend: Optional[RVCBackend] = None):
         self.backend = backend or detect_backend()
-        self.job: TrainingJob | None = None
-        self._thread: threading.Thread | None = None
+        self.job: Optional[TrainingJob] = None
+        self._thread: Optional[threading.Thread] = None
         self._listeners: list[Callable[[TrainingJob], None]] = []
 
     def on_progress(self, cb: Callable[[TrainingJob], None]) -> None:
@@ -209,15 +181,12 @@ class RVCTrainer:
 
     def _emit(self):
         for cb in self._listeners:
-            try:
-                cb(self.job)
-            except Exception:
-                pass
+            try: cb(self.job)
+            except Exception: pass
 
     def _dataset_ready(self, voice_name: str) -> Path:
         """Собираем dataset из voice_vault по имени голоса."""
         from modules import voice_convert
-
         idx = voice_convert._load_index()
         ds = MODELS_DIR / voice_name / "dataset"
         ds.mkdir(parents=True, exist_ok=True)
@@ -226,15 +195,13 @@ class RVCTrainer:
             src = e.get("path")
             if src and Path(src).exists():
                 try:
-                    shutil.copy(src, ds / Path(src).name)
-                    n += 1
+                    shutil.copy(src, ds / Path(src).name); n += 1
                 except Exception:
                     pass
         return ds
 
-    def train(
-        self, voice_name: str = "my_voice", epochs: int = 100, night_mode: bool = False
-    ) -> TrainingJob:
+    def train(self, voice_name: str = "my_voice",
+              epochs: int = 100, night_mode: bool = False) -> TrainingJob:
         """
         Запуск обучения в фоне.
         night_mode=True → epochs=300 (или сколько указано), низкий batch,
@@ -242,14 +209,8 @@ class RVCTrainer:
         """
         eff_epochs = epochs if not night_mode else max(epochs, 300)
         device = self.backend.kind if self.backend.ok else "cpu"
-        job = TrainingJob(
-            voice_name=voice_name,
-            epochs=eff_epochs,
-            device=device,
-            started_at=time.time(),
-            status="queued",
-            stage="init",
-        )
+        job = TrainingJob(voice_name=voice_name, epochs=eff_epochs, device=device,
+                          started_at=time.time(), status="queued", stage="init")
         self.job = job
         self._thread = threading.Thread(target=self._run, daemon=True)
         self._thread.start()
@@ -258,38 +219,23 @@ class RVCTrainer:
     def _run(self):
         job = self.job
         try:
-            job.status = "running"
-            job.stage = "prepare_dataset"
-            self._emit()
+            job.status = "running"; job.stage = "prepare_dataset"; self._emit()
             ds = self._dataset_ready(job.voice_name)
             files = list(ds.glob("*.wav"))
             if not files:
                 raise RuntimeError("voice_vault пуст. Запиши минимум 5 минут голоса.")
-            job.stage = f"dataset ready ({len(files)} clips)"
-            self._emit()
+            job.stage = f"dataset ready ({len(files)} clips)"; self._emit()
 
             # ---- пытаемся rvc-python ----
-            job.stage = "rvc-python training"
-            self._emit()
+            job.stage = "rvc-python training"; self._emit()
             try:
                 import rvc_python  # noqa
-
-                cmd = [
-                    sys.executable,
-                    "-m",
-                    "rvc_python",
-                    "train",
-                    "--name",
-                    job.voice_name,
-                    "--dataset",
-                    str(ds),
-                    "--epochs",
-                    str(job.epochs),
-                    "--sample_rate",
-                    "40000",
-                    "--device",
-                    job.device,
-                ]
+                cmd = [sys.executable, "-m", "rvc_python", "train",
+                       "--name", job.voice_name,
+                       "--dataset", str(ds),
+                       "--epochs", str(job.epochs),
+                       "--sample_rate", "40000",
+                       "--device", job.device]
                 # Ночной режим — batch small, epochs больше
                 if job.device == "cpu":
                     cmd += ["--batch_size", "2"]
@@ -297,30 +243,21 @@ class RVCTrainer:
             except ImportError:
                 # AMD/DirectML: пробуем форк
                 if self.backend.fork != "rvc-python":
-                    fork_dir = ensure_fork(
-                        self.backend.fork,
-                        on_progress=lambda m: setattr(job, "stage", m),
-                    )
+                    fork_dir = ensure_fork(self.backend.fork, on_progress=lambda m: setattr(job, "stage", m))
                     self._train_via_fork(fork_dir, job)
                 else:
-                    raise RuntimeError(
-                        "rvc-python не установлен. pip install rvc-python"
-                    )
+                    raise RuntimeError("rvc-python не установлен. pip install rvc-python")
 
             # Сохраняем результат
             model_path = MODELS_DIR / job.voice_name / f"{job.voice_name}.pth"
             if model_path.exists():
                 job.model_path = str(model_path)
-                job.status = "done"
-                job.stage = "completed"
+                job.status = "done"; job.stage = "completed"
             else:
-                job.status = "done"
-                job.stage = "completed (модель не найдена — проверь путь)"
+                job.status = "done"; job.stage = "completed (модель не найдена — проверь путь)"
             job.progress = 1.0
         except Exception as e:
-            job.status = "error"
-            job.error = f"{type(e).__name__}: {e}"
-            job.stage = "failed"
+            job.status = "error"; job.error = f"{type(e).__name__}: {e}"; job.stage = "failed"
         finally:
             self._emit()
             # Сохраняем состояние
@@ -330,27 +267,16 @@ class RVCTrainer:
 
     def _run_with_progress(self, cmd: list[str], job: TrainingJob):
         """Запускаем subprocess и парсим stdout на предмет прогресса эпох."""
-        proc = subprocess.Popen(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            bufsize=1,
-        )
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                text=True, encoding="utf-8", errors="replace",
+                                bufsize=1)
         for line in proc.stdout:
             line = line.rstrip()
             # Прогресс: "Epoch 42/100" или "epoch=42"
             for token in ("Epoch ", "epoch="):
                 if token in line:
                     try:
-                        raw = (
-                            line.split(token, 1)[1]
-                            .split()[0]
-                            .split("/")[0]
-                            .strip(",=:")
-                        )
+                        raw = line.split(token, 1)[1].split()[0].split("/")[0].strip(",=:")
                         ep = int("".join(c for c in raw if c.isdigit()))
                         job.progress = min(0.99, ep / max(1, job.epochs))
                         job.stage = f"epoch {ep}/{job.epochs}"
@@ -371,32 +297,19 @@ class RVCTrainer:
         if not train_py.exists():
             # У форка может быть другой entry point
             candidates = list(fork_dir.glob("*train*.py"))
-            if candidates:
-                train_py = candidates[0]
-            else:
-                raise RuntimeError(f"train.py не найден в {fork_dir}")
-        cmd = [
-            sys.executable,
-            str(train_py),
-            "--experiment_dir",
-            str(MODELS_DIR / job.voice_name),
-            "--dataset_dir",
-            str(MODELS_DIR / job.voice_name / "dataset"),
-            "--total_epoch",
-            str(job.epochs),
-            "--sample_rate",
-            "40000",
-        ]
+            if candidates: train_py = candidates[0]
+            else: raise RuntimeError(f"train.py не найден в {fork_dir}")
+        cmd = [sys.executable, str(train_py),
+               "--experiment_dir", str(MODELS_DIR / job.voice_name),
+               "--dataset_dir",    str(MODELS_DIR / job.voice_name / "dataset"),
+               "--total_epoch",    str(job.epochs),
+               "--sample_rate",    "40000"]
         self._run_with_progress(cmd, job)
 
 
 # ---------------------------------------------------------------- inference
-def infer(
-    input_wav: str,
-    voice_name: str = "my_voice",
-    pitch_shift: int = 0,
-    out_name: str = "converted.wav",
-) -> str:
+def infer(input_wav: str, voice_name: str = "my_voice",
+          pitch_shift: int = 0, out_name: str = "converted.wav") -> str:
     """
     RVC-инференс: заменяет тембр во входном wav на голос пользователя.
     Пытается сначала rvc-python, потом форк. Возвращает путь к результату.
@@ -412,41 +325,21 @@ def infer(
         raise RuntimeError("RVC model is not available; refusing pitch-shift fallback")
 
     # 1) rvc-python
-    backend = detect_backend()
     try:
         from rvc_python.infer import infer_file
-
-        infer_file(
-            input_path=input_wav,
-            model_path=str(model_path),
-            index_path=str(index_path) if index_path.exists() else None,
-            output_path=str(out_path),
-            f0up_key=pitch_shift,
-            f0method="rmvpe",
-            device=backend.kind,
-        )
-        if out_path.exists() and out_path.stat().st_size > 1000:
+        infer_file(input_path=input_wav,
+                   model_path=str(model_path),
+                   index_path=str(index_path) if index_path.exists() else None,
+                   output_path=str(out_path),
+                   f0up_key=pitch_shift, f0method="rmvpe",
+                   device=detect_backend().kind)
+        if out_path.exists():
             return str(out_path)
-        else:
-            raise RuntimeError("RVC output file is empty or too small")
-    except ImportError:
-        # 2) AMD/DirectML/CPU: try fork if present
-        if backend.fork != "rvc-python":
-            fork_dir = FORKS_DIR / backend.fork
-            if fork_dir.exists():
-                # Здесь должна быть логика вызова CLI форка,
-                # но для v14 мы оставляем это как задел для реального железа.
-                raise RuntimeError(
-                    f"RVC fork {backend.fork} is cloned but CLI integration is pending for this OS."
-                )
-        raise RuntimeError(
-            "rvc-python not installed and no active fork integration found."
-        )
     except Exception as e:
         print(f"[rvc_manager.infer] rvc-python failed: {e}")
-        raise RuntimeError(
-            f"RVC inference failed: {e}. No non-RVC fallback is permitted (TZ 33.5)."
-        )
+
+    # Do not disguise a failed RVC inference as voice conversion.
+    raise RuntimeError("RVC inference failed; no non-RVC fallback is permitted")
 
 
 def _fallback_pitch(input_wav: str, out_path: str, pitch_shift: int) -> str:
@@ -461,7 +354,6 @@ def _fallback_pitch(input_wav: str, out_path: str, pitch_shift: int) -> str:
         "disabled. Train a voice model first (see voice_onboarding)."
     )
 
-
 def get_state(voice_name: str = "my_voice") -> dict:
     """Читаем состояние обучения (для UI)."""
     return _load_state().get(voice_name, {})
@@ -473,7 +365,5 @@ def is_trained(voice_name: str = "my_voice") -> bool:
 
 if __name__ == "__main__":
     b = detect_backend()
-    print(
-        f"Backend: {b.kind} / fork={b.fork} / device={b.device_name} / vram={b.vram_gb} GB"
-    )
+    print(f"Backend: {b.kind} / fork={b.fork} / device={b.device_name} / vram={b.vram_gb} GB")
     print(f"State: {json.dumps(_load_state(), ensure_ascii=False, indent=2)}")

@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 ZS Music Maker — main.py (единая точка входа, консолидированная)
 ====================================================================
@@ -20,11 +21,10 @@ v17 fixes (сохранены):
 from __future__ import annotations
 
 import io
-import json
 import os
 import sys
+import json
 import traceback
-import argparse
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
@@ -38,31 +38,14 @@ def _load_version_info():
         vp = ROOT / "version.json"
         if vp.exists():
             data = json.loads(vp.read_text(encoding="utf-8"))
-            return (
-                str(data.get("version", default_v)),
-                str(data.get("build", default_b)),
-            )
+            return (str(data.get("version", default_v)),
+                    str(data.get("build", default_b)))
     except Exception:
         pass
     return default_v, default_b
 
 
-class ProjectContext:
-    def __init__(self):
-        v, b = _load_version_info()
-        self.version = v
-        self.build = b
-        self.status = "GOD MODE 3.0 (Autonomy & Stability)"
-
-ctx = ProjectContext()
-
-# AUDIT-FIX P0: VERSION/BUILD использовались в _try_launch_gui_pyside (строка
-# с setWindowTitle) и в _cli_version, но НИГДЕ не были определены как
-# module-level имена — это давало NameError и краш `main.py --version` и
-# запуска Desktop GUI. Определяем их из единственного источника правды
-# (version.json), как и задумано в docstring v17.
-VERSION = ctx.version
-BUILD = ctx.build
+VERSION, BUILD = _load_version_info()
 
 
 def _setup_console_encoding() -> None:
@@ -85,32 +68,16 @@ def _setup_console_encoding() -> None:
         except Exception:
             pass
         try:
-            sys.stdout = io.TextIOWrapper(
-                sys.stdout.buffer,
-                encoding="utf-8",
-                errors="replace",
-                line_buffering=True,
-            )
-            sys.stderr = io.TextIOWrapper(
-                sys.stderr.buffer,
-                encoding="utf-8",
-                errors="replace",
-                line_buffering=True,
-            )
+            sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8",
+                                          errors="replace", line_buffering=True)
+            sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8",
+                                          errors="replace", line_buffering=True)
         except Exception:
             try:
-                sys.stdout = io.TextIOWrapper(
-                    sys.stdout.buffer,
-                    encoding="cp866",
-                    errors="replace",
-                    line_buffering=True,
-                )
-                sys.stderr = io.TextIOWrapper(
-                    sys.stderr.buffer,
-                    encoding="cp866",
-                    errors="replace",
-                    line_buffering=True,
-                )
+                sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="cp866",
+                                              errors="replace", line_buffering=True)
+                sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="cp866",
+                                              errors="replace", line_buffering=True)
             except Exception:
                 pass
     except Exception:
@@ -129,22 +96,18 @@ def _safe_print(msg: str) -> None:
 
 def _header() -> None:
     _safe_print("=" * 64)
-    _safe_print(f"ZS Music Maker v{ctx.version} — main.py (unified)")
-    _safe_print(f"Build: {ctx.build}")
-    _safe_print(f"Status: {ctx.status}")
+    _safe_print(f"ZS Music Maker v{VERSION} — main.py (unified)")
+    _safe_print(f"Build: {BUILD}")
     _safe_print("=" * 64)
 
 
 def _health_snapshot() -> dict:
     try:
         from modules import health_v12
-
         rep = health_v12.collect()
-        _safe_print(
-            f"[main] health: {rep.verdict}  "
-            f"ready={rep.percent_ready}%  "
-            f"core_ok={rep.core_ok}"
-        )
+        _safe_print(f"[main] health: {rep.verdict}  "
+                    f"ready={rep.percent_ready}%  "
+                    f"core_ok={rep.core_ok}")
         return {"verdict": rep.verdict, "percent": rep.percent_ready}
     except Exception as e:
         _safe_print(f"[main] health_v12 not available: {e}")
@@ -155,16 +118,16 @@ def _try_launch_gui_pyside() -> bool:
     try:
         from PySide6.QtWidgets import QApplication
     except Exception as e:
-        _safe_print(f"[ERROR] PySide6 не найден. Для работы GUI установите: pip install PySide6. Ошибка: {e}")
+        _safe_print(f"[main] PySide6 недоступен: {e}")
         return False
     try:
+        from app.logger import setup_logger
+        from app.hw_probe import probe
         from app.gui import theme_v12
         from app.gui.wizard import Wizard
-        from app.hw_probe import probe
-        from app.logger import setup_logger
         from app.runtime_orchestrator import RuntimeOrchestrator
     except Exception as e:
-        _safe_print(f"[ERROR] Не удалось загрузить модули GUI. Проверьте целостность папки app/gui. Ошибка: {e}")
+        _safe_print(f"[main] desktop wizard недоступен: {e}")
         traceback.print_exc()
         return False
     app = QApplication.instance() or QApplication(sys.argv)
@@ -196,11 +159,9 @@ def _try_launch_gui_gradio() -> bool:
         return False
     try:
         from app.core.orchestrator import build_gradio_ui
-
         demo = build_gradio_ui()
-        demo.launch(
-            server_name="127.0.0.1", server_port=7860, share=False, show_error=True
-        )
+        demo.launch(server_name="127.0.0.1", server_port=7860,
+                    share=False, show_error=True)
         return True
     except Exception as e:
         _safe_print(f"[main] gradio UI failed: {e}")
@@ -209,13 +170,9 @@ def _try_launch_gui_gradio() -> bool:
 
 
 def _register_patches() -> None:
-    for m in (
-        "orchestrator_v12_patch",
-        "orchestrator_v11_patch",
-        "orchestrator_v10_patch",
-        "orchestrator_v9_patch",
-        "orchestrator_v8_patch",
-    ):
+    for m in ("orchestrator_v12_patch", "orchestrator_v11_patch",
+              "orchestrator_v10_patch", "orchestrator_v9_patch",
+              "orchestrator_v8_patch"):
         try:
             mod = __import__(f"app.core.{m}", fromlist=[m])
             if hasattr(mod, "register"):
@@ -225,34 +182,26 @@ def _register_patches() -> None:
 
 
 def _cli_smoke() -> int:
-    """Runs the most recent smoke test (v26) with fallback to older versions."""
-    for name in (
-        "tools.smoke_v26",
-        "tools.smoke_v25",
-        "tools.smoke_v24",
-        "tools.smoke_v21",
-        "tools.smoke_v17",
-        "tools.smoke_v15",
-        "tools.smoke_v14",
-    ):
+    for name in ("tools.smoke_v17", "tools.smoke_v15", "tools.smoke_v14"):
         try:
             mod = __import__(name, fromlist=["main"])
             return int(mod.main() or 0)
         except Exception as e:
             _safe_print(f"[main --smoke] {name} failed: {e}")
-    
-    _safe_print("[main --smoke] No valid smoke tests found.")
-    return 2
+    try:
+        import legacy.smoke.smoke_v13 as sm
+        return int(sm.main() or 0)
+    except Exception as e2:
+        _safe_print(f"[main --smoke] legacy smoke_v13 failed: {e2}")
+        return 2
 
 
 def _cli_dry_run() -> int:
     try:
         from app.core.orchestrator import run_full_pipeline
-
         out = run_full_pipeline("cli", {}, dry_run=True)
-        _safe_print(
-            f"verdict={out.get('verdict')}  " f"duration={out.get('duration_sec')}s"
-        )
+        _safe_print(f"verdict={out.get('verdict')}  "
+                    f"duration={out.get('duration_sec')}s")
         return 0 if str(out.get("verdict", "")).endswith("PASS") else 1
     except Exception as e:
         _safe_print(f"[main --dry-run] failed: {e}")
@@ -262,7 +211,6 @@ def _cli_dry_run() -> int:
 def _cli_dashboard() -> int:
     try:
         from modules import kpi_dashboard_v12
-
         return int(kpi_dashboard_v12.main() or 0)
     except Exception as e:
         _safe_print(f"[main --dashboard] failed: {e}")
@@ -272,7 +220,6 @@ def _cli_dashboard() -> int:
 def _cli_self_diag() -> int:
     try:
         from modules import self_diag_v13
-
         return int(self_diag_v13.main_entry() or 0)
     except Exception as e:
         _safe_print(f"[main --self-diag] failed: {e}")
@@ -282,7 +229,6 @@ def _cli_self_diag() -> int:
 def _cli_e2e() -> int:
     try:
         from tools import real_e2e_v14
-
         return int(real_e2e_v14.main() or 0)
     except Exception as e:
         _safe_print(f"[main --e2e] tools/real_e2e_v14 failed: {e}")
@@ -292,7 +238,6 @@ def _cli_e2e() -> int:
 def _cli_onboarding() -> int:
     try:
         from modules import voice_onboarding
-
         rc = voice_onboarding.run_cli()
         return int(rc or 0)
     except Exception as e:
@@ -308,11 +253,9 @@ def _cli_health() -> int:
 def _cli_readiness() -> int:
     try:
         from tools import readiness
-
         pct, blocks = readiness.compute()
-        _safe_print(
-            json.dumps({"percent": pct, "blocks": blocks}, ensure_ascii=False, indent=2)
-        )
+        _safe_print(json.dumps({"percent": pct, "blocks": blocks},
+                               ensure_ascii=False, indent=2))
         return 0
     except Exception as e:
         _safe_print(f"[main --readiness] failed: {e}")
@@ -320,27 +263,9 @@ def _cli_readiness() -> int:
 
 
 def _cli_version() -> int:
-    _safe_print(json.dumps({"version": VERSION, "build": BUILD}, ensure_ascii=False))
+    _safe_print(json.dumps({"version": VERSION, "build": BUILD},
+                           ensure_ascii=False))
     return 0
-
-
-def _cli_god(args) -> int:
-    try:
-        from app.core.orchestrator_god import run_god_pipeline
-
-        genre = getattr(args, "genre", "drift_phonk")
-        theme = getattr(args, "theme", genre)
-
-        _safe_print(f"[main --god] Launching GOD MODE pipeline (genre={genre}, theme={theme})...")
-        out = run_god_pipeline("god_cli", {"theme": theme, "genre": genre})
-        _safe_print(
-            f"GOD MODE COMPLETED: elapsed={out.get('elapsed_sec')}s master={out.get('master_path')}"
-        )
-        return 0
-    except Exception as e:
-        _safe_print(f"[main --god] failed: {e}")
-        traceback.print_exc()
-        return 2
 
 
 def _cli_console() -> int:
@@ -353,119 +278,46 @@ def _cli_console() -> int:
             return 0
         if cmd in ("exit", "quit", "q"):
             return 0
-        elif cmd == "smoke":
-            _cli_smoke()
-        elif cmd == "e2e":
-            _cli_e2e()
-        elif cmd == "diag":
-            _cli_self_diag()
-        elif cmd == "health":
-            _cli_health()
-        elif cmd == "readiness":
-            _cli_readiness()
-        elif cmd == "dry":
-            _cli_dry_run()
-        elif cmd == "version":
-            _cli_version()
+        elif cmd == "smoke": _cli_smoke()
+        elif cmd == "e2e": _cli_e2e()
+        elif cmd == "diag": _cli_self_diag()
+        elif cmd == "health": _cli_health()
+        elif cmd == "readiness": _cli_readiness()
+        elif cmd == "dry": _cli_dry_run()
+        elif cmd == "version": _cli_version()
         else:
-            _safe_print(
-                "unknown; try: smoke|e2e|diag|health|readiness|dry|version|exit"
-            )
+            _safe_print("unknown; try: smoke|e2e|diag|health|readiness|dry|version|exit")
 
 
 def main() -> int:
     _setup_console_encoding()
     _header()
-    
-    parser = argparse.ArgumentParser(description="ZS Music Maker — Professional AI Music Production Station")
-    parser.add_argument("--god", action="store_true", help="Launch the ULTIMATE GOD MODE pipeline")
-    parser.add_argument("--async-mode", action="store_true", help="Launch parallel async pipeline")
-    parser.add_argument("--genre", type=str, default="drift_phonk", help="Target genre (100+ available)")
-    parser.add_argument("--theme", type=str, default="drift_phonk", help="Target theme/mood")
-    parser.add_argument("--list-genres", action="store_true", help="Show all 119+ available genres")
-    parser.add_argument("--smoke", action="store_true", help="Run quality smoke tests")
-    parser.add_argument("--self-diag", action="store_true", help="Run system self-diagnostics")
-    parser.add_argument("--health", action="store_true", help="Check system health and GPU")
-    parser.add_argument("--version", "-V", action="store_true", help="Show version info")
-    parser.add_argument("--gradio", action="store_true", help="Launch Web UI (Gradio)")
-    parser.add_argument("--desktop", action="store_true", help="Launch Desktop UI (PySide6)")
-    # AUDIT-FIX P0: нижеперечисленные режимы имели реализации (_cli_*),
-    # рекламировались в docstring модуля, но НЕ были подключены к argparse —
-    # `main.py --dry-run` и др. падали с "unrecognized arguments".
-    parser.add_argument("--dry-run", action="store_true", help="Run pipeline in dry-run (no heavy deps)")
-    parser.add_argument("--dashboard", action="store_true", help="Show KPI dashboard")
-    parser.add_argument("--e2e", action="store_true", help="Run real end-to-end test")
-    parser.add_argument("--onboarding", action="store_true", help="Run voice onboarding CLI")
-    parser.add_argument("--readiness", action="store_true", help="Compute readiness percent")
-    parser.add_argument("--console", action="store_true", help="Force console REPL mode (no GUI)")
-
-    args = parser.parse_args()
-
-    if args.version:
-        return _cli_version()
-    
-    if args.list_genres:
-        from modules.genre_engine import StyleRegistry
-        reg = StyleRegistry()
-        print("\nAvailable Genres:")
-        for g in sorted(reg.list_genres()):
-            print(f"  - {g}")
-        return 0
-
-    if args.smoke:
-        return _cli_smoke()
-    
-    if args.self_diag:
-        return _cli_self_diag()
-    
-    if args.health:
-        return _cli_health()
-
-    # AUDIT-FIX P0: регистрация патчей оркестратора была написана
-    # (_register_patches), но НИГДЕ не вызывалась — патчи v8..v12
-    # просто не применялись.
     _register_patches()
 
-    if args.dry_run:
-        return _cli_dry_run()
-
-    if args.dashboard:
-        return _cli_dashboard()
-
-    if args.e2e:
-        return _cli_e2e()
-
-    if args.onboarding:
-        return _cli_onboarding()
-
-    if args.readiness:
-        return _cli_readiness()
-
-    if args.console:
-        return _cli_console()
-
-    if args.god:
-        return _cli_god(args)
-    
-    if args.async_mode:
-        import asyncio
-        from app.core.orchestrator_async import AsyncOrchestrator
-        orch = AsyncOrchestrator("async_cli", ROOT / "output" / "async_cli")
-        asyncio.run(orch.run_pipeline({"genre": args.genre}))
-        return 0
-
-    if args.gradio:
+    args = set(sys.argv[1:])
+    if "--smoke" in args: return _cli_smoke()
+    if "--dry-run" in args: return _cli_dry_run()
+    if "--dashboard" in args: return _cli_dashboard()
+    if "--self-diag" in args: return _cli_self_diag()
+    if "--e2e" in args: return _cli_e2e()
+    if "--onboarding" in args: return _cli_onboarding()
+    if "--health" in args: return _cli_health()
+    if "--readiness" in args: return _cli_readiness()
+    if "--console" in args: return _cli_console()
+    if "--version" in args or "-V" in args: return _cli_version()
+    if "--gradio" in args:
         if _try_launch_gui_gradio(): return 0
+        _safe_print("[main] gradio requested, but unavailable.")
         return 2
-
-    if args.desktop:
+    if "--desktop" in args:
         if _try_launch_gui_pyside(): return 0
+        _safe_print("[main] desktop requested, but unavailable.")
         return 2
 
-    # Default behavior: try GUI, then console
     _health_snapshot()
     if _try_launch_gui_pyside(): return 0
     if _try_launch_gui_gradio(): return 0
+    _safe_print("[main] GUI недоступен, переключаемся в console-режим.")
     return _cli_console()
 
 

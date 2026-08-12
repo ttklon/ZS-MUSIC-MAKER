@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 ZS Music Maker v15 — modules/release_pack_full.py
 ======================================================================
@@ -54,7 +55,8 @@ import shutil
 import time
 import wave
 from pathlib import Path
-from typing import Any
+from typing import Any, Dict, List, Optional
+import struct
 
 try:
     import numpy as np
@@ -68,21 +70,18 @@ except Exception:
 
 try:
     from pydub import AudioSegment
-
     HAS_PYDUB = True
 except Exception:
     HAS_PYDUB = False
 
 try:
-    from PIL import Image, ImageDraw, ImageFilter, ImageFont
-
+    from PIL import Image, ImageDraw, ImageFont, ImageFilter
     HAS_PIL = True
 except Exception:
     HAS_PIL = False
 
 
 # ------------------------------------------------------------------- utils
-
 
 def _read_wav(path: str):
     """Возвращает (data float32 mono или stereo, sr)."""
@@ -145,10 +144,8 @@ def _hires_resample_48k(data, sr_in: int):
 
 # ---------------------------------------------------------------- cover art
 
-
-def _make_cover(
-    path: Path, title: str, artist: str, genre: str, size: int = 3000, jpg: bool = False
-) -> bool:
+def _make_cover(path: Path, title: str, artist: str, genre: str,
+                size: int = 3000, jpg: bool = False) -> bool:
     if not HAS_PIL:
         return False
     # Градиентный фон псевдо (без linear-gradient — рисуем полосами)
@@ -157,39 +154,28 @@ def _make_cover(
     # Псевдо-градиент через круг+блюр
     for r in range(size // 6, 0, -20):
         c = min(255, 30 + r // 4)
-        d.ellipse(
-            [
-                (size // 2 - r * 3, size // 2 - r * 3),
-                (size // 2 + r * 3, size // 2 + r * 3),
-            ],
-            fill=(c // 4, c // 6, c),
-        )
+        d.ellipse([(size // 2 - r * 3, size // 2 - r * 3),
+                   (size // 2 + r * 3, size // 2 + r * 3)],
+                  fill=(c // 4, c // 6, c))
     img = img.filter(ImageFilter.GaussianBlur(radius=size // 40))
     d = ImageDraw.Draw(img)
     # Полоса под текст
-    d.rectangle([(0, int(size * 0.72)), (size, int(size * 0.85))], fill=(0, 0, 0, 200))
+    d.rectangle([(0, int(size * 0.72)), (size, int(size * 0.85))],
+                fill=(0, 0, 0, 200))
     try:
         font_big = ImageFont.load_default(size=int(size * 0.06))
         font_sm = ImageFont.load_default(size=int(size * 0.03))
     except Exception:
         font_big = ImageFont.load_default()
         font_sm = ImageFont.load_default()
-    d.text(
-        (int(size * 0.05), int(size * 0.73)), title, fill=(255, 200, 80), font=font_big
-    )
-    d.text(
-        (int(size * 0.05), int(size * 0.80)),
-        f"{artist} · {genre}",
-        fill=(200, 200, 200),
-        font=font_sm,
-    )
+    d.text((int(size * 0.05), int(size * 0.73)), title, fill=(255, 200, 80),
+           font=font_big)
+    d.text((int(size * 0.05), int(size * 0.80)),
+           f"{artist} · {genre}", fill=(200, 200, 200), font=font_sm)
     # Watermark
-    d.text(
-        (int(size * 0.05), int(size * 0.94)),
-        "ZS Music Maker · CC0/CC-BY samples",
-        fill=(120, 120, 120),
-        font=font_sm,
-    )
+    d.text((int(size * 0.05), int(size * 0.94)),
+           "ZS Music Maker · CC0/CC-BY samples", fill=(120, 120, 120),
+           font=font_sm)
     if jpg:
         img.convert("RGB").save(path, "JPEG", quality=92)
     else:
@@ -198,7 +184,6 @@ def _make_cover(
 
 
 # ----------------------------------------------------------- lyrics formats
-
 
 def _lyrics_to_lrc(lyrics_text: str, total_sec: float) -> str:
     lines = [ln.strip() for ln in lyrics_text.splitlines() if ln.strip()]
@@ -223,26 +208,21 @@ def _lyrics_to_srt(lyrics_text: str, total_sec: float) -> str:
     for i, ln in enumerate(lines):
         t0 = i * step
         t1 = min(total_sec, t0 + step)
-
         def fmt(t):
-            h = int(t // 3600)
-            m = int((t % 3600) // 60)
-            s = t - int(t) + int(t) % 60
+            h = int(t // 3600); m = int((t % 3600) // 60); s = t - int(t) + int(t) % 60
             return f"{h:02d}:{m:02d}:{int(t)%60:02d},{int((t-int(t))*1000):03d}"
-
         out.append(f"{i+1}\n{fmt(t0)} --> {fmt(t1)}\n{ln}\n")
     return "\n".join(out)
 
 
 # --------------------------------------------------------- stems fallback
 
-
-def _fake_stems(master_wav: str, out_dir: Path) -> dict[str, str]:
+def _fake_stems(master_wav: str, out_dir: Path) -> Dict[str, str]:
     """Fallback стемы: если нет Demucs, делим спектрально по полосам.
     drums = HP 100-8000, bass = LP <100, vocals = mid 200-6000, other = rest.
     Помечаем fallback."""
     out_dir.mkdir(parents=True, exist_ok=True)
-    result: dict[str, str] = {}
+    result: Dict[str, str] = {}
     if sf is None or np is None:
         # копии
         for name in ("drums", "bass", "vocals", "other"):
@@ -286,17 +266,14 @@ def _fake_stems(master_wav: str, out_dir: Path) -> dict[str, str]:
     return result
 
 
-def _instrumental_and_acapella(
-    stems: dict[str, str], out_dir: Path, master_wav: str
-) -> dict[str, str]:
+def _instrumental_and_acapella(stems: Dict[str, str], out_dir: Path,
+                                master_wav: str) -> Dict[str, str]:
     result = {}
     if sf is None or np is None:
         shutil.copy(master_wav, out_dir / "instrumental.wav")
         shutil.copy(master_wav, out_dir / "acapella.wav")
-        return {
-            "instrumental": str(out_dir / "instrumental.wav"),
-            "acapella": str(out_dir / "acapella.wav"),
-        }
+        return {"instrumental": str(out_dir / "instrumental.wav"),
+                "acapella": str(out_dir / "acapella.wav")}
     try:
         drums, sr = _read_wav(stems["drums"])
         bass, _ = _read_wav(stems["bass"])
@@ -325,7 +302,6 @@ def _instrumental_and_acapella(
 
 # ---------------------------------------------------------- tiktok clips
 
-
 def _find_hook(data, sr: int) -> float:
     """Ищет 'hook' — момент с максимальной RMS-энергией.
     Возвращает время в секундах."""
@@ -338,30 +314,23 @@ def _find_hook(data, sr: int) -> float:
     win = int(sr * 3)  # 3-sec window
     if len(mono) <= win:
         return 0.0
-    energy = np.array(
-        [
-            float(np.sqrt(np.mean(mono[i : i + win] ** 2)))
-            for i in range(0, len(mono) - win, sr)
-        ]
-    )
+    energy = np.array([float(np.sqrt(np.mean(mono[i:i+win]**2)))
+                       for i in range(0, len(mono) - win, sr)])
     if len(energy) == 0:
         return 0.0
     idx = int(np.argmax(energy))
     return float(idx)
 
 
-def _make_clip(
-    master_wav: str,
-    out: Path,
-    duration: int,
-    start_sec: float | None = None,
-    fmt_hint: str = "m4a",
-) -> dict[str, Any]:
+def _make_clip(master_wav: str, out: Path, duration: int,
+               start_sec: Optional[float] = None,
+               fmt_hint: str = "m4a") -> Dict[str, Any]:
     """Нарезает клип. Пробует m4a через pydub/ffmpeg, fallback → mp3
     с сохранением расширения .m4a (помечается container_fallback)."""
-    info: dict[str, Any] = {"path": str(out), "fallback_used": False}
+    info: Dict[str, Any] = {"path": str(out), "fallback_used": False}
     if not HAS_PYDUB:
-        return {"path": None, "fallback_used": True, "reason": "pydub_missing"}
+        return {"path": None, "fallback_used": True,
+                "reason": "pydub_missing"}
     try:
         seg = AudioSegment.from_file(master_wav)
         if start_sec is None:
@@ -373,7 +342,8 @@ def _make_clip(
         # fade-in/out для мягкости
         clip = clip.fade_in(200).fade_out(300)
         try:
-            clip.export(out, format="ipod", bitrate="192k", codec="aac")
+            clip.export(out, format="ipod", bitrate="192k",
+                        codec="aac")
         except Exception:
             # fallback: mp3, но сохраняем имя .m4a  + флаг
             clip.export(out, format="mp3", bitrate="192k")
@@ -388,8 +358,7 @@ def _make_clip(
 
 # --------------------------------------------------- descriptions / metadata
 
-
-def _distrokid_xml(meta: dict[str, Any]) -> str:
+def _distrokid_xml(meta: Dict[str, Any]) -> str:
     title = meta.get("title", "ZS Track")
     artist = meta.get("artist", "ZS Artist")
     isrc = meta.get("isrc", "XX-XXX-00-00000")
@@ -420,21 +389,18 @@ def _distrokid_xml(meta: dict[str, Any]) -> str:
     return xml
 
 
-def _spotify_description(meta: dict[str, Any]) -> str:
+def _spotify_description(meta: Dict[str, Any]) -> str:
     hooks = meta.get("hooks", ["ночь", "движение", "клуб"])
-    return (
-        f"{meta.get('title','ZS Track')} — {meta.get('genre','phonk')} "
-        f"trek na {meta.get('language','ru')}.\n"
-        f"BPM: {meta.get('bpm', 140)} | Key: {meta.get('key','Am')}\n\n"
-        f"Vibes: {' · '.join(hooks)}\n\n"
-        f"Сделано в ZS Music Maker (localhost, локально, бесплатно).\n"
-    )
+    return (f"{meta.get('title','ZS Track')} — {meta.get('genre','phonk')} "
+            f"trek na {meta.get('language','ru')}.\n"
+            f"BPM: {meta.get('bpm', 140)} | Key: {meta.get('key','Am')}\n\n"
+            f"Vibes: {' · '.join(hooks)}\n\n"
+            f"Сделано в ZS Music Maker (localhost, локально, бесплатно).\n")
 
 
-def _youtube_description_html(meta: dict[str, Any]) -> str:
-    ht = " ".join(
-        f"#{t}" for t in meta.get("hashtags_youtube", ["music", "phonk", "car"])
-    )
+def _youtube_description_html(meta: Dict[str, Any]) -> str:
+    ht = " ".join(f"#{t}" for t in meta.get("hashtags_youtube",
+                                            ["music", "phonk", "car"]))
     return f"""<!doctype html>
 <html><head><meta charset="utf-8"><title>{meta.get('title','ZS Track')}</title></head>
 <body>
@@ -458,17 +424,16 @@ def _youtube_description_html(meta: dict[str, Any]) -> str:
 """
 
 
-def _vk_prefill(meta: dict[str, Any]) -> str:
-    hashtags = " ".join(f"#{t}" for t in meta.get("hashtags_vk", ["музыка", "фонк"]))
-    return (
-        f"🎵 {meta.get('title','ZS Track')}\n"
-        f"👤 {meta.get('artist','ZS Artist')}\n"
-        f"🎧 {meta.get('genre','phonk')} · {meta.get('bpm',140)} BPM\n\n"
-        f"{hashtags}\n"
-    )
+def _vk_prefill(meta: Dict[str, Any]) -> str:
+    hashtags = " ".join(f"#{t}" for t in meta.get("hashtags_vk",
+                                                   ["музыка", "фонк"]))
+    return (f"🎵 {meta.get('title','ZS Track')}\n"
+            f"👤 {meta.get('artist','ZS Artist')}\n"
+            f"🎧 {meta.get('genre','phonk')} · {meta.get('bpm',140)} BPM\n\n"
+            f"{hashtags}\n")
 
 
-def _shazam_jsonld(meta: dict[str, Any]) -> str:
+def _shazam_jsonld(meta: Dict[str, Any]) -> str:
     payload = {
         "@context": "https://schema.org",
         "@type": "MusicRecording",
@@ -496,21 +461,18 @@ def _is_placeholder_upc(upc: str) -> bool:
     return s == "0000000000000" or set(s) <= {"0"}
 
 
-def _production_notes(
-    meta: dict[str, Any], stages: list[dict[str, Any]], hit_metrics: dict[str, Any]
-) -> str:
-    lines = [
-        f"# Production notes — {meta.get('title', 'ZS Track')}",
-        "",
-        f"- Genre: **{meta.get('genre','?')}**",
-        f"- BPM: **{meta.get('bpm','?')}**",
-        f"- Key: **{meta.get('key','?')}**",
-        f"- Language: **{meta.get('language','ru')}**",
-        f"- Duration: **{int(meta.get('duration_sec',180))}s**",
-        "",
-        "## Pipeline",
-        "",
-    ]
+def _production_notes(meta: Dict[str, Any], stages: List[Dict[str, Any]],
+                      hit_metrics: Dict[str, Any]) -> str:
+    lines = [f"# Production notes — {meta.get('title', 'ZS Track')}",
+             "",
+             f"- Genre: **{meta.get('genre','?')}**",
+             f"- BPM: **{meta.get('bpm','?')}**",
+             f"- Key: **{meta.get('key','?')}**",
+             f"- Language: **{meta.get('language','ru')}**",
+             f"- Duration: **{int(meta.get('duration_sec',180))}s**",
+             "",
+             "## Pipeline",
+             ""]
     for s in stages or []:
         extras = []
         if s.get("fallback_used"):
@@ -520,11 +482,9 @@ def _production_notes(
         if s.get("synthetic"):
             extras.append("synthetic")
         tag = (" [" + ",".join(extras) + "]") if extras else ""
-        lines.append(
-            f"- {s.get('name','?')}: "
-            f"ok={s.get('ok')}{tag} "
-            f"{s.get('duration_sec', '?')}s"
-        )
+        lines.append(f"- {s.get('name','?')}: "
+                     f"ok={s.get('ok')}{tag} "
+                     f"{s.get('duration_sec', '?')}s")
     lines.append("")
     lines.append("## Hit metrics")
     for k, v in (hit_metrics or {}).items():
@@ -534,15 +494,11 @@ def _production_notes(
     lines.append("- Все использованные сэмплы: CC0 / CC-BY.")
     lines.append("- Голос: собственный (RVC от пользователя) или TTS fallback.")
     if _is_placeholder_isrc(meta.get("isrc", "")):
-        lines.append(
-            "- [WARN] ISRC: placeholder (`"
-            + str(meta.get("isrc", "XX-XXX-00-00000"))
-            + "`). Замени на реальный код перед дистрибуцией."
-        )
+        lines.append("- [WARN] ISRC: placeholder (`"
+                     + str(meta.get("isrc", "XX-XXX-00-00000"))
+                     + "`). Замени на реальный код перед дистрибуцией.")
     if _is_placeholder_upc(meta.get("upc", "")):
-        lines.append(
-            "- [WARN] UPC: placeholder. Получи реальный UPC через DistroKid/Amuse/Tunecore."
-        )
+        lines.append("- [WARN] UPC: placeholder. Получи реальный UPC через DistroKid/Amuse/Tunecore.")
     return "\n".join(lines) + "\n"
 
 
@@ -550,29 +506,27 @@ def _production_notes(
 
 MASTER_STANDS = [
     ("streaming", -14.0, -1.0),
-    ("car", -8.5, -0.5),
-    ("club", -6.5, -0.3),
-    ("tiktok", -13.0, -1.0),
-    ("airpods", -12.0, -1.0),
+    ("car",        -8.5, -0.5),
+    ("club",       -6.5, -0.3),
+    ("tiktok",    -13.0, -1.0),
+    ("airpods",   -12.0, -1.0),
     ("bluetooth", -11.0, -1.0),
-    ("headphones", -14.0, -1.0),
-    ("monitors", -14.0, -1.0),
+    ("headphones",-14.0, -1.0),
+    ("monitors",  -14.0, -1.0),
 ]
 
 
 # ------------------------------------------------------------ MAIN ENTRY
 
-
-def build_pack(
-    master_wav: str,
-    out_dir: str,
-    meta: dict[str, Any],
-    masters_map: dict[str, str] | None = None,
-    stems_map: dict[str, str] | None = None,
-    lyrics_text: str = "",
-    stages: list[dict[str, Any]] | None = None,
-    hit_metrics: dict[str, Any] | None = None,
-) -> dict[str, Any]:
+def build_pack(master_wav: str,
+               out_dir: str,
+               meta: Dict[str, Any],
+               masters_map: Optional[Dict[str, str]] = None,
+               stems_map: Optional[Dict[str, str]] = None,
+               lyrics_text: str = "",
+               stages: Optional[List[Dict[str, Any]]] = None,
+               hit_metrics: Optional[Dict[str, Any]] = None,
+               ) -> Dict[str, Any]:
     """Собирает полный релиз-пакет.
 
     Возвращает {ok, n_files, files:[...], fallback_used, path,
@@ -581,23 +535,16 @@ def build_pack(
     """
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
-    files: list[str] = []
-    fallback_notes: list[str] = []
-    cats: dict[str, list[str]] = {
-        "audio": [],
-        "stems": [],
-        "clips": [],
-        "lyrics": [],
-        "meta": [],
-        "visuals": [],
-    }
+    files: List[str] = []
+    fallback_notes: List[str] = []
+    cats: Dict[str, List[str]] = {"audio": [], "stems": [], "clips": [],
+                                  "lyrics": [], "meta": [], "visuals": []}
 
     # ---------- 1. Аудио: full masters ----------
     try:
         dst_stream = out / "full_master_streaming.wav"
         shutil.copy(master_wav, dst_stream)
-        files.append(str(dst_stream))
-        cats["audio"].append(str(dst_stream))
+        files.append(str(dst_stream)); cats["audio"].append(str(dst_stream))
     except Exception as e:
         fallback_notes.append(f"stream_copy_fail: {e}")
 
@@ -608,8 +555,7 @@ def build_pack(
             data_hi, sr_hi = _hires_resample_48k(data, sr)
             dst_hi = out / "full_master_streaming_hires.wav"
             sf.write(dst_hi, data_hi, sr_hi, subtype="PCM_24")
-            files.append(str(dst_hi))
-            cats["audio"].append(str(dst_hi))
+            files.append(str(dst_hi)); cats["audio"].append(str(dst_hi))
         else:
             fallback_notes.append("hires_skipped_no_sf")
     except Exception as e:
@@ -623,9 +569,9 @@ def build_pack(
             if sr != 48000 and np is not None:
                 data_hi, sr_hi = _hires_resample_48k(data, sr)
             dst_flac = out / "full_master.flac"
-            sf.write(dst_flac, data_hi, sr_hi, subtype="PCM_24", format="FLAC")
-            files.append(str(dst_flac))
-            cats["audio"].append(str(dst_flac))
+            sf.write(dst_flac, data_hi, sr_hi, subtype="PCM_24",
+                     format="FLAC")
+            files.append(str(dst_flac)); cats["audio"].append(str(dst_flac))
         else:
             fallback_notes.append("flac_skipped_no_sf")
     except Exception as e:
@@ -637,8 +583,7 @@ def build_pack(
             seg = AudioSegment.from_file(master_wav)
             dst_mp3 = out / "full_master.mp3"
             seg.export(dst_mp3, format="mp3", bitrate="320k")
-            files.append(str(dst_mp3))
-            cats["audio"].append(str(dst_mp3))
+            files.append(str(dst_mp3)); cats["audio"].append(str(dst_mp3))
         else:
             fallback_notes.append("mp3_skipped_no_pydub")
     except Exception as e:
@@ -654,8 +599,7 @@ def build_pack(
                     raise ValueError("empty master path")
                 dst = out / f"master_{name}.wav"
                 shutil.copy(str(src), dst)
-                files.append(str(dst))
-                cats["audio"].append(str(dst))
+                files.append(str(dst)); cats["audio"].append(str(dst))
             except Exception as e:
                 fallback_notes.append(f"master_{name}_fail: {e}")
 
@@ -673,23 +617,20 @@ def build_pack(
                 normalized_stems[name] = str(src)
                 dst = stems_dir / f"{name}.wav"
                 shutil.copy(str(src), dst)
-                files.append(str(dst))
-                cats["stems"].append(str(dst))
+                files.append(str(dst)); cats["stems"].append(str(dst))
             except Exception as e:
                 fallback_notes.append(f"stem_{name}_fail: {e}")
         used_stems = normalized_stems
     else:
         used_stems = _fake_stems(master_wav, stems_dir)
         for p in used_stems.values():
-            files.append(p)
-            cats["stems"].append(p)
+            files.append(p); cats["stems"].append(p)
         fallback_notes.append("stems_generated_by_band_split_fallback")
 
     # ---------- 4. Instrumental + Acapella ----------
     inst_map = _instrumental_and_acapella(used_stems, out, master_wav)
     for p in inst_map.values():
-        files.append(p)
-        cats["audio"].append(p)
+        files.append(p); cats["audio"].append(p)
 
     # ---------- 5. TikTok / Reels / Shorts clips ----------
     if HAS_PYDUB:
@@ -704,12 +645,9 @@ def build_pack(
             try:
                 info = _make_clip(master_wav, out / fname, duration=dur)
                 if info.get("path"):
-                    files.append(info["path"])
-                    cats["clips"].append(info["path"])
+                    files.append(info["path"]); cats["clips"].append(info["path"])
                     if info.get("fallback_used"):
-                        fallback_notes.append(
-                            f"{fname}:{info.get('container_fallback','?')}"
-                        )
+                        fallback_notes.append(f"{fname}:{info.get('container_fallback','?')}")
             except Exception as e:
                 fallback_notes.append(f"clip_{fname}_fail: {e}")
     else:
@@ -719,37 +657,28 @@ def build_pack(
     duration_sec = float(meta.get("duration_sec", 180))
     try:
         (out / "lyrics.txt").write_text(lyrics_text or "", encoding="utf-8")
-        files.append(str(out / "lyrics.txt"))
-        cats["lyrics"].append(str(out / "lyrics.txt"))
-        (out / "lyrics.lrc").write_text(
-            _lyrics_to_lrc(lyrics_text, duration_sec), encoding="utf-8"
-        )
-        files.append(str(out / "lyrics.lrc"))
-        cats["lyrics"].append(str(out / "lyrics.lrc"))
-        (out / "lyrics.srt").write_text(
-            _lyrics_to_srt(lyrics_text, duration_sec), encoding="utf-8"
-        )
-        files.append(str(out / "lyrics.srt"))
-        cats["lyrics"].append(str(out / "lyrics.srt"))
+        files.append(str(out / "lyrics.txt")); cats["lyrics"].append(str(out / "lyrics.txt"))
+        (out / "lyrics.lrc").write_text(_lyrics_to_lrc(lyrics_text, duration_sec),
+                                        encoding="utf-8")
+        files.append(str(out / "lyrics.lrc")); cats["lyrics"].append(str(out / "lyrics.lrc"))
+        (out / "lyrics.srt").write_text(_lyrics_to_srt(lyrics_text, duration_sec),
+                                        encoding="utf-8")
+        files.append(str(out / "lyrics.srt")); cats["lyrics"].append(str(out / "lyrics.srt"))
     except Exception as e:
         fallback_notes.append(f"lyrics_fail: {e}")
 
     # ---------- 7. Metadata + descriptions ----------
     try:
         (out / "metadata.json").write_text(
-            json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8"
-        )
-        files.append(str(out / "metadata.json"))
-        cats["meta"].append(str(out / "metadata.json"))
+            json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
+        files.append(str(out / "metadata.json")); cats["meta"].append(str(out / "metadata.json"))
         (out / "licenses.txt").write_text(
             "ZS Music Maker — Release Pack\n"
             "Все сэмплы: CC0 / CC-BY (см. samples_cache/cc0/index.json).\n"
             "Голос: RVC пользователя или TTS fallback.\n"
             f"Собрано: {time.strftime('%Y-%m-%d %H:%M:%S')}\n",
-            encoding="utf-8",
-        )
-        files.append(str(out / "licenses.txt"))
-        cats["meta"].append(str(out / "licenses.txt"))
+            encoding="utf-8")
+        files.append(str(out / "licenses.txt")); cats["meta"].append(str(out / "licenses.txt"))
         # v25 FIX (P0): hit_scorer возвращает 'hit_score', а не 'score' —
         # раньше в отчёте всегда был 'n/a' (ложное «не оценено»).
         _hm = hit_metrics or {}
@@ -766,10 +695,8 @@ def build_pack(
             "",
         ]
         if _tt:
-            _lines.append(
-                f"TikTok slice: {_tt.get('start_sec','?')}s → "
-                f"{_tt.get('end_sec','?')}s — {_tt.get('reason','')}"
-            )
+            _lines.append(f"TikTok slice: {_tt.get('start_sec','?')}s → "
+                          f"{_tt.get('end_sec','?')}s — {_tt.get('reason','')}")
             _lines.append("")
         if _actions_h:
             _lines.append("## Что доработать")
@@ -780,38 +707,28 @@ def build_pack(
             _lines.append("## Metrics")
             for k, v in _metr.items():
                 if isinstance(v, dict):
-                    _lines.append(
-                        f"- {k}: {v.get('score','?')}/100 — {v.get('hint','')}"
-                    )
+                    _lines.append(f"- {k}: {v.get('score','?')}/100 — {v.get('hint','')}")
                 else:
                     _lines.append(f"- {k}: {v}")
-        (out / "hit_report.md").write_text("\n".join(_lines), encoding="utf-8")
-        files.append(str(out / "hit_report.md"))
-        cats["meta"].append(str(out / "hit_report.md"))
+        (out / "hit_report.md").write_text("\n".join(_lines),
+            encoding="utf-8")
+        files.append(str(out / "hit_report.md")); cats["meta"].append(str(out / "hit_report.md"))
         (out / "production_notes.md").write_text(
-            _production_notes(meta, stages or [], hit_metrics or {}), encoding="utf-8"
-        )
-        files.append(str(out / "production_notes.md"))
-        cats["meta"].append(str(out / "production_notes.md"))
+            _production_notes(meta, stages or [], hit_metrics or {}),
+            encoding="utf-8")
+        files.append(str(out / "production_notes.md")); cats["meta"].append(str(out / "production_notes.md"))
         (out / "distrokid.xml").write_text(_distrokid_xml(meta), encoding="utf-8")
-        files.append(str(out / "distrokid.xml"))
-        cats["meta"].append(str(out / "distrokid.xml"))
+        files.append(str(out / "distrokid.xml")); cats["meta"].append(str(out / "distrokid.xml"))
         (out / "spotify_description.txt").write_text(
-            _spotify_description(meta), encoding="utf-8"
-        )
-        files.append(str(out / "spotify_description.txt"))
-        cats["meta"].append(str(out / "spotify_description.txt"))
+            _spotify_description(meta), encoding="utf-8")
+        files.append(str(out / "spotify_description.txt")); cats["meta"].append(str(out / "spotify_description.txt"))
         (out / "youtube_description.html").write_text(
-            _youtube_description_html(meta), encoding="utf-8"
-        )
-        files.append(str(out / "youtube_description.html"))
-        cats["meta"].append(str(out / "youtube_description.html"))
+            _youtube_description_html(meta), encoding="utf-8")
+        files.append(str(out / "youtube_description.html")); cats["meta"].append(str(out / "youtube_description.html"))
         (out / "vk_prefill.txt").write_text(_vk_prefill(meta), encoding="utf-8")
-        files.append(str(out / "vk_prefill.txt"))
-        cats["meta"].append(str(out / "vk_prefill.txt"))
+        files.append(str(out / "vk_prefill.txt")); cats["meta"].append(str(out / "vk_prefill.txt"))
         (out / "shazam.jsonld").write_text(_shazam_jsonld(meta), encoding="utf-8")
-        files.append(str(out / "shazam.jsonld"))
-        cats["meta"].append(str(out / "shazam.jsonld"))
+        files.append(str(out / "shazam.jsonld")); cats["meta"].append(str(out / "shazam.jsonld"))
     except Exception as e:
         fallback_notes.append(f"meta_fail: {e}")
 
@@ -821,14 +738,12 @@ def build_pack(
     genre = meta.get("genre", "phonk")
     try:
         if _make_cover(out / "cover.png", title, artist, genre, size=3000):
-            files.append(str(out / "cover.png"))
-            cats["visuals"].append(str(out / "cover.png"))
+            files.append(str(out / "cover.png")); cats["visuals"].append(str(out / "cover.png"))
     except Exception as e:
         fallback_notes.append(f"cover_png_fail: {e}")
     try:
         if _make_cover(out / "cover.jpg", title, artist, genre, size=1400, jpg=True):
-            files.append(str(out / "cover.jpg"))
-            cats["visuals"].append(str(out / "cover.jpg"))
+            files.append(str(out / "cover.jpg")); cats["visuals"].append(str(out / "cover.jpg"))
     except Exception as e:
         fallback_notes.append(f"cover_jpg_fail: {e}")
 
@@ -851,21 +766,9 @@ def build_pack(
     }
 
 
-def _apply_id3(mp3_path: Path, meta: dict[str, Any], cover_path: Path):
-    from mutagen.id3 import (
-        APIC,
-        ID3,
-        TALB,
-        TBPM,
-        TCON,
-        TDRC,
-        TIT2,
-        TKEY,
-        TPE1,
-        TPUB,
-        TSRC,
-    )
-
+def _apply_id3(mp3_path: Path, meta: Dict[str, Any], cover_path: Path):
+    from mutagen.id3 import (ID3, TIT2, TPE1, TALB, TCON, TBPM, TKEY,
+                             TSRC, TPUB, TDRC, APIC)
     try:
         id3 = ID3(str(mp3_path))
     except Exception:
@@ -882,15 +785,8 @@ def _apply_id3(mp3_path: Path, meta: dict[str, Any], cover_path: Path):
     try:
         if cover_path.exists():
             with open(cover_path, "rb") as f:
-                id3.add(
-                    APIC(
-                        encoding=3,
-                        mime="image/jpeg",
-                        type=3,
-                        desc="Cover",
-                        data=f.read(),
-                    )
-                )
+                id3.add(APIC(encoding=3, mime="image/jpeg", type=3,
+                             desc="Cover", data=f.read()))
     except Exception:
         pass
     id3.save(str(mp3_path))
@@ -899,7 +795,6 @@ def _apply_id3(mp3_path: Path, meta: dict[str, Any], cover_path: Path):
 if __name__ == "__main__":
     # smoke
     import tempfile
-
     if sf is None:
         print("soundfile not available")
         raise SystemExit(1)
@@ -907,34 +802,18 @@ if __name__ == "__main__":
     # 5-sec synthetic
     sr = 44100
     import numpy as _np
-
     t = _np.linspace(0, 5, sr * 5, endpoint=False)
     data = 0.3 * _np.sin(2 * _np.pi * 220 * t).astype(_np.float32)
     data = _np.stack([data, data], axis=1)
     src = tmp / "synth.wav"
     sf.write(src, data, sr, subtype="PCM_16")
-    meta = {
-        "title": "Smoke Test",
-        "artist": "ZS",
-        "genre": "phonk",
-        "bpm": 140,
-        "key": "Am",
-        "duration_sec": 5,
-        "hashtags_youtube": ["music", "smoke"],
-        "hashtags_vk": ["музыка"],
-    }
-    result = build_pack(
-        str(src),
-        str(tmp / "release"),
-        meta,
-        lyrics_text="Тест\nВторая строка\nТретья\n",
-        hit_metrics={"score": 72, "verdict": "solid"},
-    )
-    print(
-        json.dumps(
-            {k: v for k, v in result.items() if k != "files"},
-            ensure_ascii=False,
-            indent=2,
-        )
-    )
+    meta = {"title": "Smoke Test", "artist": "ZS", "genre": "phonk",
+            "bpm": 140, "key": "Am", "duration_sec": 5,
+            "hashtags_youtube": ["music", "smoke"],
+            "hashtags_vk": ["музыка"]}
+    result = build_pack(str(src), str(tmp / "release"), meta,
+                        lyrics_text="Тест\nВторая строка\nТретья\n",
+                        hit_metrics={"score": 72, "verdict": "solid"})
+    print(json.dumps({k: v for k, v in result.items() if k != "files"},
+                     ensure_ascii=False, indent=2))
     print("Files:", len(result["files"]))

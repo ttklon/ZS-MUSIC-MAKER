@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """v22: одноразовый скрипт — заменить top-level mkdir() на ленивое создание.
 
 Стратегия:
@@ -7,7 +8,6 @@
 
 Скрипт работает по whitelist модулей, чтобы не сломать остальное.
 """
-
 import re
 from pathlib import Path
 
@@ -17,134 +17,90 @@ MODS = ROOT / "modules"
 # whitelist модулей и их паттернов (regex → replacement)
 PATCHES = {
     "mixdown.py": [
-        (
-            r"^os\.makedirs\(OUTPUT_DIR, exist_ok=True\)\s*$",
-            "# v22: ленивое создание (не при импорте)\n",
-        ),
+        (r'^os\.makedirs\(OUTPUT_DIR, exist_ok=True\)\s*$',
+         '# v22: ленивое создание (не при импорте)\n'),
     ],
     "beat_gen.py": [
-        (
-            r"^os\.makedirs\(OUTPUT_DIR, exist_ok=True\)\s*$",
-            "# v22: ленивое создание (не при импорте)\n",
-        ),
+        (r'^os\.makedirs\(OUTPUT_DIR, exist_ok=True\)\s*$',
+         '# v22: ленивое создание (не при импорте)\n'),
     ],
     "humanization.py": [
-        (
-            r"^os\.makedirs\(OUTPUT_DIR, exist_ok=True\)\s*$",
-            "# v22: ленивое создание (не при импорте)\n",
-        ),
+        (r'^os\.makedirs\(OUTPUT_DIR, exist_ok=True\)\s*$',
+         '# v22: ленивое создание (не при импорте)\n'),
     ],
     "provenance.py": [
-        (
-            r"^os\.makedirs\(os\.path\.dirname\(VAULT\), exist_ok=True\)\s*$",
-            "# v22: ленивое создание (не при импорте)\n",
-        ),
+        (r'^os\.makedirs\(os\.path\.dirname\(VAULT\), exist_ok=True\)\s*$',
+         '# v22: ленивое создание (не при импорте)\n'),
     ],
     "release_export.py": [
-        (
-            r"^RELEASES_DIR\.mkdir\(parents=True, exist_ok=True\)\s*$",
-            "# v22: ленивое создание (не при импорте)\n",
-        ),
+        (r'^RELEASES_DIR\.mkdir\(parents=True, exist_ok=True\)\s*$',
+         '# v22: ленивое создание (не при импорте)\n'),
     ],
     "track_templates.py": [
-        (
-            r"^TPL_DIR\.mkdir\(parents=True, exist_ok=True\)\s*$",
-            "# v22: ленивое создание (не при импорте)\n",
-        ),
-        (
-            r"^HIST_FILE\.parent\.mkdir\(parents=True, exist_ok=True\)\s*$",
-            "# v22: ленивое создание (не при импорте)\n",
-        ),
+        (r'^TPL_DIR\.mkdir\(parents=True, exist_ok=True\)\s*$',
+         '# v22: ленивое создание (не при импорте)\n'),
+        (r'^HIST_FILE\.parent\.mkdir\(parents=True, exist_ok=True\)\s*$',
+         '# v22: ленивое создание (не при импорте)\n'),
     ],
     "render_queue.py": [
-        (
-            r"^QUEUE_DIR\.mkdir\(parents=True, exist_ok=True\)\s*$",
-            "# v22: ленивое создание (не при импорте)\n",
-        ),
+        (r'^QUEUE_DIR\.mkdir\(parents=True, exist_ok=True\)\s*$',
+         '# v22: ленивое создание (не при импорте)\n'),
     ],
     "lyrics_gen.py": [
-        (
-            r"^VAULT_DIR\.mkdir\(parents=True, exist_ok=True\)\s*$",
-            "# v22: ленивое создание (не при импорте)\n",
-        ),
+        (r'^VAULT_DIR\.mkdir\(parents=True, exist_ok=True\)\s*$',
+         '# v22: ленивое создание (не при импорте)\n'),
     ],
     "female_backing.py": [
-        (
-            r"^BACK_DIR\.mkdir\(parents=True, exist_ok=True\)\s*$",
-            "# v22: ленивое создание (не при импорте)\n",
-        ),
+        (r'^BACK_DIR\.mkdir\(parents=True, exist_ok=True\)\s*$',
+         '# v22: ленивое создание (не при импорте)\n'),
     ],
     "user_profile.py": [
-        (
-            r"^PROFILE_FILE\.parent\.mkdir\(parents=True, exist_ok=True\)\s*$",
-            "# v22: ленивое создание (не при импорте)\n",
-        ),
+        (r'^PROFILE_FILE\.parent\.mkdir\(parents=True, exist_ok=True\)\s*$',
+         '# v22: ленивое создание (не при импорте)\n'),
     ],
     "voice_recording.py": [
-        (
-            r"^VAULT_DIR\.mkdir\(parents=True, exist_ok=True\)\s*$",
-            "# v22: ленивое создание (не при импорте)\n",
-        ),
+        (r'^VAULT_DIR\.mkdir\(parents=True, exist_ok=True\)\s*$',
+         '# v22: ленивое создание (не при импорте)\n'),
     ],
     "voice_onboarding.py": [
-        (
-            r"^VAULT_DIR\.mkdir\(parents=True, exist_ok=True\)\s*$",
-            "# v22: ленивое создание (не при импорте)\n",
-        ),
+        (r'^VAULT_DIR\.mkdir\(parents=True, exist_ok=True\)\s*$',
+         '# v22: ленивое создание (не при импорте)\n'),
     ],
     "voice_vault_v9.py": [
-        (
-            r"^VAULT_DIR\.mkdir\(parents=True, exist_ok=True\)\s*$",
-            "# v22: ленивое создание (не при импорте)\n",
-        ),
+        (r'^VAULT_DIR\.mkdir\(parents=True, exist_ok=True\)\s*$',
+         '# v22: ленивое создание (не при импорте)\n'),
     ],
     "rvc_trainer_v9.py": [
-        (
-            r"^JOBS_DIR\.mkdir\(parents=True, exist_ok=True\)\s*$",
-            "# v22: ленивое создание (не при импорте)\n",
-        ),
+        (r'^JOBS_DIR\.mkdir\(parents=True, exist_ok=True\)\s*$',
+         '# v22: ленивое создание (не при импорте)\n'),
     ],
     "reference_ingest.py": [
-        (
-            r"^CACHE_DIR\.mkdir\(parents=True, exist_ok=True\)\s*$",
-            "# v22: ленивое создание (не при импорте)\n",
-        ),
+        (r'^CACHE_DIR\.mkdir\(parents=True, exist_ok=True\)\s*$',
+         '# v22: ленивое создание (не при импорте)\n'),
     ],
     "auto_qa.py": [
-        (
-            r"^QA_DIR\.mkdir\(parents=True, exist_ok=True\)\s*$",
-            "# v22: ленивое создание (не при импорте)\n",
-        ),
+        (r'^QA_DIR\.mkdir\(parents=True, exist_ok=True\)\s*$',
+         '# v22: ленивое создание (не при импорте)\n'),
     ],
     "self_diag_v13.py": [
-        (
-            r"^LOGS\.mkdir\(exist_ok=True\)\s*$",
-            "# v22: ленивое создание (не при импорте)\n",
-        ),
+        (r'^LOGS\.mkdir\(exist_ok=True\)\s*$',
+         '# v22: ленивое создание (не при импорте)\n'),
     ],
     "wizard_v12_integration.py": [
-        (
-            r"^LOGS\.mkdir\(exist_ok=True\)\s*$",
-            "# v22: ленивое создание (не при импорте)\n",
-        ),
+        (r'^LOGS\.mkdir\(exist_ok=True\)\s*$',
+         '# v22: ленивое создание (не при импорте)\n'),
     ],
     "master_pipeline_v12.py": [
-        (
-            r"^LOGS\.mkdir\(exist_ok=True\)\s*$",
-            "# v22: ленивое создание (не при импорте)\n",
-        ),
+        (r'^LOGS\.mkdir\(exist_ok=True\)\s*$',
+         '# v22: ленивое создание (не при импорте)\n'),
     ],
     "llm_clients_v15.py": [
-        (
-            r"^SECRETS_FILE\.parent\.mkdir\(parents=True, exist_ok=True\)\s*$",
-            "# v22: ленивое создание (не при импорте)\n",
-        ),
+        (r'^SECRETS_FILE\.parent\.mkdir\(parents=True, exist_ok=True\)\s*$',
+         '# v22: ленивое создание (не при импорте)\n'),
     ],
     "voice_synth.py": [
-        (
-            r"^OUT_DIR\.mkdir\(parents=True, exist_ok=True\)\s*$",
-            "# v22: ленивое создание (не при импорте)\n",
-        ),
+        (r'^OUT_DIR\.mkdir\(parents=True, exist_ok=True\)\s*$',
+         '# v22: ленивое создание (не при импорте)\n'),
     ],
 }
 

@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 ZS Music Maker — smoke_v24
 ====================================================================
@@ -16,7 +17,6 @@ bpm_override, aggression, duration_sec, user_lyrics_lines) реально дое
 
 Запуск:  python3 tools/smoke_v24.py     (из корня проекта)
 """
-
 from __future__ import annotations
 
 import json
@@ -37,7 +37,6 @@ def check(name: str, ok: bool, detail: str = ""):
 
 def _run(project_id: str, recipe: dict) -> dict:
     from app.core.orchestrator import run_full_pipeline
-
     out_root = ROOT / "output" / "smoke_v24" / project_id
     if out_root.exists():
         shutil.rmtree(out_root, ignore_errors=True)
@@ -71,40 +70,29 @@ def main() -> int:
     try:
         res = _run("recipe_full", recipe)
     except Exception as e:
-        for n in (
-            "preset_applied",
-            "bpm_override_wins",
-            "user_lyrics_priority",
-            "artist_in_metadata",
-            "duration_applied",
-        ):
+        for n in ("preset_applied", "bpm_override_wins", "user_lyrics_priority",
+                  "artist_in_metadata", "duration_applied"):
             check("v24." + n, False, f"pipeline crashed: {e}")
 
     if res is not None:
         s_an = _stage(res, "_stage_analyze")
         an = (s_an.get("output") or {}).get("analysis") or {}
-        check(
-            "v24.preset_applied",
-            an.get("source") == "genre_default" and an.get("mode") == "minor",
-            f"analysis source={an.get('source')} mode={an.get('mode')}",
-        )
+        check("v24.preset_applied", an.get("source") == "genre_default"
+              and an.get("mode") == "minor",
+              f"analysis source={an.get('source')} mode={an.get('mode')}")
 
         s_beat = _stage(res, "_stage_beat")
         beat_out = s_beat.get("output") or {}
-        check(
-            "v24.bpm_override_wins",
-            beat_out.get("bpm") == 150 and an.get("bpm") == 150,
-            f"beat.bpm={beat_out.get('bpm')} analysis.bpm={an.get('bpm')}",
-        )
+        check("v24.bpm_override_wins",
+              beat_out.get("bpm") == 150 and an.get("bpm") == 150,
+              f"beat.bpm={beat_out.get('bpm')} analysis.bpm={an.get('bpm')}")
 
         s_lyr = _stage(res, "_stage_lyrics")
         lyr_out = s_lyr.get("output") or {}
-        check(
-            "v24.user_lyrics_priority",
-            lyr_out.get("provider") == "user_lyrics"
-            and "ночь город дым фонари" in (lyr_out.get("text") or ""),
-            f"provider={lyr_out.get('provider')}",
-        )
+        check("v24.user_lyrics_priority",
+              lyr_out.get("provider") == "user_lyrics"
+              and "ночь город дым фонари" in (lyr_out.get("text") or ""),
+              f"provider={lyr_out.get('provider')}")
 
         meta_ok = False
         meta_detail = "metadata.json not found"
@@ -118,25 +106,22 @@ def main() -> int:
                 meta_detail = f"artist={meta.get('artist')!r}"
         check("v24.artist_in_metadata", meta_ok, meta_detail)
 
-        check(
-            "v24.duration_applied",
-            abs(float(beat_out.get("duration_sec") or 0) - 12.0) < 2.5,
-            f"beat.duration_sec={beat_out.get('duration_sec')}",
-        )
+        check("v24.duration_applied",
+              abs(float(beat_out.get("duration_sec") or 0) - 12.0) < 2.5,
+              f"beat.duration_sec={beat_out.get('duration_sec')}")
 
     # ---- прогон 2: регрессия на пустом рецепте -------------------------
     try:
         res2 = _run("recipe_empty", {"references": []})
-        an2 = (_stage(res2, "_stage_analyze").get("output") or {}).get("analysis") or {}
-        lyr2 = _stage(res2, "_stage_lyrics").get("output") or {}
-        check(
-            "v24.empty_recipe_regression",
-            an2.get("bpm") == 130
-            and res2.get("verdict") not in (None, "FAILED")
-            and lyr2.get("ok") is True,
-            f"bpm={an2.get('bpm')} verdict={res2.get('verdict')} "
-            f"lyrics_provider={lyr2.get('provider')}",
-        )
+        an2 = ((_stage(res2, "_stage_analyze").get("output") or {})
+               .get("analysis") or {})
+        lyr2 = (_stage(res2, "_stage_lyrics").get("output") or {})
+        check("v24.empty_recipe_regression",
+              an2.get("bpm") == 130
+              and res2.get("verdict") not in (None, "FAILED")
+              and lyr2.get("ok") is True,
+              f"bpm={an2.get('bpm')} verdict={res2.get('verdict')} "
+              f"lyrics_provider={lyr2.get('provider')}")
     except Exception as e:
         check("v24.empty_recipe_regression", False, f"crashed: {e}")
 
@@ -145,7 +130,8 @@ def main() -> int:
         v = json.loads((ROOT / "version.json").read_text(encoding="utf-8"))
         # v25: версия поднялась до 25.x — проверяем major >= 24, не точное равенство
         _maj = int(str(v.get("version", "0")).split(".")[0] or 0)
-        check("v24.version_v24", _maj >= 24, f"version={v.get('version')}")
+        check("v24.version_v24", _maj >= 24,
+              f"version={v.get('version')}")
     except Exception as e:
         check("v24.version_v24", False, str(e))
 

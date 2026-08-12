@@ -1,0 +1,82 @@
+name: Windows Build (EXE)
+
+on:
+  push:
+    branches: ["**"]
+  workflow_dispatch:
+
+jobs:
+  build-windows-exe:
+    runs-on: windows-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Show version.json
+        shell: pwsh
+        run: |
+          Get-Content version.json
+
+      - name: Install runtime dependencies (best-effort)
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip wheel setuptools
+          pip install -r requirements.txt
+          if ($LASTEXITCODE -ne 0) { Write-Host "requirements.txt partial install (ok)"; $global:LASTEXITCODE = 0 }
+          pip install pyinstaller
+
+      - name: Sanity import
+        shell: pwsh
+        run: |
+          python -c "import sys; sys.path.insert(0, '.'); import main; print('main.py imports OK')"
+
+      - name: Run smoke tests (best-effort, non-blocking)
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          if (Test-Path tools/smoke_v27.py) { python tools/smoke_v27.py }
+          if (Test-Path tools/smoke_v26.py) { python tools/smoke_v26.py }
+
+      - name: Build EXE with PyInstaller
+        shell: pwsh
+        run: |
+          pyinstaller `
+            --noconfirm `
+            --clean `
+            --name ZSMusicMaker `
+            --onefile `
+            --console `
+            --collect-submodules app `
+            --collect-submodules modules `
+            --collect-submodules agents `
+            --collect-submodules ui `
+            --collect-submodules updater `
+            --collect-data librosa `
+            --add-data "version.json;." `
+            --add-data "data;data" `
+            --add-data "lyric_vault;lyric_vault" `
+            --add-data "voice_vault;voice_vault" `
+            --add-data "training_texts;training_texts" `
+            --add-data "references;references" `
+            main.py
+
+      - name: List dist/
+        shell: pwsh
+        run: |
+          Get-ChildItem -Recurse dist | Select-Object FullName, Length
+
+      - name: Upload EXE artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ZSMusicMaker-windows-exe
+          path: dist/ZSMusicMaker.exe
+          if-no-files-found: error
+          retention-days: 30

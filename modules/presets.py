@@ -1,10 +1,9 @@
+# -*- coding: utf-8 -*-
 """
 [12] presets.py — Библиотека готовых пресетов (v5)
 Готовые «стили» для быстрого старта, если пользователь не хочет анализировать референс.
 """
-
-import json
-import os
+import os, json
 
 PRESETS_FILE = os.path.join(os.path.dirname(__file__), "..", "presets.json")
 
@@ -12,14 +11,12 @@ BUILTIN_PRESETS = {
     "tamam_like": {
         "name": "TAMAM-like (ethnic phonk drift)",
         "description": "Тёмный этник-фонк, дрифт, восточные лады, тяжёлый 808 — как TAMAM",
-        "target_bpm": 129,
-        "target_mode": "minor",
+        "target_bpm": 129, "target_mode": "minor",
         "vibe_tags": ["phonk/drift", "bass-heavy", "dark", "aggressive", "underground"],
         "groove": {
-            "kick_pattern": [1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0],
+            "kick_pattern":  [1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0],
             "snare_pattern": [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0],
-            "hihat_density": 0.55,
-            "swing": 0.12,
+            "hihat_density": 0.55, "swing": 0.12,
         },
         "sample_query": "phonk 808 memphis cowbell oriental saz",
         "prompt_hint": "dark ethnic drift phonk, distorted 808, memphis cowbell, oriental saz, aggressive",
@@ -28,14 +25,12 @@ BUILTIN_PRESETS = {
     "brazilian_phonk": {
         "name": "Brazilian phonk / funk",
         "description": "Быстрый бразильский фонк, кач как ХЛ, минорные атмосферы",
-        "target_bpm": 140,
-        "target_mode": "minor",
+        "target_bpm": 140, "target_mode": "minor",
         "vibe_tags": ["trap/hype", "bass-heavy", "dark"],
         "groove": {
-            "kick_pattern": [1, 0, 1, 0, 0, 0, 1, 0, 1, 0, 1, 0, 0, 0, 1, 0],
+            "kick_pattern":  [1, 0, 1, 0, 0, 0, 1, 0, 1, 0, 1, 0, 0, 0, 1, 0],
             "snare_pattern": [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0],
-            "hihat_density": 0.75,
-            "swing": 0.05,
+            "hihat_density": 0.75, "swing": 0.05,
         },
         "sample_query": "brazilian phonk funk 140 bpm",
         "prompt_hint": "brazilian phonk, funk carioca, distorted kick, tuim",
@@ -44,14 +39,12 @@ BUILTIN_PRESETS = {
     "hyperpop_edit": {
         "name": "TikTok hyperpop / edit",
         "description": "Быстрый хайп для эдитов и коротких видео",
-        "target_bpm": 160,
-        "target_mode": "minor",
+        "target_bpm": 160, "target_mode": "minor",
         "vibe_tags": ["hyper/hardstyle", "bright"],
         "groove": {
-            "kick_pattern": [1, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 1, 0],
+            "kick_pattern":  [1, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 1, 0],
             "snare_pattern": [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0],
-            "hihat_density": 0.85,
-            "swing": 0.02,
+            "hihat_density": 0.85, "swing": 0.02,
         },
         "sample_query": "hyperpop tiktok edit anime",
         "prompt_hint": "hyperpop, fast edit, pitched vocals, anime aesthetic",
@@ -60,14 +53,12 @@ BUILTIN_PRESETS = {
     "lofi_drift": {
         "name": "Lo-Fi drift / chill",
         "description": "Медленный ночной драйв, приглушённые барабаны",
-        "target_bpm": 88,
-        "target_mode": "minor",
+        "target_bpm": 88, "target_mode": "minor",
         "vibe_tags": ["slow", "dark", "underground"],
         "groove": {
-            "kick_pattern": [1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0],
+            "kick_pattern":  [1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0],
             "snare_pattern": [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0],
-            "hihat_density": 0.4,
-            "swing": 0.2,
+            "hihat_density": 0.4, "swing": 0.2,
         },
         "sample_query": "lo-fi drift chill night rain vinyl",
         "prompt_hint": "lo-fi, night drive, vinyl crackle, muted drums, jazzy chords",
@@ -76,14 +67,12 @@ BUILTIN_PRESETS = {
     "trap_ru": {
         "name": "Russian trap / уличка",
         "description": "Русский трэп, тяжёлый 808, читка",
-        "target_bpm": 140,
-        "target_mode": "minor",
+        "target_bpm": 140, "target_mode": "minor",
         "vibe_tags": ["trap/hype", "bass-heavy", "aggressive", "underground"],
         "groove": {
-            "kick_pattern": [1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0],
+            "kick_pattern":  [1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0],
             "snare_pattern": [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0],
-            "hihat_density": 0.7,
-            "swing": 0.08,
+            "hihat_density": 0.7, "swing": 0.08,
         },
         "sample_query": "trap 808 dark russian street",
         "prompt_hint": "russian street trap, dark 808, syncopated hats, minor keys",
@@ -107,13 +96,8 @@ def _load_all() -> dict:
 
 def list_presets() -> list:
     return [
-        {
-            "key": k,
-            "name": v["name"],
-            "description": v["description"],
-            "bpm": v["target_bpm"],
-            "tags": v["vibe_tags"],
-        }
+        {"key": k, "name": v["name"], "description": v["description"],
+         "bpm": v["target_bpm"], "tags": v["vibe_tags"]}
         for k, v in _load_all().items()
     ]
 
@@ -133,9 +117,8 @@ def save_user_preset(key: str, preset: dict) -> dict:
         except Exception:
             user = {}
     user[key] = preset
-    json.dump(
-        user, open(PRESETS_FILE, "w", encoding="utf-8"), ensure_ascii=False, indent=2
-    )
+    json.dump(user, open(PRESETS_FILE, "w", encoding="utf-8"),
+              ensure_ascii=False, indent=2)
     return {"ok": True, "key": key, "saved_to": PRESETS_FILE}
 
 
@@ -145,20 +128,15 @@ def preset_to_style_vector(key: str) -> dict:
         return p
     return {
         "sources": [f"preset:{key}"],
-        "target_bpm": p["target_bpm"],
-        "target_mode": p["target_mode"],
+        "target_bpm": p["target_bpm"], "target_mode": p["target_mode"],
         "vibe_tags": p["vibe_tags"],
-        "target_bass_ratio": 1.5,
-        "target_centroid": 1500.0,
-        "bpm_range": {
-            "center": p["target_bpm"],
-            "range_low": p["target_bpm"] - 6,
-            "range_high": p["target_bpm"] + 8,
-            "modes": {"keep_groove": p["target_bpm"]},
-        },
-        "individual": [
-            {"key_root": "A", "bpm": p["target_bpm"], "vibe_tags": p["vibe_tags"]}
-        ],
+        "target_bass_ratio": 1.5, "target_centroid": 1500.0,
+        "bpm_range": {"center": p["target_bpm"],
+                      "range_low": p["target_bpm"] - 6,
+                      "range_high": p["target_bpm"] + 8,
+                      "modes": {"keep_groove": p["target_bpm"]}},
+        "individual": [{"key_root": "A", "bpm": p["target_bpm"],
+                        "vibe_tags": p["vibe_tags"]}],
         "preset_key": key,
         "themes_hint": p.get("themes", []),
         "sample_query_hint": p.get("sample_query", ""),
