@@ -1,6 +1,6 @@
 {
- "version": "29.0.0",
- "build": "v29-god-mode-e2e-midi-fix-truepeak-2026-08-12",
- "based_on": "v28-cleanup-godmode-ci-build-2026-08-12",
- "changes": "v29 (P0/P1): God Mode E2E теперь честно доходит до master_god.wav. Fix P0-краха midi_generation ('NoneType' not callable) — добавлен guard в generate_melody_pattern. Расширены жанровые MIDI-паттерны (phonk/trap/techno). Добавлен true-peak ceiling -1 dBTP в mastering_pro (устранён pyloudnorm clipping warning). mastering_pro возвращает честные output_lufs/output_peak_db/channels. Mono→stereo up-mix. NaN/Inf защита. mido добавлен в requirements. Новый smoke_v29 (God Mode E2E, 8/8 PASS). Архивированы устаревшие smoke_v14..v25 и старые аудиты в docs/legacy/."
+ "version": "30.0.0",
+ "build": "v30-full-audit-fix-restore-2026-08-12",
+ "based_on": "v29-god-mode-e2e-midi-fix-truepeak-2026-08-12",
+ "changes": "v30 (P0/P1): полный аудит + исправления. Восстановлены 5 ошибочно удалённых модулей (lyrics_gen_v8, mastering_v9, release_pack_v9, hit_kpi_monitor_v11, lyric_vault_v10) — их отсутствие роняло health до RED и ломало KPI-пайплайн. FIX честности voice_synth.synth — больше не возвращает путь к несуществующему файлу (honest empty return). Создан отсутствующий run.bat (на него ссылались README/INSTALL/ярлык). FIX self_diag_v13 — падение при отсутствии logs/. FIX pipeline_core — чекпоинты TTL 24ч + ZSMM_NO_CHECKPOINTS (старый fail-чекпоинт больше не блокирует вечно). verify.bat переписан на реальные тесты (pytest + smoke_v26 + smoke_v29). God Mode: честный vocal_status/vocal_reason в отчёте. main.py --smoke теперь ведёт на smoke_v29."
 }

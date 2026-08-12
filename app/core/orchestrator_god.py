@@ -134,14 +134,23 @@ def run_god_pipeline(
                 os.makedirs(os.path.dirname(vocal_draft), exist_ok=True)
                 
                 # Используем voice_synth.synth для генерации аудио с русского текста
+                # v30 FIX: после фикса честности voice_synth.synth возвращает
+                # "" когда ни один TTS-движок недоступен — обрабатываем это
+                # явно и кладём honest reason в отчёт (раньше стадия молча
+                # возвращала None без объяснения).
                 synth_path = voice_synth.synth(text_content[:200], out_name=str(vocal_draft))
                 if synth_path and os.path.exists(synth_path):
                     vocal_draft = synth_path
                     ctx.shared_data["vocal_wav"] = vocal_draft
                     return vocal_draft
+                ctx.shared_data["vocal_status"] = "BLOCKED"
+                ctx.shared_data["vocal_reason"] = "no_vocal_engine (silero/xtts/bark/pyttsx3/gtts недоступны)"
+                print("[orchestrator_god] vocal synth BLOCKED: no TTS engine available — pipeline продолжает без вокала")
             except Exception as e:
                 print(f"[orchestrator_god] Auto-vocal synthesis error: {e}")
-                
+                ctx.shared_data["vocal_status"] = "FAILED"
+                ctx.shared_data["vocal_reason"] = str(e)
+
         return None
 
     pipe.add_stage("vocal_cleaning", stage_vocal)
@@ -179,6 +188,9 @@ def run_god_pipeline(
         "god_mode": True,
         "elapsed_sec": round(total_elapsed, 2),
         "stages": stages_list,
+        # v30: честный статус вокала в отчёте (раньше информация терялась)
+        "vocal_status": pipe.context.shared_data.get("vocal_status", "OK" if pipe.context.shared_data.get("vocal_wav") else "SKIPPED"),
+        "vocal_reason": pipe.context.shared_data.get("vocal_reason"),
         "master_path": str(out_root / "masters" / "master_god.wav") if final_out["status"] == "completed" else None
     }
     

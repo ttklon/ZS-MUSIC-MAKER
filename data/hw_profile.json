@@ -1,10 +1,10 @@
 {
   "cpu": {
-    "logical": 6,
+    "logical": 2,
     "arch": "x86_64",
     "system": "Linux",
-    "release": "6.1.102",
-    "ram_gb": 0.0
+    "release": "6.1.158+",
+    "ram_gb": 1.9
   },
   "gpu": {
     "kind": "cpu",
@@ -14,7 +14,7 @@
   },
   "mode": "lite",
   "reason": "CPU only / малый VRAM",
-  "ts": 1786469139.8704143,
+  "ts": 1786563864.377346,
   "recommendations": {
     "musicgen": "small (CPU) + опционально MusicGen-melody-only",
     "rvc": "только inference, training только ночью на CPU",

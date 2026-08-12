@@ -1,15 +1,15 @@
 {
-  "generated_at": 1786469155.418242,
-  "generated_at_human": "2026-08-11 17:25:55 UTC",
-  "platform": "Linux-6.1.102-x86_64-with-glibc2.39",
-  "python": "3.12.3",
+  "generated_at": 1786564394.9780843,
+  "generated_at_human": "2026-08-12 19:53:14 UTC",
+  "platform": "Linux-6.1.158+-x86_64-with-glibc2.41",
+  "python": "3.13.14",
   "hw_profile": {
     "cpu": {
-      "logical": 6,
+      "logical": 2,
       "arch": "x86_64",
       "system": "Linux",
-      "release": "6.1.102",
-      "ram_gb": 0.0
+      "release": "6.1.158+",
+      "ram_gb": 1.9
     },
     "gpu": {
       "kind": "cpu",
@@ -19,7 +19,7 @@
     },
     "mode": "lite",
     "reason": "CPU only / малый VRAM",
-    "ts": 1786469139.8704143,
+    "ts": 1786563864.377346,
     "recommendations": {
       "musicgen": "small (CPU) + опционально MusicGen-melody-only",
       "rvc": "только inference, training только ночью на CPU",
@@ -35,7 +35,7 @@
       "name": "numpy",
       "requirement": "core",
       "ok": true,
-      "version": "2.4.6",
+      "version": "2.3.5",
       "error": null
     },
     {
@@ -43,7 +43,7 @@
       "name": "soundfile",
       "requirement": "core",
       "ok": true,
-      "version": "0.14.0",
+      "version": "0.13.1",
       "error": null
     },
     {
@@ -51,7 +51,7 @@
       "name": "scipy",
       "requirement": "core",
       "ok": true,
-      "version": "1.18.0",
+      "version": "1.17.1",
       "error": null
     },
     {
@@ -66,56 +66,56 @@
       "key": "gradio",
       "name": "Gradio (fallback)",
       "requirement": "core_alt",
-      "ok": true,
-      "version": "6.22.0",
-      "error": null
+      "ok": false,
+      "version": null,
+      "error": "ModuleNotFoundError: No module named 'gradio'"
     },
     {
       "key": "librosa",
       "name": "librosa",
       "requirement": "quality",
       "ok": true,
-      "version": "1.0.0",
+      "version": "0.11.0",
       "error": null
     },
     {
       "key": "pydub",
       "name": "pydub",
       "requirement": "quality",
-      "ok": true,
+      "ok": false,
       "version": null,
-      "error": null
+      "error": "ModuleNotFoundError: No module named 'pydub'"
     },
     {
       "key": "matchering",
       "name": "matchering",
       "requirement": "quality",
-      "ok": true,
-      "version": "2.0.6",
-      "error": null
+      "ok": false,
+      "version": null,
+      "error": "ModuleNotFoundError: No module named 'matchering'"
     },
     {
       "key": "pyttsx3",
       "name": "pyttsx3 (TTS fallback)",
       "requirement": "quality",
-      "ok": true,
+      "ok": false,
       "version": null,
-      "error": null
+      "error": "ModuleNotFoundError: No module named 'pyttsx3'"
     },
     {
       "key": "mutagen",
       "name": "mutagen (ID3)",
       "requirement": "quality",
-      "ok": true,
+      "ok": false,
       "version": null,
-      "error": null
+      "error": "ModuleNotFoundError: No module named 'mutagen'"
     },
     {
       "key": "PIL",
       "name": "Pillow",
       "requirement": "quality",
       "ok": true,
-      "version": "12.3.0",
+      "version": "12.2.0",
       "error": null
     },
     {
@@ -377,14 +377,19 @@
       "error": null
     }
   ],
-  "core_ok": true,
-  "quality_ok": true,
+  "core_ok": false,
+  "quality_ok": false,
   "optional_ok_count": 0,
   "optional_total": 8,
-  "verdict": "GREEN",
-  "percent_ready": 85,
+  "verdict": "RED",
+  "percent_ready": 25,
   "advice": [
     "[CORE_ALT] PySide6 (native): GUI не запустится. Установи: pip install PySide6>=6.7",
+    "[CORE_ALT] Gradio (fallback): Экспертный режим (Ctrl+E) не откроется. pip install gradio",
+    "[QUALITY] pydub: Микс и mp3-экспорт деградируют. pip install pydub + ffmpeg",
+    "[QUALITY] matchering: Мастеринг под референс отключится. pip install matchering",
+    "[QUALITY] pyttsx3 (TTS fallback): Гарантированный TTS-fallback пропадёт. pip install pyttsx3",
+    "[QUALITY] mutagen (ID3): ID3-теги не пропишутся. pip install mutagen",
     "[OPTIONAL] essentia: Аналитика упадёт на librosa-only (это ок).",
     "[OPTIONAL] torch: Тяжёлые модели (MusicGen/RVC full) не поднимутся.",
     "[OPTIONAL] torch-directml (AMD): AMD-ускорение отключится, будет CPU.",

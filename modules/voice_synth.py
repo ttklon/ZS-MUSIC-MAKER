@@ -133,12 +133,26 @@ def synth(
         "gtts": lambda: _synth_gtts(text, out_path),
     }
 
+    # v30 FIX (P0-честность): раньше synth() ВСЕГДА возвращал out_path,
+    # даже если НИ ОДИН движок не отработал и файл не создан. Оркестраторы
+    # проверяли os.path.exists() и молча теряли вокал, а вызывающий код,
+    # доверяющий возвращаемому пути, получал несуществующий файл.
+    # Теперь: возвращаем путь ТОЛЬКО если файл реально записан (>100 байт),
+    # иначе честный "" — вызывающий код обязан обработать пустой результат.
+
+    def _produced() -> bool:
+        try:
+            return os.path.exists(out_path) and os.path.getsize(out_path) > 100
+        except Exception:
+            return False
+
     if engine == "auto":
         # Пробуем от быстрого к качественному
         for e in ("silero", "xtts", "bark", "pyttsx3", "gtts"):
-            if engines[e]():
+            if engines[e]() and _produced():
                 return out_path
-        return out_path
+        print("[voice_synth] ALL engines failed/unavailable — honest empty return")
+        return ""
 
     fn = engines.get(engine)
     if not fn:
@@ -146,14 +160,17 @@ def synth(
         fn = engines["silero"]
 
     ok = fn()
-    if not ok:
-        # цепочка fallback
-        for backup in ("silero", "pyttsx3", "gtts"):
-            if backup != engine:
-                if engines[backup]():
-                    return out_path
+    if ok and _produced():
+        return out_path
 
-    return out_path
+    # цепочка fallback
+    for backup in ("silero", "pyttsx3", "gtts"):
+        if backup != engine:
+            if engines[backup]() and _produced():
+                return out_path
+
+    print("[voice_synth] no engine produced a file — honest empty return")
+    return ""
 
 
 if __name__ == "__main__":

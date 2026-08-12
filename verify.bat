@@ -1,17 +1,19 @@
 @echo off
 REM ================================================================
-REM  ZS Music Maker v5 - Быстрая проверка (без переустановки)
-REM  smoke_test.py (24 теста) + bootstrap_e2e_test.py (15 стадий)
+REM  ZS Music Maker — verify.bat (быстрая проверка установки)
+REM  v30 FIX (P1): раньше скрипт вызывал НЕсуществующие корневые
+REM  smoke_test.py и bootstrap_e2e_test.py (удалены много версий
+REM  назад) — проверка всегда падала на первом же шаге. Теперь
+REM  используем реально существующие pytest-набор и smoke_v26/v29.
 REM ================================================================
 setlocal
-title ZS Music Maker v5 - Verify
+title ZS Music Maker — Verify
 cd /d "%~dp0"
 chcp 65001 >nul
 
 echo.
 echo ============================================================
-echo   ZS MUSIC MAKER v5 - VERIFY
-echo   Быстрая проверка без переустановки зависимостей
+echo   ZS MUSIC MAKER — VERIFY (быстрая проверка)
 echo ============================================================
 echo.
 
@@ -20,40 +22,48 @@ if exist venv\Scripts\activate.bat (
   call venv\Scripts\activate.bat
 ) else (
   echo [!] venv не найден. Использую системный Python.
-  echo [!] Если импорты падают - запусти windows_build.bat один раз.
+  echo [!] Если импорты падают — выполни: python install.py
 )
 
 where python >nul 2>nul
 if errorlevel 1 (
-  echo [!!] Python не найден в PATH. Запусти windows_build.bat.
+  echo [!!] Python не найден в PATH. Выполни: python install.py
   pause & exit /b 1
 )
 
 echo.
 echo ============================================================
-echo   [1/2] SMOKE-TEST (24 компонента)
+echo   [1/3] PYTEST SUITE (tests/)
 echo ============================================================
-python smoke_test.py
-set SMOKE_CODE=%errorlevel%
+python -m pytest tests/ -q
+set TEST_CODE=%errorlevel%
 
 echo.
 echo ============================================================
-echo   [2/2] E2E BOOTSTRAP TEST (15 стадий)
+echo   [2/3] SMOKE v26 (аудио-качество)
 echo ============================================================
-python bootstrap_e2e_test.py
-set E2E_CODE=%errorlevel%
+python tools\smoke_v26.py
+set SMOKE26_CODE=%errorlevel%
 
 echo.
 echo ============================================================
-if %SMOKE_CODE% EQU 0 (
-  if %E2E_CODE% EQU 0 (
-    echo   [OK] ВСЁ ЗЕЛЁНОЕ! Приложение готово.
-    echo   Запускай run.bat -^> http://127.0.0.1:7860
-  ) else (
-    echo   [!] smoke OK, но e2e упал. Смотри logs\e2e_report.json
+echo   [3/3] SMOKE v29 (God Mode E2E)
+echo ============================================================
+python tools\smoke_v29.py
+set SMOKE29_CODE=%errorlevel%
+
+echo.
+echo ============================================================
+if %TEST_CODE% EQU 0 (
+  if %SMOKE26_CODE% EQU 0 (
+    if %SMOKE29_CODE% EQU 0 (
+      echo   [OK] ВСЁ ЗЕЛЁНОЕ! Приложение готово.
+      echo   Запускай run.bat или: python main.py --god
+      goto :done
+    )
   )
-) else (
-  echo   [!!] smoke упал. Запусти windows_build.bat переустановить.
 )
+echo   [!] Есть падения. Смотри вывод выше и logs\
+:done
 echo ============================================================
 pause

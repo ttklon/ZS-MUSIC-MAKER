@@ -82,23 +82,38 @@ class ZSPipeline:
         except Exception as e:
             logger.warning(f"Failed to save checkpoint for {stage_name}: {e}")
 
+    # v30: чекпоинты живут максимум 24 часа — старый fail-чекпоинт не
+    # должен вечно блокировать пайплайн после исправления кода.
+    CHECKPOINT_TTL_SEC = 24 * 3600
+
     def run(self, use_checkpoints: bool = True) -> Dict[str, Any]:
         logger.info(f"Launching pipeline for project: {self.context.project_id}")
-        
+
+        # v30: ZSMM_NO_CHECKPOINTS=1 полностью отключает чтение чекпоинтов
+        if os.environ.get("ZSMM_NO_CHECKPOINTS") == "1":
+            use_checkpoints = False
+
         for stage in self.stages:
             # Проверка чекпоинта (JSON формат для безопасности)
             cp_path = self.checkpoint_dir / f"{stage.name}.json"
             if use_checkpoints and cp_path.exists():
-                logger.info(f"Loading checkpoint for stage: {stage.name}")
                 try:
-                    with open(cp_path, "r", encoding="utf-8") as f:
-                        data = json.load(f)
+                    age = time.time() - cp_path.stat().st_mtime
+                except Exception:
+                    age = 0.0
+                if age > self.CHECKPOINT_TTL_SEC:
+                    logger.info(f"Checkpoint for {stage.name} expired ({int(age/3600)}h), re-running stage")
+                else:
+                    logger.info(f"Loading checkpoint for stage: {stage.name}")
+                    try:
+                        with open(cp_path, "r", encoding="utf-8") as f:
+                            data = json.load(f)
                         res = StageResult(name=stage.name, ok=data["ok"], output=data["output"], duration_sec=data["duration"])
                         self.context.results[stage.name] = res
                         if not res.ok: break
                         continue
-                except Exception as e:
-                    logger.warning(f"Checkpoint corrupted for {stage.name}, re-running. Error: {e}")
+                    except Exception as e:
+                        logger.warning(f"Checkpoint corrupted for {stage.name}, re-running. Error: {e}")
 
             res = stage.execute(self.context)
             self._save_checkpoint(stage.name, res)

@@ -304,6 +304,10 @@ def run(save_to_log: bool = True) -> dict[str, Any]:
     }
 
     if save_to_log:
+        # v30 FIX (P1): раньше при отсутствии каталога logs/ (свежий clone)
+        # write_text падал с FileNotFoundError и main.py --self-diag завершался
+        # с "failed: [Errno 2]". Создаём каталог лениво перед записью.
+        LOGS.mkdir(parents=True, exist_ok=True)
         (LOGS / "self_diag_v13.txt").write_text(
             report
             + "\n\n# JSON snapshot #\n"

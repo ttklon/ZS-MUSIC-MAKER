@@ -1,8 +1,8 @@
 # KPI Dashboard v12 «Hit Locked Pro»
 
-_Generated: 2026-08-08 09:33:19 UTC_
+_Generated: 2026-08-12 19:53:16 UTC_
 
-**Соответствие ТЗ: 100%**   |   **Общий вердикт: YELLOW**
+**Соответствие ТЗ: 90%**   |   **Общий вердикт: YELLOW**
 
 ## 🔴 Стек / зависимости — 25%
 
@@ -19,45 +19,13 @@ _Generated: 2026-08-08 09:33:19 UTC_
       ! [OPTIONAL] essentia: Аналитика упадёт на librosa-only (это ок).
       ! [OPTIONAL] torch: Тяжёлые модели (MusicGen/RVC full) не поднимутся.
 
-## 🟢 Последний прогон мастера — 100%
+## 🔴 Последний прогон мастера — 0%
 
-    Проект: smoke_v13_wizard   Verdict: DRY_RUN_PASS   Ready: 100%
-      [OK ] 6+11   health                  0.00s
-      [OK ] 3.2    references_ingest       0.00s
-      [OK ] 3.3    sample_hunt             0.00s
-      [OK ] 3.4-3.5 arrangement             0.00s
-      [OK ] 3.6    musicgen_texture        0.00s
-      [OK ] 3.7    lyrics                  0.00s
-      [OK ] 3.8-3.10 voice                   0.00s
-      [OK ] 3.11   mixdown_master          0.00s
-      [OK ] 14     anti_neuro_polish       0.00s
-      [OK ] 3.12   release_pack            0.00s
-      [OK ] 17     hit_scorer              0.00s
-      [OK ] 20.5   kpi_verdict             0.00s
+    Нет master_pipeline_v12.json — запусти `python -m modules.master_pipeline_v12`
 
-## 🟢 Smoke-тесты v12 — 100%
+## 🔴 Smoke-тесты v12 — 0%
 
-    PASS: 20 / 20   FAIL: 0
-      [OK  ] v12_layout_new_files
-      [OK  ] v11_layout_preserved
-      [OK  ] v10_v9_layout_preserved
-      [OK  ] health_v12_import_and_run
-      [OK  ] health_v12_saves_json
-      [OK  ] master_pipeline_dry_run
-      [OK  ] master_pipeline_writes
-      [OK  ] master_pipeline_no_cb
-      [OK  ] kpi_dashboard_build
-      [OK  ] kpi_dashboard_markdown
-      [OK  ] theme_v12_qss
-      [OK  ] orch_v12_register
-      [OK  ] orch_v12_run
-      [OK  ] main_v12_flags
-      [OK  ] utf8_encoding_check
-      [OK  ] no_deleted_prev_files
-      [OK  ] master_pipeline_human_sum
-      [OK  ] kpi_dashboard_text
-      [OK  ] cumulative_archive_size
-      [OK  ] tz_checklist_coverage
+    Нет smoke_v12_report.json — запусти `python smoke_v12.py`
 
 ## Чеклист ТЗ (раздел 16 + 20)
 
@@ -69,8 +37,8 @@ _Generated: 2026-08-08 09:33:19 UTC_
 | 4 | 5 | Интерактивный Onboarding | ✅ |
 | 5 | 6 | UTF-8 в коде, CP866 в консоли | ✅ |
 | 6 | 6 | Авто-подтяжка зависимостей | ✅ |
-| 7 | 7 | Smoke + E2E тесты | ✅ |
-| 8 | 8+11 | README + CONTEXT.md накопительно | ✅ |
+| 7 | 7 | Smoke + E2E тесты | ❌ |
+| 8 | 8+11 | README + CONTEXT.md накопительно | ❌ |
 | 9 | 9 | Бесплатные интернет-агенты | ✅ |
 | 10 | 11 | Логирование всего в logs/app.log | ✅ |
 | 11 | 20.1 | HW autodetect + fallback | ✅ |
@@ -85,3 +53,8 @@ _Generated: 2026-08-08 09:33:19 UTC_
 | 20 | 20.2 п.34 | AI Detector Pro + hit_scorer | ✅ |
 | 21 | 20.2 п.35А | Очередь ≥5 треков | ✅ |
 | 22 | 20.5 | KPI-мониторинг | ✅ |
+
+## Что не подтверждено / рекомендации
+
+- [TZ 7] Smoke + E2E тесты — не подтверждено, проверь наличие соответствующего файла/модуля.
+- [TZ 8+11] README + CONTEXT.md накопительно — не подтверждено, проверь наличие соответствующего файла/модуля.

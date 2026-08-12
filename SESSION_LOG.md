@@ -19,10 +19,10 @@
 - [ ] **P1: `musicgen_texture` = BLOCKED** — audiocraft heavy, не установлен. Подготовить честную инструкцию установки + авто-проверку при старте (сейчас молча падает в лог).
 
 ### P2 — качество результата
-- [ ] **P2: `voice_synth` = FALLBACK_ONLY** — только pyttsx3/gtts scaffold. Цель: Silero TTS v3.1 RU на CPU (~50MB, реально для RX580/16GB). Обвязка есть, движок не подтверждён.
+- [ ] **P2: `voice_synth` = FALLBACK_ONLY** — только pyttsx3/gtts scaffold. Цель: Silero TTS v3.1 RU на CPU (~50MB, реально для RX580/16GB). Обвязка есть, движок не подтверждён. **v30: честность исправлена** — `synth()` больше не возвращает путь к несуществующему файлу.
 - [ ] **P2: RVC-конверсия тембра = NOT_TESTED** — `rvc_manager.py` обвязка есть (Applio/Mangio форки), но конверсия на реальной модели не прогонялась. Проверить inference на готовой .pth без обучения.
-- [ ] **P2: 82 `except: pass` в modules/ + app/core/** — часть легитимна (опциональные heavy-deps), часть — скрытые падения. Точечно: master_pipeline_v12.py, release_pack_full.py.
-- [ ] **P2: Вокальная стадия God Mode `vocal_cleaning` возвращает `None`** когда нет ни входного вокала, ни установленного TTS. Технически pipeline проходит (мастер только из бита), но статус нужно повысить до PARTIAL и в отчёт добавить honest `reason=no_vocal_engine`. Обвязка `voice_synth.synth` подключена, движок отсутствует в sandbox.
+- [ ] **P2: 449 `except`-блоков в modules/ + app/core/** — большинство легитимны (опциональные heavy-deps), часть — скрытые падения. Точечно: master_pipeline_v12.py, release_pack_full.py.
+- [x] ✅ **v30: Вокальная стадия God Mode `vocal_cleaning`** — теперь при отсутствии TTS-движка кладёт в отчёт честный `vocal_status=BLOCKED` + `vocal_reason=no_vocal_engine` (раньше молча возвращала None).
 
 ### P3 — UI/полировка/cleanup
 - [x] ✅ v29: **Устаревшие smoke_v14..v25 (11 файлов) + AUDIT_50_DEEP / AUDIT_AND_IMPROVEMENT_REPORT / AIDER_GENERATION_AUDIT** — перенесены в `docs/legacy/` (не удалены, история сохранена). Активный smoke: `tools/smoke_v26.py` (аудио-качество) + `tools/smoke_v29.py` (God Mode E2E).
@@ -31,6 +31,39 @@
 ---
 
 ## ЖУРНАЛ СЕССИЙ
+
+### v30 (2026-08-12) — session-full-audit-fix-restore
+**Что проверено (полный аудит 276 файлов, 31.5k строк Python):**
+- `python3 -m py_compile` всех .py → 0 синтаксических ошибок
+- `pytest tests/` → **7/7 PASS**
+- `tools/smoke_v29.py` → **8/8 PASS** (God Mode E2E, master_god.wav стерео 120с -1 dBTP)
+- `tools/smoke_v26.py` → **6/6 PASS** (аудио-качество: stereo/loudness/drop/hit-score)
+- `main.py --version/--list-genres/--health/--readiness/--dashboard/--self-diag/--dry-run/--e2e` → все CLI работают
+- Импорт-проверка 44 ключевых модулей → после восстановления 0 падений
+
+**Найдено и исправлено:**
+1. **[P0] 5 модулей ошибочно удалены** в коммите f862aaf («Category D: remove dead code») — но они до сих пор импортировались health_v12/kpi_dashboard_v12/master_pipeline_v12/orchestrator_v10_patch. Это роняло health до RED и ломало KPI-пайплайн. → **Восстановлены из git-истории**: `lyrics_gen_v8`, `mastering_v9`, `release_pack_v9`, `hit_kpi_monitor_v11`, `lyric_vault_v10`. Все компилируются и импортируются, self-test KPI-модуля PASS.
+2. **[P0-честность] `voice_synth.synth()` возвращал путь к несуществующему файлу**, когда ни один TTS-движок недоступен — вызывающий код получал «лживый» путь. → Теперь honest empty return `""` + проверка `_produced()` (файл >100 байт).
+3. **[P0] Отсутствовал `run.bat`** — на него ссылались README («главный запуск»), INSTALL.md, create_desktop_shortcut.ps1, verify.bat. Двойной клик по ярлыку вёл в никуда. → Создан (тонкая обёртка над main.py, ищет venv → py → python).
+4. **[P1] `self_diag_v13` падал** `FileNotFoundError: logs/self_diag_v13.txt` на свежем clone (нет каталога logs/). → Ленивое создание LOGS перед записью.
+5. **[P1] Чекпоинты pipeline_core жили вечно** — старый fail-чекпоинт блокировал пайплайн навсегда даже после исправления кода. → TTL 24ч + env `ZSMM_NO_CHECKPOINTS=1` для полного отключения.
+6. **[P1] `verify.bat` вызывал несуществующие** `smoke_test.py` / `bootstrap_e2e_test.py` → переписан на реальные: pytest + smoke_v26 + smoke_v29.
+7. **[P2] God Mode отчёт терял статус вокала** → добавлены честные `vocal_status` / `vocal_reason` в итоговый project_meta.json.
+8. **[P3] `main.py --smoke` не включал smoke_v29** → добавлен первым в цепочку.
+
+**Результат после исправлений:**
+- health_v12: missing internals = **[]** (было 4), ready 22→25%, dashboard «Соответствие ТЗ: 90% YELLOW»
+- God Mode E2E: status=completed, vocal_status=BLOCKED (честно, т.к. нет TTS в sandbox)
+- Все smoke и pytest — зелёные
+
+**Что не удалось (честно):**
+- Windows EXE build через GitHub Actions — в sandbox нет Windows, статус NOT_TESTED до прогона в Actions.
+- Реальные TTS (silero/xtts/bark/pyttsx3/gtts) не установлены в sandbox — вокальная стадия честно BLOCKED, не сломана.
+- health verdict остаётся RED из-за отсутствия в sandbox тяжёлых GUI/TTS-зависимостей (PySide6, gradio, pydub, pyttsx3) — на целевом ПК с `python install.py` они подтянутся.
+
+**Оценка:** проект стал **измеримо лучше**. Устранён главный источник RED-health (мёртвые ссылки на удалённые модули), починена честность вокального fallback, восстановлен главный Windows-лаунчер. Приложение реально ближе к «полностью работающему»: единственные оставшиеся BLOCKED — это опциональные тяжёлые зависимости, которые подтягиваются install.py на пользовательской машине.
+
+---
 
 ### v29 (2026-08-12) — session-god-mode-e2e-midi-fix-truepeak
 **Что проверено:**
@@ -70,9 +103,9 @@
 
 ---
 
-## ПЛАН СЛЕДУЮЩЕЙ СЕССИИ (v30)
-1. Проверить результат build.yml в Actions после push v29 → если EXE собрался, статус REAL_PASS; если упал — чинить spec/пути.
+## ПЛАН СЛЕДУЮЩЕЙ СЕССИИ (v31)
+1. Проверить результат build.yml в Actions после push v30 → если EXE собрался, статус REAL_PASS; если упал — чинить spec/пути.
 2. voice_synth: подтвердить Silero на CPU baseline → REAL_PASS.
 3. musicgen_texture: honest instruction + BLOCKED-детектор на старте.
 4. RVC: реальная inference-проверка на готовой .pth.
-5. Точечно почистить `except: pass` в master_pipeline_v12.py.
+5. Точечно почистить `except: pass` в master_pipeline_v12.py (449 блоков — приоритет скрытым падениям).
