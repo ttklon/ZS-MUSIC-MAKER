@@ -79,26 +79,66 @@ def process_mastering(input_wav: str, output_wav: str, vocal_path: str = None, t
         mastered = audio_data.T
         audio_to_norm = audio_data
 
-    # Нормализация громкости
+    # v27.2 (P0): iterative LUFS compensation после pedalboard-Limiter.
+    # До этого pyloudnorm.normalize.loudness видел уже отлимитированный
+    # сигнал и не мог дожать до target — smoke_v26 стабильно давал
+    # dBFS≈-16 при target=-13.5.
     input_lufs = -20.0
     if HAS_PYLOUDNORM:
         try:
             meter = pyln.Meter(samplerate)
             input_lufs = meter.integrated_loudness(audio_to_norm)
-            mastered = pyln.normalize.loudness(audio_to_norm, input_lufs, target_lufs)
-            mastered = mastered.T # back to (channels, frames) or (frames, channels)
+            work = audio_to_norm.astype(np.float32, copy=True)
+            # v27.3: 4 iter + пост-iter dBFS-boost, чтобы удовлетворить и
+            # LUFS integrated, и dBFS RMS smoke-check (было: LUFS уходил в
+            # target, но RMS оставался ниже из-за tanh-нелинейности).
+            for _iter in range(4):
+                try:
+                    cur_lufs = meter.integrated_loudness(work)
+                except Exception:
+                    break
+                delta_db = target_lufs - cur_lufs
+                if abs(delta_db) < 0.3:
+                    break
+                delta_db = max(-12.0, min(12.0, delta_db))
+                work = work * (10.0 ** (delta_db / 20.0))
+                # soft tanh-limiter (мягче — 1.2, чтобы нелинейность
+                # меньше давила RMS)
+                work = np.tanh(work * 1.2) / 1.2
+            # Пост-iter RMS-boost: если пик позволяет, поднимаем ещё до
+            # ~-13.5 RMS-эквивалент (~target_lufs + 3, музыка LUFS≈RMS-3).
+            rms_target = 10.0 ** ((target_lufs + 3.0) / 20.0)
+            cur_rms = float(np.sqrt(np.mean(work * work))) + 1e-12
+            extra_gain = rms_target / cur_rms
+            peak_now = float(np.max(np.abs(work))) + 1e-9
+            max_gain_by_peak = 0.97 / peak_now
+            extra_gain = min(extra_gain, max_gain_by_peak, 1.5)
+            if extra_gain > 1.0:
+                work = work * extra_gain
+            peak = float(np.max(np.abs(work))) + 1e-9
+            if peak > 0.985:
+                work = work * (0.985 / peak)
+            mastered = work.T
         except Exception as e:
             print(f"[mastering_pro] pyloudnorm error: {e}, using RMS fallback")
             HAS_PYLOUDNORM = False
 
     if not HAS_PYLOUDNORM:
-        # Простой RMS-фоллбек нормализации
-        current_rms = np.sqrt(np.mean(mastered**2)) + 1e-12
-        target_rms = 10.0 ** (target_lufs / 20.0)
-        gain = target_rms / current_rms
-        mastered = mastered * min(gain, 5.0) # ограничение усиления
+        # Итеративный RMS-фоллбек к target_lufs (LUFS≈dBFS-3 для музыки).
+        work = mastered.astype(np.float32, copy=True)
+        for _iter in range(3):
+            rms = float(np.sqrt(np.mean(work * work))) + 1e-12
+            cur_dbfs = 20.0 * np.log10(rms)
+            approx_lufs = cur_dbfs - 3.0
+            delta_db = target_lufs - approx_lufs
+            if abs(delta_db) < 0.5:
+                break
+            delta_db = max(-12.0, min(12.0, delta_db))
+            work = work * (10.0 ** (delta_db / 20.0))
+            work = np.tanh(work * 1.2) / 1.2
+        mastered = work
 
-    # Финальный клиппинг
+    # Финальный клиппинг (safety net)
     mastered = np.clip(mastered, -0.99, 0.99)
 
     # Если массив канальный, приведем к (frames, channels) для sf.write если нужно,

@@ -2,27 +2,87 @@ name: ZS-MUSIC-MAKER CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, "genspark/**" ]
   pull_request:
     branches: [ main ]
 
 jobs:
   test:
+    name: Pytest + smoke_v26 (Ubuntu, Python 3.11)
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
         python-version: '3.11'
-        
-    - name: Install dependencies
+
+    - name: System deps (espeak for pyttsx3 fallback)
+      run: |
+        sudo apt-get update -qq
+        sudo apt-get install -y -qq espeak-ng ffmpeg
+
+    - name: Python deps
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
-        pip install pytest pyloudnorm pedalboard
-        
-    - name: Run Pytest Suite
+        pip install pytest pyloudnorm pedalboard soundfile librosa pydub pyttsx3 gtts
+
+    - name: Pytest suite
       run: |
-        python -m pytest tests/
+        python -m pytest tests/ -v --tb=short
+
+    - name: Smoke v26 (audio pipeline end-to-end)
+      run: |
+        python tools/smoke_v26.py
+
+  build-windows:
+    name: Build Windows EXE (PyInstaller)
+    runs-on: windows-latest
+    needs: test
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/genspark/')
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install deps
+      shell: pwsh
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pyinstaller pyloudnorm pedalboard soundfile librosa pydub pyttsx3 gtts
+
+    - name: Build EXE
+      shell: pwsh
+      run: |
+        pyinstaller --noconfirm --clean `
+          --name "ZS-Music-Maker" `
+          --onefile `
+          --console `
+          --add-data "version.json;." `
+          --add-data "config;config" `
+          --collect-submodules modules `
+          --collect-submodules app `
+          --hidden-import "modules.mastering" `
+          --hidden-import "modules.mastering_pro" `
+          --hidden-import "modules.beat_constructor" `
+          --hidden-import "modules.hit_scorer" `
+          --hidden-import "app.core.orchestrator" `
+          main.py
+
+    - name: Smoke EXE (--version)
+      shell: pwsh
+      run: |
+        dist\ZS-Music-Maker.exe --version
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ZS-Music-Maker-Windows-EXE
+        path: dist/ZS-Music-Maker.exe
+        retention-days: 30

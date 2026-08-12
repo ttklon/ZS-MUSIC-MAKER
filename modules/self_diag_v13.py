@@ -304,12 +304,20 @@ def run(save_to_log: bool = True) -> dict[str, Any]:
     }
 
     if save_to_log:
-        (LOGS / "self_diag_v13.txt").write_text(
-            report
-            + "\n\n# JSON snapshot #\n"
-            + json.dumps(out, ensure_ascii=False, indent=2),
-            encoding="utf-8",
-        )
+        # v27 FIX (P1): logs/ каталога могло не быть на свежем
+        # checkout (в .gitignore, а у self_diag — lazy mkdir).
+        # Раньше self_diag падал с FileNotFoundError, команда
+        # `python main.py --self-diag` крашилась после печати отчёта.
+        try:
+            LOGS.mkdir(parents=True, exist_ok=True)
+            (LOGS / "self_diag_v13.txt").write_text(
+                report
+                + "\n\n# JSON snapshot #\n"
+                + json.dumps(out, ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
+        except Exception as e:
+            print(f"[self_diag] cannot save log (non-fatal): {e}")
     return out
 
 
