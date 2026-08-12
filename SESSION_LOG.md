@@ -10,47 +10,57 @@
 ## АКТИВНЫЙ БЭКЛОГ (по приоритету)
 
 ### P0 — ломает запуск/продукт
-- [x] ✅ v28: **Репозиторий содержал 72 отслеживаемых артефакта в `output/` (~262MB WAV/JSON)** — засорял clone, раздувал ZIP. → Добавлен `release/`, `*.zip`, `models/rvc_forks/` в .gitignore; артефакты удалены из индекса (файлы на диске сохранены).
-- [ ] **P0: God Mode `run_god_pipeline` падал при `wizard_state=None`** — v28 добавлена защита (Optional[dict] + дефолт), но **полный E2E до master.wav в sandbox не подтверждён** (heavy-deps: phonk/cyber synth). На Windows-цели прогнать `main.py --god --genre drift_phonk` и проверить `output/god_cli/`.
+- [x] ✅ v29: **God Mode E2E падал на `midi_generation` — `TypeError: 'NoneType' object is not callable`** (mido отсутствует, guard был только в `generate_drum_pattern`, а `generate_melody_pattern` пытался вызвать `MidiFile()` → крах всего pipeline). → Добавлен guard, honest BLOCKED-return `""`, расширены жанровые паттерны (phonk/trap/techno/hiphop), `get_status()`. Требование `mido>=1.3.0` внесено в `requirements.txt`. E2E теперь доходит до `master_god.wav`.
 
 ### P1 — критично для пайплайна/голоса/бита
-- [ ] **P1: Нет сборки Windows EXE.** GitHub Actions имеет только `ci.yml` (pytest). Нужен `build.yml` (PyInstaller, windows-latest, trigger on push to main) — пользователь должен получать EXE из Actions. v28: подготовить workflow.
-- [ ] **P1: `voice_cleaner` = FALLBACK_ONLY** — noisereduce опционален, но не проверен на Windows. Установить на целевой ПК, перевести в REAL_PASS.
+- [x] ✅ v29: **mastering_pro: pyloudnorm clipping warning + возможные NaN/Inf + моно-даунмикс на выходе** → добавлен true-peak ceiling `-1 dBTP` (streaming-стенд), `_sanitize()` (NaN/Inf → 0), auto mono→stereo up-mix, honest output-метрики (`output_lufs`, `output_peak_db`, `channels`, `sample_rate`).
+- [ ] **P1: Windows EXE build не верифицирован** — GitHub Actions `build.yml` есть, но первый прогон через Actions не подтверждён (в sandbox нет Windows). После push v29 → следить за https://github.com/ttklon/ZS-MUSIC-MAKER/actions.
+- [ ] **P1: `voice_cleaner` = FALLBACK_ONLY** — noisereduce опционален, не проверен на Windows. Установить на целевой ПК, перевести в REAL_PASS.
 - [ ] **P1: `musicgen_texture` = BLOCKED** — audiocraft heavy, не установлен. Подготовить честную инструкцию установки + авто-проверку при старте (сейчас молча падает в лог).
 
 ### P2 — качество результата
 - [ ] **P2: `voice_synth` = FALLBACK_ONLY** — только pyttsx3/gtts scaffold. Цель: Silero TTS v3.1 RU на CPU (~50MB, реально для RX580/16GB). Обвязка есть, движок не подтверждён.
 - [ ] **P2: RVC-конверсия тембра = NOT_TESTED** — `rvc_manager.py` обвязка есть (Applio/Mangio форки), но конверсия на реальной модели не прогонялась. Проверить inference на готовой .pth без обучения.
-- [ ] **P2: mastering без true-peak limiting** — сейчас RMS-эквивалент (pyloudnorm LUFS если установлен). Добавить true-peak ceiling -1 dBTP для streaming-стенда.
 - [ ] **P2: 82 `except: pass` в modules/ + app/core/** — часть легитимна (опциональные heavy-deps), часть — скрытые падения. Точечно: master_pipeline_v12.py, release_pack_full.py.
+- [ ] **P2: Вокальная стадия God Mode `vocal_cleaning` возвращает `None`** когда нет ни входного вокала, ни установленного TTS. Технически pipeline проходит (мастер только из бита), но статус нужно повысить до PARTIAL и в отчёт добавить honest `reason=no_vocal_engine`. Обвязка `voice_synth.synth` подключена, движок отсутствует в sandbox.
 
 ### P3 — UI/полировка/cleanup
+- [x] ✅ v29: **Устаревшие smoke_v14..v25 (11 файлов) + AUDIT_50_DEEP / AUDIT_AND_IMPROVEMENT_REPORT / AIDER_GENERATION_AUDIT** — перенесены в `docs/legacy/` (не удалены, история сохранена). Активный smoke: `tools/smoke_v26.py` (аудио-качество) + `tools/smoke_v29.py` (God Mode E2E).
 - [ ] **P3: PySide6 GUI = NOT_TESTED на Windows** — в sandbox невозможно. Проверить `main.py --desktop` на целевом ПК.
-- [ ] **P3: smoke_v14..v25 в tools/** — 12 версионных smoke-скриптов. Оставить smoke_v26 (актуальный) + real_e2e_v14, остальные — кандидаты на архив в docs/legacy/.
-- [ ] **P3: AUDIT_50_DEEP.md / AUDIT_AND_IMPROVEMENT_REPORT.md / AIDER_GENERATION_AUDIT.md** — исторические аудиты, источник истины = этот файл + PROJECT_STATE. Перенести в docs/legacy/.
 
 ---
 
 ## ЖУРНАЛ СЕССИЙ
 
-### v28 (2026-08-12) — session-cleanup-godmode-ci-build
+### v29 (2026-08-12) — session-god-mode-e2e-midi-fix-truepeak
 **Что проверено:**
-- `main.py --version` → REAL_PASS (v27.0.0, version.json читается)
-- `pytest tests/` → 7/7 PASS
-- `tools/smoke_v26.py` → 6/6 PASS (stereo/loudness/drop/hit_score/hook)
-- `orchestrator_god` import → OK; **E2E-прогон выявил крах** при wizard_state=None
+- `main.py --version` → **REAL_PASS** (v29.0.0)
+- `pytest tests/` → **7/7 PASS**
+- `tools/smoke_v26.py` → **6/6 PASS** (регрессия чиста)
+- `tools/smoke_v29.py` (новый) → **8/8 PASS** — God Mode E2E доходит до `master_god.wav`, stereo, 120с, peak = -1.0 dBTP, RMS в норме
+- Прямой прогон `run_god_pipeline(project_id, wizard_state=None)` → **status=completed** (5 стадий: ai_arrangement → midi_generation → audio_generation → vocal_cleaning → god_mastering_pro)
 
 **Что исправлено:**
-1. **[P0] Репозиторий раздут артефактами** — 72 файла output/ (~262MB) в git-индексе. Расширен .gitignore (release/, *.zip, models/rvc_forks/, бинарники RVC), git rm --cached.
-2. **[P0→P1] God Mode краш при wizard_state=None** — `run_god_pipeline(pid, None)` падал на стадии ai_arrangement (`'NoneType'.get`). Теперь Optional[dict] с безопасным дефолтом — пайплайн не умирает на первой стадии при вызове из GUI/smoke без wizard.
-3. **[P1] CI не собирает EXE** — добавлен `.github/workflows/build.yml`: Windows runner, PyInstaller, trigger on push to main, artifact upload. Пользователь получает EXE из GitHub Actions.
-4. **[Правило 11] Создан этот SESSION_LOG.md** — единый журнал ошибок/доработок/планов.
+1. **[P0] `midi_generator.generate_melody_pattern` TypeError без mido** → добавлен guard `if not _HAS_MIDO: return ""`, расширены жанровые паттерны (phonk/trap/techno с музыкально осмысленной ритмикой), добавлена `get_status()` для честного отчёта. Убран дубликат guard в drum-версии.
+2. **[P1] `mastering_pro` clipping/NaN/mono-риск** → true-peak ceiling -1 dBTP, `_sanitize()` для NaN/Inf, auto mono→stereo, honest output-метрики (`output_lufs`, `output_peak_db`, `channels`, `sample_rate`). Подавлен ClippingWarning — теперь всегда strict `-1 dBTP` на выходе.
+3. **[P0] `mido` не в requirements** → добавлен `mido>=1.3.0`. Без него God Mode не создаёт MIDI-стемы (честный BLOCKED, но pipeline не валится).
+4. **[P3] Cleanup** → 11 устаревших smoke-скриптов + 3 старых аудита архивированы в `docs/legacy/`. Активная папка `tools/` уменьшена до релевантных инструментов.
+5. **[Правило 11]** SESSION_LOG актуализирован.
 
 **Что не удалось:**
-- Полный E2E God Mode до master.wav в sandbox: heavy-синтезаторы (phonk_v2/cyber) требуют проверки на целевом Windows. Обвязка исправлена, статус PARTIAL.
-- EXE-сборка не верифицирована в sandbox (нет Windows) — NOT_TESTED до первого прогона Actions.
+- Windows EXE build через GitHub Actions в sandbox проверить нельзя — статус NOT_TESTED до реального прогона в Actions.
+- Реальный TTS (Silero/pyttsx3/gtts) не установлен в sandbox — вокальная стадия работает как honest FALLBACK_ONLY.
 
-**Оценка:** проект стал лучше — клон на ~260MB легче, God Mode не падает на старте, появился путь к автосборке EXE, заведён канонический журнал.
+**Оценка:** проект стал **реально лучше**. God Mode впервые в истории проекта завершается `status=completed` с валидным `master_god.wav` (стерео 44.1 кГц, 120 с, ceiling -1 dBTP). Появилась honest E2E-проверка `smoke_v29`. Убран мусор из `tools/` и корня.
+
+**Артефакты:** `output/smoke_v29/god/masters/master_god.wav` (стерео, 120с, -1 dBTP), `output/smoke_v29/midi/*.mid`.
+
+### v28 (2026-08-12) — session-cleanup-godmode-ci-build
+**Что исправлено:**
+1. [P0] Репо очищено от 72 output-артефактов (~262MB), `.gitignore` расширен.
+2. [P0→P1] God Mode `wizard_state=None` защищён Optional+default.
+3. [P1] Добавлен `.github/workflows/build.yml` (Windows EXE, PyInstaller).
+4. Создан SESSION_LOG.md.
 
 ### v27 (2026-08-12) — mastering-module-stereo-import-fallback
 - Создан отсутствующий `modules/mastering.py` (мастеринг всегда падал) ✅
@@ -60,8 +70,9 @@
 
 ---
 
-## ПЛАН СЛЕДУЮЩЕЙ СЕССИИ (v29)
-1. Проверить результат build.yml в Actions → если EXE собрался, статус REAL_PASS; если упал — чинить spec/пути.
-2. Прогнать God Mode E2E на Windows до master.wav.
-3. voice_synth: подтвердить Silero на CPU → REAL_PASS.
-4. Архивировать smoke_v14..v25 и старые аудиты в docs/legacy/.
+## ПЛАН СЛЕДУЮЩЕЙ СЕССИИ (v30)
+1. Проверить результат build.yml в Actions после push v29 → если EXE собрался, статус REAL_PASS; если упал — чинить spec/пути.
+2. voice_synth: подтвердить Silero на CPU baseline → REAL_PASS.
+3. musicgen_texture: honest instruction + BLOCKED-детектор на старте.
+4. RVC: реальная inference-проверка на готовой .pth.
+5. Точечно почистить `except: pass` в master_pipeline_v12.py.

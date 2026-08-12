@@ -4,10 +4,25 @@ ZS Music Maker — midi_generator.py (GOD MODE)
 ========================================================================
 Алгоритмическая генерация MIDI паттернов.
 Использует mido для создания MIDI файлов и паттернов для разных жанров.
+
+v29 FIX (P0):
+  * generate_melody_pattern() падал `TypeError: 'NoneType' object is not
+    callable` когда mido не установлен — не было guard'а как в drum-версии.
+    Это валило весь God Mode pipeline на стадии midi_generation.
+  * Возврат "" при отсутствии mido трактовался ядром как fallback без
+    файла (валидно), но orchestrator_god ожидал dict {ok,...}. Оставляем
+    строковый путь (совместимо со стадией), но при отсутствии mido —
+    честный BLOCKED-return без исключения.
+  * Добавлен guard в generate_melody_pattern.
+  * Убран дубликат `if not _HAS_MIDO: return ""` в drum-версии.
+  * Определены расширенные жанровые паттерны (trap/phonk/drift/techno/
+    hiphop) с более музыкальной ритмикой.
+  * Добавлена get_status() для честного отчёта о доступности.
 """
 
 import os
 import random
+from typing import Optional
 
 # v27 FIX (P0): mido был жёстким top-level импортом — без него падал
 # orchestrator_god. Ленивый импорт: MIDI-генерация помечается BLOCKED,
@@ -21,72 +36,169 @@ except Exception:  # pragma: no cover
     Message = MidiFile = MidiTrack = None  # type: ignore
     _HAS_MIDO = False
 
-class MIDIGenerator:
-    def __init__(self):
-        self.output_dir = "output/midi"
-        os.makedirs(self.output_dir, exist_ok=True)
 
+class MIDIGenerator:
+    """Алгоритмический MIDI-генератор с honest BLOCKED-fallback."""
+
+    def __init__(self, output_dir: str = "output/midi"):
+        self.output_dir = output_dir
+        # v22-style: lazy dir — не создаём при импорте, только когда пишем
+        self._dir_ready = False
+
+    def _ensure_dir(self) -> None:
+        if not self._dir_ready:
+            os.makedirs(self.output_dir, exist_ok=True)
+            self._dir_ready = True
+
+    @staticmethod
+    def get_status() -> dict:
+        """Возвращает честный статус движка."""
+        return {
+            "ok": _HAS_MIDO,
+            "engine": "mido" if _HAS_MIDO else "BLOCKED",
+            "reason": None if _HAS_MIDO else "mido not installed — MIDI export disabled, honest fallback",
+        }
+
+    # ------------------------------------------------------------------ #
+    #  DRUM PATTERN
+    # ------------------------------------------------------------------ #
     def generate_drum_pattern(self, genre: str, bpm: int) -> str:
-        """Генерирует MIDI барабанный паттерн в зависимости от жанра."""
+        """Генерирует MIDI барабанный паттерн в зависимости от жанра.
+
+        Возвращает путь к .mid или "" если mido недоступен (honest BLOCKED).
+        Не бросает исключения при отсутствии mido — это критично для God Mode.
+        """
+        if not _HAS_MIDO:
+            return ""  # BLOCKED: mido not installed (honest, non-fatal)
+
+        try:
+            self._ensure_dir()
+            mid = MidiFile()
+            track = MidiTrack()
+            mid.tracks.append(track)
+
+            tempo = mido.bpm2tempo(max(40, min(int(bpm), 240)))
+            track.append(mido.MetaMessage('set_tempo', tempo=tempo))
+
+            ticks_per_16th = max(1, mid.ticks_per_beat // 4)
+            g = (genre or "").lower()
+
+            if "techno" in g or "house" in g:
+                # 4-on-the-floor kick + off-beat hats
+                for i in range(16):
+                    if i % 4 == 0:
+                        track.append(Message('note_on', note=36, velocity=110, time=0))
+                        track.append(Message('note_off', note=36, velocity=110, time=ticks_per_16th))
+                    else:
+                        track.append(Message('note_on', note=42, velocity=78, time=0))
+                        track.append(Message('note_off', note=42, velocity=78, time=ticks_per_16th))
+            elif "phonk" in g or "drift" in g:
+                # Cowbell + syncopated kick — classic drift-phonk
+                for i in range(16):
+                    if i in (0, 6, 10):
+                        note, vel = 36, 118
+                    elif i in (4, 12):
+                        note, vel = 38, 100
+                    elif i == 8:
+                        note, vel = 56, 90  # cowbell
+                    else:
+                        note, vel = 42, 70
+                    track.append(Message('note_on', note=note, velocity=vel, time=0))
+                    track.append(Message('note_off', note=note, velocity=vel, time=ticks_per_16th))
+            elif "trap" in g or "hiphop" in g or "hip-hop" in g:
+                # Trap: kick/snare + rolling hats
+                for i in range(16):
+                    if i == 0 or i == 10:
+                        note, vel = 36, 115
+                    elif i in (4, 12):
+                        note, vel = 38, 105
+                    else:
+                        # rolling hats with velocity variation
+                        note = 42
+                        vel = random.randint(55, 95)
+                    track.append(Message('note_on', note=note, velocity=vel, time=0))
+                    track.append(Message('note_off', note=note, velocity=vel, time=ticks_per_16th))
+            else:
+                # Default: pop-rock 4/4
+                for i in range(16):
+                    if i in (0, 8):
+                        note, vel = 36, 108
+                    elif i in (4, 12):
+                        note, vel = 38, 102
+                    else:
+                        note, vel = 42, random.randint(70, 90)
+                    track.append(Message('note_on', note=note, velocity=vel, time=0))
+                    track.append(Message('note_off', note=note, velocity=vel, time=ticks_per_16th))
+
+            safe_genre = "".join(c for c in g if c.isalnum() or c in ("_", "-")) or "gen"
+            out_path = os.path.join(self.output_dir, f"{safe_genre}_drums.mid")
+            mid.save(out_path)
+            return out_path
+        except Exception as e:
+            print(f"[midi_generator] drum error: {e}")
+            return ""
+
+    # ------------------------------------------------------------------ #
+    #  MELODY PATTERN  (v29 P0 fix — добавлен guard)
+    # ------------------------------------------------------------------ #
+    def generate_melody_pattern(
+        self,
+        genre: str,
+        key_root: str = "A",
+        mode: str = "minor",
+        bpm: int = 120,
+    ) -> str:
+        """Генерирует MIDI мелодию на основе музыкальной теории.
+
+        v29 P0: раньше падал TypeError при отсутствии mido — валил God Mode.
+        Теперь: honest BLOCKED-return "" вместо исключения.
+        """
         if not _HAS_MIDO:
             return ""  # BLOCKED: mido not installed
-        if not _HAS_MIDO:
+
+        try:
+            self._ensure_dir()
+
+            # Гаммы: MIDI-ноты для root + intervals
+            root_map = {"C": 60, "C#": 61, "D": 62, "D#": 63, "E": 64, "F": 65,
+                        "F#": 66, "G": 67, "G#": 68, "A": 69, "A#": 70, "B": 71}
+            root = root_map.get((key_root or "A").upper(), 69)
+            if (mode or "minor").lower().startswith("min"):
+                intervals = [0, 2, 3, 5, 7, 8, 10, 12]  # natural minor
+            else:
+                intervals = [0, 2, 4, 5, 7, 9, 11, 12]  # major
+            scale = [root + iv for iv in intervals]
+
+            mid = MidiFile()
+            track = MidiTrack()
+            mid.tracks.append(track)
+
+            tempo = mido.bpm2tempo(max(40, min(int(bpm), 240)))
+            track.append(mido.MetaMessage('set_tempo', tempo=tempo))
+
+            ticks_per_8th = max(1, mid.ticks_per_beat // 2)
+
+            # 16 нот с музыкальной логикой (весовое приближение к тонике)
+            weights = [3, 1, 2, 1, 2, 1, 1, 3]
+            for step in range(16):
+                # Разная длительность (варьируем 8th и 16th)
+                dur = ticks_per_8th if step % 2 == 0 else ticks_per_8th // 2
+                note = random.choices(scale, weights=weights, k=1)[0]
+                vel = random.randint(64, 96)
+                track.append(Message('note_on', note=note, velocity=vel, time=0))
+                track.append(Message('note_off', note=note, velocity=vel, time=dur))
+
+            safe_genre = "".join(c for c in (genre or "gen").lower() if c.isalnum() or c in ("_", "-")) or "gen"
+            out_path = os.path.join(self.output_dir, f"{safe_genre}_melody.mid")
+            mid.save(out_path)
+            return out_path
+        except Exception as e:
+            print(f"[midi_generator] melody error: {e}")
             return ""
-        mid = MidiFile()
-        track = MidiTrack()
-        mid.tracks.append(track)
-        
-        # 1. Настройка темпа (mido использует микросекунды на четверть)
-        tempo = mido.bpm2tempo(bpm)
-        track.append(mido.MetaMessage('set_tempo', tempo=tempo))
-        
-        # 2. Базовый паттерн (Kick: 36, Snare: 38, Hi-Hat: 42)
-        ticks_per_16th = mid.ticks_per_beat // 4
-        
-        if "techno" in genre.lower():
-            # 4/4 Kick
-            for i in range(16):
-                if i % 4 == 0:
-                    track.append(Message('note_on', note=36, velocity=100, time=0))
-                    track.append(Message('note_off', note=36, velocity=100, time=ticks_per_16th))
-                else:
-                    track.append(Message('note_on', note=42, velocity=80, time=0))
-                    track.append(Message('note_off', note=42, velocity=80, time=ticks_per_16th))
-        else:
-            # Trap/Hip-Hop style
-            for i in range(16):
-                note = 36 if i % 8 == 0 else (38 if i % 8 == 4 else 42)
-                track.append(Message('note_on', note=note, velocity=random.randint(80, 110), time=0))
-                track.append(Message('note_off', note=note, velocity=80, time=ticks_per_16th))
 
-        out_path = os.path.join(self.output_dir, f"{genre}_drums.mid")
-        mid.save(out_path)
-        return out_path
-
-    def generate_melody_pattern(self, genre: str, key_root: str, mode: str, bpm: int) -> str:
-        """Генерирует MIDI мелодию на основе музыкальной теории."""
-        mid = MidiFile()
-        track = MidiTrack()
-        mid.tracks.append(track)
-        
-        tempo = mido.bpm2tempo(bpm)
-        track.append(mido.MetaMessage('set_tempo', tempo=tempo))
-        
-        # Упрощенная гамма (A minor: 69, 71, 72, 74, 76, 77, 79)
-        scale = [69, 71, 72, 74, 76, 77, 79] 
-        
-        ticks_per_8th = mid.ticks_per_beat // 2
-        
-        for _ in range(8):
-            note = random.choice(scale)
-            track.append(Message('note_on', note=note, velocity=random.randint(60, 90), time=0))
-            track.append(Message('note_off', note=note, velocity=60, time=ticks_per_8th))
-            
-        out_path = os.path.join(self.output_dir, f"{genre}_melody.mid")
-        mid.save(out_path)
-        return out_path
 
 if __name__ == "__main__":
     gen = MIDIGenerator()
-    print(f"Drum MIDI: {gen.generate_drum_pattern('techno', 128)}")
-    print(f"Melody MIDI: {gen.generate_melody_pattern('techno', 'A', 'minor', 128)}")
+    print("Status:", gen.get_status())
+    print(f"Drum MIDI: {gen.generate_drum_pattern('techno', 128)!r}")
+    print(f"Melody MIDI: {gen.generate_melody_pattern('techno', 'A', 'minor', 128)!r}")
