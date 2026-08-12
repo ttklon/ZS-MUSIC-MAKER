@@ -6,10 +6,20 @@ ZS Music Maker — midi_generator.py (GOD MODE)
 Использует mido для создания MIDI файлов и паттернов для разных жанров.
 """
 
-import mido
-from mido import Message, MidiFile, MidiTrack
 import os
 import random
+
+# v27 FIX (P0): mido был жёстким top-level импортом — без него падал
+# orchestrator_god. Ленивый импорт: MIDI-генерация помечается BLOCKED,
+# если mido не установлен, но импорт модуля не ломается.
+try:
+    import mido  # type: ignore
+    from mido import Message, MidiFile, MidiTrack  # type: ignore
+    _HAS_MIDO = True
+except Exception:  # pragma: no cover
+    mido = None
+    Message = MidiFile = MidiTrack = None  # type: ignore
+    _HAS_MIDO = False
 
 class MIDIGenerator:
     def __init__(self):
@@ -18,6 +28,10 @@ class MIDIGenerator:
 
     def generate_drum_pattern(self, genre: str, bpm: int) -> str:
         """Генерирует MIDI барабанный паттерн в зависимости от жанра."""
+        if not _HAS_MIDO:
+            return ""  # BLOCKED: mido not installed
+        if not _HAS_MIDO:
+            return ""
         mid = MidiFile()
         track = MidiTrack()
         mid.tracks.append(track)

@@ -1,6 +1,6 @@
 {
- "version": "26.0.0",
- "build": "v26-stereo-loudness-hook-drop-2026-08-11",
- "based_on": "v25-recipe-wiring-vocal-guard-beat-stereo-2026-08-11",
- "changes": "v26 (P0/P1): (1) beat_constructor → СТЕРЕО float32 через soundfile (было int16 mono через scipy.wavfile → весь мастер corr=1.0). Схема: low<200Hz моно, mid Haas 10ms, hi Haas 7ms — stereo_width 40→90, corr=0.78-0.80. (2) Секционный gain-envelope (verse -4dB, hook +0dB, intro/outro -8dB) + 200мс fade перед первым hook + повторяющийся 4-нотный мотив в припевах → hook_energy/raw>0. (3) mastering STANDS сдвинуты на +0.5d (streaming/headphones/monitors -14→-13.5) + iterative dBFS-compensation после tanh-limiter (3 iter) + ITU-BS.1770 K-weighting без gating offset → hit_scorer loudness 40→75. (4) _loudness_lufs sweet-spot сдвинут на -3dB под librosa mono-downmix. (5) _hook_repeatability даёт реальный raw>0 в fallback (было константа 55/0). Добавлен tools/smoke_v26.py (6 проверок). Регрессия: smoke_v25 9/9 PASS (50.28→57.25), smoke_v24 7/7 PASS."
+ "version": "27.0.0",
+ "build": "v27-mastering-module-stereo-import-fallback-2026-08-12",
+ "based_on": "v26-stereo-loudness-hook-drop-2026-08-11",
+ "changes": "v27 (P0/P1): (1) Создан отсутствующий modules/mastering.py — канонический вход мастеринга. Раньше orchestrator._stage_mastering делал 'from modules import mastering', но файла НЕ БЫЛО → стадия мастеринга ВСЕГДА падала → master_streaming.wav никогда не создавался → smoke_v26: master missing + hit_score missing (3/6 FAIL). Теперь: per-stand EQ (one-pole shelf), tanh-limiter, итеративная dBFS-компенсация, целевые уровни стендов, сохранение СТЕРЕО, опциональный pyloudnorm LUFS. (2) voice_cleaner: noisereduce переведён на ленивый импорт с честным fallback (DC-removal + 80Hz highpass, fallback_used=True) — раньше жёсткий import ломал orchestrator_god. (3) plugins/advanced: pedalboard+audiomentations ленивые с no-op заглушками. (4) mastering_stands: убран монодаунмикс (убивал стерео-ширину). Ожидается: smoke_v26 3/6 → 6/6, orchestrator_god импортируется."
 }

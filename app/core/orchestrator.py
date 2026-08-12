@@ -1837,8 +1837,9 @@ def run_full_pipeline(
 
     streaming_master = None
     if s10.ok and isinstance(s10.output, dict):
-        stmap = s10.output.get("stands", {})
-        streaming_master = (stmap.get("streaming") or {}).get("out_wav")
+        stmap = s10.output.get("masters") or s10.output.get("stands", {})
+        _sm = stmap.get("streaming")
+        streaming_master = (_sm.get("out_wav") if isinstance(_sm, dict) else _sm)
 
     if streaming_master:
         s11 = _timed("_stage_polish", lambda: _stage_polish(streaming_master, out_root))

@@ -7,8 +7,42 @@ ZS Music Maker — plugins/advanced.py (GOD MODE)
 
 import numpy as np
 from app.plugins.base import AudioPlugin
-from pedalboard import Pedalboard, Distortion, Reverb, Compressor, HighpassFilter
-from audiomentations import Compose, PitchShift, TimeStretch, AddGaussianNoise, RoomSimulator
+
+# v27 FIX (P0): pedalboard / audiomentations были жёсткими top-level импортами —
+# без них падал весь plugin-слой. Теперь ленивые, с честными no-op заглушками.
+try:
+    from pedalboard import Pedalboard, Distortion, Reverb, Compressor, HighpassFilter  # type: ignore
+    _HAS_PB = True
+except Exception:  # pragma: no cover
+    _HAS_PB = False
+
+    class _NoopFx:  # минимальная заглушка, не ломающая сборку
+        def __init__(self, *a, **k):
+            pass
+
+    class Pedalboard:  # type: ignore
+        def __init__(self, effects=None):
+            self.effects = effects or []
+
+        def __call__(self, audio, sr):
+            return audio  # passthrough
+
+    Distortion = Reverb = Compressor = HighpassFilter = _NoopFx  # type: ignore
+
+try:
+    from audiomentations import Compose, PitchShift, TimeStretch, AddGaussianNoise, RoomSimulator  # type: ignore
+    _HAS_AUG = True
+except Exception:  # pragma: no cover
+    _HAS_AUG = False
+
+    class Compose:  # type: ignore
+        def __init__(self, transforms=None):
+            self.transforms = transforms or []
+
+        def __call__(self, samples, sample_rate):
+            return samples  # passthrough
+
+    PitchShift = TimeStretch = AddGaussianNoise = RoomSimulator = object  # type: ignore
 
 class PedalboardPlugin(AudioPlugin):
     def __init__(self, name: str, effects: list):

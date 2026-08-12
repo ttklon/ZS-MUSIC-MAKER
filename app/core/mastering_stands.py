@@ -58,9 +58,8 @@ def render_stands(master_path: str, stands: list | None = None) -> dict:
         import soundfile as sf
 
         y, sr = sf.read(master_path, always_2d=False)
-        # монодаунмикс если стерео (для простоты EQ)
-        if hasattr(y, "ndim") and y.ndim > 1:
-            y = y.mean(axis=1)
+        # v27 FIX: НЕ делаем монодаунмикс — это убивало стерео-ширину мастера.
+        # EQ однополюсный, каналонезависимый: применяем к каждому каналу.
         for stand in stands:
             y2 = _apply_eq(y, sr, stand)
             out_path = OUT / f"{stand}_master.wav"
