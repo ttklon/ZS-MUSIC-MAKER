@@ -187,3 +187,100 @@
 Приложение **функционально ближе к рабочему, чем сообщает health-RED**: ядро (бит→микс→мастеринг→God Mode) реально работает и подтверждено зелёными smoke. Главные реальные проблемы — **не в аудио-ядре, а вокруг него**: (а) битая инструкция установки INSTALL.md (P0-блокер первого запуска), (б) заниженный/ложный health-RED из-за опциональных heavy-deps, (в) рассинхрон версий в 5 файлах, (г) ложный флаг pitch_shift_as_rvc, (в) архитектурный распад на 5+ оркестраторов. До состояния «полностью работает» осталось устранить пункты 1-8 выше — они НЕ требуют переписывания DSP, это в основном wiring/документация/пороги/детекторы.
 
 **Приоритет для следующей сессии (правки):** сначала P0.1 (INSTALL.md+windows_build.bat), P0.3 (numpy-пин), P1.4 (детектор fallback_audit), P1.5 (version unification), P1.7 (CONTEXT.md+smoke_v12 refs), затем P2.8/P2.9 (model_manager lazy-torch, дубли лаунчеров).
+
+---
+
+### v32 (2026-08-13) — session-deep-audit-v2-only (БЕЗ ПРАВОК, только находки)
+
+> Режим сессии: **ВТОРОЙ ГЛУБОКИЙ АУДИТ БЕЗ ИЗМЕНЕНИЙ КОДА**. Ни один .py/.bat/.json/.yml продукта не правился. Единственная запись — этот блок. Находки v31 (пп.1–16) НЕ дублируются — здесь только НОВЫЕ, не перечисленные выше.
+
+**Проверено в этой сессии (Python 3.12, sandbox):**
+- `compileall` всех .py → 0 ошибок; `pytest tests/` → 7/7 PASS
+- Полный чит-скан: main.py, INSTALL.md, requirements.txt, pyproject.toml, .gitignore, ci.yml, build.yml, run.bat, run_all_smoke.bat/.sh, voice_synth.py, orchestrator_god.py, install.py, updater.py, license_manager.py, app/main.py
+- `git ls-files` (что реально в репо) + проверка ссылок INSTALL.md против диска
+- Стат-анализ: 497 `except` в modules/app, 92 многострочных `except: pass`, 172 `print()` в modules/app, 1 захардкоженный путь, 0 mutable-defaults, 0 `import *`
+
+---
+
+#### НОВЫЕ НАХОДКИ v32 (впервые, не повторяют v31)
+
+**P0 — битые обещания пользователю:**
+
+1. **[P0] `run_all_smoke.bat` вызывает ЧЕТЫРЕ несуществующих файла.** `.bat` запускает `smoke_v9.py`, `smoke_v10.py`, `smoke_v11.py` (корень — их нет) и `tools\smoke_v17.py`, `tools\smoke_v18.py` (перенесены в `docs/legacy/` в v29). Linux-брат `run_all_smoke.sh` исправлен («AUDIT-FIX… раньше скрипт вызывал несуществующие»), а Windows-версия **оставлена битой** — асимметрия платформ. На Windows прогон smoke падает сразу.
+
+2. **[P0] INSTALL.md и README обещают НЕсуществующий функционал вокала/RVC как готовый.** INSTALL.md §5 прямо пишет: «voice_convert.convert() автоматически переключится на offline pitch-shift fallback», а v31 зафиксировал, что pitch-shift-как-RVC **ЗАПРЕЩЁН и бросает RuntimeError** (TZ 33.5). INSTALL.md обещает порт-фолбэк 7861 в run.bat — в run.bat этой логики **нет**. INSTALL.md шаг 1 говорит «Распакуй ZIP» и «Откроется http://127.0.0.1:7860» — но run.bat без аргументов ведёт в PySide6-desktop (не Gradio на 7860). Пользователь читает одно, получает другое.
+
+3. **[P0] `voice_synth` обрезает вокал до 200 символов.** В `orchestrator_god.py` stage_vocal: `voice_synth.synth(text_content[:200])` — сгенерированная лирика (куплет+припев) насильно урезается до 200 знаков ≈ 2-3 строки речи. В итоге в God Mode «вокал» — это одна фраза на 120-секундный трек. Не ошибка синтаксиса, а логический дефект результата: трек технически «с вокалом», фактически без слов.
+
+4. **[P0] `voice_synth` молча перезаписывает `out_name` без проверки коллизии и возвращает дефолт `draft.wav`.** `synth()` пишет всегда в `OUT_DIR/draft.wav`, если не передан `out_name`. Параллельные/повторные вызовы затирают друг друга. Нет уникализации (timestamp/uid) — как в `voice_vault`, так и в `output/voice_draft/`.
+
+**P1 — качество кода и сборка:**
+
+5. **[P1] `install.py` использует `shell=True` на каждой команде pip/apt** — единственный файл в продакте с `subprocess.check_call(cmd, shell=True)` на строках с интерполяцией `sys.executable`. Риск injection + несовместимо с путями с пробелами (которые INSTALL.md сам запрещает, но install.py не проверяет). На пути с пробелом `subprocess`+`shell=True` ломается.
+
+6. **[P1] `requirements.txt` противоречит INSTALL.md по numpy.** requirements пин `numpy>=1.26.0,<2.0` (v31 уже отметил конфликт), а INSTALL.md §2 обещает «numpy<2» но §4 (Linux) ставит `pip install -r requirements.txt` + современные librosa/audiocraft, которые тянут numpy≥2 — pip-резолвер на Linux встанет в конфликт. Инструкция и пин не согласованы.
+
+7. **[P1] `pyproject.toml` и `requirements.txt` — два разных списка зависимостей.** pyproject.dependencies = 10 пакетов (нет PySide6/gradio/pyloudnorm… хотя pyloudnorm там ЕСТЬ, а PySide6 нет), requirements.txt = 30+. `pip install -e .` и `pip install -r requirements.txt` дают разное окружение. CI ставит requirements.txt, а build.yml — requirements.txt; но если кто-то сделает `pip install .` — получит половину.
+
+8. **[P1] `build.yml` (PyInstaller) почти гарантированно НЕ соберёт рабочий EXE.** `--add-data "lyric_vault;lyric_vault"` и `voice_vault` тянут user-data в EXE; **нет** `--add-data "models;models"`, `data/genre_presets`, `data/prompts` (критично для lyrics/cover). `--hidden-import modules` бесполезен — PyInstaller не собирает динамические `__import__("app.core.orchestrator_vN_patch")` и `from modules import ...` внутри функций (а они ВСЕ ленивые). Результат: EXE соберётся, но упадёт в рантайме на первом же ленивом импорте. Smoke-шаг `--version` имеет `continue-on-error: true` → сборка «зелёная» даже при мёртвом EXE.
+
+9. **[P1] `--async-mode` CLI не проверяет результат пайплайна.** `main.py --async-mode` вызывает `AsyncOrchestrator(...).run_pipeline()` и всегда возвращает 0, даже если пайплайн упал. Нет try/except, нет проверки статуса — exit code врёт CI/пользователю.
+
+10. **[P1] `ci.yml` не запускает smoke/E2E вообще.** CI гоняет только `pytest tests/` (7 тестов). Реальные регрессионные проверки (smoke_v26, smoke_v29, fallback_audit, real_e2e_v14) в CI отсутствуют — пуш, ломающий God Mode, пройдёт зелёным. CI защищает только 4 тест-файла из 137 модулей.
+
+11. **[P1] `app/main.py` — дубль-обёртка, расходящаяся с корневым main.py.** `app/main.py` делает `import main as root_main` и вызывает `root_main.main()` — но корневой `main.py` уже имеет свой `_setup_console_encoding()` и `sys.path.insert`. Двойная инициализация кодировки + двойной sys.path. Пользователь не понимает, какой из двух main.py «настоящий» (README зовёт корневой).
+
+**P2 — архитектура и тихие дефекты:**
+
+12. **[P2] 172 вызова `print()` в modules/app вместо logger.** При наличии `app/core/logger.py` (app_logger) почти все модули (voice_synth, orchestrator_god, cyber_synth…) пишут через `print()`. В desktop-режиме (PySide6, `--windowed` EXE без консоли) эти сообщения **теряются** — отладка на Windows-EXE невозможна.
+
+13. **[P2] `time.sleep()` в аудио-потоках karaoke_engine / render_queue.** `karaoke_engine.py:93` спит `beat_ms/1000` в цикле воспроизведения (дрейф синхронизации), `render_queue.py:139` `time.sleep(3)` в цикле опроса. Блокирующие sleep в реалтайм-контексте = заикающийся караоке/очередь.
+
+14. **[P2] `hit_kpi_monitor_v11` портит пути `os.sep`-хаком.** Строки 138/140: `.replace("\\","/")` — ручная нормализация слэшей вместо `Path.as_posix()`. Ломается на путях, где `\` — легитимный символ, и дублирует то, что pathlib делает сам.
+
+15. **[P2] `config/genres_100.json` — это НЕ 100 жанров, а 6 категорий-метаданных.** Файл — dict из 6 ключей. Реальные пресеты лежат в `data/genre_presets/` (50 файлов). `--list-genres` показывает 119 (StyleRegistry из кода). Три источника «сколько жанров»: 6 / 50 / 119 — рассинхрон имени файла, пресетов и реестра.
+
+16. **[P2] `safe_import.py` — мёртвый модуль.** Единственный файл, импортирующий safe_import — `docs/legacy/smoke_v23.py`. Ни один продакт-модуль не использует эту обёртку, хотя 497 except-блоков вручную делают то же самое. Дублирующая инфраструктура, которая не применяется.
+
+17. **[P2] `updater.user_data_dir()` и `program_dir()` расходятся с реальным layout репо.** updater считает program_dir = `C:\Program Files\ZS Music Maker` на win32, но репо ставится клонированием в любую папку; USER_PRESERVED перечисляет `presets`/`prompts`, а в репо они — `data/genre_presets` и `data/prompts`. Откат/backup updater-а сохранит не те каталоги.
+
+18. **[P2] `license_manager.py` не используется пайплайном.** Фильтр CC0/RF существует, но ни sample_hunter, ни freesound_client не вызывают `is_free_commercial()` перед скачиванием сэмпла (проверено grep — нет кросс-ссылки). Лицензионный gate написан, но не подключён → легальный риск на сэмплах.
+
+19. **[P2] `data/health_v12.json` и `data/kpi_dashboard_v12.json` — зашитые в репо снапшоты чужой машины.** `platform: Linux-6.1.158`, `python: 3.13.14`, `ram_gb: 1.9` — это sandbox-артефакт, закоммичен как «данные». `.gitignore` имеет `*.json` с исключением только version.json/config — но эти data/*.json почему-то в репо. Пользователь видит чужой health-профиль как свой.
+
+20. **[P2] God Mode игнорирует `theme` для большинства жанров.** stage_vocal берёт `state.get("theme")`, но stage_arr использует только `genre`, а lyrics_gen получает theme=`"Владимирский централ"` по дефолту независимо от `--theme` аргумента CLI (theme передаётся в wizard_state, но stage_vocal читает `state["theme"]` который ai_arranger не пробрасывает). `--theme` пользователя теряется.
+
+**P3 — честность метрик и UX:**
+
+21. **[P3] `voice_synth` bark/pyttsx3 дефолт-speaker захардкожены** (`aidar`, `v2/ru_speaker_0`) без выбора пола/тональности — для female-трека всё равно синтезируется мужской aidar. Нет параметра gender в synth().
+
+22. **[P3] `--god` CLI игнорирует большинство аргументов.** `_cli_god` читает genre/theme, но `--genre` дефолт `drift_phonk` зашит и в argparse, и в orchestrator_god.setdefault — два дефолта могут разойтись. Нет валидации genre против StyleRegistry: `--genre=foobar` молча уйдёт в пайплайн.
+
+23. **[P3] `run_v14.sh` — единственный v14-лаунчер без пары .bat** (есть run_v8/v9/v11.bat, но v14 только .sh). Ассиметрия ОС в лаунчерах + усиливает путаницу версий (v31 п.9 про дубли).
+
+24. **[P3] CHANGELOG/README/INSTALL расходятся о «текущей» версии жанрового движка.** README v18-заголовок, CHANGELOG v9, INSTALL v4, version.json v30. Пользователь не может понять, какие фичи реально доступны (v31 п.5 про версии — здесь дополнение: **INSTALL.md сам озаглавлен «v4»**, что в 7 версий ниже реальной).
+
+25. **[P3] Нет `.env.example` / документации env-переменных.** Код читает `OPENROUTER_*`, `XAI_*`, `GEMINI_*`, `GOOGLE_*`, `ZSMM_NO_CHECKPOINTS`, `ZSMM_PROGRAM_DIR`, `ZSMM_USER_DIR` — но ни один файл не перечисляет их для пользователя. LLM-фичи молча не работают без ключей, о которых пользователь не знает.
+
+26. **[P3] `tutorial_settings.json` в корне, остальные конфиги — в data/.** Разброс конфигов: tutorial_settings.json (корень), data/*.json, config/genres_100.json, voice_vault/*.json. Нет единого config-слоя; модули читают конфиги отовсюду.
+
+27. **[P3] Тесты не покрывают CLI-режимы main.py.** 7 pytest-тестов — только аудио-DSP. Ни один не дёргает `--version/--god/--dry-run/--readiness` (проверено — tests/ не импортирует main). Регрессия argparse (как P0 в v17 с неподключёнными флагами) пройдёт незамеченной.
+
+28. **[P3] `models/rvc/training_jobs/*.json` закоммичены** — 3 файла реальных training-job (rvc_1786009365…) с user-путями внутри. Репо несёт артефакты чужих RVC-тренировок. `.gitignore` игнорит `models/rvc/*.pth` но не `training_jobs/`.
+
+29. **[P3] `orchestrator_god` пишет meta через `json.dump(default=str)`** — маскирует несериализуемые объекты (Path, numpy-типы) в строки молча. Отчёт project_meta.json может содержать `"123.456"` вместо числа для метрик, что ломает downstream-парсинг KPI.
+
+30. **[P3] `.gitignore` содержит мёртвые исключения** `!AUDIT_50_DEEP.md`, `!GLOBAL_AUDIT_ULTIMATUM_V7.md` — файлов нет (AUDIT_50_DEEP уехал в docs/legacy/). Плюс `*.json` в корне игнорит, но `version.json` — единственное реальное исключение; остальные whitelist-строки — шум.
+
+---
+
+#### СВОДКА НАКОПЛЕННОГО БЭКЛОГА (v31 + v32, итого ~46 открытых пунктов)
+- **P0:** INSTALL/windows_build (v31.1), run_all_smoke.bat (v32.1), voice 200-char clip (v32.3), health-RED порог (v31.2), numpy-пин (v31.3 + v32.6), INSTALL обещания pitch-shift/7860 (v32.2), voice draft.wav коллизия (v32.4)
+- **P1:** fallback_audit детектор (v31.4), version unification (v31.5), CONTEXT.md/smoke_v12 refs (v31.7), install.py shell=True (v32.5), pyproject≠requirements (v32.7), build.yml EXE мёртв (v32.8), async exit code (v32.9), CI без smoke (v32.10), app/main.py дубль (v32.11)
+- **P2:** 3 не-импорта (v31.8), дубли лаунчеров (v31.9+v32.23), 5 оркестраторов (v31.10), hardcoded path (v31.11), монолиты (v31.12), 497 except (v31.13+v32.16), print-vs-logger (v32.12), sleep в RT (v32.13), sep-хак (v32.14), genres 6/50/119 (v32.15), updater layout (v32.17), license gate off (v32.18), stale health json (v32.19), god theme теряется (v32.20)
+- **P3:** покрытие тестами (v31.14+v32.27), dry-run PARTIAL (v31.15), onboarding rc (v31.16), bark speaker (v32.21), god args (v32.22), версии док (v32.24), env не документированы (v32.25), конфиги разбросаны (v32.26), training_jobs в репо (v32.28), meta default=str (v32.29), gitignore мёртв (v32.30)
+
+#### РЕЗЮМЕ v32 (честное)
+Аудио-ядро (beat→mix→mastering→God Mode) по-прежнему REAL_PASS и подтверждено зелёными smoke. Но второй проход вскрыл **системный слой проблем ВОКРУГ ядра**, которых v31 не видел: (а) Windows-smoke полностью бит, (б) voice-стадия урезает текст до 200 символов, (в) PyInstaller-EXE — мёртворождённый (нет hidden-imports для ленивых импортов), (г) CI не гоняет ни одного реального smoke, (д) лицензионный фильтр сэмплов написан, но не подключён. До «полностью работает» — закрыть P0 (пп.1–7 сводки), это wiring/доки/пороги, НЕ переписывание DSP.
+
+**Приоритет следующей сессии (правки):** сначала P0.1/P0.2/P0.3 (INSTALL+windows_build+run_all_smoke.bat+voice 200-char), затем P1.5/P1.8/P1.10 (version unify, build.yml hidden-imports, CI+smoke), затем P1.4 (fallback_audit детектор).
