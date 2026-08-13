@@ -251,13 +251,22 @@ def run_cli() -> int:
     except Exception as e:
         cap = {"real_recording_possible": False, "error": str(e)}
     print("[capability]", json.dumps(cap, ensure_ascii=False))
-    if not cap.get("real_recording_possible"):
+    mic_ok = bool(cap.get("real_recording_possible"))
+    if not mic_ok:
         print("⚠️  Микрофон недоступен. Реальная запись НЕВОЗМОЖНА в этой среде.")
     m = _load_manifest()
     m["started_at"] = m.get("started_at") or int(time.time())
     m["steps"] = [s.as_dict() for s in plan]
+    m["recording_capable"] = mic_ok
     _save_manifest(m)
     print(f"✓ manifest saved: {MANIFEST}")
+    # v34 FIX (P3.16): раньше run_cli() ВСЕГДА возвращал 0 — даже когда
+    # микрофон недоступен и onboarding по факту «только план, без записи».
+    # CI/скрипты не могли отличить полный прогон от усечённого.
+    # Теперь: 0 = полная capability, 1 = план сохранён, но запись невозможна.
+    if not mic_ok:
+        print("[voice_onboarding] exit=1 (plan-only: mic unavailable)")
+        return 1
     return 0
 
 

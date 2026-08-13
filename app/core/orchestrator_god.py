@@ -25,10 +25,34 @@ from modules import (
     midi_generator,
 )
 
+def _json_safe(obj: Any) -> Any:
+    """v34 FIX (P2.29): честная JSON-сериализация вместо default=str.
+
+    default=str молча превращал numpy-скаляры и прочие не-JSON объекты в
+    строки вида 'np.float32(0.95)' — метрики в project_meta.json переставали
+    быть числами и ломали downstream-анализ. Теперь рекурсивно приводим:
+    numpy-скаляры → python float/int, Path → str, set/tuple → list,
+    остальное неизвестное → str (как и раньше, но только как последний шанс).
+    """
+    try:
+        import numpy as _np
+        if isinstance(obj, _np.generic):
+            return obj.item()
+    except ImportError:
+        pass
+    if isinstance(obj, dict):
+        return {str(k): _json_safe(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple, set)):
+        return [_json_safe(v) for v in obj]
+    if isinstance(obj, Path):
+        return str(obj)
+    return obj
+
+
 def _save_project_meta(project_id: str, data: dict, out_root: Path):
     meta_path = out_root / "project_meta.json"
     with open(meta_path, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2, default=str)
+        json.dump(_json_safe(data), f, ensure_ascii=False, indent=2, default=str)
 
 def run_god_pipeline(
     project_id: str,

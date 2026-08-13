@@ -1,6 +1,6 @@
 # ZS Music Maker «Hit Locked Pro»
 
-> **Актуальная версия:** v33.0.0 (2026-08-13) — единый источник правды: `version.json`.
+> **Актуальная версия:** v34.0.0 (2026-08-13) — единый источник правды: `version.json`.
 > **Статус:** Production Ready (аудио-ядро beat→mix→mastering→God Mode — REAL_PASS).
 
 ## 🎯 Главная цель

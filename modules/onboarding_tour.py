@@ -16,7 +16,29 @@ from typing import Any
 
 log = logging.getLogger("zsmm.tour")
 
-TOUR_STATE = Path("tutorial_settings.json")
+
+def _tour_state_path() -> Path:
+    """v34 FIX (P3.26): раньше путь был относительным `Path("tutorial_settings.json")` —
+    т.е. зависел от CWD: при запуске из другой папки создавался дубль-файл,
+    а прогресс тура терялся. Теперь единый путь data/tutorial_settings.json
+    с миграцией старого файла из корня репозитория."""
+    root = Path(__file__).resolve().parents[1]
+    new = root / "data" / "tutorial_settings.json"
+    old_root = root / "tutorial_settings.json"
+    old_cwd = Path("tutorial_settings.json")
+    try:
+        new.parent.mkdir(parents=True, exist_ok=True)
+        if not new.exists():
+            for cand in (old_root, old_cwd):
+                if cand.exists() and cand.resolve() != new.resolve():
+                    new.write_text(cand.read_text(encoding="utf-8"), encoding="utf-8")
+                    break
+    except Exception as e:
+        log.warning(f"tour state migration failed: {e}")
+    return new
+
+
+TOUR_STATE = _tour_state_path()
 
 TOUR_STEPS: list[dict[str, Any]] = [
     {

@@ -7,11 +7,15 @@ ZS Music Maker — model_manager.py (GOD MODE)
 """
 
 import os
-import torch
 import logging
 from pathlib import Path
 from app.core.security_utils import download_file, safe_hash
 from app.core.logger import app_logger
+
+# v34 FIX (P2.8): torch больше не импортируется на верхнем уровне.
+# Раньше `import app.core.model_manager` (core-слой!) мгновенно падал на
+# машине без torch — это роняло install.py (шаг 5) и весь core import-граф.
+# torch нужен ТОЛЬКО для load_torch_model → ленивый импорт внутри метода.
 
 class ModelManager:
     def __init__(self):
@@ -44,6 +48,13 @@ class ModelManager:
 
     def load_torch_model(self, model_id: str, map_location="cpu"):
         """Безопасная загрузка PyTorch модели (weights_only=True)."""
+        try:
+            import torch
+        except ImportError as e:
+            raise RuntimeError(
+                "PyTorch не установлен — загрузка нейромоделей недоступна. "
+                "Установите: pip install torch (или запустите install.py)"
+            ) from e
         path = self.ensure_model(model_id)
         app_logger.info(f"Safely loading model: {model_id}")
         # B614 FIX: weights_only=True

@@ -29,7 +29,23 @@ class LicenseCheck:
 
 
 def normalize(lic: str) -> str:
-    return (lic or "").strip().lower().replace("_", " ")
+    n = (lic or "").strip().lower().replace("_", " ")
+    # v34 FIX: лицензии часто приходят как URL (archive.org licenseurl,
+    # freesound API). Нормализуем URL → каноническое имя, иначе
+    # publicdomain-URL ошибочно попадал в «unknown» и блокировался.
+    if "/" in n or "creativecommons.org" in n or "licenses" in n:
+        if "publicdomain" in n or "public-domain" in n:
+            return "public domain"
+        if "by-nc-sa" in n or "by-nc-nd" in n or "by-nc" in n:
+            return "cc-by-nc"
+        if "by-sa" in n:
+            return "cc-by-sa"
+        if n.rstrip("/").endswith("/by") or "/by/" in n:
+            return "cc-by"
+        if "zero" in n or "cc0" in n:
+            return "cc0"
+        return "unknown"
+    return n
 
 
 def is_free_commercial(lic: str, allow_user_override: bool = False) -> bool:

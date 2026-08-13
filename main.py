@@ -332,6 +332,23 @@ def _cli_god(args) -> int:
         genre = getattr(args, "genre", "drift_phonk")
         theme = getattr(args, "theme", genre)
 
+        # v34 FIX (SESSION_LOG v32.22): раньше несуществующий жанр падал
+        # глубоко внутри пайплайна с непонятным KeyError. Теперь валидация
+        # против StyleRegistry на входе + подсказка ближайших вариантов.
+        try:
+            from modules.genre_engine import StyleRegistry
+            known = set(StyleRegistry().list_genres())
+            if genre not in known:
+                import difflib
+                hint = difflib.get_close_matches(genre, sorted(known), n=3, cutoff=0.5)
+                _safe_print(f"[main --god] unknown genre: {genre!r}")
+                if hint:
+                    _safe_print(f"  did you mean: {', '.join(hint)}?")
+                _safe_print("  full list: python main.py --list-genres")
+                return 2
+        except ImportError:
+            pass  # движок жанров недоступен — пусть пайплайн сам решит
+
         _safe_print(f"[main --god] Launching GOD MODE pipeline (genre={genre}, theme={theme})...")
         out = run_god_pipeline("god_cli", {"theme": theme, "genre": genre})
         _safe_print(

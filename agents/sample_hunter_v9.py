@@ -265,6 +265,40 @@ def search_archive_org(query: str, limit: int = 5) -> list[dict]:
 
 
 # ============================================================ main API
+
+def _license_gate(items: list[dict], allow_user_override: bool = False) -> list[dict]:
+    """v34 FIX (P2.18): жёсткий лицензионный фильтр через license_manager.
+
+    Раньше sample_hunter_v9 возвращал сэмплы с сырыми лицензиями вида
+    «CC-BY-SA / PD» (wikimedia) и licenseurl-строками (archive.org) БЕЗ
+    проверки через app.core.license_manager — т.е. в manifest мог попасть
+    NC/SA-контент, запрещённый ТЗ 33 («только CC0 / CC-BY / Royalty-Free»).
+    Теперь каждый онлайн-хит прогоняется через единый gate:
+      - CC0/PD/CC-BY/RF → проходит;
+      - NC/SA/unknown → блокируется (или помечается needs_user_confirm
+        при allow_user_override=True — тогда решает пользователь в UI).
+    """
+    try:
+        from app.core.license_manager import is_free_commercial
+    except Exception:
+        return items  # менеджер недоступен — не блокируем пайплайн
+    out = []
+    for it in items:
+        lic = str(it.get("license", "unknown"))
+        # Локальные файлы пользователя — вне gate (его собственный контент)
+        if it.get("source") == "local":
+            out.append(it)
+            continue
+        if is_free_commercial(lic, allow_user_override=allow_user_override):
+            out.append(it)
+        else:
+            it["license_blocked"] = True
+            it["license_reason"] = f"blocked by license gate: {lic}"
+            print(f"[sample_hunter_v9] BLOCKED non-free sample: "
+                  f"{it.get('name','?')[:60]} ({lic})")
+    return out
+
+
 def search_online(
     style_vector: dict, max_per_source: int = 5, max_total: int = 40
 ) -> list[dict]:
@@ -284,8 +318,9 @@ def search_online(
                 seen.add(key)
                 hits.append(r)
                 if len(hits) >= max_total:
-                    return hits
-    return hits
+                    break
+    # v34: лицензионный gate ДО возврата — в manifest не попадает NC/SA
+    return _license_gate(hits)
 
 
 def unified_search(

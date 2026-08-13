@@ -109,12 +109,19 @@ def synth(
     engine: str = "silero",
     out_name: str | None = None,
     speaker_wav: str | None = None,
+    gender: str = "male",
 ) -> str:
     """
     Синтезируем draft-вокал. Возвращаем путь к WAV.
     engine: silero | xtts | bark | pyttsx3 | auto
     speaker_wav — путь к записи пользователя для XTTS-клонирования (опционально).
+    gender: male | female — v34 FIX (P3.21): выбор голоса для Silero
+      (male=aidar, female=kseniya). Раньше был жёстко зашит aidar,
+      женский вокал получить было невозможно.
     """
+    # v34: gender → silero speaker (остальные движки игнорируют gender —
+    # xtts клонирует speaker_wav, bark/pyttsx3 имеют свои голоса)
+    silero_speaker = "kseniya" if str(gender).lower() in ("female", "f", "ж", "жен") else "aidar"
     if not text or not text.strip():
         return ""
     # v22: ленивое создание каталога — только при реальном вызове
@@ -131,7 +138,7 @@ def synth(
     out_path = str(OUT_DIR / out_name)
 
     engines = {
-        "silero": lambda: _synth_silero(text, out_path),
+        "silero": lambda: _synth_silero(text, out_path, speaker=silero_speaker),
         "xtts": lambda: _synth_xtts(text, out_path, speaker_wav=speaker_wav),
         "bark": lambda: _synth_bark(text, out_path),
         "bark_full": lambda: _synth_bark(text, out_path),

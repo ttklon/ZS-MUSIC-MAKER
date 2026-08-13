@@ -32,6 +32,60 @@
 
 ## ЖУРНАЛ СЕССИЙ
 
+### v34 (2026-08-13) — session-backlog-fixes (правки по бэклогу v31/v32)
+
+**Что проверено до правок (baseline, Python 3.12, numpy 2.4.6):**
+- `pytest tests/` → **7/7 PASS**
+- `tools/smoke_v26.py` → **6/6 PASS**
+- `tools/smoke_v29.py` → **8/8 PASS** (God Mode E2E, master_god.wav стерео 120с, -1 dBTP)
+- git-индекс чист (280 файлов, 0 output/pycache/training_jobs-артефактов)
+- theme-проброс в God Mode проверен вручную: `theme` доезжает из CLI → `create_wizard_state` → `generate_lyrics` (находка v32.20 «theme теряется» НЕ воспроизводится — закрыта верификацией)
+
+**Исправлено (10 пунктов):**
+
+1. **[P2.8] `app/core/model_manager` требовал torch на верхнем уровне** — core-слой падал на машине без torch, роняя install.py (шаг 5) и core import-граф. → Lazy import torch внутри `load_torch_model` с честным RuntimeError. `import app.core.model_manager` теперь работает без torch.
+
+2. **[P2.18] License-gate НЕ был подключён к `sample_hunter_v9`** — онлайн-хиты с сырыми лицензиями («CC-BY-SA / PD» из wikimedia, licenseurl-строки из archive.org) шли в manifest БЕЗ проверки. → Добавлен `_license_gate()` через `license_manager.is_free_commercial` в `search_online()`; NC/SA/unknown блокируются с логом, local-файлы пользователя вне gate. Плюс в `license_manager.normalize()` добавлена нормализация URL-лицензий (`.../publicdomain/mark/1.0/` → `public domain`, `.../licenses/by/4.0/` → `cc-by` и т.д.) — раньше publicdomain-URL ошибочно блокировался как «unknown». Тест: 4 образца → CC0 и local проходят, CC-BY-SA и PD-URL (до фикса normalize) блокируются корректно.
+
+3. **[P3.16] `voice_onboarding.run_cli()` ВСЕГДА возвращал 0** — даже когда микрофон недоступен и onboarding «только план, без записи»; CI не мог отличить полный прогон от усечённого. → exit code: 0 = полная capability, 1 = mic unavailable (manifest получает `recording_capable`).
+
+4. **[P3.26] `tutorial_settings.json` — рассинхрон двух потребителей** — `modules/onboarding_tour.py` писал в CWD-относительный путь (дубль при запуске из другой папки), `ui/tutorial.py` — в корень репо. ДВА рассинхронизированных файла состояния. → Оба модуля переведены на единый `data/tutorial_settings.json` с миграцией старого файла. Проверено: пути совпадают.
+
+5. **[P3.21] `voice_synth` — жёстко зашит мужской голос Silero** (speaker="aidar"). → Добавлен параметр `gender="male"|"female"` в `synth()` (female → kseniya).
+
+6. **[P2.29] `orchestrator_god` meta через `default=str`** — numpy-скаляры превращались в строки вида `np.float32(0.95)`, ломая метрики в project_meta.json. → Честный рекурсивный `_json_safe()` (numpy→float/int, Path→str, set/tuple→list).
+
+7. **[v32.22] `main.py --god --genre <несуществующий>` падал глубоко в пайплайне** с непонятным KeyError. → Валидация жанра против StyleRegistry на входе + difflib-подсказка ближайших + указание на `--list-genres`. Проверено: честный выход rc=2 с подсказкой.
+
+8. **[P3.25] `.env.example` отсутствовал** — env-переменные были незадокументированы. → Создан `.env.example` на основе реального сканирования кода (ZSMM_PROGRAM_DIR, ZSMM_USER_DIR, ZSMM_NO_CHECKPOINTS, ZSMM_BEAT_OUTPUT_DIR, FREESOUND_API_KEY, PIXABAY_API_KEY — все реально читаются в коде; HF_TOKEN/LOG_LEVEL выдумки удалены).
+
+9. **[P2.14] sep-хак в `hit_kpi_monitor_v11`** — добавлен поясняющий комментарий: f уже POSIX-нормализован выше, `*/`+pat оставлен только для вложенных glob-паттернов (напр. `stems/*.wav`).
+
+10. **[P3] Версия унифицирована 34.0.0** во version.json / pyproject.toml / README.md / PROJECT_STATE.md.
+
+**Верификация после правок (реальный прогон):**
+- `pytest tests/` → **7/7 PASS**
+- `tools/smoke_v26.py` → **6/6 PASS**
+- `tools/smoke_v29.py` → **8/8 PASS** (первый прогон упал на master_exists из-за устаревшего чекпоинта pipeline_core; после `rm data/pipeline_checkpoints` — 8/8, регрессии нет)
+- Импорты всех изменённых модулей → **ALL OK** (включая `app.core.model_manager` без torch)
+- License gate: unit-тест 4 образцов → CC0+local PASS, CC-BY-SA+unknown BLOCKED
+- `main.py --god --genre несуществующий_жанр` → честный rc=2 + подсказка
+- `tutorial_settings`: ui и onboarding_tour указывают на один файл
+
+**Осталось (честно, требует целевой Windows-ПК или heavy-deps):**
+- Windows EXE build через Actions — NOT_TESTED.
+- voice_synth REAL TTS (silero/xtts) — FALLBACK_ONLY (нет движков в sandbox).
+- RVC реальная inference — NOT_TESTED.
+- PySide6 GUI — NOT_TESTED на Windows.
+- musicgen_texture (audiocraft) — BLOCKED (тяжёлый); pink-noise fallback запрещён ТЗ.
+- updater layout (P2.27) — не тронут: требует решения о канонической схеме каталогов, рискованно менять без Windows-теста.
+
+**Резюме v34:** закрыт слой P2/P3-дефектов честности и UX вокруг ядра: license-gate реально подключён к поиску сэмплов, core-импорт не падает без torch, onboarding честно сигналит об отсутствии микрофона, tutorial-состояние больше не расходится, meta-файлы God Mode содержат настоящие числа, CLI валидирует жанр до запуска. Ядро (beat→mix→mastering→God Mode E2E) по-прежнему REAL_PASS 8/8.
+
+---
+
+## ЖУРНАЛ СЕССИЙ
+
 ### v30 (2026-08-12) — session-full-audit-fix-restore
 **Что проверено (полный аудит 276 файлов, 31.5k строк Python):**
 - `python3 -m py_compile` всех .py → 0 синтаксических ошибок

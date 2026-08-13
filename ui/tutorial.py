@@ -8,7 +8,26 @@ UI: Tutorial System v2 (НОВЫЙ)
 import json
 import os
 
-SETTINGS_FILE = os.path.join(os.path.dirname(__file__), "..", "tutorial_settings.json")
+# v34 FIX (P3.26): единый путь data/tutorial_settings.json (раньше этот модуль
+# писал в корень репо, а modules/onboarding_tour.py — в CWD: получалось ДВА
+# рассинхронизированных файла состояния). Миграция старого файла сохранена.
+def _resolve_settings_file() -> str:
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    new = os.path.join(root, "data", "tutorial_settings.json")
+    old = os.path.join(root, "tutorial_settings.json")
+    try:
+        os.makedirs(os.path.dirname(new), exist_ok=True)
+        if not os.path.exists(new) and os.path.exists(old):
+            with open(old, encoding="utf-8") as f:
+                payload = f.read()
+            with open(new, "w", encoding="utf-8") as f:
+                f.write(payload)
+    except Exception:
+        pass
+    return new
+
+
+SETTINGS_FILE = _resolve_settings_file()
 
 
 STEPS = [

@@ -4,7 +4,7 @@
 > README/CHANGELOG/старые аудиты — НЕ источник истины, если расходятся с кодом.
 
 ## Текущая версия
-- **v33.0.0** — `v33-session-full-pass-2026-08-13` (единый источник: `version.json`)
+- **v34.0.0** — `v34-session-backlog-fixes-2026-08-13` (единый источник: `version.json`)
 
 ## Статусы модулей (легенда: REAL_PASS / PARTIAL / FALLBACK_ONLY / BLOCKED / FAILED / MISSING / NOT_TESTED)
 

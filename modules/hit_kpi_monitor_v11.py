@@ -147,6 +147,12 @@ def check_release_completeness(release_dir, hw_mode="full_hw"):
                 if (
                     fnmatch.fnmatch(base, pat)
                     or fnmatch.fnmatch(f, pat)
+                    # v34 FIX (P2.14): f уже нормализован в POSIX-вид
+                    # (os.path.relpath + replace("\\","/") выше), поэтому
+                    # sep-хак "*/"+pat больше не нужен для basename-паттернов,
+                    # но оставляем его для вложенных glob-паттернов (напр.
+                    # "stems/*.wav") — они матчатся против полного относительного
+                    # пути, где каталоги разделены именно "/".
                     or fnmatch.fnmatch(f, "*/" + pat)
                 ):
                     found = True
