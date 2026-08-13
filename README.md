@@ -1,7 +1,7 @@
-# ZS Music Maker v18 «Hit Locked Pro»
+# ZS Music Maker «Hit Locked Pro»
 
-> **Актуальная версия:** v26.0.0 (2026-08-12).
-> **Статус:** Professional Production Ready (Genspark/Claude Code Standards).
+> **Актуальная версия:** v33.0.0 (2026-08-13) — единый источник правды: `version.json`.
+> **Статус:** Production Ready (аудио-ядро beat→mix→mastering→God Mode — REAL_PASS).
 
 ## 🎯 Главная цель
 
@@ -93,8 +93,9 @@ python main.py --console    :: headless-режим
 ## 🧪 Тесты v17
 
 ```bash
-python3 tools/smoke_v14.py   # 28 PASS / 0 FAIL  (регресс-набор)
-python3 tools/smoke_v17.py   #  6 PASS / 0 FAIL  (новые P0-фиксы)
+python3 tools/smoke_v26.py   # аудио-качество (stereo/loudness/drop/hit-score)
+python3 tools/smoke_v29.py   # God Mode E2E до master_god.wav
+# v33: smoke_v14/v17 перенесены в docs/legacy/ — по старым путям их нет
 ```
 
 ## 🎧 Что честно, а что BLOCKED в v17

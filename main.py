@@ -449,10 +449,23 @@ def main() -> int:
         return _cli_god(args)
     
     if args.async_mode:
+        # v33 FIX (P1, SESSION_LOG v32.9): раньше --async-mode ВСЕГДА
+        # возвращал 0, даже если пайплайн упал — exit code врал CI.
         import asyncio
         from app.core.orchestrator_async import AsyncOrchestrator
-        orch = AsyncOrchestrator("async_cli", ROOT / "output" / "async_cli")
-        asyncio.run(orch.run_pipeline({"genre": args.genre}))
+        try:
+            orch = AsyncOrchestrator("async_cli", ROOT / "output" / "async_cli")
+            result = asyncio.run(orch.run_pipeline({"genre": args.genre}))
+        except Exception as e:
+            print(f"[async-mode] PIPELINE FAILED: {e}")
+            return 1
+        # Оркестратор может вернуть dict со статусом или None —
+        # считаем падением только явный status=failed/error.
+        if isinstance(result, dict):
+            status = str(result.get("status", "")).lower()
+            if status in ("failed", "error"):
+                print(f"[async-mode] pipeline status={status}")
+                return 1
         return 0
 
     if args.gradio:

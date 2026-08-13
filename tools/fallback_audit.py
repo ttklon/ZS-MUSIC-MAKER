@@ -69,16 +69,26 @@ def scan_file(path: Path) -> dict[str, list[dict[str, Any]]]:
         text = path.read_text(encoding="utf-8", errors="replace")
     except Exception:
         return hits
+    lines = text.splitlines()
     for tag, pat in BAD_PATTERNS.items():
         for m in re.finditer(pat, text):
             line_no = text[: m.start()].count("\n") + 1
             snippet = (
-                text.splitlines()[line_no - 1].strip()
-                if line_no - 1 < len(text.splitlines())
+                lines[line_no - 1].strip()
+                if line_no - 1 < len(lines)
                 else ""
             )
-            # v18: явно помеченные легитимные применения — не флаг
-            if any(mk in snippet for mk in LEGIT_MARKERS):
+            # v18: явно помеченные легитимные применения — не флаг.
+            # v33 FIX (P1, SESSION_LOG v31.4): маркер `# noqa: ZSMM_NOT_RVC`
+            # часто стоит на ЗАКРЫВАЮЩЕЙ строке многострочного вызова
+            # (`pitch_shift(\n mono, sr=sr, n_steps=...\n )  # noqa: ...`),
+            # а детектор смотрел только первую строку совпадения — это давало
+            # ложные red_flags (female_backing.py:127, anti_neuro_v10.py:363).
+            # Теперь ищем маркер в окне ±4 строк вокруг совпадения.
+            lo = max(0, line_no - 5)
+            hi = min(len(lines), line_no + 4)
+            window = "\n".join(lines[lo:hi])
+            if any(mk in window for mk in LEGIT_MARKERS):
                 continue
             # v18: hard-refusal (raise RuntimeError / deprecated-stub,
             # который НЕ вызывается в пайплайне) — честный отказ, не флаг

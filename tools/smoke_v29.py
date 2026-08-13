@@ -151,7 +151,37 @@ def main() -> int:
     total = len(RESULTS)
     failed = total - passed
     print(f"RESULT: {passed} PASS / {failed} FAIL / {total} total")
+    _write_report("smoke_v29", passed, failed)
     return 0 if failed == 0 else 1
+
+
+def _write_report(name: str, passed: int, failed: int) -> None:
+    """v33: JSON-отчёт в logs/ для kpi_dashboard_v12 / self_diag_v13."""
+    import json
+    import time
+    from pathlib import Path
+
+    try:
+        logs = Path(__file__).resolve().parents[1] / "logs"
+        logs.mkdir(parents=True, exist_ok=True)
+        cases = {str(r[1] if len(r) > 1 else i): bool(r[0]) for i, r in enumerate(RESULTS)}
+        (logs / f"{name}_report.json").write_text(
+            json.dumps(
+                {
+                    "name": name,
+                    "ts": time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime()),
+                    "passed": passed,
+                    "failed": failed,
+                    "total": passed + failed,
+                    "cases": cases,
+                },
+                ensure_ascii=False,
+                indent=1,
+            ),
+            encoding="utf-8",
+        )
+    except Exception:
+        pass  # отчёт — nice-to-have, не должен валить smoke
 
 
 if __name__ == "__main__":

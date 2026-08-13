@@ -178,7 +178,39 @@ def main():
     p = sum(1 for _, o, _ in RESULTS if o)
     f = len(RESULTS) - p
     print(f"RESULT: {p} PASS / {f} FAIL / {len(RESULTS)} total")
+    _write_report("smoke_v26", p, f)
     return 0 if f == 0 else 1
+
+
+def _write_report(name: str, passed: int, failed: int) -> None:
+    """v33: пишем JSON-отчёт в logs/ — его читают kpi_dashboard_v12 и
+    self_diag_v13 (раньше они искали несуществующий smoke_v12_report.json
+    и вечно показывали «smoke ещё не гонялся»)."""
+    import json
+    import time
+    from pathlib import Path
+
+    try:
+        logs = Path(__file__).resolve().parents[1] / "logs"
+        logs.mkdir(parents=True, exist_ok=True)
+        cases = {n: bool(o) for n, o, _ in RESULTS}
+        (logs / f"{name}_report.json").write_text(
+            json.dumps(
+                {
+                    "name": name,
+                    "ts": time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime()),
+                    "passed": passed,
+                    "failed": failed,
+                    "total": passed + failed,
+                    "cases": cases,
+                },
+                ensure_ascii=False,
+                indent=1,
+            ),
+            encoding="utf-8",
+        )
+    except Exception:
+        pass  # отчёт — nice-to-have, не должен валить smoke
 
 
 if __name__ == "__main__":

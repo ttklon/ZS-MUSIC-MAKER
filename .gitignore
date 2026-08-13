@@ -40,8 +40,12 @@ models/rvc/*.index
 !version.json
 !config/*.json
 !.github/**/*.yml
-!AUDIT_50_DEEP.md
-!GLOBAL_AUDIT_ULTIMATUM_V7.md
+
+# v33: RVC training-job artifacts (user-session JSON, закоммичены по ошибке)
+models/rvc/training_jobs/
+# v33: снапшоты health/kpi с чужих машин — не версионируются
+data/health_v12.json
+data/kpi_dashboard_v12.json
 
 # Environments
 .env

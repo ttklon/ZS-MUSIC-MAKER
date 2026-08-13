@@ -153,10 +153,12 @@ def _pipeline_section(pipe: dict[str, Any] | None) -> DashboardSection:
 def _smoke_section(smoke: dict[str, Any] | None) -> DashboardSection:
     if not smoke:
         return DashboardSection(
-            "Smoke-тесты v12",
+            "Smoke-тесты",
             False,
             0,
-            ["Нет smoke_v12_report.json — запусти " "`python smoke_v12.py`"],
+            # v33 FIX: указываем реальные скрипты, а не удалённый smoke_v12.
+            ["Нет свежего smoke-отчёта — запусти `python tools/smoke_v26.py` "
+             "и `python tools/smoke_v29.py`"],
         )
     passed = int(smoke.get("passed", 0))
     failed = int(smoke.get("failed", 0))
@@ -165,7 +167,9 @@ def _smoke_section(smoke: dict[str, Any] | None) -> DashboardSection:
     lines = [f"PASS: {passed} / {total}   FAIL: {failed}"]
     for name, ok in list(smoke.get("cases", {}).items())[:30]:
         lines.append(f"  [{'OK  ' if ok else 'FAIL'}] {name}")
-    return DashboardSection("Smoke-тесты v12", failed == 0, pct, lines)
+    # v33: название секции из отчёта, без жёсткой привязки к версии.
+    label = smoke.get("name", "smoke")
+    return DashboardSection(f"Smoke-тесты ({label})", failed == 0, pct, lines)
 
 
 def _tz_percent(
@@ -225,9 +229,15 @@ def _tz_percent(
         "karaoke": has("modules/karaoke_engine.py") and has("ui/karaoke_recorder.py"),
         "onboarding": has("modules/onboarding_tour.py") or has("app/gui/onboarding.py"),
         "utf8_cp866": True,
-        "auto_deps": has("windows_build.bat") or has("requirements.txt"),
-        "smoke_tests": has("smoke_v11.py"),
-        "readme_context": has("README.md") and has("CONTEXT.md"),
+        # v33 FIX: windows_build.bat НЕ существовал — критерий всегда
+        # полагался на requirements.txt. Убрана ссылка на несуществующий файл.
+        "auto_deps": has("install.py") and has("requirements.txt"),
+        # v33 FIX (P1, SESSION_LOG v31.7): smoke_v11.py давно удалён,
+        # активные smoke — tools/smoke_v26.py и tools/smoke_v29.py.
+        "smoke_tests": has("tools/smoke_v26.py") and has("tools/smoke_v29.py"),
+        # v33 FIX: CONTEXT.md физически отсутствует в репо — роль
+        # канонического журнала выполняет SESSION_LOG.md.
+        "readme_context": has("README.md") and has("SESSION_LOG.md"),
         "agents_free": has("agents/sample_hunter_v9.py")
         or has("agents/sample_hunter.py"),
         "logging": (ROOT / "logs").exists(),
@@ -286,7 +296,17 @@ def build(save: bool = True) -> Dashboard:
     health = _load_json(ROOT / "data" / "health_v12.json")
     pipe_path = _newest("master_pipeline_v12.json", ROOT / "output")
     pipe = _load_json(pipe_path) if pipe_path else None
-    smoke = _load_json(ROOT / "logs" / "smoke_v12_report.json")
+    # v33 FIX: smoke_v12_report.json больше не пишется. Берём самый свежий
+    # из актуальных отчётов (smoke_v26 / smoke_v29); fallback — старый v12.
+    smoke = None
+    for cand in (
+        ROOT / "logs" / "smoke_v29_report.json",
+        ROOT / "logs" / "smoke_v26_report.json",
+        ROOT / "logs" / "smoke_v12_report.json",
+    ):
+        smoke = _load_json(cand)
+        if smoke:
+            break
 
     dash = Dashboard()
     dash.generated_at = time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime())

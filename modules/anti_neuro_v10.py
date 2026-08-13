@@ -359,8 +359,12 @@ def _apply_stage(seg, name: str, rng: random.Random):
                 y, orig_sr=sr, target_sr=int(sr * (2 ** (steps / 12.0)))
             )
 
-            # 2. Сдвигаем только питч обратно через STFT-based pitch shift
-            y_final = librosa.effects.pitch_shift(y_shifted, sr=sr, n_steps=-steps)
+            # 2. Сдвигаем только питч обратно через STFT-based pitch shift.
+            # Это осознанный формантный DSP-трюк anti-neuro polish
+            # (resample+pitch-back ломает «пластмассовость»), а НЕ подмена RVC.
+            y_final = librosa.effects.pitch_shift(
+                y_shifted, sr=sr, n_steps=-steps
+            )  # noqa: ZSMM_NOT_RVC
 
             # Обрезаем/дополняем до исходной длины
             if len(y_final) > len(y):

@@ -1,6 +1,17 @@
 # CHANGELOG
 
-## v9 — 2026-08-06 (текущая финальная сборка «Chart Killer Edition»)
+> Актуальная версия: **v33.0.0** (2026-08-13). История версий v10–v32 ведётся в `SESSION_LOG.md`.
+
+## v33 — 2026-08-13 (session-full-pass)
+
+- FIX P0: `run_all_smoke.bat` (4 несуществующих smoke) → прогон `tools/smoke_v*.py`.
+- FIX P0: God Mode больше не обрезает вокал до 200 символов — полный текст лирики.
+- FIX P0: `voice_synth` дефолт `draft.wav` уникализирован timestamp.
+- FIX P1: `fallback_audit` ловит многострочные noqa-маркеры (ложные red_flags устранены).
+- FIX P1: единая версия 33.0.0 во всех файлах; numpy-пин `<2.0` снят; `install.py` без `shell=True`; честный exit code `--async-mode`; CI дополнен smoke_v26/v29/fallback_audit.
+- FIX P2/P3: дубли лаунчеров в `docs/legacy/`; `validate_final_track.py` с argv; чистка `.gitignore`; `models/rvc/training_jobs/` убраны из репо; INSTALL.md переписан под реальные файлы.
+
+## v9 — 2026-08-06 («Chart Killer Edition»)
 
 ### 🎯 Философия: v8 закрывал функции ТЗ, v9 закрывает **чарты, тачки, TikTok**.
 

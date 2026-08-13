@@ -11,11 +11,16 @@ import os
 import sys
 import subprocess
 import platform
+import shlex
 
 def run_cmd(cmd, critical=False):
+    """Выполнить команду. v33 FIX (P1, SESSION_LOG v32.5): убран shell=True —
+    риск injection + поломка на путях с пробелами. cmd может быть строкой
+    (разбивается shlex) или списком аргументов."""
     print(f"Executing: {cmd}")
     try:
-        subprocess.check_call(cmd, shell=True)
+        args = shlex.split(cmd) if isinstance(cmd, str) else cmd
+        subprocess.check_call(args)
         return True
     except subprocess.CalledProcessError as e:
         print(f"[ERROR] Command failed with exit code {e.returncode}: {e}")
@@ -41,14 +46,15 @@ def setup():
     # 2. Основные Python зависимости
     req_file = "requirements.txt"
     print("Installing core Python dependencies...")
-    success = run_cmd(f"{sys.executable} -m pip install -r {req_file}", critical=True)
+    success = run_cmd([sys.executable, "-m", "pip", "install", "-r", req_file], critical=True)
     if not success:
         print("[CRITICAL] Failed to install core requirements.")
         sys.exit(1)
 
     # 3. Опциональные тяжелые зависимости (Torch / Audio ML)
     print("Checking/Installing optional heavy neural dependencies (torch, torchaudio)...")
-    run_cmd(f"{sys.executable} -m pip install torch torchaudio --index-url https://download.pytorch.org/whl/cpu", critical=False)
+    run_cmd([sys.executable, "-m", "pip", "install", "torch", "torchaudio",
+             "--index-url", "https://download.pytorch.org/whl/cpu"], critical=False)
 
     # 4. Проверка GPU / Hardware
     print("Checking for hardware acceleration...")

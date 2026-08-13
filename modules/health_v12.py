@@ -352,6 +352,22 @@ def main(argv: list[str] | None = None) -> int:
         f"core_ok={rep.core_ok} quality_ok={rep.quality_ok}  "
         f"optional={rep.optional_ok_count}/{rep.optional_total}"
     )
+    # v33 FIX (P0-UX, SESSION_LOG v31.2): RED почти всегда означает
+    # отсутствие GUI (PySide6/Gradio) или quality-зависимостей, а НЕ
+    # сломанное аудио-ядро. Без этого пояснения пользователь читал RED
+    # как «продукт не работает», хотя beat→mix→mastering полностью живы.
+    if rep.verdict == "RED":
+        core_missing = [e["name"] for e in rep.externals
+                        if e["requirement"] == "core" and not e["ok"]]
+        gui_missing = [e["name"] for e in rep.externals
+                       if e.get("requirement") == "core_alt" and not e["ok"]]
+        if core_missing:
+            print(f"  ! RED причина: отсутствует ЯДРО: {', '.join(core_missing)}")
+        elif gui_missing:
+            print(f"  ! RED причина: нет GUI-бэкенда ({', '.join(gui_missing)}).")
+            print("    Аудио-ядро (beat/mix/mastering) при этом может быть полностью")
+            print("    рабочим — проверь `python tools/smoke_v29.py`. Установи GUI:")
+            print("    `pip install PySide6` или `pip install gradio`.")
     if rep.advice:
         print("ADVICE:")
         for a in rep.advice[:20]:

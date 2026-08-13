@@ -1,6 +1,6 @@
 {
- "version": "30.0.0",
- "build": "v30-full-audit-fix-restore-2026-08-12",
- "based_on": "v29-god-mode-e2e-midi-fix-truepeak-2026-08-12",
- "changes": "v30 (P0/P1): полный аудит + исправления. Восстановлены 5 ошибочно удалённых модулей (lyrics_gen_v8, mastering_v9, release_pack_v9, hit_kpi_monitor_v11, lyric_vault_v10) — их отсутствие роняло health до RED и ломало KPI-пайплайн. FIX честности voice_synth.synth — больше не возвращает путь к несуществующему файлу (honest empty return). Создан отсутствующий run.bat (на него ссылались README/INSTALL/ярлык). FIX self_diag_v13 — падение при отсутствии logs/. FIX pipeline_core — чекпоинты TTL 24ч + ZSMM_NO_CHECKPOINTS (старый fail-чекпоинт больше не блокирует вечно). verify.bat переписан на реальные тесты (pytest + smoke_v26 + smoke_v29). God Mode: честный vocal_status/vocal_reason в отчёте. main.py --smoke теперь ведёт на smoke_v29."
+ "version": "33.0.0",
+ "build": "v33-session-full-pass-2026-08-13",
+ "based_on": "v32-deep-audit-v2-2026-08-13",
+ "changes": "v33 (P0/P1/P2/P3): полный рабочий проход по бэклогу v31+v32. FIX P0: run_all_smoke.bat (вызывал 4 несуществующих smoke) переписан на tools/smoke_v*.py; voice-стадия God Mode больше не обрезает текст до 200 символов (полная лирика в synth); voice_synth дефолт draft.wav уникализирован timestamp (больше нет молчаливого затирательства). FIX P1: fallback_audit детектор теперь ловит многострочные noqa-маркеры (±4 строки) — ложные pitch_shift_as_rvc=2 устранены; единая версия 33.0.0 во version.json/pyproject/README/CHANGELOG/INSTALL/PROJECT_STATE; numpy-пин <2.0 снят (стек подтверждён на numpy 2.4.6); install.py без shell=True; main.py --async-mode честный exit code; CI добавлены smoke_v26/v29/fallback_audit. FIX P2: дубли run_v8/v9/v11.bat+run_v14.sh архивированы в docs/legacy/; validate_final_track.py без зашитого чужого пути (argv); .gitignore: training_jobs/ + stale health json + мёртвые исключения; INSTALL.md переписан под реальный install.py+run.bat (без выдуманного windows_build.bat/smoke_test.py). FIX P3: models/rvc/training_jobs/ удалены из индекса."
 }

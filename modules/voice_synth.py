@@ -122,7 +122,13 @@ def synth(
         OUT_DIR.mkdir(parents=True, exist_ok=True)
     except Exception:
         pass
-    out_path = str(OUT_DIR / (out_name or "draft.wav"))
+    # v33 FIX (P0, SESSION_LOG v32.4): дефолтное имя draft.wav молча
+    # перезаписывалось при каждом вызове — параллельные/повторные синтезы
+    # затирали друг друга. Теперь дефолт уникализируется timestamp'ом.
+    if not out_name:
+        import time as _t
+        out_name = f"draft_{int(_t.time() * 1000)}.wav"
+    out_path = str(OUT_DIR / out_name)
 
     engines = {
         "silero": lambda: _synth_silero(text, out_path),

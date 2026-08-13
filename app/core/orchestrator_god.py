@@ -138,7 +138,14 @@ def run_god_pipeline(
                 # "" когда ни один TTS-движок недоступен — обрабатываем это
                 # явно и кладём honest reason в отчёт (раньше стадия молча
                 # возвращала None без объяснения).
-                synth_path = voice_synth.synth(text_content[:200], out_name=str(vocal_draft))
+                # v33 FIX (P0, SESSION_LOG v32.3): раньше текст насильно
+                # обрезался до 200 символов (text_content[:200]) — на
+                # 120-секундный трек синтезировалась одна фраза ≈2-3 строки.
+                # Теперь передаём полный текст лирики. Если движок слабый
+                # (pyttsx3/gtts) — он сам прочитает длинный текст; ограничение
+                # оставляем только как мягкий safety-cap на случай мусора.
+                vocal_text = text_content if len(text_content) <= 4000 else text_content[:4000]
+                synth_path = voice_synth.synth(vocal_text, out_name=str(vocal_draft))
                 if synth_path and os.path.exists(synth_path):
                     vocal_draft = synth_path
                     ctx.shared_data["vocal_wav"] = vocal_draft

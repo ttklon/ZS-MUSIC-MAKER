@@ -142,8 +142,14 @@ def check_kpi() -> dict[str, Any] | None:
 
 
 def check_smoke_recent() -> dict[str, Any] | None:
-    rep = _read_json_silent(LOGS / "smoke_v12_report.json")
-    return rep
+    # v33 FIX (P1, SESSION_LOG v31.7): smoke_v12_report.json больше не
+    # существует — smoke_v26/v29 теперь пишут собственные отчёты в logs/.
+    # Берём самый свежий доступный; старый v12 — только как fallback.
+    for name in ("smoke_v29_report.json", "smoke_v26_report.json", "smoke_v12_report.json"):
+        rep = _read_json_silent(LOGS / name)
+        if rep:
+            return rep
+    return None
 
 
 def collect_action_plan(
@@ -209,7 +215,7 @@ def collect_action_plan(
 
     # 4) smoke
     if smoke is None:
-        plan.append("🟡 Smoke ещё не гонялся — запусти `smoke_v12.py`.")
+        plan.append("🟡 Smoke ещё не гонялся — запусти `python tools/smoke_v26.py` и `python tools/smoke_v29.py`.")
     else:
         passed = smoke.get("passed", 0)
         failed = smoke.get("failed", 0)

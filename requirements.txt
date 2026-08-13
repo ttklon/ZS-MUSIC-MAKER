@@ -18,7 +18,11 @@ requests>=2.32.0
 librosa>=0.10.2
 soundfile>=0.12.1
 scipy>=1.11.0
-numpy>=1.26.0,<2.0
+# v33 FIX (P0/P1, SESSION_LOG v31.3+v32.6): верхний пин <2.0 устарел —
+# весь аудио-стек (librosa 1.0, scipy, soundfile) тестируется на numpy 2.4.x,
+# а жёсткий пин заставлял pip ломать окружение. Совместимость с numpy 2.x
+# подтверждена pytest 7/7 + smoke_v26/v29 на numpy 2.4.6.
+numpy>=1.26.0
 matplotlib>=3.8.0
 
 # --- Аудио-обработка ---
