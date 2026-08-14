@@ -4,7 +4,8 @@
 > README/CHANGELOG/старые аудиты — НЕ источник истины, если расходятся с кодом.
 
 ## Текущая версия
-- **v36.0.0** — `v36-session-docs-unification-silent-except-build-fixes-2026-08-14` (единый источник: `version.json`)
+- **v37.0.0** — `v37-session-updater-verify-health-cleanup-2026-08-14` (единый источник: `version.json`)
+  - v37: updater реально сохраняет USER_PRESERVED (install/rollback), verify_zip по реальным маркерам, health-совет numpy>=1.26, вычищены ссылки на несуществующие windows_build.bat/smoke_v12/CONTEXT.md
 
 ## Статусы модулей (легенда: REAL_PASS / PARTIAL / FALLBACK_ONLY / BLOCKED / FAILED / MISSING / NOT_TESTED)
 

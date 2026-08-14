@@ -37,10 +37,19 @@ def program_dir() -> Path:
     env = os.environ.get("ZSMM_PROGRAM_DIR")
     if env:
         return Path(env)
+    # v37 FIX: раньше на win32 всегда возвращался 'C:\Program Files\ZS Music Maker',
+    # хотя репо ставится клонированием в ЛЮБУЮ папку. Это приводило к тому, что
+    # backup/rollback/install работали с несуществующим каталогом.
+    # Теперь: если текущий корень проекта (рядом с updater/) выглядит как установка
+    # (есть main.py) — используем ЕГО; 'Program Files' остаётся только для случая,
+    # когда updater вызван не из дерева проекта.
+    root = Path(__file__).resolve().parents[1]
+    if (root / "main.py").exists():
+        return root
     if sys.platform == "win32":
         pf = os.environ.get("ProgramFiles", r"C:\Program Files")
         return Path(pf) / "ZS Music Maker"
-    return Path(__file__).resolve().parents[1]
+    return root
 
 
 def user_data_dir() -> Path:
@@ -68,18 +77,77 @@ def staging_dir() -> Path:
     return d
 
 
+# Каталоги/файлы ПОЛЬЗОВАТЕЛЯ, которые НЕЛЬЗЯ затирать при обновлении из ZIP.
+# v37 FIX: раньше список только объявлялся, но НИГДЕ не применялся — install
+# удалял всё подряд. Плюс 'presets'/'prompts' в реальном layout репо лежат в
+# data/genre_presets и data/prompts — старые имена сохранить было невозможно.
 USER_PRESERVED = [
     "projects",
     "voice_vault",
     "lyric_vault",
-    "presets",
-    "prompts",
+    "data/genre_presets",
+    "data/prompts",
+    "data/tutorial_settings.json",
     "secrets.enc",
     "settings.json",
     "output",
     "cache",
     "logs",
 ]
+
+
+def _stash_user_data(prog: Path, stg: Path) -> dict[str, Path]:
+    """Перед заменой: переносим USER_PRESERVED из prog в staging-зону.
+
+    v37: раньше USER_PRESERVED игнорировался — install просто делал rmtree
+    всего каталога и пользователь терял voice_vault/lyric_vault/output.
+    Возвращает мапу rel_path -> stash_path, чтобы _restore_user_data вернул всё назад.
+    """
+    stash_root = stg / ".user_stash"
+    moved: dict[str, Path] = {}
+    for rel in USER_PRESERVED:
+        src = prog / rel
+        if not src.exists():
+            continue
+        dst = stash_root / rel
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            shutil.move(str(src), str(dst))
+            moved[rel] = dst
+        except Exception:
+            # не смогли переместить — оставляем на месте (не валим установку)
+            pass
+    return moved
+
+
+def _restore_user_data(prog: Path, moved: dict[str, Path]) -> list[str]:
+    """После распаковки новой версии: возвращаем сохранённые данные на место.
+
+    v37: MERGE-семантика вместо затирания. Если новая версия принесла свой
+    каталог (например свежие дефолтные пресеты в data/genre_presets) — юзерские
+    файлы накладываются ПОВЕРХ, а новые дефолтные СОХРАНЯЮТСЯ. Так не теряются
+    ни пользовательские данные, ни обновлённые пресеты из дистрибутива.
+    Возвращает список rel-путей, которые удалось восстановить.
+    """
+    restored: list[str] = []
+    for rel, stash in moved.items():
+        dst = prog / rel
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            if stash.is_dir():
+                # merge: копируем юзерское содержимое поверх нового каталога
+                # (dirs_exist_ok=True — не удаляем новые дефолтные файлы)
+                shutil.copytree(str(stash), str(dst), dirs_exist_ok=True)
+                shutil.rmtree(str(stash), ignore_errors=True)
+            else:
+                # файл: юзерский приоритетнее нового дефолтного
+                if dst.exists():
+                    dst.unlink()
+                shutil.move(str(stash), str(dst))
+            restored.append(rel)
+        except Exception:
+            pass
+    return restored
 
 
 def ensure_user_dirs() -> None:
@@ -135,14 +203,17 @@ def verify_zip(zip_path: Path, expected_sha256: str | None = None) -> dict[str, 
         result["reason"] = "corrupted zip"
         return result
 
-    has_main = any(n.endswith("main.py") for n in names)
-    has_tz = any(n.endswith("TZ.txt") for n in names)
-    has_prompt = any(n.endswith("PROMPT.txt") for n in names)
+    # v37 FIX: раньше verify требовал TZ.txt/PROMPT.txt — этих файлов НЕТ
+    # в репозитории, поэтому updater отвергал ЛЮБОЙ реальный дистрибутив.
+    # Проверяем реальные маркеры проекта: main.py, version.json, modules/.
+    has_main = any(n.endswith("main.py") and not n.startswith("docs/") for n in names)
+    has_version = any(n.endswith("version.json") for n in names)
+    has_modules = any(n.startswith("modules/") and n.endswith(".py") for n in names)
     result["checks"]["has_main_py"] = has_main
-    result["checks"]["has_TZ_txt"] = has_tz
-    result["checks"]["has_PROMPT_txt"] = has_prompt
-    if not (has_main and has_tz and has_prompt):
-        result["reason"] = "zip missing required files: main.py/TZ.txt/PROMPT.txt"
+    result["checks"]["has_version_json"] = has_version
+    result["checks"]["has_modules"] = has_modules
+    if not (has_main and has_version and has_modules):
+        result["reason"] = "zip missing required files: main.py/version.json/modules/"
         return result
 
     result["ok"] = True
@@ -254,6 +325,8 @@ def install_from_zip(
         return {"ok": False, "stage": "extract", "error": str(e), "backup": str(bak)}
 
     try:
+        # v37 FIX: сохраняем пользовательские данные ДО очистки каталога.
+        moved = _stash_user_data(prog, stg)
         for item in prog.iterdir():
             if item.name == "updater":
                 continue
@@ -262,11 +335,17 @@ def install_from_zip(
             else:
                 item.unlink()
         for item in stg.iterdir():
+            if item.name == ".user_stash":  # это наши же сохранённые данные, не копируем как часть дистрибутива
+                continue
             dst = prog / item.name
             if item.is_dir():
                 shutil.copytree(str(item), str(dst))
             else:
                 shutil.copy2(str(item), str(dst))
+        # v37 FIX: возвращаем пользовательские данные поверх новой версии.
+        restored = _restore_user_data(prog, moved)
+        if restored:
+            print(f"[updater] пользовательские данные сохранены: {', '.join(restored)}")
     except Exception as e:
         rb = rollback_last()
         return {
@@ -327,8 +406,25 @@ def rollback_last() -> dict[str, Any]:
     last = backups[0]
     prog = program_dir()
     try:
+        # v37 FIX: rollback тоже не должен затирать пользовательские данные.
+        # Стэшим во временный каталог РЯДОМ с prog (не в backup_dir — туда rollback не смотрит).
+        stash_root = prog / ".rollback_stash"
+        if stash_root.exists():
+            shutil.rmtree(stash_root, ignore_errors=True)
+        moved: dict[str, Path] = {}
+        for rel in USER_PRESERVED:
+            src = prog / rel
+            if not src.exists():
+                continue
+            dst = stash_root / rel
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            try:
+                shutil.move(str(src), str(dst))
+                moved[rel] = dst
+            except Exception:
+                pass
         for item in prog.iterdir():
-            if item.name == "updater":
+            if item.name in ("updater", ".rollback_stash"):
                 continue
             if item.is_dir():
                 shutil.rmtree(item, ignore_errors=True)
@@ -336,7 +432,9 @@ def rollback_last() -> dict[str, Any]:
                 item.unlink()
         with zipfile.ZipFile(str(last), "r") as z:
             z.extractall(str(prog))
-        return {"ok": True, "restored_from": str(last)}
+        restored = _restore_user_data(prog, moved)
+        shutil.rmtree(stash_root, ignore_errors=True)
+        return {"ok": True, "restored_from": str(last), "user_data_preserved": restored}
     except Exception as e:
         return {"ok": False, "error": str(e)}
 

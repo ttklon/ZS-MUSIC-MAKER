@@ -15,7 +15,8 @@ self_diag_v13 читает:
   · data/kpi_dashboard_v12.json
   · data/hw_profile*.json
   · проверяет наличие 6 обязательных папок/файлов
-  · проверяет последний smoke_v12_report.json
+  · проверяет последний smoke-отчёт (v37 FIX: smoke_v12_report.json давно
+    не пишется — активные: smoke_v29_report.json / smoke_v26_report.json)
 
 И выдаёт:
   · цветную ASCII-таблицу (зелёный/жёлтый/красный);

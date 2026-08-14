@@ -46,6 +46,8 @@ models/rvc/training_jobs/
 # v33: снапшоты health/kpi с чужих машин — не версионируются
 data/health_v12.json
 data/kpi_dashboard_v12.json
+# v37: рантайм-снапшот железа текущей машины — пишется при каждом health/hw-probe
+data/hw_profile.json
 
 # Environments
 .env

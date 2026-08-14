@@ -11,6 +11,9 @@
 
 ### P0 — ломает запуск/продукт
 - [x] ✅ v29: **God Mode E2E падал на `midi_generation` — `TypeError: 'NoneType' object is not callable`** (mido отсутствует, guard был только в `generate_drum_pattern`, а `generate_melody_pattern` пытался вызвать `MidiFile()` → крах всего pipeline). → Добавлен guard, honest BLOCKED-return `""`, расширены жанровые паттерны (phonk/trap/techno/hiphop), `get_status()`. Требование `mido>=1.3.0` внесено в `requirements.txt`. E2E теперь доходит до `master_god.wav`.
+- [x] ✅ **v37: updater НЕ сохранял пользовательские данные при обновлении** (USER_PRESERVED объявлен, но нигде не применялся — install/rollback затирали voice_vault, output, пресеты). → `_stash_user_data()` / `_restore_user_data()` (merge-семантика: юзерские файлы поверх, новые дефолтные пресеты сохраняются); применено в `install_from_zip()` и `rollback_last()`. Протестировано E2E: install v1→v2 сохранил voice_vault/output/user_presets + подтянул новые default-пресеты; rollback v2→v1 сохранил данные.
+- [x] ✅ **v37: `verify_zip` отвергал ЛЮБОЙ реальный релиз** — требовал `TZ.txt`/`PROMPT.txt`, которых нет в репо. → Проверка по реальным маркерам: `main.py` + `version.json` + `modules/`.
+- [x] ✅ **v37: `program_dir()` на win32 жёстко возвращал `C:\Program Files\ZS Music Maker`** при клонировании репо в любую папку → backup/rollback работали с несуществующим каталогом. → Если рядом с updater есть main.py — используем корень проекта.
 
 ### P1 — критично для пайплайна/голоса/бита
 - [x] ✅ v29: **mastering_pro: pyloudnorm clipping warning + возможные NaN/Inf + моно-даунмикс на выходе** → добавлен true-peak ceiling `-1 dBTP` (streaming-стенд), `_sanitize()` (NaN/Inf → 0), auto mono→stereo up-mix, honest output-метрики (`output_lufs`, `output_peak_db`, `channels`, `sample_rate`).
@@ -126,6 +129,50 @@
 ---
 
 ## ЖУРНАЛ СЕССИЙ
+
+### v37 (2026-08-14) — session-updater-verify-health-cleanup (ПРАВКИ, не аудит)
+
+> Режим: полный рабочий проход. Цель — снять P0/P1 вокруг updater и остаточные мёртвые ссылки.
+
+**Baseline до правок:** pytest 7/7, smoke_v29 8/8, smoke_v26 6/6, fallback_audit red_flags=0, health RED 25% (sandbox без quality-deps).
+
+#### ЧТО ИСПРАВЛЕНО
+
+1. **[P0] `updater/updater.py` — пользовательские данные ЗАТИРАЛИСЬ при обновлении.** `USER_PRESERVED` (voice_vault, lyric_vault, output, пресеты) был объявлен, но НИГДЕ не применялся: `install_from_zip()` делал `rmtree` всего program_dir. → Добавлены `_stash_user_data()` (перенос в staging до очистки) и `_restore_user_data()` (MERGE-семантика: юзерские файлы поверх новых дефолтов, новые дефолтные пресеты НЕ теряются). Применено в `install_from_zip()` и `rollback_last()`. E2E-тест: install v1→v2 сохранил voice_vault/output/user_presets И подтянул новые default-пресеты; rollback v2→v1 сохранил данные.
+
+2. **[P0] `verify_zip` отвергал ЛЮБОЙ реальный релиз.** Требовал `TZ.txt` и `PROMPT.txt`, которых физически нет в репозитории → updater не смог бы установить ни один настоящий ZIP. → Проверка по реальным маркерам проекта: `main.py` + `version.json` + `modules/*.py`.
+
+3. **[P1] `program_dir()` на win32 жёстко возвращал `C:\Program Files\ZS Music Maker`.** Репо ставится клонированием в любую папку → backup/rollback/backup_dir шли в несуществующий каталог. → Если рядом с `updater/` есть `main.py` — используем корень проекта; Program Files только для внешнего вызова.
+
+4. **[P2] `rvc_manager.py` ссылался на несуществующий `windows_build.bat`.** → Теперь честный совет: `pip install rvc-python` или `install.py` (INSTALL.md §4).
+
+5. **[P2] Мёртвые ссылки на `smoke_v12_report.json` и `CONTEXT.md`** в `kpi_dashboard_v12.py` / `self_diag_v13.py` (docstring/comment-уровень — реальная логика v33 уже читала smoke_v29/v26 и SESSION_LOG, но комментарии врали). → Вычищены, указаны реальные файлы.
+
+6. **[P3] `health_v12` советовал устаревший пин `numpy>=1.26,<2.0`.** v33 снял верхний пин (стек подтверждён на numpy 2.x) — совет вводил в заблуждение. → `numpy>=1.26`.
+
+#### ВЕРИФИКАЦИЯ ПОСЛЕ ПРАВОК (реальный прогон, Python 3.13, sandbox)
+- `python -m py_compile` всех изменённых модулей → OK
+- updater E2E (install + rollback с сохранением данных) → **REAL_PASS**
+- `pytest tests/` → **7/7 PASS**
+- `tools/smoke_v29.py` (ZSMM_NO_CHECKPOINTS=1) → **8/8 PASS** (master_god.wav 120с stereo -1 dBTP)
+- `tools/smoke_v26.py` → **6/6 PASS**
+- `tools/fallback_audit.py` → **red_flags: 0**
+- `main.py --health` после установки quality-deps из requirements (pydub/mutagen/pyttsx3/matchering/PySide6) → **GREEN 85%, core_ok=True** (было RED 25% — подтверждено, что RED был из-за отсутствия опциональных пакетов, а не бага ядра)
+- `main.py --version` → v37.0.0
+
+#### ОСТАЛОСЬ (честно, требует целевой Windows-ПК / heavy-deps / реальной .pth)
+- Windows EXE build через Actions — NOT_TESTED.
+- voice_synth REAL Silero — REAL_PASS только на машинах с torch/torchaudio 2.5.1 (в sandbox torch нет → honest empty return, что и должно быть).
+- voice_cleaner (noisereduce) — FALLBACK_ONLY, не проверен на Windows.
+- RVC реальная inference на .pth — NOT_TESTED.
+- PySide6 GUI — импортируется (установлен), но полный desktop-прогон на Windows NOT_TESTED.
+- musicgen_texture (audiocraft) — BLOCKED (тяжёлый, инструкция в INSTALL.md; fallback запрещён).
+- karaoke_engine/render_queue: `time.sleep` в RT-контексте (v32.13) — осознанно НЕ тронут (дрейф минимален на baseline, риск регрессии без Windows-аудио-теста).
+
+#### РЕЗЮМЕ v37
+Главный результат: **updater больше не затирает пользовательские данные и реально принимает релизы** — это был P0, который делал автообновление опасным и сломанным одновременно. Попутно вычищены мёртвые ссылки (windows_build.bat, smoke_v12, CONTEXT.md, numpy<2.0), health подтверждён GREEN на полном окружении. Ядро (beat→mix→mastering→God Mode E2E) по-прежнему REAL_PASS 8/8.
+
+---
 
 ### v36 (2026-08-14) — session-docs-unification-silent-except-build-fixes
 

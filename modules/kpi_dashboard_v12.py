@@ -6,7 +6,7 @@ ZS Music Maker v12 «Hit Locked Pro» — kpi_dashboard_v12.py
 
   · data/health_v12.json          (снепшот здоровья стека)
   · output/projects/*/master_pipeline_v12.json  (последний прогон мастера)
-  · logs/smoke_v12_report.json    (последние smoke-результаты)
+  · logs/smoke_v29_report.json / logs/smoke_v26_report.json  (последние smoke-результаты; smoke_v12_report.json больше не пишется — v37)
   · output/projects/*/manifest_v11.json (KPI verdict v11)
 
 и склеивает в один HUMAN-READABLE отчёт с процентом соответствия ТЗ,
@@ -37,7 +37,9 @@ TZ_CHECKLIST: list[dict[str, str]] = [
     {
         "key": "readme_context",
         "tz": "8+11",
-        "title": "README + CONTEXT.md накопительно",
+        # v37 FIX: CONTEXT.md никогда не существовал в репо — канонический
+        # накопительный журнал это SESSION_LOG.md (см. правило 11 ТЗ).
+        "title": "README + SESSION_LOG.md накопительно",
     },
     {"key": "agents_free", "tz": "9", "title": "Бесплатные интернет-агенты"},
     {"key": "logging", "tz": "11", "title": "Логирование всего в logs/app.log"},
@@ -184,9 +186,9 @@ def _tz_percent(
     * gui_wizard          — PySide6 доступен (health) ИЛИ Gradio.
     * karaoke/onboarding  — файлы modules/karaoke_engine.py, onboarding_tour.py.
     * utf8_cp866          — жёстко true (реализовано в main_v11/main_v12).
-    * auto_deps           — есть windows_build.bat.
-    * smoke_tests         — smoke_v12 не пустой.
-    * readme_context      — README.md/CONTEXT.md существуют.
+    * auto_deps           — есть install.py + requirements.txt (windows_build.bat не существует).
+    * smoke_tests         — tools/smoke_v26.py и tools/smoke_v29.py (smoke_v12 давно удалён).
+    * readme_context      — README.md + SESSION_LOG.md (CONTEXT.md не существует).
     * agents_free         — есть agents/sample_hunter*/trend_scout*.
     * logging             — есть logs/app.log.
     * hw_autodetect       — есть app/core/hw_autodetect.py.

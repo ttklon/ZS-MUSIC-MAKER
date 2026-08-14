@@ -196,7 +196,8 @@ def _advice_for(probe: ProbeResult) -> str | None:
     hint = {
         "PySide6": "GUI не запустится. Установи: pip install PySide6>=6.7",
         "gradio": "Экспертный режим (Ctrl+E) не откроется. pip install gradio",
-        "numpy": 'Ядро не поднимется. pip install "numpy>=1.26,<2.0"',
+        # v37 FIX: пин <2.0 устарел (v33 снял его из requirements — стек тестируется на numpy 2.x).
+        "numpy": 'Ядро не поднимется. pip install "numpy>=1.26"',
         "soundfile": "Не сможем читать/писать wav. pip install soundfile",
         "scipy": "Часть DSP работать не будет. pip install scipy",
         "librosa": "Analyzer уйдёт в очень грубый fallback. pip install librosa",
