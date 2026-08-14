@@ -1,6 +1,6 @@
 {
- "version": "35.0.0",
- "build": "v35-session-silero-real-musicgen-status-cleanup-2026-08-14",
- "based_on": "v34-session-backlog-fixes-2026-08-13",
- "changes": "v35: voice_synth Silero TTS подтверждён реальным прогоном (FALLBACK_ONLY→REAL_PASS, RU v3.1, female kseniya, 48kHz WAV); musicgen_texture — honest BLOCKED-детектор detect_availability()/get_status() вместо молчаливого падения (P1); точечная чистка silent except:pass в master_pipeline_v12 (log-write/progress_cb/hit_scorer) и release_pack_full (ID3) — теперь честно логируют; cleanup: safe_import.py (мёртвый) удалён, data/health_v12.json + data/kpi_dashboard_v12.json убраны из git-индекса (уже в .gitignore), tutorial_settings.json → data/ (устранён дубль после миграции v34); INSTALL.md — зафиксирована согласованная пара torch/torchaudio 2.5.1 (реальный ABI-баг PyPI vs pytorch-index) + проверенный Silero-путь (omegaconf/soundfile)."
+ "version": "36.0.0",
+ "build": "v36-session-docs-unification-silent-except-build-fixes-2026-08-14",
+ "based_on": "v35-session-silero-real-musicgen-status-cleanup-2026-08-14",
+ "changes": "v36: README/CHANGELOG unification (вычищены протухшие блоки v14/v17/v18 и ссылки на смок-скрипты из docs/legacy/); main.py --smoke fallback сокращён до реально работающих smoke_v29→smoke_v26 (раньше спамил 6 строк 'failed: No module named'); FIX P2 silent-except в app/plugins/base.py (Sanitize-warning) и app/core/cover_gen.py (font loop) — теперь честно логируют в stderr; FIX P1 build.yml PyInstaller — добавлены --add-data models + --collect-submodules modules|app|agents|tools|ui|updater вместо мёртвого --hidden-import, smoke-шаг EXE больше НЕ continue-on-error; requirements.txt — убран заголовок 'v10 Chart Killer Pro' и упоминание несуществующего windows_build.bat, опциональные heavy-deps вынесены отдельной секцией; INSTALL.md/PROJECT_STATE.md/pyproject.toml подняты до v36."
 }

@@ -34,9 +34,19 @@ def make_cover(recipe: dict, out_png: str, size: int = 1500) -> dict:
         fill=c2,
     )
     def _get_font(s):
+        # v36 FIX (P2): silent `except: continue` маскировал реальные
+        # ошибки PIL (напр. повреждённый TTF) — теперь честно логируем
+        # причины в stderr и падаем на load_default() как fallback.
+        import sys as _sys
         for f in ["arialbd.ttf", "DejaVuSans-Bold.ttf", "LiberationSans-Bold.ttf"]:
-            try: return ImageFont.truetype(f, s)
-            except: continue
+            try:
+                return ImageFont.truetype(f, s)
+            except OSError:
+                # OSError — штатное отсутствие шрифта, не спамим в stderr
+                continue
+            except Exception as _e:  # noqa: BLE001
+                print(f"[cover_gen._get_font] {f}: {_e}", file=_sys.stderr)
+                continue
         return ImageFont.load_default()
     font = _get_font(size // 10)
     txt = title[:22].upper()

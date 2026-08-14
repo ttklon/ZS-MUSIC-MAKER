@@ -225,23 +225,19 @@ def _register_patches() -> None:
 
 
 def _cli_smoke() -> int:
-    """Runs the most recent smoke test (v29 God Mode E2E) with fallback to older."""
-    for name in (
-        "tools.smoke_v29",
-        "tools.smoke_v26",
-        "tools.smoke_v25",
-        "tools.smoke_v24",
-        "tools.smoke_v21",
-        "tools.smoke_v17",
-        "tools.smoke_v15",
-        "tools.smoke_v14",
-    ):
+    """Runs the current smoke suite: v29 (God Mode E2E) → v26 (audio quality).
+
+    v36 FIX: старая цепочка тянула smoke_v14/v15/v17/v21/v24/v25 — все они
+    перенесены в docs/legacy/ ещё в v29 и по этим путям НЕ импортируются.
+    Каждый вызов --smoke бесполезно печатал 6 строк «failed: No module named».
+    Оставлены ТОЛЬКО реально работающие v29 → v26."""
+    for name in ("tools.smoke_v29", "tools.smoke_v26"):
         try:
             mod = __import__(name, fromlist=["main"])
             return int(mod.main() or 0)
         except Exception as e:
             _safe_print(f"[main --smoke] {name} failed: {e}")
-    
+
     _safe_print("[main --smoke] No valid smoke tests found.")
     return 2
 

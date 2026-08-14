@@ -22,6 +22,11 @@ jobs:
           pip install -r requirements.txt
           pip install pyinstaller
 
+      # v36 FIX (P1, SESSION_LOG v32.8): раньше spec не тянул модели/пресеты/промпты
+      # (--add-data models отсутствовал), а --hidden-import modules бесполезен
+      # для динамических __import__. Теперь используем --collect-submodules
+      # для реального включения ленивых импортов, и smoke-шаг больше НЕ
+      # continue-on-error: true — падение EXE ломает сборку.
       - name: Build EXE with PyInstaller
         run: |
           pyinstaller --noconfirm --clean --onefile --windowed ^
@@ -31,17 +36,20 @@ jobs:
             --add-data "data;data" ^
             --add-data "lyric_vault;lyric_vault" ^
             --add-data "voice_vault;voice_vault" ^
-            --hidden-import modules ^
-            --hidden-import app.core ^
-            --hidden-import app.gui ^
+            --add-data "models;models" ^
+            --collect-submodules modules ^
+            --collect-submodules app ^
+            --collect-submodules agents ^
+            --collect-submodules tools ^
+            --collect-submodules ui ^
+            --collect-submodules updater ^
             main.py
         shell: cmd
 
-      - name: Smoke-test the built EXE
+      - name: Smoke-test the built EXE (--version must exit 0)
         run: |
           .\dist\ZS-Music-Maker.exe --version
         shell: cmd
-        continue-on-error: true
 
       - name: Upload EXE artifact
         uses: actions/upload-artifact@v4

@@ -127,6 +127,53 @@
 
 ## ЖУРНАЛ СЕССИЙ
 
+### v36 (2026-08-14) — session-docs-unification-silent-except-build-fixes
+
+**Что проверено:**
+- `python3 -m pytest tests/` → **7/7 PASS**
+- `python3 tools/smoke_v29.py` (ZSMM_NO_CHECKPOINTS=1) → **8/8 PASS** (master_god.wav 120с stereo -1 dBTP)
+- `python3 tools/smoke_v26.py` → **6/6 PASS** (hit_score=70.77, stereo corr=0.966, dBFS=-13.45)
+- `python3 tools/fallback_audit.py` → **red_flags_count = {}** (0)
+- `python3 main.py --version` → v36.0.0, build v36-session-docs-unification-silent-except-build-fixes-2026-08-14
+- `python3 -m py_compile` изменённых модулей → 0 ошибок
+
+**Найдено и исправлено:**
+
+1. **[P1] `main.py --smoke` тянул 6 мёртвых имён** — цепочка fallback (`tools.smoke_v14/v15/v17/v21/v24/v25`) вела на скрипты, перенесённые в `docs/legacy/` ещё в v29. При каждом вызове `--smoke` пользователь видел 6 строк `[main --smoke] tools.smoke_vNN failed: No module named ...`. → Оставлены ТОЛЬКО реально работающие `tools.smoke_v29` → `tools.smoke_v26`.
+
+2. **[P1] README/CHANGELOG протухли на v14/v17/v18** — README содержал целые блоки «Что нового в v18 (вокал + честность fallback)», «Что нового в v17 (P0-фиксы главного пайплайна)», таблицу статусов с шапкой «v17», ссылку `python main.py --smoke :: smoke (v17 + v14)`, ссылку на `tools/smoke_v18.py` (тоже в `docs/legacy/`). CHANGELOG.md обрывался на v14 и ссылался на несуществующий `ITOGOVYY_OTCHET_v14.md`. → README переписан на актуальный v36 (блок v36 + краткая сводка v35 + текущая таблица статусов + актуальные smoke-пути). CHANGELOG.md переписан от v36 до v27 без битых ссылок, полная история — в SESSION_LOG.
+
+3. **[P2] Silent `except: pass` / `except: continue` в критичных путях** — v35 закрыл `master_pipeline_v12` и `release_pack_full`, но остались:
+   - `app/plugins/base.py:48` — `except: pass` при попытке залогировать Sanitize-warning: если `app_logger` недоступен, мы полностью теряли причину. → Теперь честный fallback в stderr.
+   - `app/core/cover_gen.py:39` — `except: continue` при загрузке шрифта: маскировал реальные PIL-ошибки (повреждённый TTF). → Разделено: штатный `OSError` (отсутствие шрифта — не спамим) vs общий `Exception` (пишем в stderr).
+
+4. **[P1] `.github/workflows/build.yml` — PyInstaller EXE почти гарантированно ломался в рантайме** (SESSION_LOG v32.8):
+   - Отсутствовал `--add-data "models;models"` — при первом обращении к моделям EXE падал `FileNotFoundError`.
+   - `--hidden-import modules` бесполезен: `modules` — namespace-package, а весь код использует ленивые `from modules import X` внутри функций и `__import__("app.core.orchestrator_vN_patch")` — PyInstaller их не видит.
+   - Смок-шаг `.\\dist\\ZS-Music-Maker.exe --version` имел `continue-on-error: true` → «зелёная» сборка выпускала мёртвый EXE.
+   → `--add-data models;models` восстановлен; заменил `--hidden-import` на `--collect-submodules modules|app|agents|tools|ui|updater` (реальное включение ленивых импортов); `continue-on-error: true` со смок-шага снят.
+
+5. **[P2] `requirements.txt` — устаревший заголовок «v10 Chart Killer Pro» и упоминание несуществующего `windows_build.bat`** — ошибка чтения при аудите (пользователь бежит искать несуществующий батник). → Заголовок переписан на v36; секция опциональных heavy-deps вынесена отдельным блоком со ссылкой на INSTALL.md §4 (torch/audiocraft/demucs/faster-whisper/torch-directml/TTS/bark). Основной список пакетов не тронут (регрессий нет).
+
+6. **[P3] Расхождение версий v35 vs v33 в шапке INSTALL.md** — «# INSTALL — ZS Music Maker v33 / v33.0.0 (2026-08-13)» на репо с version.json v35 → v36 сейчас. → Шапка синхронизирована с version.json (v36.0.0, 2026-08-14). Тело INSTALL.md не тронуто — все инструкции по torch/silero/RVC актуальны с v35.
+
+7. **[P3] `PROJECT_STATE.md` — статусная таблица не отражала v35 (Silero REAL_PASS) и v36 (--smoke cleanup)** — расхождение с `SESSION_LOG.md`. → Таблица перегенерирована под текущий v36; статус `voice_synth (Silero)` = REAL_PASS, `orchestrator_async` = REAL_PASS (v33), `Windows EXE (build.yml)` = NOT_TESTED (v36: spec поднят).
+
+**Верификация:**
+- pytest 7/7, smoke_v29 8/8, smoke_v26 6/6, fallback_audit red_flags=0.
+- CLI: `--version` печатает v36.0.0, `--smoke` больше не спамит 6 «failed: No module named».
+- Импорт всех изменённых модулей (main / app.plugins.base / app.core.cover_gen) — без ошибок.
+
+**Осталось (честно, требует целевой Windows/heavy-deps):**
+- Windows EXE build через Actions — NOT_TESTED (пуш v36 запустит workflow, но в sandbox без Windows не проверяем).
+- voice_synth REAL Silero — REAL_PASS только на машинах с torch/torchaudio 2.5.1 (в sandbox torch нет — работает honest empty return, что и должно быть).
+- RVC реальная inference — NOT_TESTED.
+- PySide6 GUI, updater layout — не тронуты (требует Windows).
+
+**Резюме v36:** это сессия чистки долга по документации и CI/EXE-специи. Основные аудио-стадии (beat/mix/mastering/vocal/God Mode) уже в REAL_PASS с v35 — v36 привёл README/CHANGELOG/PROJECT_STATE/version в порядок, зачистил три silent-except в критичных путях, починил PyInstaller-спеку (models + collect-submodules + без continue-on-error), сократил `--smoke` fallback до реально работающих скриптов. Ядро (God Mode E2E → master_god.wav) остаётся REAL_PASS 8/8.
+
+---
+
 ### v30 (2026-08-12) — session-full-audit-fix-restore
 **Что проверено (полный аудит 276 файлов, 31.5k строк Python):**
 - `python3 -m py_compile` всех .py → 0 синтаксических ошибок

@@ -1,14 +1,15 @@
 # ================================================================
-#  ZS Music Maker v10 «Chart Killer Pro» — базовые зависимости
-#  Обновлено: v10 добавляет essentia / matchering / torch-directml,
-#  но всё это делается ОПЦИОНАЛЬНО через windows_build.bat, чтобы
-#  установка не падала на слабых машинах.
+#  ZS Music Maker — базовые зависимости
+#  v36: убран устаревший заголовок «v10 Chart Killer Pro» и упоминание
+#  несуществующего windows_build.bat. Опциональные тяжёлые пакеты
+#  (torch/audiocraft/demucs/matchering) ставятся install.py с per-package
+#  try/except и подробной инструкцией в INSTALL.md.
 # ================================================================
 
-# --- v6/v7/v8/v9 native GUI (v10 совместимо) ---
+# --- Native GUI ---
 PySide6>=6.7.0
 
-# --- v5 UI fallback (Ctrl+E экспертный) ---
+# --- Web UI fallback ---
 gradio>=4.44.0
 
 # --- HTTP / сеть ---
@@ -46,34 +47,30 @@ omegaconf>=2.3.0
 tqdm>=4.66.0
 psutil>=5.9.0
 
-# --- v5: Desktop уведомления ---
+# --- Desktop уведомления ---
 plyer>=2.1.0
 
-# --- v26: Громкость и Мастеринг ---
+# --- Громкость и мастеринг ---
 pyloudnorm>=0.1.1
 pedalboard>=0.9.0
 
-# --- v26: TTS Fallback ---
+# --- TTS Fallback (сеть) ---
 gtts>=2.5.0
 
-# --- v29: MIDI-генерация (God Mode midi_generator) ---
+# --- MIDI-генерация (God Mode midi_generator) ---
 # Без mido midi_generation стадия молча возвращает "" (BLOCKED),
-# что валит God Mode до v29-фикса. Теперь mido — обязательная зависимость.
+# что валит God Mode до v29-фикса.
 mido>=1.3.0
 
-# ================================================================
-#   v10 НОВЫЕ (опциональные — если не встанут, приложение работает)
-# ================================================================
-
-# Продвинутый аудио-анализ (может не собраться на Python 3.12 —
-# в этом случае essentia_analyzer.py уходит в librosa-fallback)
-# essentia>=2.1b6.dev1110
-
-# Матчеринг под референс (при отсутствии — pydub-fallback)
+# --- Матчеринг под референс (при отсутствии — pydub-fallback) ---
 matchering>=2.0.6
 
-# AMD DirectML на Windows (устанавливается только если у пользователя AMD)
-# torch-directml==0.2.5
-
-# Дополнительно (тонкая настройка timing/pitch)
-# pyrubberband>=0.3.0
+# ================================================================
+#   ОПЦИОНАЛЬНЫЕ (не входят в базу, ставятся install.py / вручную):
+#   - torch / torchaudio 2.5.1 (Silero TTS, MusicGen; см. INSTALL.md §4)
+#   - audiocraft (MusicGen текстуры)
+#   - demucs (стем-сплит)
+#   - faster-whisper (распознавание речи)
+#   - torch-directml==0.2.5 (AMD GPU на Windows)
+#   - TTS (Coqui XTTS-v2) / bark (Suno)
+# ================================================================

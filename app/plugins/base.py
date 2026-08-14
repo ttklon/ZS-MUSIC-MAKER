@@ -42,10 +42,18 @@ class PluginChain:
             if plugin.enabled:
                 # v26: Защита от NaN/Inf (Audio Buffer Safety)
                 if not np.all(np.isfinite(audio)):
+                    # v36 FIX (P2): раньше except:pass полностью глотал
+                    # ошибку и мы не видели, почему логгер недоступен.
                     try:
                         from app.core.logger import app_logger
                         app_logger.warning(f"Sanitizing audio buffer in plugin {type(plugin).__name__}")
-                    except: pass
+                    except Exception as _log_err:  # noqa: BLE001 — fallback на stderr, не падаем
+                        import sys as _sys
+                        print(
+                            f"[plugins/base] logger unavailable ({_log_err}); "
+                            f"sanitizing NaN/Inf in {type(plugin).__name__}",
+                            file=_sys.stderr,
+                        )
                     audio = np.nan_to_num(audio, nan=0.0, posinf=1.0, neginf=-1.0)
                 
                 audio = plugin.process(audio, sr)

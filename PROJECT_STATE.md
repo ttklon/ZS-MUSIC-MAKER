@@ -4,54 +4,55 @@
 > README/CHANGELOG/старые аудиты — НЕ источник истины, если расходятся с кодом.
 
 ## Текущая версия
-- **v35.0.0** — `v35-session-silero-real-musicgen-status-cleanup-2026-08-14` (единый источник: `version.json`)
+- **v36.0.0** — `v36-session-docs-unification-silent-except-build-fixes-2026-08-14` (единый источник: `version.json`)
 
 ## Статусы модулей (легенда: REAL_PASS / PARTIAL / FALLBACK_ONLY / BLOCKED / FAILED / MISSING / NOT_TESTED)
 
 | Модуль | Статус | Комментарий |
 |---|---|---|
-| main.py entry | REAL_PASS | `--version` работает, версии из version.json |
+| main.py entry | REAL_PASS | `--version` работает, версии из version.json; `--smoke` очищен до v29/v26 (v36) |
 | orchestrator (core) | REAL_PASS | полный пайплайн до release |
-| orchestrator_god | **REAL_PASS** | v29: E2E завершается `completed`, master_god.wav создан (stereo, 120с, -1 dBTP) |
-| midi_generator | **REAL_PASS** | v29: guard в melody + расширенные паттерны phonk/trap/techno, honest BLOCKED без mido |
-| mastering_pro | **REAL_PASS** | v29: true-peak -1 dBTP, honest output metrics, mono→stereo, NaN/Inf guard |
+| orchestrator_god | REAL_PASS | v29: E2E завершается `completed`, master_god.wav создан (stereo, 120с, -1 dBTP) |
+| orchestrator_async | REAL_PASS | v33: возвращает rc=1 при падении пайплайна (раньше врал 0) |
+| midi_generator | REAL_PASS | v29: guard в melody + расширенные паттерны phonk/trap/techno, honest BLOCKED без mido |
+| mastering_pro | REAL_PASS | v29: true-peak -1 dBTP, honest output metrics, mono→stereo, NaN/Inf guard |
 | mastering (modules) | REAL_PASS | создан в v27 |
 | mastering_stands | REAL_PASS | стерео EQ (без монодаунмикса) |
+| voice_synth (Silero) | REAL_PASS | v35: RU v3.1, kseniya/aidar, CPU, WAV 48kHz — реальный прогон подтверждён |
 | voice_cleaner | FALLBACK_ONLY | noisereduce опционален, fallback=highpass+DC |
-| beat_constructor | REAL_PASS | стерео float32, corr≈0.96, drop-fade есть |
-| cyber_synth | REAL_PASS | FM/Wavetable синтез + Pedalboard FX |
-| chanson_engine | REAL_PASS | acoustic guitar + drums + arrangement |
-| hit_scorer | REAL_PASS | score_track вызывается, honest fallback |
-| voice_synth | FALLBACK_ONLY | torch/TTS/bark/pyttsx3/gtts отсутствуют в sandbox → scaffold |
-| musicgen_texture | BLOCKED | audiocraft heavy, не установлен |
-| RVC | NOT_TESTED | heavy, требует GPU-модели — обвязка есть |
-| PySide6 GUI | NOT_TESTED | Windows-only, sandbox не поднимает Qt |
-| Windows EXE build | NOT_TESTED | .github/workflows/build.yml готов, ждём прогон Actions |
+| musicgen_texture | BLOCKED | v35: honest detect_availability()/get_status(); audiocraft heavy-dep |
+| RVC | BLOCKED | pitch-shift-fallback ЗАПРЕЩЁН ТЗ 33.5 (honest RuntimeError) |
+| beat_constructor | REAL_PASS | стерео corr ≈ 0.96, drop-fade, groove |
+| mixdown | REAL_PASS | реальный bus + sidechain (v17+) |
+| lyrics_gen | PARTIAL | LLM цепочка + офлайн-фолбэк |
+| license_manager | REAL_PASS | v34: URL-normalize + подключён к sample_hunter_v9 |
+| hit_scorer | REAL_PASS | librosa-based |
+| release_pack | REAL_PASS | full-pack или honest minimal-fallback |
+| CLI --health / --readiness / --dashboard | REAL_PASS | запускаются, exit 0 |
+| God Mode E2E (smoke_v29) | REAL_PASS | 8/8 стабильно |
+| Audio quality (smoke_v26) | REAL_PASS | 6/6 стабильно |
+| pytest tests/ | REAL_PASS | 7/7 |
+| fallback_audit | REAL_PASS | red_flags=0 (v33 fix детектора многострочных вызовов) |
+| Windows EXE (build.yml) | NOT_TESTED на Windows | v36: spec поднят (models + collect-submodules), smoke без continue-on-error |
+| PySide6 GUI (desktop) | NOT_TESTED на Windows | требует целевой ПК |
 
-## Sanity/smoke метрики (v29)
-- `pytest tests/` → **7/7 PASS**
-- `tools/smoke_v26.py` → **6/6 PASS** (stereo/loudness/drop/hit_score)
-- `tools/smoke_v29.py` → **8/8 PASS** (God Mode E2E + midi + mastering_pro)
+## Что реально работает end-to-end
+- **God Mode CLI**: `python main.py --god --genre <жанр>` → master_god.wav (5 стадий: ai_arrangement → midi → audio_gen → vocal_cleaning → god_mastering_pro) → REAL_PASS.
+- **Smoke**: `python tools/smoke_v29.py` 8/8, `python tools/smoke_v26.py` 6/6, `python -m pytest tests/` 7/7.
+- **Fallback honesty**: `python tools/fallback_audit.py` → red_flags=0.
+- **License gate**: sample_hunter_v9.search_online() блокирует NC/SA/unknown.
 
-## Backlog (следующая сессия v30)
-- **P1** Проверить результат `.github/workflows/build.yml` после push v29 (EXE, Windows Actions).
-- **P1** voice_cleaner + noisereduce на Windows → REAL_PASS.
-- **P1** musicgen_texture: honest BLOCKED-детектор при старте.
-- **P2** voice_synth: реальный Silero v3.1 RU на CPU baseline.
-- **P2** RVC inference на готовой .pth.
-- **P2** mastering: LUFS-gating опция + референс-матчинг (matchering).
-- **P3** cleanup: точечно почистить `except: pass` в master_pipeline_v12.py.
+## Что честно BLOCKED (требует heavy-deps на целевом ПК)
+- `audiocraft` (MusicGen текстуры) — не установлен в sandbox, инструкция в INSTALL.md.
+- `demucs` (стемы) — опциональный.
+- Реальная RVC-inference на .pth — требует rvc-python + модель.
+- PySide6 desktop и Windows EXE build — требуют Windows.
 
-## Как прогнать проверку
-```bash
-python3 main.py --version
-python3 tools/smoke_v26.py
-python3 tools/smoke_v29.py
-python3 -m pytest tests/ -q
-```
+## Активный бэклог
+См. `SESSION_LOG.md` — активная секция сверху, архив снизу (не удаляется, история важна).
 
-## Как получить Windows EXE
-1. Push в `main` уже запускает `.github/workflows/build.yml`.
-2. Открыть https://github.com/ttklon/ZS-MUSIC-MAKER/actions
-3. Найти последний прогон workflow `Build Windows EXE` на коммите v29.
-4. Скачать артефакт `ZS-Music-Maker-Windows-EXE` (retention 30 дней).
+## Правила сессий
+1. Читать `SESSION_LOG.md` целиком перед правками.
+2. Правки → верификация (`pytest` + `smoke_v26` + `smoke_v29` + `fallback_audit`) → дописать блок в SESSION_LOG.
+3. Не плодить `_final_final.py`, не оставлять «отчёты ради отчётов».
+4. Все статусы — REAL_PASS/PARTIAL/BLOCKED/FAILED/NOT_TESTED, никаких «готово» без реального прогона.
