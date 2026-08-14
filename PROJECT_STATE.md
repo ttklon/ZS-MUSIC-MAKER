@@ -4,7 +4,7 @@
 > README/CHANGELOG/старые аудиты — НЕ источник истины, если расходятся с кодом.
 
 ## Текущая версия
-- **v34.0.0** — `v34-session-backlog-fixes-2026-08-13` (единый источник: `version.json`)
+- **v35.0.0** — `v35-session-silero-real-musicgen-status-cleanup-2026-08-14` (единый источник: `version.json`)
 
 ## Статусы модулей (легенда: REAL_PASS / PARTIAL / FALLBACK_ONLY / BLOCKED / FAILED / MISSING / NOT_TESTED)
 

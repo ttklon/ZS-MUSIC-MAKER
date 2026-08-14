@@ -64,8 +64,14 @@ def _log(msg: str) -> None:
     try:
         with APP_LOG.open("a", encoding="utf-8") as fh:
             fh.write(line + "\n")
-    except Exception:
-        pass
+    except Exception as e:
+        # v35: раньше молчало (pass) — запись лога падала невидимо.
+        # Печатаем в stderr, чтобы потеря лога не была бесшумной.
+        try:
+            import sys as _s
+            _s.stderr.write(f"[master_pipeline_v12] log-write failed: {e}\n")
+        except Exception:
+            pass
 
 
 # ---------------------------------------------------------------------------
@@ -221,8 +227,10 @@ def run_master_pipeline(
         if progress_cb:
             try:
                 progress_cb(stage, pct, msg)
-            except Exception:
-                pass
+            except Exception as e:
+                # v35: callback пользователя упал — пайплайн не роняем,
+                # но честно фиксируем в лог (раньше было бесшумно).
+                _log(f"[warn] progress_cb raised: {e!r}")
 
     # ------------------------------------------------------------------
     # Стадия 0. health
@@ -541,8 +549,9 @@ def run_master_pipeline(
         if hs and hasattr(hs, "score"):
             try:
                 return hs.score({"dry_run": True})
-            except Exception:
-                pass
+            except Exception as e:
+                # v35: scorer упал — фиксируем причину, не проглатываем.
+                _log(f"[warn] hit_scorer.score failed: {e!r}")
         return {"total_score": 72, "verdict": "solid", "note": "dry-run heuristic"}
 
     hs_stage = _stage(

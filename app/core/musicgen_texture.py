@@ -8,8 +8,9 @@
   • Батч-режим: несколько окон по 20-30 сек с разными промтами.
   • Ленивая загрузка модели, unload после использования (освобождение VRAM).
   • Кэширование результатов по (prompt+size+duration).
-  • Graceful fallback: если audiocraft не установлен — генерирует «розовый шум»
-    как заглушку, чтобы pipeline не падал.
+  • v35: НИКАКОГО pink-noise fallback (запрещено TZ 33.5). Если audiocraft
+    не установлен — честный BLOCKED через get_status() + detect_availability()
+    на старте приложения, а НЕ молчаливый выброс в лог.
 """
 
 from __future__ import annotations
@@ -71,6 +72,59 @@ def unload_all() -> None:
         pass
 
 
+# --------------------------------------------------------------- v35: honest status
+def detect_availability() -> dict:
+    """v35 (SESSION_LOG P1): честная проверка доступности MusicGen БЕЗ загрузки
+    весов. Раньше модуль «молча падал в лог» — пайплайн узнавал о проблеме
+    только по ok=False глубоко в прогоне. Теперь стартап/health может вызвать
+    detect_availability() и заранее показать пользователю честный статус.
+
+    Возвращает dict:
+      available  — True только если audiocraft+torch реально импортируются
+      status     — REAL_PASS | BLOCKED
+      reason     — человекочитаемая причина (для UI/health)
+      install_hint — как включить (для INSTALL/health)
+    """
+    try:
+        import torch  # noqa: F401
+    except Exception as e:
+        return {
+            "available": False,
+            "status": "BLOCKED",
+            "reason": f"torch не установлен ({type(e).__name__})",
+            "install_hint": "pip install torch  (CPU-сборка достаточна для musicgen-small)",
+        }
+    try:
+        import audiocraft  # noqa: F401
+    except Exception:
+        return {
+            "available": False,
+            "status": "BLOCKED",
+            "reason": "audiocraft не установлен — MusicGen-текстуры отключены (это опциональная фича, ядро не ломается)",
+            "install_hint": "pip install audiocraft  # ~тяжёлая зависимость, тянет torch+audio-стек",
+        }
+    return {
+        "available": True,
+        "status": "REAL_PASS",
+        "reason": "audiocraft + torch доступны",
+        "install_hint": "",
+    }
+
+
+def get_status() -> dict:
+    """v35: сводный статус для health/dashboard (как get_status() у midi_generator)."""
+    a = detect_availability()
+    return {
+        "module": "musicgen_texture",
+        "status": a["status"],
+        "available": a["available"],
+        "reason": a["reason"],
+        "install_hint": a["install_hint"],
+        "cached_models": list(_MODEL_CACHE.keys()),
+        "cache_dir": str(CACHE),
+    }
+
+
 # --------------------------------------------------------------- cache key
 def _cache_key(prompt: str, size: str, duration: int) -> str:
     h = hashlib.md5(f"{prompt}|{size}|{duration}".encode()).hexdigest()[:12]
@@ -105,6 +159,10 @@ def generate_texture(
 
     # 2) Реальная генерация через audiocraft
     model = _load_musicgen(size)
+    if model is None:
+        # v35: честный лог причины один раз на вызов (не молчаливо)
+        avail = detect_availability()
+        print(f"[musicgen_texture] BLOCKED: {avail['reason']} | {avail['install_hint']}")
     if model is not None:
         try:
             model.set_generation_params(

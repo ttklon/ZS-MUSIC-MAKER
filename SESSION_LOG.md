@@ -16,21 +16,62 @@
 - [x] ✅ v29: **mastering_pro: pyloudnorm clipping warning + возможные NaN/Inf + моно-даунмикс на выходе** → добавлен true-peak ceiling `-1 dBTP` (streaming-стенд), `_sanitize()` (NaN/Inf → 0), auto mono→stereo up-mix, honest output-метрики (`output_lufs`, `output_peak_db`, `channels`, `sample_rate`).
 - [ ] **P1: Windows EXE build не верифицирован** — GitHub Actions `build.yml` есть, но первый прогон через Actions не подтверждён (в sandbox нет Windows). После push v29 → следить за https://github.com/ttklon/ZS-MUSIC-MAKER/actions.
 - [ ] **P1: `voice_cleaner` = FALLBACK_ONLY** — noisereduce опционален, не проверен на Windows. Установить на целевой ПК, перевести в REAL_PASS.
-- [ ] **P1: `musicgen_texture` = BLOCKED** — audiocraft heavy, не установлен. Подготовить честную инструкцию установки + авто-проверку при старте (сейчас молча падает в лог).
+- [x] ✅ **v35: `musicgen_texture` honest-статус** — добавлены `detect_availability()` (проверка torch+audiocraft БЕЗ загрузки весов) и `get_status()`; при недоступности движка печатается причина + install_hint (раньше молча падал в лог). Сам audiocraft остаётся BLOCKED (тяжёлый, ставится на целевом ПК — инструкция в INSTALL.md).
 
 ### P2 — качество результата
-- [ ] **P2: `voice_synth` = FALLBACK_ONLY** — только pyttsx3/gtts scaffold. Цель: Silero TTS v3.1 RU на CPU (~50MB, реально для RX580/16GB). Обвязка есть, движок не подтверждён. **v30: честность исправлена** — `synth()` больше не возвращает путь к несуществующему файлу.
+- [x] ✅ **v35: `voice_synth` = REAL_PASS** — Silero TTS v3.1 RU подтверждён РЕАЛЬНЫМ прогоном на CPU (torch/torchaudio 2.5.1+cpu, omegaconf, soundfile): WAV 48кГц, 6.7с, RMS 0.167, female=kseniya. God Mode E2E впервые прошёл с `vocal_status=OK` (реальный вокал, не BLOCKED). Найден и задокументирован ABI-баг: PyPI-torchaudio несовместим с torch pytorch-индекса (`_torchaudio.abi3.so` не грузится) — INSTALL.md фиксирует согласованную пару версий.
 - [ ] **P2: RVC-конверсия тембра = NOT_TESTED** — `rvc_manager.py` обвязка есть (Applio/Mangio форки), но конверсия на реальной модели не прогонялась. Проверить inference на готовой .pth без обучения.
-- [ ] **P2: 449 `except`-блоков в modules/ + app/core/** — большинство легитимны (опциональные heavy-deps), часть — скрытые падения. Точечно: master_pipeline_v12.py, release_pack_full.py.
+- [x] ✅ **v35: точечная чистка silent except** — master_pipeline_v12.py (log-write / progress_cb / hit_scorer dry-run) и release_pack_full.py (ID3-обложка) больше не проглатывают ошибки молча — пишут в stderr/лог. Остальные ~490 except в основном легитимные lazy-import heavy-deps (полная зачистка — риск регрессий без Windows-теста).
 - [x] ✅ **v30: Вокальная стадия God Mode `vocal_cleaning`** — теперь при отсутствии TTS-движка кладёт в отчёт честный `vocal_status=BLOCKED` + `vocal_reason=no_vocal_engine` (раньше молча возвращала None).
 
 ### P3 — UI/полировка/cleanup
 - [x] ✅ v29: **Устаревшие smoke_v14..v25 (11 файлов) + AUDIT_50_DEEP / AUDIT_AND_IMPROVEMENT_REPORT / AIDER_GENERATION_AUDIT** — перенесены в `docs/legacy/` (не удалены, история сохранена). Активный smoke: `tools/smoke_v26.py` (аудио-качество) + `tools/smoke_v29.py` (God Mode E2E).
 - [ ] **P3: PySide6 GUI = NOT_TESTED на Windows** — в sandbox невозможно. Проверить `main.py --desktop` на целевом ПК.
+- [x] ✅ v35: **cleanup мусора в git-индексе** — удалён мёртвый `safe_import.py` (0 продакт-импортов, единственный потребитель — legacy-smoke в docs/legacy); из индекса убраны чужие снапшоты `data/health_v12.json` / `data/kpi_dashboard_v12.json` (были в .gitignore, но остались закоммичены) и рантайм-лог `logs/self_diag_v13.txt` (+ `logs/` в .gitignore); `tutorial_settings.json` перенесён из корня в `data/` (модули v34 уже читают его оттуда — корневой файл был мёртвым дублем).
 
 ---
 
 ## ЖУРНАЛ СЕССИЙ
+
+### v35 (2026-08-14) — session-silero-real-musicgen-status-cleanup (ПРАВКИ, не аудит)
+
+> Режим: полный рабочий проход по активному бэклогу (v34 P1/P2/P3). Цель сессии — снять самый ценный BLOCKED ядра: вокал.
+
+**Baseline до правок:** pytest 7/7, smoke_v26 6/6, smoke_v29 8/8 (Python 3.12, numpy 2.4.6).
+
+#### ЧТО ИСПРАВЛЕНО / ПОДТВЕРЖДЕНО
+
+1. **[P2 → REAL_PASS] `voice_synth` Silero TTS подтверждён РЕАЛЬНЫМ прогоном.** Установлены torch/torchaudio 2.5.1+cpu + omegaconf + soundfile; `synth(text, engine="silero", gender="female")` → реальный WAV 48кГц / 6.7с / RMS 0.167 / peak 0.96 (голос kseniya, живой сигнал). Статус `voice_synth` снят с FALLBACK_ONLY. God Mode E2E впервые прошёл с `vocal_status=OK` (реальный вокал вместо BLOCKED). Это закрывает главный P2-бэклог вокала.
+
+2. **[НОВАЯ НАХОДКА + FIX] ABI-несовместимость torch/torchaudio.** PyPI-`torchaudio` НЕ грузится с `torch` pytorch-индекса (`OSError: Could not load _torchaudio.abi3.so`) — pip ставит несогласованные бинарники. INSTALL.md теперь фиксирует согласованную пару `torch==2.5.1` + `torchaudio==2.5.1` с ОДНОГО pytorch-индекса + Silero-зависимости (`omegaconf soundfile`). Реальный блокер, который сломал бы Silero у пользователя.
+
+3. **[P1] `musicgen_texture` honest-статус вместо молчаливого падения.** Добавлены `detect_availability()` (torch/audiocraft БЕЗ загрузки весов → REAL_PASS/BLOCKED + reason + install_hint) и `get_status()` (как у midi_generator); при недоступном движке `generate_texture` печатает причину. Докстринг обновлён: pink-noise fallback запрещён (TZ 33.5), вместо него — честный BLOCKED.
+
+4. **[P2] Точечная честность silent except:pass.** `master_pipeline_v12`: запись app-лога, падение progress-callback, падение hit_scorer в dry-run — раньше проглатывались молча, теперь пишут в stderr/лог. `release_pack_full`: падение ID3/обложки — теперь честно в stderr. Пайплайн не роняется, но потеря больше не бесшумна.
+
+5. **[P3] Cleanup мусора.** Удалён мёртвый `safe_import.py` (единственный потребитель — legacy-smoke); из git-индекса убраны чужие снапшоты `data/health_v12.json` / `data/kpi_dashboard_v12.json` (были в .gitignore, но закоммичены) и рантайм-лог `logs/self_diag_v13.txt` (+ `logs/` в .gitignore); `tutorial_settings.json` перенесён в `data/` (модули v34 читают его оттуда — корневой был мёртвым дублем).
+
+#### ВЕРИФИКАЦИЯ ПОСЛЕ ПРАВОК (реальный прогон)
+- `python -m py_compile` всех изменённых .py → OK
+- Импорт musicgen_texture/master_pipeline_v12/release_pack_full → OK; `get_status()` → честный BLOCKED (audiocraft не установлен)
+- `pytest tests/` → **7/7 PASS**
+- `tools/smoke_v26.py` → **6/6 PASS**
+- `tools/smoke_v29.py` → **8/8 PASS** (God Mode E2E, master_god.wav стерео 120с, -1 dBTP, вокал OK)
+- `tools/fallback_audit.py` → **red_flags: 0**
+- Промежуточный FAIL smoke_v29 (4/5, master_exists) — устаревший чекпоинт pipeline_core от прерванного прогона; после чистки `output/smoke_v29/checkpoints` → 8/8, регрессии нет (не мой дефект).
+
+#### ОСТАЛОСЬ (честно, требует целевой Windows-ПК / heavy-deps / реальной .pth)
+- Windows EXE build через Actions — NOT_TESTED.
+- voice_cleaner (noisereduce) — FALLBACK_ONLY, не проверен на Windows.
+- RVC реальная inference на .pth — NOT_TESTED.
+- PySide6 GUI — NOT_TESTED на Windows.
+- musicgen_texture (audiocraft) — BLOCKED (тяжёлый, инструкция в INSTALL.md; fallback запрещён).
+- Полная зачистка ~490 except-блоков — осознанно НЕ сделана (большинство легитимные lazy-import; массовая правка без Windows-теста = риск регрессий).
+
+#### РЕЗЮМЕ v35
+Главный результат: **вокал вышел из FALLBACK_ONLY в REAL_PASS** — Silero реально синтезирует русский голос на CPU, God Mode E2E впервые с живым вокалом. Попутно закрыт P1 musicgen-статуса (honest BLOCKED), устранён реальный ABI-блокер TTS-установки, убран мусор из git-индекса, точечно поднята честность silent-fail. Ядро (beat→mix→mastering→God Mode) по-прежнему REAL_PASS 8/8.
+
+---
 
 ### v34 (2026-08-13) — session-backlog-fixes (правки по бэклогу v31/v32)
 

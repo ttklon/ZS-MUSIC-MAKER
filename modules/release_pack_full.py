@@ -891,8 +891,14 @@ def _apply_id3(mp3_path: Path, meta: dict[str, Any], cover_path: Path):
                         data=f.read(),
                     )
                 )
-    except Exception:
-        pass
+    except Exception as e:
+        # v35: раньше молчало (pass) — обложка/теги терялись бесшумно.
+        # Не критично для аудио, но пользователь должен знать.
+        try:
+            import sys as _s
+            _s.stderr.write(f"[release_pack_full] ID3/cover embed failed: {e}\n")
+        except Exception:
+            pass
     id3.save(str(mp3_path))
 
 

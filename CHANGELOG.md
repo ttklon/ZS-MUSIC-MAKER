@@ -1,6 +1,14 @@
 # CHANGELOG
 
-> Актуальная версия: **v33.0.0** (2026-08-13). История версий v10–v32 ведётся в `SESSION_LOG.md`.
+> Актуальная версия: **v35.0.0** (2026-08-14). История версий v10–v34 ведётся в `SESSION_LOG.md`.
+
+## v35 — 2026-08-14 (session-silero-real-musicgen-status-cleanup)
+
+- **REAL_PASS: `voice_synth` Silero TTS** — впервые подтверждён реальным прогоном на CPU (RU v3.1, female=kseniya, WAV 48kHz/6.7s живой сигнал). Статус снят с FALLBACK_ONLY.
+- **FIX P1: `musicgen_texture`** — добавлен honest `detect_availability()`/`get_status()` (проверка torch+audiocraft БЕЗ загрузки весов) вместо молчаливого падения в лог; лог причины BLOCKED на вызове.
+- **FIX P2: точечная честность silent except** — `master_pipeline_v12` (log-write/progress_cb/hit_scorer) и `release_pack_full` (ID3-обложка) больше не проглатывают ошибки молча — честно логируют в stderr/лог.
+- **Cleanup:** удалён мёртвый `safe_import.py` (0 продакт-импортов); из git-индекса убраны чужие снапшоты `data/health_v12.json`/`data/kpi_dashboard_v12.json`; `tutorial_settings.json` перенесён в `data/` (дубль после миграции v34).
+- **FIX INSTALL.md:** зафиксирована согласованная пара `torch==2.5.1`+`torchaudio==2.5.1` с pytorch-индекса (реальный ABI-баг: PyPI-torchaudio несовместим с torch pytorch-индекса → `_torchaudio.abi3.so` не грузится) + проверенный Silero-путь (`omegaconf soundfile`).
 
 ## v33 — 2026-08-13 (session-full-pass)
 

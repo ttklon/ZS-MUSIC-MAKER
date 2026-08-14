@@ -86,7 +86,13 @@ python main.py --health                    # общее здоровье сис�
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
-pip install torch torchaudio --index-url https://download.pytorch.org/whl/cpu
+# v35: ВАЖНО — ставить согласованную пару torch+torchaudio С ОДНОГО индекса.
+# Нельзя смешивать torch (pytorch-индекс) и torchaudio (PyPI): бинарники ABI
+# несовместимы → OSError «Could not load _torchaudio.abi3.so». Берём оба с
+# pytorch-индекса с зафиксированной парой версий (проверено на Silero TTS):
+pip install "torch==2.5.1" "torchaudio==2.5.1" --index-url https://download.pytorch.org/whl/cpu
+# Зависимости Silero TTS (русский голос, ~50MB, CPU-friendly, REAL_PASS v35):
+pip install omegaconf soundfile
 
 # ffmpeg
 sudo apt install ffmpeg        # Linux
@@ -117,8 +123,19 @@ winget install --id=Gyan.FFmpeg -e    # или: choco install ffmpeg -y
 ### TTS / вокал недоступен (vocal_status = BLOCKED)
 Вокальная стадия работает через цепочку движков: silero → xtts → bark →
 pyttsx3 → gtts. Если ни один не установлен — пайплайн честно продолжает
-без вокала и пишет причину в отчёт проекта. Минимальный вариант:
-`pip install pyttsx3 gtts` (лёгкие, CPU).
+без вокала и пишет причину в отчёт проекта.
+
+**Рекомендуемый (проверен v35, REAL_PASS): Silero TTS** — лучший русский
+голос, ~50MB, полностью CPU и offline:
+```bash
+pip install "torch==2.5.1" "torchaudio==2.5.1" --index-url https://download.pytorch.org/whl/cpu
+pip install omegaconf soundfile
+```
+Первый вызов скачает веса (~59MB) в кэш torch.hub, дальше — локально.
+Выбор пола: `synth(text, gender="female")` (male=aidar / female=kseniya).
+
+Минимальный вариант (если torch не влезает): `pip install pyttsx3 gtts`
+(pyttsx3 offline но роботичный; gtts требует сеть).
 
 ### RVC-конверсия тембра
 RVC требует установленного `rvc-python` и обученной `.pth`-модели.

@@ -57,3 +57,5 @@ ENV/
 .vscode/
 .idea/
 .aider*
+logs/
+!data/tutorial_settings.json

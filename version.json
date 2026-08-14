@@ -1,6 +1,6 @@
 {
- "version": "34.0.0",
- "build": "v34-session-backlog-fixes-2026-08-13",
- "based_on": "v33-full-pass-2026-08-13",
- "changes": "v34 (P2/P3): правки по бэклогу v31/v32. FIX: model_manager — lazy torch (core-импорт без torch, P2.8); sample_hunter_v9 — жёсткий license-gate через license_manager (URL-лицензии archive.org нормализуются, P2.18); onboarding run_cli — честный exit code (1 = mic unavailable, P3.16); tutorial_settings.json — единый путь data/ + миграция (был рассинхрон CWD vs корень, P3.26); voice_synth — параметр gender (male/female → silero speaker, P3.21); orchestrator_god — честный _json_safe вместо default=str (P2.29); main.py --god — валидация жанра против StyleRegistry + подсказка (v32.22); .env.example создан (P3.25); hit_kpi_monitor_v11 — комментарий sep-нормализации (P2.14)."
+ "version": "35.0.0",
+ "build": "v35-session-silero-real-musicgen-status-cleanup-2026-08-14",
+ "based_on": "v34-session-backlog-fixes-2026-08-13",
+ "changes": "v35: voice_synth Silero TTS подтверждён реальным прогоном (FALLBACK_ONLY→REAL_PASS, RU v3.1, female kseniya, 48kHz WAV); musicgen_texture — honest BLOCKED-детектор detect_availability()/get_status() вместо молчаливого падения (P1); точечная чистка silent except:pass в master_pipeline_v12 (log-write/progress_cb/hit_scorer) и release_pack_full (ID3) — теперь честно логируют; cleanup: safe_import.py (мёртвый) удалён, data/health_v12.json + data/kpi_dashboard_v12.json убраны из git-индекса (уже в .gitignore), tutorial_settings.json → data/ (устранён дубль после миграции v34); INSTALL.md — зафиксирована согласованная пара torch/torchaudio 2.5.1 (реальный ABI-баг PyPI vs pytorch-index) + проверенный Silero-путь (omegaconf/soundfile)."
 }
