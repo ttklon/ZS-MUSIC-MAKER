@@ -447,3 +447,11 @@ AI pipeline теперь создаёт `manifest.json` с `schema_version=1`, w
 Существующий audio-first `hit_scorer.score_track` подключён к `main.py --score <master.wav>`: CLI выводит hit score, verdict, 12 metric breakdown, actions и TikTok slice. Это техническая эвристика структуры/энергии, не обещание коммерческого успеха и не LLM-оценка лирики.
 
 Проверка: score CLI regression = **33 PASS** в `test_ai_layer`; полный `pytest tests/` = **128 PASS**; compileall/AST OK.
+
+
+---
+## PLAN_v39 — ШАГ 061: AI detector risk contract
+
+`ai_detector_pro` теперь отдаёт `ai_risk_percent` 0–100 и `metric_type=internal_audio_heuristic_not_ai_attribution`. Это делает internal quality signal для динамики/периодичности/спектра явным, не выдавая его за доказательство происхождения аудио или объективную «человечность».
+
+Проверка: synthetic detector regression = **1 PASS**; полный `pytest tests/` = **129 PASS**; compileall/AST OK.

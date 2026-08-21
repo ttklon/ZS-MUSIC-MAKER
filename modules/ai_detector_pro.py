@@ -175,6 +175,8 @@ def analyze_track(audio_path: str) -> dict:
         "metrics": {k: round(v, 3) for k, v in metrics.items()},
         "flags": flags,
         "score": round(score, 3),
+        "ai_risk_percent": round((1.0 - score) * 100.0, 1),
+        "metric_type": "internal_audio_heuristic_not_ai_attribution",
         "verdict": verdict,
         "advice": advice,
         "path": audio_path,
