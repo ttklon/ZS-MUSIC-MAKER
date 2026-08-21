@@ -413,8 +413,6 @@ def test_cover_quality_requires_readable_large_rgb_artifact(tmp_path) -> None:
 
 
 def test_matchering_handle_processes_reference_without_registry_reload(tmp_path) -> None:
-    from pathlib import Path
-
     from modules.mastering_ai import master_with_matchering
 
     class FakeMatchering:
@@ -426,7 +424,13 @@ def test_matchering_handle_processes_reference_without_registry_reload(tmp_path)
 
         def process(self, **kwargs):
             self.calls.append(kwargs)
-            Path(kwargs["results"][0]).write_bytes(b"mastered-audio")
+            sample_rate = 8_000
+            time_axis = np.arange(sample_rate) / sample_rate
+            audio = np.column_stack([
+                0.3 * np.sin(2 * np.pi * 180 * time_axis),
+                0.3 * np.sin(2 * np.pi * 220 * time_axis),
+            ])
+            sf.write(kwargs["results"][0], audio, sample_rate)
 
     output = tmp_path / "master.wav"
     handle = FakeMatchering()
@@ -434,6 +438,8 @@ def test_matchering_handle_processes_reference_without_registry_reload(tmp_path)
 
     assert result["ok"] is True
     assert result["engine"] == "matchering"
+    assert result["loudness"]["target_lufs"] == -14.0
+    assert result["loudness"]["output_peak_db"] <= -1.0
     assert output.exists()
     assert handle.calls[0]["target"] == "mix.wav"
     assert handle.calls[0]["reference"] == "reference.wav"

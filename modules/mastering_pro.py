@@ -16,6 +16,8 @@ v29 FIX (P1/P2):
 """
 
 import os
+from pathlib import Path
+
 import numpy as np
 import soundfile as sf
 
@@ -185,4 +187,63 @@ def process_mastering(input_wav: str, output_wav: str, vocal_path: str = None, t
         "output_peak_db": round(float(output_peak_db), 2),
         "channels": int(mastered.shape[1]) if mastered.ndim == 2 else 1,
         "sample_rate": int(samplerate),
+    }
+
+
+
+def normalize_master_loudness(input_wav: str, output_wav: str | None = None,
+                               target_lufs: float = -14.0,
+                               ceiling_db: float = -1.0) -> dict:
+    """Нормализовать уже обработанный master без добавления новой DSP-окраски.
+
+    При установленном pyloudnorm используется integrated loudness. В лёгкой
+    среде применяется честная RMS approximation и это явно отмечается в
+    `loudness_mode`; peak ceiling применяется в обоих режимах.
+    """
+    output_wav = output_wav or input_wav
+    samples, sample_rate = sf.read(input_wav, always_2d=True)
+    samples = _sanitize(np.asarray(samples, dtype=np.float64))
+    if samples.size == 0:
+        return {"ok": False, "reason": "master audio is empty"}
+    loudness_mode = "rms_approximation"
+    input_lufs = None
+    normalized = samples
+    if HAS_PYLOUDNORM:
+        try:
+            meter = pyln.Meter(sample_rate)
+            input_lufs = float(meter.integrated_loudness(samples))
+            import warnings
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                normalized = pyln.normalize.loudness(samples, input_lufs, target_lufs)
+            loudness_mode = "integrated_lufs"
+        except Exception:
+            normalized = samples
+    if loudness_mode == "rms_approximation":
+        rms = float(np.sqrt(np.mean(normalized ** 2)) + 1e-12)
+        target_rms = 10.0 ** (target_lufs / 20.0)
+        normalized = normalized * min(target_rms / rms, 5.0)
+    normalized = _apply_ceiling(_sanitize(normalized), ceiling_db=ceiling_db)
+    normalized = np.clip(normalized, -0.99, 0.99)
+    Path(output_wav).parent.mkdir(parents=True, exist_ok=True)
+    sf.write(output_wav, normalized.astype("float32"), sample_rate, format="WAV", subtype="PCM_16")
+
+    output_lufs = None
+    if HAS_PYLOUDNORM:
+        try:
+            output_lufs = float(pyln.Meter(sample_rate).integrated_loudness(normalized))
+        except Exception:
+            output_lufs = None
+    peak_db = 20.0 * np.log10(float(np.max(np.abs(normalized))) + 1e-12)
+    rms_db = 20.0 * np.log10(float(np.sqrt(np.mean(normalized ** 2))) + 1e-12)
+    return {
+        "ok": True,
+        "path": output_wav,
+        "target_lufs": float(target_lufs),
+        "output_lufs": round(output_lufs, 2) if output_lufs is not None else None,
+        "output_rms_dbfs": round(float(rms_db), 2),
+        "output_peak_db": round(float(peak_db), 2),
+        "loudness_mode": loudness_mode,
+        "sample_rate": int(sample_rate),
+        "channels": int(normalized.shape[1]),
     }

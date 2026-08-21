@@ -411,11 +411,13 @@ def run_ai_pipeline(project_id, wizard_state=None, out_root=None, dry_run=False)
             mix,
             out_master,
             reference_wav=ws.get("reference_master_wav"),
-            target_lufs=-9.0,
+            target_lufs=-14.0,
             handle=handle,
         )
         if result.get("ok") and result.get("path"):
-            quality = validate_master_artifact(mix, result["path"])
+            quality = validate_master_artifact(
+                mix, result["path"], max_true_peak_dbtp=-1.0
+            )
             result["quality"] = quality
             result["ok"] = bool(quality["ok"])
             result["reason"] = quality["reason"]

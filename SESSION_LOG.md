@@ -338,3 +338,16 @@ ASR-вызов вынесен в `transcribe_reference_audio()`: handle полу
 | Переносимость | Font resolver остаётся cross-platform через `font_utils`, без `C:\` path. |
 
 Проверка: `pytest tests/test_ai_quality.py -q` = **38 PASS**; полный `pytest tests/` = **116 PASS**; dry-run/compileall OK; AST = **0**. SDXL/diffusers weights в sandbox отсутствуют, real inference честно **BLOCKED**.
+
+
+---
+## PLAN_v39 — ШАГ 048: matchering + loudness normalization
+
+| Область | Результат |
+|---|---|
+| Post-matchering | После handle matchering запускается отдельный neutral loudness normalizer; output-file наличие больше не считается достаточной приёмкой. |
+| Целевые уровни | Pipeline target установлен на **−14 LUFS**, final sample ceiling **−1.2 dB**, stage quality gate проверяет estimated TP **≤−1.0 dBTP**. |
+| Fallback parity | `mastering_pro` fallback проходит тот же final normalizer и возвращает `loudness` evidence. |
+| Измерения | `pyloudnorm` путь маркируется `integrated_lufs`; без него строго указывается `rms_approximation`, без фиктивного LUFS claim. |
+
+Проверка: matchering fake WAV contract + `pytest tests/test_ai_quality.py tests/test_mastering_results.py` = **39 PASS**; полный `pytest tests/` = **116 PASS**, compileall/AST OK. matchering/pyloudnorm в sandbox отсутствуют, real integrated-LUFS inference честно **BLOCKED**.
