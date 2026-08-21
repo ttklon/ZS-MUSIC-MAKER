@@ -412,6 +412,12 @@ def main() -> int:
     parser.add_argument("--onboarding", action="store_true", help="Run voice onboarding CLI")
     parser.add_argument("--readiness", action="store_true", help="Compute readiness percent")
     parser.add_argument("--console", action="store_true", help="Force console REPL mode (no GUI)")
+    parser.add_argument("--ai", action="store_true", help="Launch AI GOD MODE 4.0 (sequential AI stack)")
+    parser.add_argument("--ai-status", action="store_true", help="Show AI model registry & availability")
+    parser.add_argument("--ai-pull", type=str, default="", help="Pull one AI model role (or 'all')")
+    parser.add_argument("--dossier-artist", type=str, default="", help="Artist name/slug for dossier")
+    parser.add_argument("--dossier-add", type=str, default="", help="Add local folder source")
+    parser.add_argument("--dossier-build", action="store_true", help="Run full AI dossier build (heavy)")
 
     args = parser.parse_args()
 
@@ -457,6 +463,54 @@ def main() -> int:
 
     if args.console:
         return _cli_console()
+
+    if args.ai_status:
+        from app.ai.registry import registry, MODEL_REGISTRY
+        print("[AI] Hardware budget:", registry.hw)
+        for k, v in MODEL_REGISTRY.items():
+            avail = "OK" if registry.is_available(k) else "--"
+            print(f"  {avail} {k:20s} {v['engine']:22s} VRAM~{v.get('vram_est_gb', 0)} GB - {v['role']}")
+        return 0
+
+    if args.ai_pull:
+        from tools import pull_ai_models as pm
+        if args.ai_pull.lower() == "all":
+            from app.ai.registry import MODEL_REGISTRY
+            for k in MODEL_REGISTRY:
+                pm.pull(k)
+        else:
+            pm.pull(args.ai_pull)
+        return 0
+
+    if args.dossier_add and args.dossier_artist:
+        from modules.artist_dossier import DossierManager
+        from modules.artist_dossier.collectors import LocalFolderCollector, LyricVaultCollector
+        mgr = DossierManager()
+        src = args.dossier_add
+        tracks = []
+        if Path(src).is_dir():
+            tracks = LocalFolderCollector(src).collect(args.dossier_artist)
+        tracks += LyricVaultCollector(str(ROOT / "lyric_vault")).collect(args.dossier_artist)
+        mgr.add_artist(args.dossier_artist, tracks=tracks)
+        print(f"[dossier] artist={args.dossier_artist} tracks_added={len(tracks)}")
+        return 0
+
+    if args.dossier_build and args.dossier_artist:
+        from modules.artist_dossier import DossierManager
+        mgr = DossierManager()
+        d = mgr.build_full_dossier(args.dossier_artist,
+                                   progress_cb=lambda tid, st: print(f"  [{tid}] {st}"))
+        print(json.dumps(d, ensure_ascii=False, indent=2)[:2000])
+        return 0
+
+    if args.ai:
+        from app.core.orchestrator_ai import run_ai_pipeline
+        ws = {"genre": args.genre, "theme": args.theme,
+              "artist_slug": args.dossier_artist or None}
+        out = run_ai_pipeline("ai_cli", ws, dry_run=False)
+        print(json.dumps({"stages": out["report"]["stages"],
+                          "artefacts": out["artefacts"]}, ensure_ascii=False, indent=2))
+        return 0
 
     if args.god:
         return _cli_god(args)
