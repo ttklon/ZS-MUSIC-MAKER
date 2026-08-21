@@ -107,6 +107,60 @@ class StepBase(QWidget):
 
 
 # ============================================================
+# AI status: локальные роли и состояние sequential pipeline
+# ============================================================
+class StepAIStatus(StepBase):
+    """Отображает реальные availability состояния registry без загрузки моделей."""
+    def __init__(self, wizard):
+        super().__init__(wizard)
+        self.root.addWidget(H1("AI: модели и pipeline"))
+        self.root.addWidget(DIM(
+            "Статус проверяется без загрузки весов в VRAM. READY означает, что роль "
+            "доступна для runner; NO MODEL/DEPENDENCY — что pipeline честно применит fallback."
+        ))
+        self.info = QTextEdit()
+        self.info.setReadOnly(True)
+        self.info.setMinimumHeight(360)
+        self.root.addWidget(self.info, 1)
+        row = QHBoxLayout()
+        self.btn_refresh = QPushButton("Обновить статусы")
+        self.btn_refresh.clicked.connect(self.refresh)
+        row.addWidget(self.btn_refresh)
+        row.addStretch()
+        self.root.addLayout(row)
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self.refresh)
+        self.timer.start(5000)
+
+    def refresh(self):
+        try:
+            from app.ai.registry import MODEL_REGISTRY, registry
+
+            runtime = registry.status()
+            lines = [
+                f"VRAM budget: {runtime['budget']['vram_gb']:.1f} GB | "
+                f"RAM: {runtime['budget']['ram_gb']:.1f} GB | current: {runtime['current'] or 'none'}",
+                "",
+            ]
+            for key, spec in MODEL_REGISTRY.items():
+                available = registry.is_available(key)
+                marker = "READY" if available else "NO MODEL/DEPENDENCY"
+                lines.append(
+                    f"[{marker}] {key} — {spec['role']} "
+                    f"({spec['engine']}; ~{float(spec.get('vram_est_gb', 0)):.1f} GB VRAM)"
+                )
+            self.info.setPlainText("\n".join(lines))
+        except Exception as exc:
+            self.info.setPlainText(f"AI status unavailable: {type(exc).__name__}: {exc}")
+
+    def enter(self):
+        self.refresh()
+
+    def help_text(self):
+        return "READY не загружает модель заранее: SequentialAIRunner держит в памяти только одну роль за раз."
+
+
+# ============================================================
 # Шаг 0: имя артиста (только при первом запуске)
 # ============================================================
 class StepArtist(StepBase):
@@ -889,6 +943,7 @@ class Wizard(QMainWindow):
         self.stack = QStackedWidget()
         # 9 шагов
         self.steps = [
+            StepAIStatus(self),
             StepArtist(self),
             StepReferences(self),
             StepPreset(self),
@@ -937,6 +992,10 @@ class Wizard(QMainWindow):
         a_about = QAction("О программе", self)
         a_about.triggered.connect(self._about)
         help_menu.addAction(a_about)
+        ai_menu = mb.addMenu("AI")
+        a_ai_status = QAction("Статус моделей", self)
+        a_ai_status.triggered.connect(self.go_to_ai_status)
+        ai_menu.addAction(a_ai_status)
 
         # Shortcuts
         QShortcut(QKeySequence("Ctrl+E"), self, activated=self.launch_gradio_expert)
@@ -944,6 +1003,11 @@ class Wizard(QMainWindow):
 
         # Onboarding при первом запуске
         self._maybe_onboarding()
+
+    def go_to_ai_status(self):
+        self.stack.setCurrentWidget(self.steps[0])
+        self.steps[0].enter()
+        self.crumbs.setText(self._crumb_text())
 
     def _crumb_text(self):
         i = self.stack.currentIndex() if hasattr(self, "stack") else 0

@@ -367,3 +367,11 @@ ASR-вызов вынесен в `transcribe_reference_audio()`: handle полу
 `stage_mix` теперь использует `music_stereo.texture_path`: texture ресемплируется/upmix-ится при необходимости и подмешивается к beat с RMS-relative gain **−18 dB**, затем проходит peak ceiling. Result содержит `texture_mixed=True/False`, поэтому отсутствие MusicGen texture остаётся честно наблюдаемым и не ломает base mix.
 
 Проверка: `pytest tests/ -q` = **116 PASS**; `compileall` OK; AST = **0**. MusicGen stereo weights отсутствуют в sandbox, реальная генерация texture **BLOCKED**.
+
+
+---
+## PLAN_v39 — ШАГ 051: GUI статус AI
+
+В Wizard добавлена страница AI status и меню `AI → Статус моделей`: она показывает все 13 roles, public availability, engine, VRAM estimate и текущую sequential role без загрузки весов. Обновление доступно вручную и раз в 5 секунд.
+
+Проверка: `compileall app/gui/wizard.py app/ai/registry.py` OK; `pytest tests/` = **116 PASS**; AST = **0**. В headless sandbox PySide interaction не запускалась; UI использует проверенный `ModelRegistry.status()`/`is_available()` API.
