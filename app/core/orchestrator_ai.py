@@ -18,6 +18,12 @@ def _slug(name: str) -> str:
 
 def run_ai_pipeline(project_id, wizard_state=None, out_root=None, dry_run=False):
     ws = dict(wizard_state or {})
+    try:
+        from config.settings import get_settings
+        cfg = get_settings()
+        app_logger.info(f"[orchestrator_ai] config_path={cfg.config_path} vram_gb={cfg.vram_gb}")
+    except Exception:  # noqa: BLE001
+        cfg = None
     ws.setdefault("genre", "drift_phonk")
     ws.setdefault("theme", "движ, ночь, город")
     ws.setdefault("bpm", 140)
@@ -282,6 +288,7 @@ def run_ai_pipeline(project_id, wizard_state=None, out_root=None, dry_run=False)
     report = runner.run({"project_id": project_id, "wizard_state": ws})
     result = {"project_id": project_id, "god_mode": "4.0-AI", "wizard_state": ws,
               "report": report.to_dict(),
+              "config": cfg.dump() if cfg is not None else None,
               "artefacts": {"lyrics": str(out_root / "lyrics.txt"),
                             "metadata": str(out_root / "metadata.json"),
                             "beat": str(out_root / "beat.wav"),

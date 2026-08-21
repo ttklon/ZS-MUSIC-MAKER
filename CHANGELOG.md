@@ -2,6 +2,15 @@
 
 > Актуальная версия: **v36.0.0** (2026-08-14). Полная история сессий v10–v35 — в `SESSION_LOG.md`.
 
+
+## v39.5 — PLAN_v39 ШАГИ 006-010 (deps, config, CI, version, AST)
+
+- ШАГ 006: requirements выверены по AST-графу импортов; +cryptography, audiomentations, moviepy(<2), noisereduce, lyricsgenius, mingus; AI-стек +essentia, pyAudioAnalysis, bark(git), rvc-python; pyproject deps синхронизированы, добавлен [project.optional-dependencies.ai].
+- ШАГ 007: config/settings.py — единые настройки (.env → env → дефолты), подключены в main.py --version и orchestrator_ai.
+- ШАГ 008: CI +job audit (compileall, AST dead-imports, pytest, --version).
+- ШАГ 009: version.json — единственный источник версии; pyproject dynamic через app/version_info.py; тест сверки.
+- ШАГ 010: tools/ast_dead_imports.py + чистка: musical_intelligence, orchestrator_god, genre_validator, test_ai_layer, ui/__init__; аудит = 0.
+
 ## v36 — 2026-08-14 (session-docs-unification-silent-except-build-fixes)
 
 - **FIX P1 README/CHANGELOG unification** — вычищены протухшие блоки «Что нового в v14/v17/v18», ссылки на удалённые smoke_v14/v15/v17/v18/v21/v24/v25 (перенесены в `docs/legacy/` ещё в v29). Таблица статусов и раздел «Тесты» приведены к текущему v35+ ядру.

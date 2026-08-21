@@ -1,6 +1,6 @@
 {
- "version": "39.4.0",
- "build": "v39.4-plan-steps-001-005-2026-08-21",
+ "version": "39.5.0",
+ "build": "v39.5-plan-steps-006-010-2026-08-21",
  "based_on": "v37-updater-verify-health-cleanup-2026-08-14",
- "changes": "v39.4 PLAN_v39 ШАГИ 001-005: (001) dead-imports удалены (orchestrator_*, pipeline_core, logger, model_manager, cover_gen, genre_engine, genre_expansion_100, global_audit_fixer, midi_generator, lyrics_gen_ai, ai_arranger, beat_gen, agents/__init__); (002) новый app/core/font_utils.py, hardcoded C:\\Windows\\Fonts убран из cover_art_gen/video_edit_v11/cover_gen; (003) новый app/core/isrc.py — реальный ISRC CC-XXX-YY-NNNNN вместо XX-XXX-00-00000 в release_pack_full/release_export/distribution_export_v11; (004) app_logger.log_stage(stage=,duration_ms=), pipeline_core логирует стадии в едином формате; (005) silent except в orchestrator_ai.stage_lyrics и plugins/base.discover заменены на честные логи. Тесты: +tests/test_isrc.py, +tests/test_font_utils.py."
+ "changes": "v39.5 PLAN_v39 ШАГИ 006-010: (006) requirements.txt/requirements_ai.txt выверены AST-аудитом — добавлены реально импортируемые cryptography/audiomentations/moviepy/noisereduce/lyricsgenius/mingus, в AI-стек essentia/pyAudioAnalysis/bark/rvc-python, pyproject синхронизирован + [project.optional-dependencies] ai; (007) config/settings.py — единый загрузчик (.env+env+дефолты), подключён в main.py --version (показывает путь конфига) и orchestrator_ai; (008) ci.yml +job audit (compileall, AST dead-imports, pytest, --version); (009) version.json — единственный источник: pyproject dynamic через app/version_info.py; (010) tools/ast_dead_imports.py + повторный аудит: 0 dead-imports (musical_intelligence sf/aT/audioBasicIO/ShortTermFeatures, orchestrator_god app_logger, genre_validator os, test_ai_layer os, ui/__init__ re-exports). Тесты: +test_settings, +test_version_consistency, +test_ast_dead_imports."
 }

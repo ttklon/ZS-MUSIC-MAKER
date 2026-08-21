@@ -317,7 +317,13 @@ def _cli_readiness() -> int:
 
 
 def _cli_version() -> int:
-    _safe_print(json.dumps({"version": VERSION, "build": BUILD}, ensure_ascii=False))
+    try:
+        from config.settings import get_settings
+        cfg = get_settings()
+        cfg_path = str(cfg.config_path)
+    except Exception as _ce:  # noqa: BLE001 — конфиг опционален
+        cfg_path = "unavailable"
+    _safe_print(json.dumps({"version": VERSION, "build": BUILD, "config": cfg_path}, ensure_ascii=False))
     return 0
 
 

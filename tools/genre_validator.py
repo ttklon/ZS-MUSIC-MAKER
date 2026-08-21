@@ -7,7 +7,6 @@ ZS Music Maker — genre_validator.py (GOD MODE)
 """
 
 import sys
-import os
 from pathlib import Path
 
 # Добавляем корень проекта в пути

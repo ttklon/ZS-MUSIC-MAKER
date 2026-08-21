@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """ZS Music Maker - tests/test_ai_layer.py (v38): smoke AI-слоя."""
-import os, shutil, tempfile, unittest
+import shutil, tempfile, unittest
 from pathlib import Path
 
 

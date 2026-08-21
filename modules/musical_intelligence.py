@@ -8,10 +8,9 @@ ZS Music Maker — musical_intelligence.py (GOD MODE)
 
 import os
 import numpy as np
-import soundfile as sf
+
 
 try:
-    from pyAudioAnalysis import audioTrainTest as aT
     from pyAudioAnalysis import audioBasicIO
     from pyAudioAnalysis import ShortTermFeatures
     HAS_PYAUDIO = True

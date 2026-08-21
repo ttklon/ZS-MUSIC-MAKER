@@ -44,3 +44,24 @@ jobs:
         python main.py --version
         python main.py --list-genres
         python main.py --readiness
+
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt pytest
+    - name: Compile all sources
+      run: python -m compileall -q app agents modules tools updater ui main.py
+    - name: AST dead-imports audit (ШАГ 010)
+      run: python tools/ast_dead_imports.py
+    - name: Pytest
+      run: python -m pytest tests/ -q
+    - name: CLI version with config path (ШАГ 007)
+      run: python main.py --version
