@@ -1,6 +1,14 @@
 
 ---
 
+## КОММИТ — PLAN_v39 ШАГ 037: SDXL cover_art integration (выполнен, runtime BLOCKED)
+
+`stage_cover` теперь передаёт полученный от SequentialAIRunner SDXL handle в `render_cover_ai`; рендер не создаёт вложенный registry lifecycle. `render_cover_with_pipeline()` записывает PNG или возвращает диагностируемый failure. PIL fallback остаётся явно маркированным и работает только без model handle.
+
+Проверка: fake SDXL создал PNG с прямым handle-вызовом; failing pipeline вернул честный error. `pytest tests/` = **87/87 PASS**; compileall OK; AST dead-imports = **0**. `diffusers`/SDXL weights отсутствуют. Детали: `docs/STEP_STATUS/037_sdxl_cover_integration.md`.
+
+---
+
 ## КОММИТ — PLAN_v39 ШАГ 036: DSP quality и fallback (выполнен)
 
 Добавлен `validate_dsp_features()`: BPM должен быть в 40–240, key — хроматическим, duration/RMS — валидными. Неритмический или silent reference не превращается в ложную метрику: dossier сохраняет source audio без ненадёжных DSP данных.

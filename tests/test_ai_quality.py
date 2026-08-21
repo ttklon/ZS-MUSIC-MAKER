@@ -353,3 +353,41 @@ def test_dsp_feature_quality_requires_musical_complete_metadata() -> None:
     assert validate_dsp_features({**valid, "bpm": 0})["reason"] == "DSP BPM is outside musical range"
     assert validate_dsp_features({**valid, "key": "H"})["reason"] == "DSP key is invalid"
     assert validate_dsp_features({**valid, "loudness_rms": 0.0})["reason"] == "DSP audio metrics are invalid"
+
+
+
+def test_sdxl_handle_renders_cover_without_nested_registry_load(tmp_path) -> None:
+    from types import SimpleNamespace
+
+    from PIL import Image
+    from modules.cover_art_ai import render_cover_with_pipeline
+
+    class FakePipeline:
+        def __init__(self):
+            self.kwargs = None
+
+        def __call__(self, **kwargs):
+            self.kwargs = kwargs
+            return SimpleNamespace(images=[Image.new("RGB", (64, 64), color=(12, 34, 56))])
+
+    handle = FakePipeline()
+    output = tmp_path / "cover.png"
+    result = render_cover_with_pipeline(handle, "dark neon artwork", str(output), size=64)
+
+    assert result["ok"] is True
+    assert output.exists()
+    assert handle.kwargs["width"] == 64
+    assert handle.kwargs["height"] == 64
+
+
+def test_sdxl_handle_reports_generation_failure(tmp_path) -> None:
+    from modules.cover_art_ai import render_cover_with_pipeline
+
+    class FailingPipeline:
+        def __call__(self, **kwargs):
+            raise RuntimeError("scheduler failed")
+
+    result = render_cover_with_pipeline(FailingPipeline(), "prompt", str(tmp_path / "cover.png"))
+
+    assert result["ok"] is False
+    assert "scheduler failed" in result["reason"]

@@ -405,13 +405,19 @@ def run_ai_pipeline(project_id, wizard_state=None, out_root=None, dry_run=False)
         return master_ai(mix, out_master, reference_wav=ws.get("reference_master_wav"),
                          target_lufs=-9.0)
 
-    def stage_cover(_, ctx):
+    def stage_cover(handle, ctx):
         meta = ctx["sink"].get("metadata") or {}
         title = meta.get("title") or ws.get("theme", "Untitled")
         artist = ws.get("artist_display") or ws.get("artist_slug") or "ZS"
         from modules.cover_art_ai import render_cover_ai
-        return render_cover_ai(title=title, artist=artist, genre=ws["genre"],
-                               mood=ws["mood"], out_path=str(out_root / "cover.png"))
+        return render_cover_ai(
+            title=title,
+            artist=artist,
+            genre=ws["genre"],
+            mood=ws["mood"],
+            out_path=str(out_root / "cover.png"),
+            handle=handle,
+        )
 
     def stage_tag(bundle, ctx):
         if bundle is None:
