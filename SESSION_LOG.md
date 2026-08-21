@@ -1,6 +1,14 @@
 
 ---
 
+## КОММИТ — PLAN_v39 ШАГ 034: CLAP tag quality и fallback (выполнен, runtime BLOCKED)
+
+Добавлен `validate_audio_tags()`: tags должны быть непустым уникальным top-6 subset исходного CLAP vocabulary. При duplicate/unknown/empty output теги очищаются и не передаются как достоверные признаки; при отсутствии CLAP остаётся reference audio без фиктивной разметки.
+
+Проверка: валидный subset проходит; дубликаты и неизвестные label отклоняются. `pytest tests/` = **83/83 PASS**; compileall OK; AST dead-imports = **0**. CLAP runtime/weights отсутствуют. Детали: `docs/STEP_STATUS/034_clap_quality.md`.
+
+---
+
 ## КОММИТ — PLAN_v39 ШАГ 033: CLAP audio_tagger integration (выполнен, runtime BLOCKED)
 
 Dossier CLAP-stage теперь явно обрабатывает отсутствующий bundle и ранжирует `logits_per_audio` через `rank_clap_tags()` с проверкой соответствия score-vector фиксированному словарю кандидатов. Ошибка размерности или runtime не выдаёт произвольные tags.

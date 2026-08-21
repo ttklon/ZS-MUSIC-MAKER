@@ -13,6 +13,7 @@ from app.ai import llm_service as LLM
 from app.ai.quality import (
     validate_analysis_json,
     validate_asr_transcript,
+    validate_audio_tags,
     validate_stem_artifact,
 )
 
@@ -274,7 +275,15 @@ class DossierManager:
                               for k, v in inputs.items()}
                 with torch.no_grad():
                     logits = model(**inputs).logits_per_audio[0].cpu().numpy()
-                return {"ok": True, "tags": rank_clap_tags(cand, logits), "source": "clap"}
+                tags = rank_clap_tags(cand, logits)
+                quality = validate_audio_tags(tags, cand)
+                return {
+                    "ok": bool(quality["ok"]),
+                    "tags": tags if quality["ok"] else [],
+                    "source": "clap",
+                    "quality": quality,
+                    "reason": quality["reason"],
+                }
             except Exception as e:
                 return {"ok": False, "error": str(e)}
         runner.add(AIStage("tags", "audio_tagger", _tag_stage, optional=True))

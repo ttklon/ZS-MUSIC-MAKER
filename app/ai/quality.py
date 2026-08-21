@@ -160,6 +160,25 @@ def validate_rvc_artifact(input_path: str | Path, output_path: str | Path) -> di
     return {"ok": True, "reason": None, "metrics": result["metrics"]}
 
 
+def validate_audio_tags(tags: Any, candidates: list[str], *, max_tags: int = 6) -> dict[str, Any]:
+    """Проверить CLAP tags: непустой уникальный subset исходного словаря кандидатов."""
+    values = list(tags) if isinstance(tags, (list, tuple)) else []
+    metrics = {
+        "count": len(values),
+        "unique_count": len(set(values)),
+        "unknown_count": len([tag for tag in values if tag not in candidates]),
+    }
+    if not values:
+        return {"ok": False, "reason": "audio tag output is empty", "metrics": metrics}
+    if len(values) > max_tags:
+        return {"ok": False, "reason": "audio tag output exceeds limit", "metrics": metrics}
+    if metrics["unique_count"] != len(values):
+        return {"ok": False, "reason": "audio tag output contains duplicates", "metrics": metrics}
+    if metrics["unknown_count"]:
+        return {"ok": False, "reason": "audio tag output contains unknown labels", "metrics": metrics}
+    return {"ok": True, "reason": None, "metrics": metrics}
+
+
 def validate_asr_transcript(text: str) -> dict[str, Any]:
     """Проверить пригодность transcript, полученного ASR: содержательность и отсутствие зацикливания."""
     normalized = " ".join((text or "").split())

@@ -330,3 +330,15 @@ def test_asr_transcript_quality_rejects_empty_and_repetitive_text() -> None:
     repeated = validate_asr_transcript("эй эй эй эй эй")
     assert repeated["ok"] is False
     assert repeated["reason"] == "ASR transcript is excessively repetitive"
+
+
+
+def test_audio_tag_quality_requires_unique_known_subset() -> None:
+    from app.ai.quality import validate_audio_tags
+
+    candidates = ["phonk", "trap", "pop"]
+    assert validate_audio_tags(["trap", "phonk"], candidates)["ok"] is True
+    duplicate = validate_audio_tags(["trap", "trap"], candidates)
+    assert duplicate["reason"] == "audio tag output contains duplicates"
+    unknown = validate_audio_tags(["trap", "jazz"], candidates)
+    assert unknown["reason"] == "audio tag output contains unknown labels"
