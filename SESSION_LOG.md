@@ -455,3 +455,11 @@ AI pipeline теперь создаёт `manifest.json` с `schema_version=1`, w
 `ai_detector_pro` теперь отдаёт `ai_risk_percent` 0–100 и `metric_type=internal_audio_heuristic_not_ai_attribution`. Это делает internal quality signal для динамики/периодичности/спектра явным, не выдавая его за доказательство происхождения аудио или объективную «человечность».
 
 Проверка: synthetic detector regression = **1 PASS**; полный `pytest tests/` = **129 PASS**; compileall/AST OK.
+
+
+---
+## PLAN_v39 — ШАГ 062: installer hardening
+
+`install.py` теперь использует only argv subprocess calls без shell; core manifest по умолчанию, `requirements_ai.txt` только через `--ai`, Linux packages только через `--system-deps`. `--dry-run` создаёт required runtime dirs, печатает план и не устанавливает пакеты.
+
+Проверка: installer unit tests = **2 PASS**; полный `pytest tests/` = **131 PASS**; compileall/AST OK. Реальный pip/GPU install в sandbox намеренно не запускался.

@@ -1,97 +1,86 @@
 # -*- coding: utf-8 -*-
-"""
-ZS Music Maker — install.py (GOD MODE Refactored)
-========================================================================
-Универсальный инсталлятор продукта.
-Автоматизирует настройку окружения, установку зависимостей и проверку GPU
-с надежным контролем ошибок и отчетностью.
-"""
+"""Идемпотентный installer ZS Music Maker без shell command execution."""
+from __future__ import annotations
 
-import os
-import sys
-import subprocess
+import argparse
 import platform
-import shlex
+import shutil
+import subprocess
+import sys
+from pathlib import Path
 
-def run_cmd(cmd, critical=False):
-    """Выполнить команду. v33 FIX (P1, SESSION_LOG v32.5): убран shell=True —
-    риск injection + поломка на путях с пробелами. cmd может быть строкой
-    (разбивается shlex) или списком аргументов."""
-    print(f"Executing: {cmd}")
+ROOT = Path(__file__).resolve().parent
+CORE_REQUIREMENTS = ROOT / "requirements.txt"
+AI_REQUIREMENTS = ROOT / "requirements_ai.txt"
+REQUIRED_DIRS = (
+    "output/logs", "output/god_cli", "output/async_cli", "output/queue",
+    "models", "samples_cache", "checkpoints", "data/ai_models", "voice_vault",
+)
+
+
+def run_cmd(cmd: list[str], critical: bool = False) -> bool:
+    """Выполнить только explicit argv (никогда shell=True)."""
+    print("Executing:", " ".join(cmd))
     try:
-        args = shlex.split(cmd) if isinstance(cmd, str) else cmd
-        subprocess.check_call(args)
+        subprocess.check_call(cmd, cwd=ROOT)
         return True
-    except subprocess.CalledProcessError as e:
-        print(f"[ERROR] Command failed with exit code {e.returncode}: {e}")
-        if critical:
-            print("[CRITICAL] Critical dependency installation failed. Aborting.")
-            sys.exit(1)
-        return False
-    except Exception as e:
-        print(f"[ERROR] Unexpected error executing command: {e}")
-        if critical:
-            sys.exit(1)
-        return False
+    except subprocess.CalledProcessError as exc:
+        print(f"[ERROR] Command failed with exit code {exc.returncode}: {exc}")
+    except OSError as exc:
+        print(f"[ERROR] Cannot execute command: {exc}")
+    if critical:
+        raise RuntimeError(f"critical installer command failed: {cmd[0]}")
+    return False
 
-def setup():
-    print("=== ZS Music Maker Installer (Singularity Refactored) ===")
-    os_name = platform.system()
-    print(f"Detected OS: {os_name}")
 
-    # 1. Системные зависимости (на Linux)
-    if os_name == "Linux":
-        run_cmd("sudo apt-get update && sudo apt-get install -y ffmpeg graphviz libsndfile1", critical=False)
+def _initialise_filesystem() -> None:
+    for directory in REQUIRED_DIRS:
+        (ROOT / directory).mkdir(parents=True, exist_ok=True)
+    example = ROOT / ".env.example"
+    env = ROOT / ".env"
+    if example.is_file() and not env.exists():
+        shutil.copyfile(example, env)
+        print("Created .env from .env.example")
 
-    # 2. Основные Python зависимости
-    req_file = "requirements.txt"
-    print("Installing core Python dependencies...")
-    success = run_cmd([sys.executable, "-m", "pip", "install", "-r", req_file], critical=True)
-    if not success:
-        print("[CRITICAL] Failed to install core requirements.")
-        sys.exit(1)
 
-    # 3. Опциональные тяжелые зависимости (Torch / Audio ML)
-    print("Checking/Installing optional heavy neural dependencies (torch, torchaudio)...")
-    run_cmd([sys.executable, "-m", "pip", "install", "torch", "torchaudio",
-             "--index-url", "https://download.pytorch.org/whl/cpu"], critical=False)
+def installation_plan(install_ai: bool, system_deps: bool) -> list[list[str]]:
+    plan: list[list[str]] = []
+    if system_deps and platform.system() == "Linux":
+        plan.append(["sudo", "apt-get", "install", "-y", "ffmpeg", "graphviz", "libsndfile1"])
+    plan.append([sys.executable, "-m", "pip", "install", "-r", str(CORE_REQUIREMENTS)])
+    if install_ai:
+        plan.append([sys.executable, "-m", "pip", "install", "-r", str(AI_REQUIREMENTS)])
+    return plan
 
-    # 4. Проверка GPU / Hardware
-    print("Checking for hardware acceleration...")
+
+def setup(*, install_ai: bool = False, system_deps: bool = False, dry_run: bool = False) -> int:
+    print("=== ZS Music Maker Installer ===")
+    print(f"Detected OS: {platform.system()}")
+    _initialise_filesystem()
+    plan = installation_plan(install_ai, system_deps)
+    if dry_run:
+        print("DRY RUN: no packages will be installed")
+        for command in plan:
+            print("PLAN:", " ".join(command))
+        return 0
+    for command in plan:
+        run_cmd(command, critical=(command[0] == sys.executable))
+    print("Installation complete. Run: python main.py --ai-status")
+    return 0
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Install ZS Music Maker dependencies")
+    parser.add_argument("--ai", action="store_true", help="Install optional AI dependency manifest")
+    parser.add_argument("--system-deps", action="store_true", help="Install Linux system packages (requires sudo)")
+    parser.add_argument("--dry-run", action="store_true", help="Print plan and initialise directories without installation")
+    args = parser.parse_args()
     try:
-        import torch
-        if torch.cuda.is_available():
-            print(f"CUDA Detected: {torch.cuda.get_device_name(0)}")
-        else:
-            print("CUDA not found, using CPU / Optimized Fallback.")
-    except Exception:
-        print("Torch CUDA check skipped (Torch not present).")
+        return setup(install_ai=args.ai, system_deps=args.system_deps, dry_run=args.dry_run)
+    except RuntimeError as exc:
+        print(f"[CRITICAL] {exc}")
+        return 1
 
-    # 5. Инициализация менеджера моделей
-    print("Initializing Model Manager...")
-    try:
-        sys.path.insert(0, os.path.abspath("."))
-        from app.core.model_manager import models
-        models.ensure_model("whisper_tiny")
-        print("Base models verified successfully.")
-    except Exception as e:
-        print(f"[WARNING] Model initialization notice: {e}")
-
-    # 6. Создание необходимых директорий
-    dirs = [
-        "output/logs",
-        "output/god_cli",
-        "output/async_cli",
-        "models",
-        "samples_cache",
-        "checkpoints"
-    ]
-    for d in dirs:
-        os.makedirs(d, exist_ok=True)
-
-    print("\n=== INSTALLATION & VERIFICATION COMPLETE ===")
-    print("To start CLI God Mode, run: python main.py --god")
-    print("To start Desktop GUI, run: python main.py --desktop")
 
 if __name__ == "__main__":
-    setup()
+    raise SystemExit(main())
