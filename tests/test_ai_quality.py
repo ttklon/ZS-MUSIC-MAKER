@@ -300,3 +300,22 @@ def test_rvc_quality_requires_duration_preservation(tmp_path) -> None:
     shortened = validate_rvc_artifact(input_path, short_output)
     assert shortened["ok"] is False
     assert shortened["reason"] == "RVC output duration diverges from input"
+
+
+
+def test_stem_quality_requires_near_input_duration(tmp_path) -> None:
+    from app.ai.quality import validate_stem_artifact
+
+    sample_rate = 8_000
+    original = tmp_path / "original.wav"
+    stem = tmp_path / "vocals.wav"
+    truncated = tmp_path / "vocals_truncated.wav"
+    signal = 0.1 * np.sin(2 * np.pi * 220 * np.arange(sample_rate) / sample_rate)
+    sf.write(original, signal, sample_rate)
+    sf.write(stem, signal, sample_rate)
+    sf.write(truncated, signal[:7_000], sample_rate)
+
+    assert validate_stem_artifact(original, stem)["ok"] is True
+    rejected = validate_stem_artifact(original, truncated)
+    assert rejected["ok"] is False
+    assert rejected["reason"] == "stem duration diverges from input"

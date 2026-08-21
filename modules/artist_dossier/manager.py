@@ -10,7 +10,7 @@ from app.ai.registry import registry
 from app.ai.sequential_runner import SequentialAIRunner, AIStage
 from app.ai import prompts as P
 from app.ai import llm_service as LLM
-from app.ai.quality import validate_analysis_json
+from app.ai.quality import validate_analysis_json, validate_stem_artifact
 
 ROOT = Path(__file__).resolve().parents[2]
 DOSSIER_ROOT = ROOT / "data" / "artist_dossier"
@@ -163,7 +163,14 @@ class DossierManager:
                 out = self.root / slug / "vocals" / f"{tr.track_id}_vocals.wav"
                 out.parent.mkdir(parents=True, exist_ok=True)
                 sf.write(str(out), vocals, int(sr))
-                return {"ok": True, "vocals_path": str(out), "source_index": vocal_index}
+                quality = validate_stem_artifact(tr.audio_path, out)
+                return {
+                    "ok": bool(quality["ok"]),
+                    "vocals_path": str(out),
+                    "source_index": vocal_index,
+                    "quality": quality,
+                    "reason": quality["reason"],
+                }
             except Exception as e:
                 return {"ok": False, "error": str(e)}
         runner.add(AIStage("demucs", "stem_splitter", _demucs_stage, optional=True))

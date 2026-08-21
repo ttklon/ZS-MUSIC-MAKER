@@ -1,6 +1,14 @@
 
 ---
 
+## КОММИТ — PLAN_v39 ШАГ 030: Demucs quality gate (выполнен, runtime BLOCKED)
+
+Добавлен `validate_stem_artifact(original, stem)`: vocal stem проходит базовый audio gate и обязан сохранить 95–105% длительности входного трека до передачи в ASR. Silent, битые и усечённые stems теперь не выдаются за пригодные данные.
+
+Проверка: 1-second stem проходит; 0.875-second stem отклоняется по duration ratio. `pytest tests/` = **76/76 PASS**; compileall OK; AST dead-imports = **0**. Demucs runtime/weights отсутствуют. Детали: `docs/STEP_STATUS/030_demucs_quality.md`.
+
+---
+
 ## КОММИТ — PLAN_v39 ШАГ 029: Demucs htdemucs integration (выполнен, runtime BLOCKED)
 
 Проверен существующий `stem_splitter` registry/pull route. В dossier Demucs теперь выбирает stem `vocals` по `model.sources`, а не по фиксированному индексу; отсутствие нужного source или runtime даёт явную диагностику/skipped. Создание output-папки гарантировано перед записью.

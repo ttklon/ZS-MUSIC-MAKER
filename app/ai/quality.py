@@ -160,6 +160,23 @@ def validate_rvc_artifact(input_path: str | Path, output_path: str | Path) -> di
     return {"ok": True, "reason": None, "metrics": result["metrics"]}
 
 
+def validate_stem_artifact(input_path: str | Path, output_path: str | Path) -> dict[str, Any]:
+    """Проверить stem Demucs: пригодный audio output с длительностью исходного трека."""
+    source = audio_metrics(input_path)
+    if not source.get("readable"):
+        return {"ok": False, "reason": "stem input audio is unreadable", "metrics": {"input": source}}
+    result = validate_audio_artifact(output_path, min_duration_sec=0.25)
+    result["metrics"]["input_duration_sec"] = source.get("duration_sec")
+    if not result["ok"]:
+        return result
+    input_duration = float(source["duration_sec"])
+    ratio = float(result["metrics"]["duration_sec"]) / input_duration if input_duration > 0 else 0.0
+    result["metrics"]["duration_ratio"] = round(ratio, 3)
+    if not 0.95 <= ratio <= 1.05:
+        return {"ok": False, "reason": "stem duration diverges from input", "metrics": result["metrics"]}
+    return {"ok": True, "reason": None, "metrics": result["metrics"]}
+
+
 def validate_stereo_texture(path: str | Path, *, min_duration_sec: float = 1.0) -> dict[str, Any]:
     """Проверить, что texture-artifact является слышимым и фактически стерео."""
     base = validate_audio_artifact(path, min_duration_sec=min_duration_sec)
