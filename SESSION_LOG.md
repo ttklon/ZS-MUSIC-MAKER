@@ -495,3 +495,11 @@ AI pipeline теперь создаёт `manifest.json` с `schema_version=1`, w
 Test suite при приёмке: **137 collected / 137 PASS**, существенно выше планового ≥60. Добавлены direct regressions 50 versioned genre preset schema и 119 runtime factory profiles; ранее добавленные tests покрывают AI adapters, quality, runner, dossier, vault, release, installer, updater, security и RVC dry contract.
 
 Проверка: targeted genre tests = **2 PASS**; полный `pytest tests/` = **137 PASS**; compileall/AST OK. Line coverage percentage честно не заявлен без зафиксированного coverage tool.
+
+
+---
+## PLAN_v39 — ШАГ 067: CI/CD release workflow
+
+`build.yml` теперь запускается также на тегах `v*`; после успешной Windows PyInstaller build `publish-release` архивирует artifact и создаёт GitHub Release. На main без тега релиз не создаётся, artifact сохраняется 30 дней. Windows runner/tag release локально не запускались.
+
+Проверка: полный `pytest tests/` = **137 PASS**; compileall/AST OK; workflow diff без whitespace errors.
