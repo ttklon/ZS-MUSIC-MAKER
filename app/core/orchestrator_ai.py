@@ -94,6 +94,36 @@ def render_voice_synth_fallback(text: str, out_path: str, synth_fn=None) -> dict
         return {"ok": False, "reason": f"fallback TTS failed: {exc}"}
 
 
+def render_rvc_vocal(handle, input_wav: str, out_path: str, voice_name: str, pitch_shift: int = 0) -> dict:
+    """Выполнить RVC через публичный ``rvc_manager.infer`` и сохранить проектный артефакт."""
+    try:
+        safe_voice_name = Path(voice_name).name
+        if not safe_voice_name:
+            return {"ok": False, "reason": "RVC voice name is missing"}
+        produced = handle.infer(
+            input_wav=input_wav,
+            voice_name=safe_voice_name,
+            pitch_shift=int(pitch_shift),
+            out_name=Path(out_path).name,
+        )
+        source = Path(produced) if produced else None
+        if source is None or not source.exists() or source.stat().st_size <= 100:
+            return {"ok": False, "reason": "RVC did not produce an audio file"}
+        target = Path(out_path)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        if source.resolve() != target.resolve():
+            shutil.copy2(source, target)
+        return {
+            "ok": True,
+            "vocal_path": str(target),
+            "engine": "rvc",
+            "voice_name": safe_voice_name,
+            "pitch_shift": int(pitch_shift),
+        }
+    except Exception as exc:
+        return {"ok": False, "reason": f"RVC inference failed: {exc}"}
+
+
 def run_ai_pipeline(project_id, wizard_state=None, out_root=None, dry_run=False):
     ws = dict(wizard_state or {})
     try:
@@ -311,28 +341,24 @@ def run_ai_pipeline(project_id, wizard_state=None, out_root=None, dry_run=False)
         return fallback
 
     def stage_rvc(handle, ctx):
-        if dry_run or handle is None:
-            return {"skipped": "dry-run" if dry_run else "no rvc"}
+        if dry_run:
+            return {"skipped": "dry-run"}
+        if handle is None:
+            return {"skipped": "RVC unavailable", "reason": "no installed RVC model/runtime"}
         vocal = (ctx["sink"].get("vocal_synth") or {}).get("vocal_path")
         if not vocal or not Path(vocal).exists():
             return {"skipped": "no vocal"}
-        rvc_model = ws.get("rvc_model")
-        if not rvc_model:
-            return {"skipped": "no rvc_model"}
-        out_path = vocal.replace(".wav", "_rvc.wav")
-        try:
-            ok = False
-            try:
-                ok = handle.convert(input_path=vocal, output_path=out_path,
-                                    model_path=rvc_model)
-            except Exception:
-                ok = False
-            if ok and Path(out_path).exists():
-                return {"ok": True, "vocal_path": out_path, "engine": "rvc",
-                        "model": rvc_model}
-        except Exception as e:
-            return {"ok": False, "reason": str(e)}
-        return {"skipped": "rvc convert failed"}
+        voice_name = ws.get("rvc_voice_name") or Path(str(ws.get("rvc_model") or "")).stem
+        if not voice_name:
+            return {"skipped": "no rvc_voice_name"}
+        out_path = str(out_root / "vocal_rvc.wav")
+        return render_rvc_vocal(
+            handle,
+            vocal,
+            out_path,
+            voice_name=voice_name,
+            pitch_shift=int(ws.get("rvc_pitch_shift", 0)),
+        )
 
     def stage_mix(_, ctx):
         beat = (ctx["sink"].get("music") or {}).get("beat_path")

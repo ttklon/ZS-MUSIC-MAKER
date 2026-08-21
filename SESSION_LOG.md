@@ -1,6 +1,14 @@
 
 ---
 
+## КОММИТ — PLAN_v39 ШАГ 027: RVC v2 integration (выполнен, runtime BLOCKED)
+
+Исправлена связь AI-оркестратора с RVC: вместо несуществующего `handle.convert` используется публичный `rvc_manager.infer(input_wav, voice_name, pitch_shift, out_name)`. Result переносится в `<project>/vocal_rvc.wav`; ошибки или отсутствие runtime/model дают честный failure/skipped. Pitch-shift не используется как подмена RVC.
+
+Проверка: fake manager подтверждает аргументы `infer` и project artifact; runtime-error подтверждает отсутствие скрытого fallback. `pytest tests/` = **72/72 PASS**; compileall OK; AST dead-imports = **0**. `.pth` и `rvc-python` в sandbox отсутствуют, поэтому реальная conversion **не заявляется как выполненная**. Детали: `docs/STEP_STATUS/027_rvc_integration.md`.
+
+---
+
 ## КОММИТ — PLAN_v39 ШАГ 026: XTTS-v2 quality и fallback (выполнен, runtime BLOCKED)
 
 Добавлен `validate_vocal_artifact()`: gate связывает токены текста с минимальной длительностью, а также применяет readability/RMS/peak-проверки. Если XTTS недоступен или его файл отклонён, вызывается `voice_synth.synth(engine="auto")`; success возможен только для реально созданного и валидированного WAV. Отсутствие всех движков возвращает explicit failure, без фиктивного вокала.

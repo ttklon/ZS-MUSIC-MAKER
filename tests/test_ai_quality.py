@@ -233,3 +233,51 @@ def test_voice_synth_fallback_reports_absence_of_engine(tmp_path) -> None:
 
     assert result["ok"] is False
     assert result["reason"] == "no fallback TTS engine produced audio"
+
+
+class _FakeRVCManager:
+    def __init__(self, output_path):
+        self.output_path = output_path
+        self.kwargs = None
+
+    def infer(self, **kwargs):
+        self.kwargs = kwargs
+        sample_rate = 8_000
+        signal = 0.1 * np.sin(2 * np.pi * 190 * np.arange(sample_rate) / sample_rate)
+        sf.write(self.output_path, signal, sample_rate)
+        return str(self.output_path)
+
+
+class _FailingRVCManager:
+    def infer(self, **kwargs):
+        raise RuntimeError("rvc-python unavailable")
+
+
+def test_rvc_handle_uses_public_infer_contract_and_copies_result(tmp_path) -> None:
+    from app.core.orchestrator_ai import render_rvc_vocal
+
+    input_wav = tmp_path / "input.wav"
+    source_output = tmp_path / "rvc_engine.wav"
+    project_output = tmp_path / "project" / "vocal_rvc.wav"
+    sf.write(input_wav, np.zeros(8_000), 8_000)
+    handle = _FakeRVCManager(source_output)
+
+    result = render_rvc_vocal(handle, str(input_wav), str(project_output), "artist_voice", pitch_shift=-2)
+
+    assert result["ok"] is True
+    assert result["vocal_path"] == str(project_output)
+    assert project_output.exists()
+    assert handle.kwargs["input_wav"] == str(input_wav)
+    assert handle.kwargs["voice_name"] == "artist_voice"
+    assert handle.kwargs["pitch_shift"] == -2
+
+
+def test_rvc_handle_reports_runtime_error_without_pitch_fallback(tmp_path) -> None:
+    from app.core.orchestrator_ai import render_rvc_vocal
+
+    result = render_rvc_vocal(
+        _FailingRVCManager(), str(tmp_path / "input.wav"), str(tmp_path / "out.wav"), "artist"
+    )
+
+    assert result["ok"] is False
+    assert "rvc-python unavailable" in result["reason"]
