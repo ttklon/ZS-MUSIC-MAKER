@@ -76,6 +76,7 @@ def _load_index() -> dict:
 
 
 def _save_index(idx: dict) -> None:
+    VAULT_DIR.mkdir(parents=True, exist_ok=True)
     INDEX_FILE.write_text(
         json.dumps(idx, ensure_ascii=False, indent=2), encoding="utf-8"
     )
@@ -184,6 +185,7 @@ def add_recording(
     if mid in items and not overwrite:
         return {"ok": True, "already_indexed": True, "item": items[mid]}
 
+    VAULT_DIR.mkdir(parents=True, exist_ok=True)
     dst = VAULT_DIR / f"{mid[:12]}_{p.name}"
     if not dst.exists():
         try:
@@ -220,6 +222,24 @@ def list_recordings(style: str | None = None) -> list[dict]:
     if style:
         items = [x for x in items if x.get("style") == style]
     return items
+
+
+def select_speaker_wav(style: str | None = None) -> str | None:
+    """Выбрать лучший существующий clean Voice Vault clip для XTTS speaker conditioning."""
+    candidates = []
+    for item in list_recordings(style=style):
+        features = item.get("features") or {}
+        path = Path(item.get("vault_path") or "")
+        if not path.is_file():
+            continue
+        snr = features.get("snr_db")
+        clipping = features.get("clip_ratio")
+        if clipping is not None and clipping >= 0.01:
+            continue
+        candidates.append((float(snr) if snr is not None else 15.0, item.get("added_at", 0.0), path))
+    if not candidates and style:
+        return select_speaker_wav(style=None)
+    return str(max(candidates)[2]) if candidates else None
 
 
 def clean_stats() -> dict:

@@ -407,3 +407,11 @@ AI pipeline теперь создаёт `manifest.json` с `schema_version=1`, w
 Исправлен фактический API-разрыв: V2 вызывал cowbell как in-memory frequency/duration primitive, legacy V1 принимал только file-output аргументы. `phonk_engine` теперь canonical primitive с modern ndarray и backward-compatible WAV adapter; V2 остаётся advanced composition layer.
 
 Проверка: phonk waveform + legacy output tests = **2 PASS**; полный `pytest tests/` = **121 PASS**; compileall/AST OK.
+
+
+---
+## PLAN_v39 — ШАГ 056: Voice Vault → XTTS speaker_wav
+
+Добавлен `select_speaker_wav`: выбор clean recording по стилю/SNR с исключением clipped clips и controlled fallback. `stage_vocal` использует explicit `speaker_wav` или выбранный Voice Vault clip. В проверке выявлен и исправлен first-import bug: vault directory создаётся до `copy2`, не только перед index save.
+
+Проверка: Voice Vault WAV intake/selection tests = **2 PASS**; полный `pytest tests/` = **123 PASS**; compileall/AST OK.

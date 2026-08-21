@@ -331,13 +331,20 @@ def run_ai_pipeline(project_id, wizard_state=None, out_root=None, dry_run=False)
         clean = re.sub(r"^\[.*?\]\s*$", "", lyrics, flags=re.MULTILINE).strip()
         clean = re.sub(r"\n{3,}", "\n\n", clean)[:3500]
         out_path = str(out_root / "vocal_xtts.wav")
+        speaker_wav = ws.get("speaker_wav")
+        if not speaker_wav:
+            try:
+                from modules.voice_vault_v9 import select_speaker_wav
+                speaker_wav = select_speaker_wav(ws.get("vocal_style"))
+            except Exception:
+                speaker_wav = None
         if handle is not None:
             from modules.voice_synth_ai import synth_vocal_ai
 
             primary = synth_vocal_ai(
                 clean,
                 out_path,
-                speaker_wav=ws.get("speaker_wav"),
+                speaker_wav=speaker_wav,
                 language="ru",
                 tts_handle=handle,
             )
