@@ -479,3 +479,11 @@ AI pipeline теперь создаёт `manifest.json` с `schema_version=1`, w
 Добавлены `safe_identifier`/`safe_child_path` против path traversal и `redact_secrets` для GitHub/API/Bearer-shaped tokens. Central logger применяет redacting filter к file/console handlers. Scoped audit Python-кода не обнаружил PAT-shaped значения.
 
 Проверка: security tests = **2 PASS**; полный `pytest tests/` = **134 PASS**; compileall/AST OK; PAT pattern grep = **0**.
+
+
+---
+## PLAN_v39 — ШАГ 065: performance cache
+
+Добавлен bounded mtime-keyed LRU decode/resample cache для повторного `hit_scorer.score_track` одного неизменённого WAV. Изменение source mtime инвалидирует key. Это точечная оптимизация non-AI hot path без обещания ускорения full pipeline/inference.
+
+Проверка: cache regression = **1 PASS**; полный `pytest tests/` = **135 PASS**; compileall/AST OK.

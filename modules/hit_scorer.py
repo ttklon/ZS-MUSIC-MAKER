@@ -38,6 +38,7 @@ from __future__ import annotations
 import json
 import math
 import time
+from functools import lru_cache
 from pathlib import Path
 
 # ---------- граcеful imports ----------
@@ -77,6 +78,13 @@ def _load_audio(path: str, sr: int = 22050):
             y = y.mean(axis=1)
         return y, s
     raise RuntimeError("Neither librosa nor soundfile available")
+
+
+@lru_cache(maxsize=8)
+def _load_audio_cached(path: str, sr: int, mtime_ns: int):
+    """Кэшировать decode/resample только пока source file не изменился."""
+    del mtime_ns
+    return _load_audio(path, sr=sr)
 
 
 def _rms(y) -> float:
@@ -506,7 +514,7 @@ def score_track(master_wav: str, out_json: str | None = None, sr: int = 22050) -
         }
 
     try:
-        y, s = _load_audio(str(p), sr=sr)
+        y, s = _load_audio_cached(str(p.resolve()), sr, p.stat().st_mtime_ns)
     except Exception as e:
         return {"error": f"load failed: {e}", "hit_score": 0.0, "verdict": "flop_risk"}
 
