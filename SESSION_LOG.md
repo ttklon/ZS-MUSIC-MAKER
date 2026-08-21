@@ -1,6 +1,14 @@
 
 ---
 
+## КОММИТ — PLAN_v39 ШАГ 024: music_stereo quality gate (выполнен, runtime BLOCKED)
+
+`audio_metrics()` дополнен `stereo_correlation` и `stereo_side_rms`; `validate_stereo_texture()` требует stereo-каналы, side RMS ≥ 0.0005 и `abs(correlation) ≤ 0.995`, помимо базовой проверки WAV. `stage_music_stereo` может вернуть `ok=True` только после этого gate. При отсутствии MusicGen fallback явный: основной beat сохраняется без поддельной текстуры.
+
+Проверка: независимый stereo WAV проходит; продублированный mono WAV отклоняется; `pytest tests/` = **65/65 PASS**; compileall OK; AST dead-imports = **0**. Реальный `musicgen-stereo-medium` всё ещё не установлен, поэтому runtime status честно остаётся BLOCKED. Детали: `docs/STEP_STATUS/024_music_stereo_quality.md`.
+
+---
+
 ## КОММИТ — PLAN_v39 ШАГ 023: music_stereo integration (выполнен, runtime BLOCKED)
 
 Добавлена отдельная `AIStage("music_stereo", "music_stereo", ...)` после основной генерации. `render_stereo_texture()` использует только совместимый MusicGen handle (`set_generation_params` → `generate`), конвертирует tensor в stereo WAV и сохраняет `texture_stereo.wav` как независимый артефакт. Основной beat и mix пока не изменяются; это предотвращает скрытую аудиорегрессию до отдельной quality-приёмки ШАГА 024.

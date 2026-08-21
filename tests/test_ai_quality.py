@@ -119,3 +119,25 @@ def test_ai_pipeline_includes_music_stereo_stage_in_dry_run(tmp_path) -> None:
 
     assert "music_stereo" in stages
     assert stages["music_stereo"]["skipped_reason"] is not None
+
+
+
+def test_stereo_texture_quality_rejects_mono_like_audio(tmp_path) -> None:
+    from app.ai.quality import validate_stereo_texture
+
+    sample_rate = 8_000
+    t = np.arange(sample_rate * 2) / sample_rate
+    left = 0.15 * np.sin(2 * np.pi * 220 * t)
+    right = 0.15 * np.cos(2 * np.pi * 330 * t)
+    valid_path = tmp_path / "independent_stereo.wav"
+    mono_like_path = tmp_path / "duplicated_channels.wav"
+    sf.write(valid_path, np.column_stack([left, right]), sample_rate)
+    sf.write(mono_like_path, np.column_stack([left, left]), sample_rate)
+
+    valid = validate_stereo_texture(valid_path, min_duration_sec=1.0)
+    mono_like = validate_stereo_texture(mono_like_path, min_duration_sec=1.0)
+
+    assert valid["ok"] is True
+    assert abs(valid["metrics"]["stereo_correlation"]) < 0.995
+    assert mono_like["ok"] is False
+    assert mono_like["reason"] in {"stereo side energy too low", "stereo channels are over-correlated"}

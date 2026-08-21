@@ -98,7 +98,7 @@ def audio_metrics(path: str | Path) -> dict[str, Any]:
     peak = float(np.max(np.abs(samples)))
     rms = float(np.sqrt(np.mean(samples ** 2)))
     duration = len(samples) / sample_rate
-    return {
+    metrics = {
         "readable": True,
         "duration_sec": round(duration, 3),
         "sample_rate": int(sample_rate),
@@ -106,6 +106,13 @@ def audio_metrics(path: str | Path) -> dict[str, Any]:
         "peak": round(peak, 6),
         "rms": round(rms, 6),
     }
+    if samples.shape[1] >= 2:
+        left, right = samples[:, 0], samples[:, 1]
+        denominator = float(np.linalg.norm(left) * np.linalg.norm(right))
+        correlation = float(np.dot(left, right) / denominator) if denominator > 1e-12 else 1.0
+        metrics["stereo_correlation"] = round(correlation, 6)
+        metrics["stereo_side_rms"] = round(float(np.sqrt(np.mean(((left - right) * 0.5) ** 2))), 6)
+    return metrics
 
 
 def validate_audio_artifact(path: str | Path, *, min_duration_sec: float = 1.0) -> dict[str, Any]:
@@ -122,6 +129,21 @@ def validate_audio_artifact(path: str | Path, *, min_duration_sec: float = 1.0) 
         return {"ok": False, "reason": "audio is silent", "metrics": metrics}
     if metrics["peak"] > 1.0001:
         return {"ok": False, "reason": "audio clips", "metrics": metrics}
+    return {"ok": True, "reason": None, "metrics": metrics}
+
+
+def validate_stereo_texture(path: str | Path, *, min_duration_sec: float = 1.0) -> dict[str, Any]:
+    """Проверить, что texture-artifact является слышимым и фактически стерео."""
+    base = validate_audio_artifact(path, min_duration_sec=min_duration_sec)
+    if not base["ok"]:
+        return base
+    metrics = base["metrics"]
+    if metrics.get("channels") != 2:
+        return {"ok": False, "reason": "texture is not stereo", "metrics": metrics}
+    if metrics.get("stereo_side_rms", 0.0) < 5e-4:
+        return {"ok": False, "reason": "stereo side energy too low", "metrics": metrics}
+    if abs(metrics.get("stereo_correlation", 1.0)) > 0.995:
+        return {"ok": False, "reason": "stereo channels are over-correlated", "metrics": metrics}
     return {"ok": True, "reason": None, "metrics": metrics}
 
 

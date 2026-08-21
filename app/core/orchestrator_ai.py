@@ -7,7 +7,12 @@ from app.core.logger import app_logger
 from app.ai.sequential_runner import SequentialAIRunner, AIStage
 from app.ai import prompts as P
 from app.ai import llm_service as LLM
-from app.ai.quality import validate_audio_artifact, validate_lyrics, validate_metadata_json
+from app.ai.quality import (
+    validate_audio_artifact,
+    validate_lyrics,
+    validate_metadata_json,
+    validate_stereo_texture,
+)
 from modules.artist_dossier import DossierManager
 
 
@@ -218,12 +223,18 @@ def run_ai_pipeline(project_id, wizard_state=None, out_root=None, dry_run=False)
             return {
                 "skipped": "music_stereo unavailable",
                 "reason": "audiocraft model is not installed or not loadable",
+                "fallback": "base beat is preserved without a synthetic texture",
             }
         prompt = P.build_music_prompt(ws["genre"], ws["bpm"], ws["key"], ws["mood"])
         prompt += ", wide stereo atmosphere, transition texture, no lead vocal"
         duration = max(2, min(int(ws.get("texture_duration_sec", 8)), 20))
         out_path = str(out_root / "texture_stereo.wav")
         result = render_stereo_texture(handle, prompt, duration, out_path)
+        if result.get("ok"):
+            quality = validate_stereo_texture(out_path, min_duration_sec=max(1.0, duration * 0.5))
+            result["ok"] = bool(quality["ok"])
+            result["quality"] = quality
+            result["reason"] = quality["reason"]
         result.update({
             "engine": "musicgen-stereo-medium",
             "prompt": prompt,
