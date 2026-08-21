@@ -20,6 +20,7 @@ from app.ai.quality import (
 
 ROOT = Path(__file__).resolve().parents[2]
 DOSSIER_ROOT = ROOT / "data" / "artist_dossier"
+DOSSIER_SCHEMA_PATH = DOSSIER_ROOT / "schema.json"
 DOSSIER_ROOT.mkdir(parents=True, exist_ok=True)
 
 
@@ -33,14 +34,50 @@ def _track_id(title: str, url: str = "") -> str:
     return _slug(title)[:32] + "_" + hashlib.md5(base.encode("utf-8")).hexdigest()[:8]
 
 
+def artist_dossier_schema() -> Dict[str, Any]:
+    """Load the versioned schema so persisted content and schema drift together."""
+    return json.loads(DOSSIER_SCHEMA_PATH.read_text(encoding="utf-8"))
+
+
 def normalize_artist_dossier(payload: Dict[str, Any]) -> Dict[str, Any]:
-    """Сохранить rich schema и совместимые aliases для prompts следующих стадий."""
+    """Migrate compatible pre-v1 aliases without fabricating required content."""
     dossier = dict(payload)
+    dossier["schema_version"] = 1
+    dossier.setdefault("themes", list(dossier.get("core_themes") or []))
+    dossier.setdefault("slang", list(dossier.get("lexicon") or []))
     dossier.setdefault("core_themes", list(dossier.get("themes") or []))
     dossier.setdefault("lexicon", list(dossier.get("slang") or []))
     dossier.setdefault("signature_tricks", [])
     dossier.setdefault("avoid", [])
     return dossier
+
+
+def is_deferred_artist_dossier(payload: Dict[str, Any]) -> bool:
+    """Deferred/no-model metadata is not misclassified as a completed dossier."""
+    return bool(payload.get("note") or payload.get("deferred")) and not payload.get("bio")
+
+
+def validate_artist_dossier(payload: Any) -> Dict[str, Any]:
+    """Validate a complete artist dossier against the versioned v1 contract."""
+    if not isinstance(payload, dict):
+        return {"ok": False, "reason": "artist dossier is not an object", "metrics": {}}
+    schema = artist_dossier_schema()
+    required = tuple(schema.get("required", ()))
+    missing = [key for key in required if key not in payload]
+    if missing:
+        return {"ok": False, "reason": "missing artist dossier fields: " + ", ".join(missing), "metrics": {"missing": len(missing)}}
+    if payload.get("schema_version") != 1:
+        return {"ok": False, "reason": "unsupported artist dossier schema_version", "metrics": {}}
+    text_fields = ("bio", "flow")
+    list_fields = ("themes", "slang", "analogs", "core_themes", "lexicon", "signature_tricks", "avoid")
+    invalid = [key for key in text_fields if not isinstance(payload.get(key), str) or not payload[key].strip()]
+    invalid.extend(key for key in list_fields if not isinstance(payload.get(key), list) or not all(isinstance(item, str) for item in payload[key]))
+    for key in ("themes", "analogs", "core_themes"):
+        if not payload.get(key):
+            invalid.append(key)
+    if invalid:
+        return {"ok": False, "reason": "invalid artist dossier fields: " + ", ".join(sorted(set(invalid))), "metrics": {"invalid": len(set(invalid))}}
+    return {"ok": True, "reason": None, "metrics": {"required": len(required), "keys": len(payload)}}
 
 
 def resolve_vocal_source_index(model: Any) -> int:
@@ -401,6 +438,13 @@ class DossierManager:
         js["quality"] = quality
         js["tracks_count"] = len(a.tracks)
         js["updated_at"] = time.time()
+        schema_quality = validate_artist_dossier(js)
+        if not schema_quality["ok"]:
+            return {
+                "note": "artist dossier schema rejected: " + str(schema_quality["reason"]),
+                "tracks_count": len(a.tracks),
+                "quality": schema_quality,
+            }
         return js
 
     def get_artist_dossier(self, artist: str) -> Optional[Dict[str, Any]]:
@@ -438,6 +482,11 @@ class DossierManager:
         return out
 
     def _save_artist(self, a: ArtistEntry) -> None:
+        if a.dossier and not is_deferred_artist_dossier(a.dossier):
+            a.dossier = normalize_artist_dossier(a.dossier)
+            quality = validate_artist_dossier(a.dossier)
+            if not quality["ok"]:
+                raise ValueError("artist dossier save rejected: " + str(quality["reason"]))
         p = self.root / a.slug / "artist.json"
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_text(json.dumps(asdict(a), ensure_ascii=False, indent=2), encoding="utf-8")
@@ -446,7 +495,21 @@ class DossierManager:
         p = self.root / slug / "artist.json"
         if not p.exists():
             return None
-        return ArtistEntry(**json.loads(p.read_text(encoding="utf-8")))
+        payload = json.loads(p.read_text(encoding="utf-8"))
+        payload.setdefault("tracks", [])
+        payload.setdefault("dossier", {})
+        payload.setdefault("added_at", 0.0)
+        payload.setdefault("updated_at", 0.0)
+        if payload["dossier"] and not is_deferred_artist_dossier(payload["dossier"]):
+            payload["dossier"] = normalize_artist_dossier(payload["dossier"])
+            quality = validate_artist_dossier(payload["dossier"])
+            if not quality["ok"]:
+                payload["dossier"] = {
+                    "note": "legacy artist dossier deferred: " + str(quality["reason"]),
+                    "deferred": True,
+                    "migration_from_schema": payload["dossier"].get("schema_version", 0),
+                }
+        return ArtistEntry(**payload)
 
     def _save_track(self, slug: str, tr: TrackEntry) -> None:
         p = self.root / slug / "tracks" / f"{tr.track_id}.json"

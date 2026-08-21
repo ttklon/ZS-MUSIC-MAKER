@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "zsmm.artist-dossier.v1",
+  "title": "ZS Music Maker artist dossier",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "bio",
+    "themes",
+    "slang",
+    "flow",
+    "analogs",
+    "core_themes",
+    "lexicon",
+    "signature_tricks",
+    "avoid"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "bio": {"type": "string", "minLength": 1},
+    "themes": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+    "slang": {"type": "array", "items": {"type": "string"}},
+    "flow": {"type": "string", "minLength": 1},
+    "analogs": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+    "core_themes": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+    "lexicon": {"type": "array", "items": {"type": "string"}},
+    "signature_tricks": {"type": "array", "items": {"type": "string"}},
+    "avoid": {"type": "array", "items": {"type": "string"}},
+    "tracks_count": {"type": "integer", "minimum": 0},
+    "updated_at": {"type": "number"},
+    "quality": {"type": "object"}
+  },
+  "additionalProperties": true
+}

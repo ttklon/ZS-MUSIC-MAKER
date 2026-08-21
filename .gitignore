@@ -41,6 +41,8 @@ models/rvc/*.index
 # Ignore all json in root but keep specific ones
 *.json
 !version.json
+!data/artist_dossier/
+!data/artist_dossier/schema.json
 !config/*.json
 !.github/**/*.yml
 

@@ -559,3 +559,10 @@ PROJECT_STATE заменён v39 snapshot: **147/147** matrix rows соотве�
 `app.ai.llm_service` теперь даёт default timeout=600, retry=2, daemon-bounded timeout и circuit breaker после трёх failed requests, сохраняя string API и callable llama fallback. `llm_clients_v15.complete_local_handle()` делегирует shared service и возвращает structured router-style failure/success без fake template content.
 
 Приёмка: fake-handle tests покрыли 3rd-attempt recovery, timeout, circuit, chat→callable compatibility и идентичный v15/shared text. Полный `pytest tests/ -q` = **180 PASS**, compileall/AST OK, data inventory 73/0/0. Real model/network inference не запускался.
+
+---
+## PLAN_v39 — ШАГ 079: artist dossier schema и migration
+
+Добавлен versioned `data/artist_dossier/schema.json` v1; tracked только schema, runtime dossier JSON остаются ignored. Manager нормализует aliases/schema_version, валидирует complete dossiers при aggregate/save, отклоняет новые incomplete payloads, а неполный legacy artist JSON при чтении честно мигрирует в deferred с причиной.
+
+Приёмка: 4 schema/migration tests PASS; полный `pytest tests/ -q` = **184 PASS**, compileall/AST OK, data inventory 73/0/0. Реальный analysis LLM не запускался.
