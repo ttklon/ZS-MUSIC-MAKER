@@ -552,3 +552,10 @@ PROJECT_STATE заменён v39 snapshot: **147/147** matrix rows соотве�
 `lyrics_gen_v8` сохранён для Wizard compatibility, но импорт явно выдаёт DeprecationWarning. `orchestrator_v8_patch` сначала проверяет availability `lyrics_llm`; только при доступной роли вызывает `lyrics_gen_ai` и конвертирует result в legacy recipe fields. При отсутствии/ошибке role честно возвращается к v8 generator, так что warning/fallback не скрывают blocked model.
 
 Приёмка: 4 targeted tests (warning, unavailable role, fake AI output, v8 preference) PASS; полный `pytest tests/ -q` = **175 PASS**, compileall/AST OK, data inventory 73/0/0. Real LLM inference не запускался.
+
+---
+## PLAN_v39 — ШАГ 078: общий LLM service resilience
+
+`app.ai.llm_service` теперь даёт default timeout=600, retry=2, daemon-bounded timeout и circuit breaker после трёх failed requests, сохраняя string API и callable llama fallback. `llm_clients_v15.complete_local_handle()` делегирует shared service и возвращает structured router-style failure/success без fake template content.
+
+Приёмка: fake-handle tests покрыли 3rd-attempt recovery, timeout, circuit, chat→callable compatibility и идентичный v15/shared text. Полный `pytest tests/ -q` = **180 PASS**, compileall/AST OK, data inventory 73/0/0. Real model/network inference не запускался.

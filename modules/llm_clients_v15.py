@@ -357,6 +357,47 @@ def local_fallback_lyrics(
     return "\n".join(lines[: n_lines + 8])
 
 
+# -------------------------------------------------------------- Shared local adapter
+
+
+def complete_local_handle(
+    handle: Any,
+    prompt: str,
+    system: str = "",
+    max_tokens: int = 512,
+    temperature: float = 0.8,
+    timeout_sec: float = 600.0,
+) -> dict[str, Any]:
+    """Delegate local llama-compatible completion to the shared resilient service.
+
+    This adapter intentionally returns failure metadata rather than a template
+    fallback: callers can decide whether a local model failure should fall
+    through to the existing provider router or their domain-specific fallback.
+    """
+    from app.ai import llm_service
+
+    report = llm_service.complete_with_report(
+        handle,
+        system,
+        prompt,
+        max_tokens=max_tokens,
+        temperature=temperature,
+        timeout_sec=timeout_sec,
+    )
+    return {
+        "ok": report.ok,
+        "text": report.text,
+        "provider": "local_llm_service",
+        "model": "llama_compatible_handle",
+        "tokens": len(report.text.split()),
+        "fallback_used": False,
+        "provider_chain": ["local_llm_service"],
+        "error": report.error,
+        "attempts": report.attempts,
+        "circuit_open": report.circuit_open,
+    }
+
+
 # -------------------------------------------------------------- Router
 
 
