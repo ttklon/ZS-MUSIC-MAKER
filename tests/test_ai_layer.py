@@ -603,3 +603,23 @@ def test_local_folder_collector_merges_audio_and_txt_lyrics(tmp_path) -> None:
         "lyrics": "Ночь ведёт домой",
         "audio_path": str(tmp_path / "Artist Smoke - Night.wav"),
     }]
+
+
+
+def test_ai_pipeline_writes_versioned_session_manifest(tmp_path) -> None:
+    import json
+
+    from app.core.orchestrator_ai import run_ai_pipeline
+
+    result = run_ai_pipeline(
+        "manifest_contract", {"genre": "phonk", "theme": "session"},
+        out_root=tmp_path, dry_run=True,
+    )
+
+    manifest_path = Path(result["manifest_path"])
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert manifest["schema_version"] == 1
+    assert manifest["project_id"] == "manifest_contract"
+    assert len(manifest["stages"]) >= 8
+    assert len(manifest["model_roles"]) == 13
+    assert manifest["artefacts"]["cover"].endswith("cover.png")

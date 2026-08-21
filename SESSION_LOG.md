@@ -383,3 +383,11 @@ ASR-вызов вынесен в `transcribe_reference_audio()`: handle полу
 `RenderQueue` дополнена явным `cancelled` state и `cancel_requested` для running jobs. Pending отменяется немедленно, running job завершается отменой на следующей stage callback boundary; это не пытается небезопасно убить нативную AI-стадию посередине. FIFO worker, progress persistence и restart restore сохранены.
 
 Проверка: новые fake-orchestrator FIFO/cancel/persistence тесты = **2 PASS**; полный `pytest tests/` = **118 PASS**; compileall/AST OK.
+
+
+---
+## PLAN_v39 — ШАГ 053: session manifest schema
+
+AI pipeline теперь создаёт `manifest.json` с `schema_version=1`, wizard state, stage report, engine/file/HF provenance 13 ролей и artifact map. `project_meta.json` сохранён для обратной совместимости. Regression проверяет manifest в isolated dry project output.
+
+Проверка: `pytest tests/test_ai_layer.py` = **32 PASS**; полный `pytest tests/` = **119 PASS**; compileall/AST OK.

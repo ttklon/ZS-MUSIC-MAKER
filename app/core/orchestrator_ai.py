@@ -522,5 +522,22 @@ def run_ai_pipeline(project_id, wizard_state=None, out_root=None, dry_run=False)
                             "cover": str(out_root / "cover.png")}}
     (out_root / "project_meta.json").write_text(
         json.dumps(result, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
+    from app.ai.registry import MODEL_REGISTRY
+    manifest = {
+        "schema_version": 1,
+        "project_id": project_id,
+        "generator": "ZS Music Maker AI pipeline",
+        "wizard_state": ws,
+        "stages": result["report"].get("stages", []),
+        "model_roles": {
+            key: {"engine": spec["engine"], "file": spec.get("file", ""),
+                  "hf_repo": spec.get("hf_repo", "")}
+            for key, spec in MODEL_REGISTRY.items()
+        },
+        "artefacts": result["artefacts"],
+    }
+    manifest_path = out_root / "manifest.json"
+    manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
+    result["manifest_path"] = str(manifest_path)
     app_logger.info(f"[orchestrator_ai] finished project={project_id}")
     return result
