@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-import hashlib
 import random
 from pathlib import Path
 
 
 def make_cover(recipe: dict, out_png: str, size: int = 1500) -> dict:
     try:
-        from PIL import Image, ImageDraw, ImageFilter, ImageFont
+        from PIL import Image, ImageDraw, ImageFilter
     except Exception as e:
         return {"ok": False, "reason": f"Pillow missing: {e}"}
     from app.core.security_utils import safe_hash
@@ -33,22 +32,9 @@ def make_cover(recipe: dict, out_png: str, size: int = 1500) -> dict:
         [size // 12, size // 2 - size // 8, size - size // 12, size // 2 + size // 8],
         fill=c2,
     )
-    def _get_font(s):
-        # v36 FIX (P2): silent `except: continue` маскировал реальные
-        # ошибки PIL (напр. повреждённый TTF) — теперь честно логируем
-        # причины в stderr и падаем на load_default() как fallback.
-        import sys as _sys
-        for f in ["arialbd.ttf", "DejaVuSans-Bold.ttf", "LiberationSans-Bold.ttf"]:
-            try:
-                return ImageFont.truetype(f, s)
-            except OSError:
-                # OSError — штатное отсутствие шрифта, не спамим в stderr
-                continue
-            except Exception as _e:  # noqa: BLE001
-                print(f"[cover_gen._get_font] {f}: {_e}", file=_sys.stderr)
-                continue
-        return ImageFont.load_default()
-    font = _get_font(size // 10)
+    # v39.4 (ШАГ 002): единый font_utils вместо hardcoded-путей
+    from app.core.font_utils import load_pil_font
+    font = load_pil_font(size // 10, bold=True)
     txt = title[:22].upper()
     bbox = d.textbbox((0, 0), txt, font=font)
     tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]

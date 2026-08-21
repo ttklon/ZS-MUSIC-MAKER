@@ -4,7 +4,6 @@ Provides comprehensive musical profiling, BPM mapping, EQ profiles, and synthesi
 for over 100 distinct music genres, ensuring universal multi-genre capability beyond Phonk.
 """
 
-import json
 import logging
 
 logger = logging.getLogger("genre_expansion_100")

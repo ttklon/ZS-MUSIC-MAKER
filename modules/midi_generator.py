@@ -22,7 +22,7 @@ v29 FIX (P0):
 
 import os
 import random
-from typing import Optional
+
 
 # v27 FIX (P0): mido был жёстким top-level импортом — без него падал
 # orchestrator_god. Ленивый импорт: MIDI-генерация помечается BLOCKED,

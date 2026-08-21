@@ -6,10 +6,8 @@ ZS Music Maker — model_manager.py (GOD MODE)
 Решает проблему "Модельного Голода" и "Уязвимой Десериализации".
 """
 
-import os
-import logging
 from pathlib import Path
-from app.core.security_utils import download_file, safe_hash
+from app.core.security_utils import download_file
 from app.core.logger import app_logger
 
 # v34 FIX (P2.8): torch больше не импортируется на верхнем уровне.

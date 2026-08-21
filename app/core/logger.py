@@ -7,7 +7,6 @@ ZS Music Maker — logger.py (GOD MODE)
 """
 
 import logging
-import os
 from pathlib import Path
 from logging.handlers import RotatingFileHandler
 
@@ -42,3 +41,16 @@ def setup_logger(name: str, log_file: str = "app.log", level=logging.INFO):
 
 # Глобальный логгер по умолчанию
 app_logger = setup_logger("ZS_Music_Maker")
+
+
+def log_stage(logger, stage: str, event: str = "start", duration_ms=None, **extra):
+    """v39.4 (ШАГ 004): единый формат логов стадий — stage=/event=/duration_ms=."""
+    parts = [f"stage={stage}", f"event={event}"]
+    if duration_ms is not None:
+        try:
+            parts.append(f"duration_ms={int(round(float(duration_ms)))}")
+        except (TypeError, ValueError):
+            parts.append(f"duration_ms={duration_ms}")
+    for k, v in extra.items():
+        parts.append(f"{k}={v}")
+    logger.info(" ".join(parts))

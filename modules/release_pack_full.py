@@ -392,7 +392,9 @@ def _make_clip(
 def _distrokid_xml(meta: dict[str, Any]) -> str:
     title = meta.get("title", "ZS Track")
     artist = meta.get("artist", "ZS Artist")
-    isrc = meta.get("isrc", "XX-XXX-00-00000")
+    # v39.4 (ШАГ 003): реальный ISRC вместо заглушки XX-XXX-00-00000
+    from app.core.isrc import get_isrc
+    isrc = get_isrc(meta, fallback="UNREGISTERED")
     upc = meta.get("upc", "0000000000000")
     genre = meta.get("genre", "Electronic")
     lang = meta.get("language", "ru")
@@ -469,12 +471,14 @@ def _vk_prefill(meta: dict[str, Any]) -> str:
 
 
 def _shazam_jsonld(meta: dict[str, Any]) -> str:
+    # v39.4 (ШАГ 003): honest ISRC вместо заглушки
+    from app.core.isrc import get_isrc
     payload = {
         "@context": "https://schema.org",
         "@type": "MusicRecording",
         "name": meta.get("title", "ZS Track"),
         "byArtist": {"@type": "MusicGroup", "name": meta.get("artist", "ZS Artist")},
-        "isrcCode": meta.get("isrc", "XX-XXX-00-00000"),
+        "isrcCode": get_isrc(meta, fallback="UNREGISTERED"),
         "duration": f"PT{int(meta.get('duration_sec',180))}S",
         "genre": meta.get("genre", "Electronic"),
         "inLanguage": meta.get("language", "ru"),
@@ -483,10 +487,9 @@ def _shazam_jsonld(meta: dict[str, Any]) -> str:
 
 
 def _is_placeholder_isrc(isrc: str) -> bool:
-    if not isrc:
-        return True
-    s = str(isrc).upper().replace("-", "").replace(" ", "")
-    return ("XXXXX" in s) or ("00000" in s and s.startswith(("XX", "00")))
+    # v39.4 (ШАГ 003): единый детектор в app.core.isrc
+    from app.core.isrc import is_placeholder_isrc
+    return is_placeholder_isrc(isrc)
 
 
 def _is_placeholder_upc(upc: str) -> bool:
@@ -534,10 +537,11 @@ def _production_notes(
     lines.append("- Все использованные сэмплы: CC0 / CC-BY.")
     lines.append("- Голос: собственный (RVC от пользователя) или TTS fallback.")
     if _is_placeholder_isrc(meta.get("isrc", "")):
+        from app.core.isrc import generate_isrc
         lines.append(
-            "- [WARN] ISRC: placeholder (`"
-            + str(meta.get("isrc", "XX-XXX-00-00000"))
-            + "`). Замени на реальный код перед дистрибуцией."
+            "- [INFO] ISRC: был placeholder, сгенерирован `"
+            + str(generate_isrc(meta) or "UNREGISTERED")
+            + "` (перед дистрибуцией замени на выделенный лэйблом)."
         )
     if _is_placeholder_upc(meta.get("upc", "")):
         lines.append(
@@ -876,7 +880,9 @@ def _apply_id3(mp3_path: Path, meta: dict[str, Any], cover_path: Path):
     id3.add(TCON(encoding=3, text=meta.get("genre", "Electronic")))
     id3.add(TBPM(encoding=3, text=str(meta.get("bpm", 140))))
     id3.add(TKEY(encoding=3, text=meta.get("key", "Am")))
-    id3.add(TSRC(encoding=3, text=meta.get("isrc", "XX-XXX-00-00000")))
+    # v39.4 (ШАГ 003): тег TSRC — от get_isrc, не placeholder
+    from app.core.isrc import get_isrc as _get_isrc
+    id3.add(TSRC(encoding=3, text=_get_isrc(meta, fallback="")))
     id3.add(TPUB(encoding=3, text="ZS Music Maker"))
     id3.add(TDRC(encoding=3, text=time.strftime("%Y")))
     try:

@@ -81,6 +81,8 @@ class PluginRegistry:
                     for name, obj in inspect.getmembers(module):
                         if inspect.isclass(obj) and issubclass(obj, AudioPlugin) and obj is not AudioPlugin:
                             self.discovered[name] = obj
-                except Exception as e:
-                    print(f"Failed to load plugin module {module_name}: {e}")
+                except Exception as e:  # noqa: BLE001
+                    # v39.4 (ШАГ 005): честный лог причины падения плагина
+                    print(f"[plugins/base] failed to load {module_name}: "
+                          f"{type(e).__name__}: {e}")
         return self.discovered

@@ -3,7 +3,7 @@
 from __future__ import annotations
 import json, re, time
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 from app.ai.registry import registry
 from app.ai import prompts as P
 from app.ai import llm_service as LLM

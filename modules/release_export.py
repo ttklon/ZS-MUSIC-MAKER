@@ -219,13 +219,16 @@ def export_release(
     files["manifest.json"] = str(rel_dir / "manifest.json")
 
     # Metadata для дистрибуции
+    # v39.4 (ШАГ 003): генерируем ISRC вместо пустой строки
+    from app.core.isrc import get_isrc
     meta = {
         "artist": artist_name,
         "title": title,
         "album": "ZSMM Release",
         "year": time.localtime().tm_year,
         "genre": "Phonk",
-        "isrc": "",
+        "isrc": get_isrc({"title": title, "artist": artist_name,
+                          "year": time.localtime().tm_year}, fallback=""),
         "duration_sec": recipe.get("duration_sec", 0) if recipe else 0,
     }
     (rel_dir / "metadata.json").write_text(

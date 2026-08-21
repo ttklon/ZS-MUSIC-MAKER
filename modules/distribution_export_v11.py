@@ -57,6 +57,18 @@ class TrackMetadata:
             self.p_line = f"℗ {year} {self.artist}"
         if not self.album:
             self.album = self.title
+        # v39.4 (ШАГ 003): если ISRC не выдан — генерируем валидный
+        try:
+            from app.core.isrc import is_valid_isrc, generate_isrc
+            if not is_valid_isrc(self.isrc):
+                gen = generate_isrc({
+                    "title": self.title, "artist": self.artist,
+                    "year": int(year) if year.isdigit() else None,
+                })
+                if gen:
+                    self.isrc = gen
+        except ImportError:
+            pass
 
 
 @dataclass

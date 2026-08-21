@@ -252,23 +252,10 @@ def _draw_title(bg_img, title: str, artist: str, size: tuple[int, int]):
     Image, ImageDraw, ImageFont, _ = pil
     w, h = size
     draw = ImageDraw.Draw(bg_img)
-    font_big = font_small = None
-    for cand in [
-        "DejaVuSans-Bold.ttf",
-        "arial.ttf",
-        "Arial.ttf",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-        "C:\\Windows\\Fonts\\arialbd.ttf",
-    ]:
-        try:
-            font_big = ImageFont.truetype(cand, size=int(h * 0.045))
-            font_small = ImageFont.truetype(cand, size=int(h * 0.028))
-            break
-        except Exception:
-            continue
-    if font_big is None:
-        font_big = ImageFont.load_default()
-        font_small = ImageFont.load_default()
+    # v39.4 (ШАГ 002): единый font_utils, hardcoded C:\Windows\Fonts убран
+    from app.core.font_utils import load_pil_font
+    font_big = load_pil_font(int(h * 0.045), bold=True)
+    font_small = load_pil_font(int(h * 0.028), bold=True)
     if artist:
         draw.text(
             (w * 0.06, h * 0.06), artist.upper(), fill=(240, 240, 240), font=font_small

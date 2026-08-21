@@ -168,19 +168,9 @@ def _apply_chrome(img, rng):
 
 
 def _load_font(size: int):
-    candidates = [
-        "arialbd.ttf",
-        "Arial Bold.ttf",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-        "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
-        "C:\\Windows\\Fonts\\arialbd.ttf",
-    ]
-    for c in candidates:
-        try:
-            return ImageFont.truetype(c, size)
-        except Exception:
-            continue
-    return ImageFont.load_default()
+    # v39.4 (ШАГ 002): hardcoded C:\Windows\Fonts убран — единый font_utils
+    from app.core.font_utils import load_pil_font
+    return load_pil_font(size, bold=True)
 
 
 def _center_text(

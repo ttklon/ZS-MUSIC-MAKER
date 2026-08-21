@@ -7,8 +7,6 @@ ZS Music Maker — ai_arranger.py (GOD MODE)
 """
 
 from typing import List, Dict, Any
-import random
-
 class AIArranger:
     def __init__(self):
         # Шаблоны структур для разных типов жанров

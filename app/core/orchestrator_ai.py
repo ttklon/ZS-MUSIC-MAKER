@@ -3,7 +3,6 @@
 from __future__ import annotations
 import json, math
 from pathlib import Path
-from typing import Any, Dict, Optional
 from app.core.logger import app_logger
 from app.ai.sequential_runner import SequentialAIRunner, AIStage
 from app.ai import prompts as P
@@ -71,8 +70,11 @@ def run_ai_pipeline(project_id, wizard_state=None, out_root=None, dry_run=False)
                     bilingual=ws["bilingual"])
                 text = r.get("lyrics", "")
                 source = "punch_lib_fallback"
-            except Exception:
-                pass
+            except Exception as _lg_e:  # noqa: BLE001
+                # v39.4 (ШАГ 005): молчаливый except заменён на честный лог
+                app_logger.error(
+                    f"[orchestrator_ai] stage=lyrics event=fallback_failed "
+                    f"reason={type(_lg_e).__name__}: {_lg_e}")
         (out_root / "lyrics.txt").write_text(text or "", encoding="utf-8")
         return {"ok": bool(text), "lyrics": text, "source": source,
                 "path": str(out_root / "lyrics.txt")}

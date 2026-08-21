@@ -10,7 +10,6 @@ import time
 import logging
 import gc
 import json
-import pickle
 import os
 from pathlib import Path
 from typing import Dict, Any, List, Callable, Optional
@@ -42,17 +41,17 @@ class PipelineStage:
 
     def execute(self, context: PipelineContext) -> StageResult:
         start_time = time.time()
-        logger.info(f"Starting stage: {self.name}")
+        logger.info(f"stage={self.name} event=start")
         try:
             result_data = self.func(context)
             duration = time.time() - start_time
             res = StageResult(name=self.name, ok=True, output=result_data, duration_sec=duration)
             context.results[self.name] = res
-            logger.info(f"Stage {self.name} completed in {duration:.2f}s")
+            logger.info(f"stage={self.name} event=ok duration_ms={int(duration*1000)}")
             return res
         except Exception as e:
             duration = time.time() - start_time
-            error_msg = f"Error in stage {self.name}: {str(e)}"
+            error_msg = f"stage={self.name} event=failed error={type(e).__name__}: {e}"
             logger.error(error_msg)
             res = StageResult(name=self.name, ok=False, error=error_msg, duration_sec=duration)
             context.results[self.name] = res

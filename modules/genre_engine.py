@@ -8,7 +8,7 @@ ZS Music Maker — genre_engine.py (GOD MODE)
 
 import json
 import os
-from typing import Dict, List, Any, Optional
+from typing import Dict, List
 from dataclasses import dataclass, field
 
 @dataclass
