@@ -69,11 +69,16 @@ def run_god_pipeline(
     if not isinstance(wizard_state, dict):
         wizard_state = {}
     wizard_state.setdefault("genre", "drift_phonk")
-    if not out_root:
+    isolated_output = out_root is not None
+    if out_root is None:
         out_root = Path(__file__).resolve().parents[2] / "output" / project_id
     out_root.mkdir(parents=True, exist_ok=True)
     
-    pipe = ZSPipeline(project_id, wizard_state)
+    # Checkpoints принадлежат текущему out_root. Это предотвращает загрузку
+    # старых результатов из output/<project_id>, когда smoke предварительно
+    # удалил свой каталог артефактов и запускается повторно.
+    checkpoint_dir = out_root / "checkpoints"
+    pipe = ZSPipeline(project_id, wizard_state, checkpoint_dir=checkpoint_dir)
     
     # 1. AI Arrangement
     def stage_arr(ctx: PipelineContext):
@@ -193,8 +198,10 @@ def run_god_pipeline(
 
     pipe.add_stage("god_mastering_pro", stage_master)
 
-    # Запуск (с поддержкой чекпоинтов для стабильности)
-    final_out = pipe.run(use_checkpoints=True)
+    # Интерактивные проекты могут переиспользовать checkpoints. Для явного
+    # out_root (smoke/изолированный запуск) этапы всегда пересчитываются: их
+    # аудиоартефакты являются частью этого же временного каталога.
+    final_out = pipe.run(use_checkpoints=not isolated_output)
     
     # Формируем итоговый отчет для совместимости
     stages_list = []

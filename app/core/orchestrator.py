@@ -32,6 +32,15 @@ except Exception:
 
 
 ROOT = Path(__file__).resolve().parents[2]
+LEGACY_STAGE_MARKER = "LEGACY"
+
+
+def _mark_legacy_result(result: Any, stage_name: str) -> dict[str, Any]:
+    """Отметить успешный вызов versioned legacy-стадии в данных пайплайна."""
+    marked = dict(result) if isinstance(result, dict) else {"ok": bool(result)}
+    marked["stage_marker"] = LEGACY_STAGE_MARKER
+    marked["legacy_stage"] = stage_name
+    return marked
 
 
 @dataclass
@@ -1279,20 +1288,29 @@ def _stage_mastering(
 
 
 def _stage_polish(input_wav: str, out_dir: Path) -> dict[str, Any]:
-    """v17 FIX (P0): polish_vocal (не apply_polish) — правильный API."""
+    """Полировка вокала с явно отмеченной legacy-v10 веткой и новым fallback."""
     try:
         out_wav = str(out_dir / "polished.wav")
+        legacy_attempt = None
         try:
+            # LEGACY: versioned v10-модуль оставлен ради совместимости старых
+            # сессий; новый core-путь продолжает работать через anti_ai_polish.
+            legacy_attempt = "anti_neuro_v10"
             from modules import anti_neuro_v10 as an
 
             if hasattr(an, "polish_vocal"):
                 r = an.polish_vocal(input_wav, out_wav, preset="standard")
                 if isinstance(r, dict) and r.get("ok"):
-                    return r
+                    return _mark_legacy_result(r, legacy_attempt)
             if hasattr(an, "apply_polish"):
                 r = an.apply_polish(input_wav, out_wav, intensity=0.5)
-                return r if isinstance(r, dict) else {"ok": True, "path": r}
+                return _mark_legacy_result(
+                    r if isinstance(r, dict) else {"ok": True, "path": r},
+                    legacy_attempt,
+                )
         except Exception:
+            # Для надежного fallback сохраняем имя attempted legacy-ветки,
+            # но не помечаем результат LEGACY, если её обработка не удалась.
             pass
         try:
             from modules import anti_ai_polish as aap
@@ -1303,13 +1321,19 @@ def _stage_polish(input_wav: str, out_dir: Path) -> dict[str, Any]:
                     try:
                         r = fn(input_wav, out_wav)
                         if isinstance(r, dict) and r.get("ok"):
+                            r = dict(r)
+                            if legacy_attempt:
+                                r["legacy_attempt"] = legacy_attempt
                             return r
                         if isinstance(r, str) and Path(r).exists():
-                            return {
+                            result = {
                                 "ok": True,
                                 "path": r,
                                 "engine": "anti_ai_polish." + cand,
                             }
+                            if legacy_attempt:
+                                result["legacy_attempt"] = legacy_attempt
+                            return result
                     except Exception:
                         continue
         except Exception:
@@ -1317,13 +1341,16 @@ def _stage_polish(input_wav: str, out_dir: Path) -> dict[str, Any]:
         import shutil
 
         shutil.copy(input_wav, out_wav)
-        return {
+        result = {
             "ok": True,
             "path": out_wav,
             "fallback_used": True,
             "reason": "polish_vocal/apply_polish/anti_ai_polish "
             "not available; copied master as-is",
         }
+        if legacy_attempt:
+            result["legacy_attempt"] = legacy_attempt
+        return result
     except Exception as e:
         return {"ok": False, "reason": str(e)}
 

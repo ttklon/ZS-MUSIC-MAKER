@@ -1,6 +1,15 @@
 # CHANGELOG
 
-> Актуальная версия: **v39.6.0** (2026-08-22). Подробный журнал выполнения — в `SESSION_LOG.md`; каноническое состояние — в `PROJECT_STATE.md`.
+> Актуальная версия: **v39.7.0** (2026-08-22). Подробный журнал выполнения — в `SESSION_LOG.md`; каноническое состояние — в `PROJECT_STATE.md`.
+
+
+## v39.7 — PLAN_v39 ШАГ 012 (legacy isolation + God Mode checkpoints)
+
+- **ШАГ 012:** добавлен `--legacy-off`, отключающий импорт и регистрацию legacy-патчей v8–v12 для runtime-пайплайнов без удаления совместимого Wizard-слоя.
+- **Наблюдаемость legacy:** loader возвращает отчёт `enabled/loaded/skipped`; успешный вызов `anti_neuro_v10` в core-оркестраторе получает `stage_marker=LEGACY`, а fallback сохраняет `legacy_attempt`.
+- **FIX P0 God Mode:** `ZSPipeline` поддерживает явный `checkpoint_dir`. `run_god_pipeline()` изолирует checkpoints в собственном `out_root` и не переиспользует их для smoke/изолированных запусков. Устранён false-completed результат с отсутствующим `master_god.wav` после очистки out_root.
+- **Покрытие:** добавлены четыре регрессионных теста — безимпортный legacy-off, CLI wiring, LEGACY marker и explicit checkpoint directory.
+- **Приёмка:** 53 pytest PASS, AST dead-imports = 0, smoke_v26 = 6/6, smoke_v29 = 8/8, `--legacy-off --smoke` = 8/8, fallback audit = 0 red flags.
 
 
 ## v39.6 — PLAN_v39 ШАГ 011 (import-cycle guard + audio regression)

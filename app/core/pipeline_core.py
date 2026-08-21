@@ -58,10 +58,25 @@ class PipelineStage:
             return res
 
 class ZSPipeline:
-    def __init__(self, project_id: str, config: Dict[str, Any]):
+    def __init__(
+        self,
+        project_id: str,
+        config: Dict[str, Any],
+        checkpoint_dir: Path | str | None = None,
+    ):
+        """Создать пайплайн с опциональным checkpoint-каталогом конкретного запуска.
+
+        Старый путь ``output/<project_id>/checkpoints`` сохранён по умолчанию.
+        Явный путь нужен изолированным запускам (например, smoke God Mode),
+        где артефакты располагаются в отдельном ``out_root``.
+        """
         self.context = PipelineContext(project_id=project_id, config=config)
         self.stages: List[PipelineStage] = []
-        self.checkpoint_dir = Path("output") / project_id / "checkpoints"
+        self.checkpoint_dir = (
+            Path(checkpoint_dir)
+            if checkpoint_dir is not None
+            else Path("output") / project_id / "checkpoints"
+        )
         self.checkpoint_dir.mkdir(parents=True, exist_ok=True)
 
     def add_stage(self, name: str, func: Callable[[PipelineContext], Any]):

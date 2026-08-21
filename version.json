@@ -1,6 +1,6 @@
 {
- "version": "39.6.0",
- "build": "v39.6-plan-step-011-import-cycle-guard-2026-08-22",
+ "version": "39.7.0",
+ "build": "v39.7-plan-step-012-legacy-off-checkpoints-2026-08-22",
  "based_on": "v37-updater-verify-health-cleanup-2026-08-14",
- "changes": "v39.6 PLAN_v39 ШАГ 011: в tests/test_ai_layer.py добавлен статический AST-граф прямых импортов для app.core, modules и agents; lazy-imports внутри функций намеренно не учитываются. Добавлены регрессии отсутствия циклов в репозитории и обнаружения искусственного цикла с полным путём. Тест доступности essentia сделан переносимым: он проверяет контракт реестра без требования локально установленной опциональной librosa. Дополнительно устранена реальная регрессия smoke_v26: modules/beat_constructor.py использует контролируемое mid/side-расширение вместо одностороннего Haas-mix, а tests/test_audio_quality.py фиксирует стереокорреляцию. Проверка: pytest tests/ = 49 passed, compileall OK, AST dead-imports = 0, smoke_v26 = 6/6, smoke_v29 = 8/8, fallback_audit = 0 red flags, граф = 104 модулей / 18 рёбер / 0 циклов."
+ "changes": "v39.7 PLAN_v39 ШАГ 012: добавлен CLI-флаг --legacy-off, который не импортирует и не регистрирует legacy-патчи v8–v12; loader возвращает прозрачный отчёт. Единственный вызов versioned v10-модуля в core-оркестраторе теперь маркируется LEGACY в данных стадии и сохраняет legacy_attempt при fallback. Дополнительно устранена реальная ошибка smoke_v29: God Mode использовал старые global checkpoints после удаления out_root и пропускал создание master_god.wav. ZSPipeline поддерживает custom checkpoint_dir, а God Mode хранит checkpoints рядом с out_root и отключает их reuse для изолированных запусков. Проверка: pytest tests/ = 53 passed, compileall OK, AST dead-imports = 0, smoke_v26 = 6/6, smoke_v29 = 8/8, main.py --legacy-off --smoke = 8/8, fallback_audit = 0 red flags."
 }

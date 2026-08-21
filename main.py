@@ -208,20 +208,41 @@ def _try_launch_gui_gradio() -> bool:
         return False
 
 
-def _register_patches() -> None:
-    for m in (
-        "orchestrator_v12_patch",
-        "orchestrator_v11_patch",
-        "orchestrator_v10_patch",
-        "orchestrator_v9_patch",
-        "orchestrator_v8_patch",
-    ):
+LEGACY_PATCH_MODULES = (
+    "orchestrator_v12_patch",
+    "orchestrator_v11_patch",
+    "orchestrator_v10_patch",
+    "orchestrator_v9_patch",
+    "orchestrator_v8_patch",
+)
+
+
+def _register_patches(enabled: bool = True) -> dict[str, object]:
+    """Загрузить изолированный legacy-слой v8–v12 только по умолчанию.
+
+    Новые пути должны опираться на единый core-оркестратор. Флаг
+    ``--legacy-off`` оставляет старые патчи в репозитории для совместимости с
+    Wizard, но не импортирует и не регистрирует их в текущем процессе.
+    """
+    report: dict[str, object] = {"enabled": enabled, "loaded": [], "skipped": []}
+    if not enabled:
+        report["skipped"] = list(LEGACY_PATCH_MODULES)
+        _safe_print("[main] LEGACY patches disabled (--legacy-off).")
+        return report
+
+    for module_name in LEGACY_PATCH_MODULES:
         try:
-            mod = __import__(f"app.core.{m}", fromlist=[m])
-            if hasattr(mod, "register"):
-                mod.register()
-        except Exception:
-            pass
+            module = __import__(f"app.core.{module_name}", fromlist=[module_name])
+            register = getattr(module, "register", None)
+            if callable(register):
+                register()
+                report["loaded"].append(module_name)
+            else:
+                report["skipped"].append(module_name)
+        except Exception as exc:
+            report["skipped"].append(module_name)
+            _safe_print(f"[main] LEGACY patch {module_name} unavailable: {exc}")
+    return report
 
 
 def _cli_smoke() -> int:
@@ -418,6 +439,11 @@ def main() -> int:
     parser.add_argument("--onboarding", action="store_true", help="Run voice onboarding CLI")
     parser.add_argument("--readiness", action="store_true", help="Compute readiness percent")
     parser.add_argument("--console", action="store_true", help="Force console REPL mode (no GUI)")
+    parser.add_argument(
+        "--legacy-off",
+        action="store_true",
+        help="Skip legacy v8-v12 patch registration for runtime pipelines",
+    )
     parser.add_argument("--ai", action="store_true", help="Launch AI GOD MODE 4.0 (sequential AI stack)")
     parser.add_argument("--ai-status", action="store_true", help="Show AI model registry & availability")
     parser.add_argument("--ai-pull", type=str, default="", help="Pull one AI model role (or 'all')")
@@ -447,10 +473,9 @@ def main() -> int:
     if args.health:
         return _cli_health()
 
-    # AUDIT-FIX P0: регистрация патчей оркестратора была написана
-    # (_register_patches), но НИГДЕ не вызывалась — патчи v8..v12
-    # просто не применялись.
-    _register_patches()
+    # Legacy v8..v12 сохранён для обратной совместимости, но его загрузка
+    # теперь управляется явно. Новый core-путь работает и без этих патчей.
+    _register_patches(enabled=not args.legacy_off)
 
     if args.dry_run:
         return _cli_dry_run()
