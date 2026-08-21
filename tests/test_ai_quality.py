@@ -391,3 +391,21 @@ def test_sdxl_handle_reports_generation_failure(tmp_path) -> None:
 
     assert result["ok"] is False
     assert "scheduler failed" in result["reason"]
+
+
+
+def test_cover_quality_requires_readable_large_rgb_artifact(tmp_path) -> None:
+    from PIL import Image
+
+    from app.ai.quality import validate_cover_artifact
+
+    valid = tmp_path / "valid.png"
+    small = tmp_path / "small.png"
+    grayscale = tmp_path / "gray.png"
+    Image.new("RGB", (512, 512), color=(1, 2, 3)).save(valid)
+    Image.new("RGB", (128, 128), color=(1, 2, 3)).save(small)
+    Image.new("L", (512, 512), color=120).save(grayscale)
+
+    assert validate_cover_artifact(valid)["ok"] is True
+    assert validate_cover_artifact(small)["reason"] == "cover resolution is below minimum"
+    assert validate_cover_artifact(grayscale)["reason"] == "cover color mode is unsupported"

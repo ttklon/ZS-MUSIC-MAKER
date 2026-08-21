@@ -9,6 +9,7 @@ from app.ai import prompts as P
 from app.ai import llm_service as LLM
 from app.ai.quality import (
     validate_audio_artifact,
+    validate_cover_artifact,
     validate_lyrics,
     validate_metadata_json,
     validate_rvc_artifact,
@@ -410,7 +411,7 @@ def run_ai_pipeline(project_id, wizard_state=None, out_root=None, dry_run=False)
         title = meta.get("title") or ws.get("theme", "Untitled")
         artist = ws.get("artist_display") or ws.get("artist_slug") or "ZS"
         from modules.cover_art_ai import render_cover_ai
-        return render_cover_ai(
+        result = render_cover_ai(
             title=title,
             artist=artist,
             genre=ws["genre"],
@@ -418,6 +419,12 @@ def run_ai_pipeline(project_id, wizard_state=None, out_root=None, dry_run=False)
             out_path=str(out_root / "cover.png"),
             handle=handle,
         )
+        if result.get("ok") and result.get("path"):
+            quality = validate_cover_artifact(result["path"])
+            result["ok"] = bool(quality["ok"])
+            result["quality"] = quality
+            result["reason"] = quality["reason"]
+        return result
 
     def stage_tag(bundle, ctx):
         if bundle is None:

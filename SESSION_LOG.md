@@ -1,6 +1,14 @@
 
 ---
 
+## КОММИТ — PLAN_v39 ШАГ 038: cover-art quality и fallback (выполнен, runtime BLOCKED)
+
+Добавлен `validate_cover_artifact()`: любой PNG (SDXL или явно маркированный PIL fallback) должен декодироваться, иметь RGB/RGBA и разрешение не менее 512×512 перед попаданием в output проекта. Непригодные файлы возвращают `ok=False` с объективной причиной.
+
+Проверка: 512px RGB PNG проходит; 128px и grayscale PNG отклоняются. `pytest tests/` = **88/88 PASS**; compileall OK; AST dead-imports = **0**. SDXL runtime/weights отсутствуют. Детали: `docs/STEP_STATUS/038_sdxl_cover_quality.md`.
+
+---
+
 ## КОММИТ — PLAN_v39 ШАГ 037: SDXL cover_art integration (выполнен, runtime BLOCKED)
 
 `stage_cover` теперь передаёт полученный от SequentialAIRunner SDXL handle в `render_cover_ai`; рендер не создаёт вложенный registry lifecycle. `render_cover_with_pipeline()` записывает PNG или возвращает диагностируемый failure. PIL fallback остаётся явно маркированным и работает только без model handle.

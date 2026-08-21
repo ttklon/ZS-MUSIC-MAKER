@@ -160,6 +160,28 @@ def validate_rvc_artifact(input_path: str | Path, output_path: str | Path) -> di
     return {"ok": True, "reason": None, "metrics": result["metrics"]}
 
 
+def validate_cover_artifact(path: str | Path, *, min_size: int = 512) -> dict[str, Any]:
+    """Проверить cover-art: файл существует, декодируется и соответствует минимальному разрешению."""
+    target = Path(path)
+    if not target.exists() or target.stat().st_size <= 100:
+        return {"ok": False, "reason": "cover file is missing or too small", "metrics": {"path": str(target)}}
+    try:
+        from PIL import Image
+
+        with Image.open(target) as image:
+            image.verify()
+        with Image.open(target) as image:
+            width, height, mode = image.size[0], image.size[1], image.mode
+    except Exception as exc:
+        return {"ok": False, "reason": f"cover file is unreadable: {exc}", "metrics": {"path": str(target)}}
+    metrics = {"width": int(width), "height": int(height), "mode": mode, "bytes": target.stat().st_size}
+    if width < min_size or height < min_size:
+        return {"ok": False, "reason": "cover resolution is below minimum", "metrics": metrics}
+    if mode not in {"RGB", "RGBA"}:
+        return {"ok": False, "reason": "cover color mode is unsupported", "metrics": metrics}
+    return {"ok": True, "reason": None, "metrics": metrics}
+
+
 def validate_dsp_features(features: Any) -> dict[str, Any]:
     """Проверить пригодность DSP metadata до использования в dossier/LLM."""
     payload = features if isinstance(features, dict) else {}
