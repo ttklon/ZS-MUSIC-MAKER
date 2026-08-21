@@ -487,3 +487,11 @@ AI pipeline теперь создаёт `manifest.json` с `schema_version=1`, w
 Добавлен bounded mtime-keyed LRU decode/resample cache для повторного `hit_scorer.score_track` одного неизменённого WAV. Изменение source mtime инвалидирует key. Это точечная оптимизация non-AI hot path без обещания ускорения full pipeline/inference.
 
 Проверка: cache regression = **1 PASS**; полный `pytest tests/` = **135 PASS**; compileall/AST OK.
+
+
+---
+## PLAN_v39 — ШАГ 066: test suite expansion
+
+Test suite при приёмке: **137 collected / 137 PASS**, существенно выше планового ≥60. Добавлены direct regressions 50 versioned genre preset schema и 119 runtime factory profiles; ранее добавленные tests покрывают AI adapters, quality, runner, dossier, vault, release, installer, updater, security и RVC dry contract.
+
+Проверка: targeted genre tests = **2 PASS**; полный `pytest tests/` = **137 PASS**; compileall/AST OK. Line coverage percentage честно не заявлен без зафиксированного coverage tool.
