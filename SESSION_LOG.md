@@ -538,3 +538,10 @@ PROJECT_STATE заменён v39 snapshot: **147/147** matrix rows соотве�
 Выполнен audit 19 executable tools. `--help` раньше у части scripts запускал smoke/E2E/deep audit или падал на optional deps. Добавлен safe shared help guard для no-option tools, `readiness` переведён на собственный argparse parser, `p0_truth_test` получил main/exit contract, `ab_compare` lazy-check optional pyloudnorm, `validate_final_track` argparse. Все **19/19** `python tools/<script> --help` теперь дают usage и rc=0 без workload; contract покрыт тестом.
 
 Первичный небезопасный audit создал deep-audit reports и ignored health JSON; они полностью удалены/восстановлены, data inventory вновь **73 managed, 0 unknown, 0 invalid**. Финальная приёмка: `pytest tests/ -q` = **167 PASS**, compileall/AST OK.
+
+---
+## PLAN_v39 — ШАГ 076: prompt catalog и привязка к ролям
+
+Все 15 versioned `.prompt.txt` ранее не читались runtime. В `app/ai/prompts.py` добавлен allowlisted role catalog: lyrics=4, metadata=8, analysis=1, cover_art=1, trend_analysis=1. Loader отклоняет произвольные filenames, renderer валидирует placeholders; builders lyrics/dossier/metadata используют role assets, cover asset проверяется без изменения совместимого concise prompt.
+
+Приёмка: 15/15 mapped/renderable, catalog tests 4 PASS, unknown/path traversal name rejected. `pytest tests/ -q` = **171 PASS**, compileall/AST OK, data inventory 73/0/0. Heavy inference не заявляется.
