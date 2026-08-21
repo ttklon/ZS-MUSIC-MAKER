@@ -391,3 +391,22 @@ def test_analysis_quality_requires_schema_for_artist_and_track() -> None:
     assert validate_analysis_json(artist)["ok"] is True
     assert validate_analysis_json(track, track_level=True)["ok"] is True
     assert validate_analysis_json({"core_themes": []})["ok"] is False
+
+
+
+def test_demucs_resolves_vocals_by_declared_source_name() -> None:
+    from types import SimpleNamespace
+
+    from modules.artist_dossier.manager import resolve_vocal_source_index
+
+    assert resolve_vocal_source_index(SimpleNamespace(sources=["bass", "vocals", "drums"])) == 1
+
+
+def test_demucs_refuses_model_without_vocals_source() -> None:
+    from types import SimpleNamespace
+
+    import pytest
+    from modules.artist_dossier.manager import resolve_vocal_source_index
+
+    with pytest.raises(ValueError, match="does not expose"):
+        resolve_vocal_source_index(SimpleNamespace(sources=["bass", "drums", "other"]))

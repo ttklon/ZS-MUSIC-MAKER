@@ -1,6 +1,14 @@
 
 ---
 
+## КОММИТ — PLAN_v39 ШАГ 029: Demucs htdemucs integration (выполнен, runtime BLOCKED)
+
+Проверен существующий `stem_splitter` registry/pull route. В dossier Demucs теперь выбирает stem `vocals` по `model.sources`, а не по фиксированному индексу; отсутствие нужного source или runtime даёт явную диагностику/skipped. Создание output-папки гарантировано перед записью.
+
+Проверка: model с нестандартным порядком sources даёт корректный vocal index; модель без `vocals` отклоняется. `pytest tests/` = **75/75 PASS**; compileall OK; AST dead-imports = **0**. Demucs runtime/weights не установлены. Детали: `docs/STEP_STATUS/029_demucs_integration.md`.
+
+---
+
 ## КОММИТ — PLAN_v39 ШАГ 028: RVC quality gate (выполнен, runtime BLOCKED)
 
 Добавлен `validate_rvc_artifact(input, output)`: RVC output обязан пройти базовый audio gate и сохранить 85–115% длительности исходного вокала. Несвязанный, silent или укороченный результат теперь не может пройти как готовая voice conversion; pitch-shift fallback по-прежнему запрещён.

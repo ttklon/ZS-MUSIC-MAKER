@@ -27,6 +27,14 @@ def _track_id(title: str, url: str = "") -> str:
     return _slug(title)[:32] + "_" + hashlib.md5(base.encode("utf-8")).hexdigest()[:8]
 
 
+def resolve_vocal_source_index(model: Any) -> int:
+    """Вернуть индекс stem ``vocals`` из порядка источников фактической Demucs-модели."""
+    sources = tuple(getattr(model, "sources", ()) or ())
+    if "vocals" not in sources:
+        raise ValueError("Demucs model does not expose a 'vocals' source")
+    return sources.index("vocals")
+
+
 @dataclass
 class TrackEntry:
     track_id: str
@@ -133,6 +141,8 @@ class DossierManager:
         runner = SequentialAIRunner()
 
         def _demucs_stage(model, ctx):
+            if model is None:
+                return {"skipped": "stem_splitter unavailable"}
             if not tr.audio_path or not Path(tr.audio_path).exists():
                 return {"skipped": "no audio"}
             try:
@@ -147,13 +157,15 @@ class DossierManager:
                 dev = str(next(model.parameters()).device)
                 if dev.startswith("cuda"):
                     wav = wav.cuda()
+                vocal_index = resolve_vocal_source_index(model)
                 sources = apply_model(model, wav, device=dev, split=True, overlap=0.25)
-                vocals = sources[0, 3].cpu().numpy().T
+                vocals = sources[0, vocal_index].cpu().numpy().T
                 out = self.root / slug / "vocals" / f"{tr.track_id}_vocals.wav"
+                out.parent.mkdir(parents=True, exist_ok=True)
                 sf.write(str(out), vocals, int(sr))
-                return {"vocals_path": str(out)}
+                return {"ok": True, "vocals_path": str(out), "source_index": vocal_index}
             except Exception as e:
-                return {"error": str(e)}
+                return {"ok": False, "error": str(e)}
         runner.add(AIStage("demucs", "stem_splitter", _demucs_stage, optional=True))
 
         def _asr_stage(model, ctx):
