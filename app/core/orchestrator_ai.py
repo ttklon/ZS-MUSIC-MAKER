@@ -373,6 +373,7 @@ def run_ai_pipeline(project_id, wizard_state=None, out_root=None, dry_run=False)
         beat = (ctx["sink"].get("music") or {}).get("beat_path")
         vocal = ((ctx["sink"].get("rvc") or {}).get("vocal_path")
                  or (ctx["sink"].get("vocal_synth") or {}).get("vocal_path"))
+        texture = (ctx["sink"].get("music_stereo") or {}).get("texture_path")
         mix_path = str(out_root / "mix.wav")
         if not beat or not Path(beat).exists():
             return {"skipped": "no beat"}
@@ -381,9 +382,27 @@ def run_ai_pipeline(project_id, wizard_state=None, out_root=None, dry_run=False)
             b, sr_b = sf.read(beat)
             if b.ndim == 1:
                 b = np.stack([b, b], axis=-1)
+            texture_mixed = False
+            if texture and Path(texture).exists():
+                t, sr_t = sf.read(texture)
+                if sr_t != sr_b:
+                    import librosa
+                    t = librosa.resample(t.T if t.ndim > 1 else t, orig_sr=sr_t, target_sr=sr_b)
+                    t = t.T if t.ndim > 1 else t
+                if t.ndim == 1:
+                    t = np.stack([t, t], axis=-1)
+                n_texture = min(len(b), len(t))
+                beat_rms = float(np.sqrt(np.mean(b[:n_texture] ** 2)) + 1e-9)
+                texture_rms = float(np.sqrt(np.mean(t[:n_texture] ** 2)) + 1e-9)
+                texture_gain = (beat_rms * (10.0 ** (-18.0 / 20.0))) / texture_rms
+                b[:n_texture] = b[:n_texture] + t[:n_texture] * min(texture_gain, 1.0)
+                texture_mixed = True
             if not vocal or not Path(vocal).exists():
+                peak = float(np.max(np.abs(b)) + 1e-9)
+                if peak > 0.99:
+                    b = b * (0.98 / peak)
                 sf.write(mix_path, b, sr_b)
-                return {"ok": True, "mix_path": mix_path, "vocal": False}
+                return {"ok": True, "mix_path": mix_path, "vocal": False, "texture_mixed": texture_mixed}
             v, sr_v = sf.read(vocal)
             if sr_v != sr_b:
                 import librosa
@@ -397,7 +416,7 @@ def run_ai_pipeline(project_id, wizard_state=None, out_root=None, dry_run=False)
             if peak > 0.99:
                 mix = mix * (0.98 / peak)
             sf.write(mix_path, mix, sr_b)
-            return {"ok": True, "mix_path": mix_path, "vocal": True}
+            return {"ok": True, "mix_path": mix_path, "vocal": True, "texture_mixed": texture_mixed}
         except Exception as e:
             return {"ok": False, "reason": str(e)}
 

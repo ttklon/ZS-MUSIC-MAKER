@@ -359,3 +359,11 @@ ASR-вызов вынесен в `transcribe_reference_audio()`: handle полу
 `DossierManager` теперь persist-ит успешные промежуточные outputs, ранее жившие только в runner sink: `features.stems.vocals`, `stem_source_index` и `transcript_path`. Уже сохраняемые DSP BPM/key/duration/RMS и CLAP tags остаются в том же track JSON. При недоступных ролях contract по-прежнему честно фиксирует skipped reason без ложного analysis success.
 
 Проверка: `pytest tests/ -q` = **116 PASS**; `compileall` OK; AST = **0**. Demucs/faster-whisper/CLAP weights в sandbox отсутствуют: real inference **BLOCKED**.
+
+
+---
+## PLAN_v39 — ШАГ 050: stereo textures в mix
+
+`stage_mix` теперь использует `music_stereo.texture_path`: texture ресемплируется/upmix-ится при необходимости и подмешивается к beat с RMS-relative gain **−18 dB**, затем проходит peak ceiling. Result содержит `texture_mixed=True/False`, поэтому отсутствие MusicGen texture остаётся честно наблюдаемым и не ломает base mix.
+
+Проверка: `pytest tests/ -q` = **116 PASS**; `compileall` OK; AST = **0**. MusicGen stereo weights отсутствуют в sandbox, реальная генерация texture **BLOCKED**.
