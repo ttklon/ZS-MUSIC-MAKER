@@ -260,6 +260,11 @@ class TestDossier(unittest.TestCase):
         mgr.add_artist("Artist Y", tracks=[{"title":"S1","lyrics":"движ и жизнь"}])
         d = mgr.build_full_dossier("Artist Y")
         self.assertIn("note", d)
+        track = mgr.list_tracks("Artist Y")[0]
+        self.assertEqual(track["status"], "partial")
+        raw = mgr._load_track("artist_y", track["track_id"])
+        stages = {item["name"]: item for item in raw.dossier["report"]["stages"]}
+        self.assertIn("analysis_llm unavailable", stages["llm_breakdown"]["skipped_reason"])
 
 
 class TestOrchestrator(unittest.TestCase):
@@ -382,15 +387,46 @@ def test_lyrics_quality_rejects_empty_short_and_looped_text() -> None:
     assert validate_lyrics(loop, min_characters=1)["reason"] == "line repetition exceeds hook limit"
 
 
-def test_analysis_quality_requires_schema_for_artist_and_track() -> None:
+def test_analysis_quality_requires_rich_schema_for_artist_and_track() -> None:
     from app.ai.quality import validate_analysis_json
 
-    artist = {"core_themes": ["ночь"], "lexicon": ["неон"], "flow": "плотный"}
-    track = {"storyline": "побег из города", "hook": "выше", "reusable_elements": ["cowbell"]}
+    artist = {
+        "bio": "Биографические данные не предоставлены; профиль построен по текстам.",
+        "themes": ["ночь"], "slang": ["неон"], "flow": "плотный", "analogs": ["dark trap"],
+    }
+    track = {
+        "theme": "побег из города", "storyline": "герой уезжает ночью",
+        "key_lines": ["выше"], "analysis": "движение противопоставлено застою",
+        "hook": "выше", "reusable_elements": ["cowbell"],
+    }
 
     assert validate_analysis_json(artist)["ok"] is True
     assert validate_analysis_json(track, track_level=True)["ok"] is True
-    assert validate_analysis_json({"core_themes": []})["ok"] is False
+    assert validate_analysis_json({"core_themes": ["ночь"], "flow": "плотный"})["ok"] is False
+    assert validate_analysis_json({"storyline": "x", "hook": "y"}, track_level=True)["ok"] is False
+
+
+def test_artist_dossier_aggregate_preserves_rich_schema_and_prompt_aliases(tmp_path, monkeypatch) -> None:
+    from contextlib import nullcontext
+
+    import modules.artist_dossier.manager as dossier_manager
+
+    mgr = dossier_manager.DossierManager(root=tmp_path)
+    mgr.add_artist("Artist Rich", tracks=[{"title": "Night", "lyrics": "Ночь и неон ведут домой"}])
+    entry = mgr._load_artist("artist_rich")
+    response = {
+        "bio": "Биографические данные не предоставлены; профиль построен по текстам.",
+        "themes": ["ночная дорога"], "slang": ["неон"], "flow": "рубленый", "analogs": ["dark phonk"],
+    }
+    monkeypatch.setattr(dossier_manager.registry, "is_available", lambda key: key == "analysis_llm")
+    monkeypatch.setattr(dossier_manager.registry, "use", lambda _key: nullcontext(type("M", (), {"handle": object()})()))
+    monkeypatch.setattr(dossier_manager.LLM, "complete_json", lambda *_args, **_kwargs: response)
+
+    dossier = mgr._aggregate_artist_dossier("artist_rich", entry)
+
+    assert {"bio", "themes", "slang", "flow", "analogs"}.issubset(dossier)
+    assert dossier["core_themes"] == dossier["themes"]
+    assert dossier["lexicon"] == dossier["slang"]
 
 
 
@@ -551,3 +587,19 @@ def test_runner_assigns_extended_default_timeout_to_music_roles() -> None:
 
     assert runner._timeout_for(AIStage("music", "music_generation", lambda _h, _c: None)) == MUSIC_STAGE_TIMEOUT_SEC
     assert runner._timeout_for(AIStage("pure", None, lambda _h, _c: None)) == 600.0
+
+
+
+def test_local_folder_collector_merges_audio_and_txt_lyrics(tmp_path) -> None:
+    from modules.artist_dossier.collectors import LocalFolderCollector
+
+    (tmp_path / "Artist Smoke - Night.txt").write_text("Ночь ведёт домой", encoding="utf-8")
+    (tmp_path / "Artist Smoke - Night.wav").write_bytes(b"wav placeholder")
+
+    tracks = LocalFolderCollector(str(tmp_path)).collect("Artist Smoke")
+
+    assert tracks == [{
+        "title": "Night",
+        "lyrics": "Ночь ведёт домой",
+        "audio_path": str(tmp_path / "Artist Smoke - Night.wav"),
+    }]

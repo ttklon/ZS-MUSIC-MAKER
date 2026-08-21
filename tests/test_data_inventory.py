@@ -35,6 +35,10 @@ def test_inventory_ignores_runtime_ai_model_manifests(tmp_path) -> None:
     (tmp_path / "ai_models" / "lyrics_llm" / "manifest.json").write_text(
         '{"runtime": true}', encoding="utf-8"
     )
+    (tmp_path / "artist_dossier" / "artist" / "artist.json").parent.mkdir(parents=True)
+    (tmp_path / "artist_dossier" / "artist" / "artist.json").write_text(
+        '{"runtime": true}', encoding="utf-8"
+    )
 
     report = scan_data(tmp_path)
 

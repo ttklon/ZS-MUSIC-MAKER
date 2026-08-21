@@ -338,10 +338,12 @@ def validate_analysis_json(payload: Any, *, track_level: bool = False) -> dict[s
     if not isinstance(payload, dict):
         return {"ok": False, "reason": "analysis response is not an object", "metrics": {}}
 
-    required = ("storyline", "hook", "reusable_elements") if track_level else (
-        "core_themes",
-        "lexicon",
+    required = ("theme", "storyline", "key_lines", "analysis", "hook", "reusable_elements") if track_level else (
+        "bio",
+        "themes",
+        "slang",
         "flow",
+        "analogs",
     )
     missing = [key for key in required if not payload.get(key)]
     if missing:

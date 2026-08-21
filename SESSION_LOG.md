@@ -268,3 +268,17 @@ ASR-вызов вынесен в `transcribe_reference_audio()`: handle полу
 Проверка: `pytest tests/test_ai_model_pull.py -q` = **6 PASS**; `compileall` OK; `python tools/ast_dead_imports.py` = **0**. `huggingface_hub` и heavyweight weights в sandbox отсутствуют, поэтому network download/inference ролей остаётся честно **BLOCKED**.
 
 Дополнение приёмки: full pytest обнаружил, что runtime `data/ai_models/mastering_ai/manifest.json` ошибочно считался неизвестным versioned data. `audit_data_inventory` исправлен: `data/ai_models/` исключён как .gitignored runtime weight storage; добавлен регрессионный тест. Итог: **106 PASS**, inventory **73/73 managed**, **0 unknown**, **0 invalid**.
+
+
+---
+## PLAN_v39 — ШАГ 043: artist dossier demucs→ASR→DSP→CLAP→LLM
+
+| Область | Результат |
+|---|---|
+| Track pipeline | `DossierManager` последовательно запускает Demucs, ASR, DSP, CLAP и analysis_llm через `SequentialAIRunner`; записи сохраняются per-track. |
+| Rich schema | Artist output требует `bio/themes/slang/flow/analogs`, track output — `theme/storyline/key_lines/analysis/hook/reusable_elements`; старые style aliases нормализуются для downstream prompts. |
+| Честный unavailable | `analysis_llm` больше не вызывается с `None`: track фиксируется `partial`, report содержит явный skipped reason, artist dossier — deferred note. |
+| Реальный CLI fix | `LocalFolderCollector` теперь собирает `.txt` lyrics из пользовательской папки и объединяет их с audio. Smoke `--dossier-add` с local text добавил 1 track; build дал честный deferred при отсутствии LLM. |
+| Inventory | `data/artist_dossier/` классифицирован как user-generated runtime output и исключён только из versioned fixture audit. |
+
+Проверка: `pytest tests/test_ai_layer.py -q` = **31 PASS**; `pytest tests/ -q` = **108 PASS**; `compileall` OK; AST = **0**; data inventory **73 managed / 0 unknown / 0 invalid**. Heavy Demucs/ASR/CLAP/LLM inference в sandbox остаётся честно **BLOCKED**.

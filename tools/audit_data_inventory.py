@@ -31,7 +31,7 @@ MANAGED_DIRECTORIES = {
 }
 # Runtime weights и их integrity manifests создаются pull-инструментом, находятся
 # под .gitignore и не входят в инвентарь versioned data-assets.
-RUNTIME_DIRECTORIES = {"ai_models"}
+RUNTIME_DIRECTORIES = {"ai_models", "artist_dossier"}
 
 MANAGED_FILES = {
     "README.md": "data catalog documentation",

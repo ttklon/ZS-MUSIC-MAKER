@@ -33,6 +33,16 @@ def _track_id(title: str, url: str = "") -> str:
     return _slug(title)[:32] + "_" + hashlib.md5(base.encode("utf-8")).hexdigest()[:8]
 
 
+def normalize_artist_dossier(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Сохранить rich schema и совместимые aliases для prompts следующих стадий."""
+    dossier = dict(payload)
+    dossier.setdefault("core_themes", list(dossier.get("themes") or []))
+    dossier.setdefault("lexicon", list(dossier.get("slang") or []))
+    dossier.setdefault("signature_tricks", [])
+    dossier.setdefault("avoid", [])
+    return dossier
+
+
 def resolve_vocal_source_index(model: Any) -> int:
     """Вернуть индекс stem ``vocals`` из порядка источников фактической Demucs-модели."""
     sources = tuple(getattr(model, "sources", ()) or ())
@@ -323,6 +333,8 @@ class DossierManager:
             lyrics = (tr.lyrics or (ctx.get("sink", {}).get("asr") or {}).get("lyrics") or "")
             if not lyrics.strip():
                 return {"skipped": "no lyrics"}
+            if handle is None:
+                return {"skipped": "analysis_llm unavailable"}
             feats = (ctx.get("sink", {}).get("features") or {}).copy()
             feats["tags"] = (ctx.get("sink", {}).get("tags") or {}).get("tags", [])
             js = LLM.complete_json(handle, P.SYSTEM_TRACK_ANALYSIS,
@@ -333,7 +345,9 @@ class DossierManager:
                 return {"error": quality["reason"], "quality": quality}
             js["quality"] = quality
             return js
-        runner.add(AIStage("llm_breakdown", "analysis_llm", _llm_stage, optional=True))
+        runner.add(AIStage(
+            "llm_breakdown", "analysis_llm", _llm_stage, optional=True, fallback_fn=False
+        ))
 
         report = runner.run({"track_id": tr.track_id, "artist": tr.artist})
         sink = runner.sink()
@@ -376,6 +390,7 @@ class DossierManager:
                 "tracks_count": len(a.tracks),
                 "quality": quality,
             }
+        js = normalize_artist_dossier(js)
         js["quality"] = quality
         js["tracks_count"] = len(a.tracks)
         js["updated_at"] = time.time()

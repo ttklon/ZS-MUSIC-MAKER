@@ -13,16 +13,25 @@ class LocalFolderCollector:
     def collect(self, artist: str) -> List[Dict[str, Any]]:
         if not self.folder.exists():
             return []
-        out = []
-        for p in sorted(self.folder.rglob("*")):
-            if p.suffix.lower() not in (".mp3", ".wav", ".flac", ".m4a", ".ogg"):
+        audio_suffixes = {".mp3", ".wav", ".flac", ".m4a", ".ogg"}
+        tracks: Dict[str, Dict[str, Any]] = {}
+        for path in sorted(self.folder.rglob("*")):
+            suffix = path.suffix.lower()
+            if suffix not in audio_suffixes | {".txt"}:
                 continue
-            title = p.stem
-            m = re.match(r"^(.+?)\s*-\s*(.+)$", title)
-            if m and m.group(1).strip().lower() == artist.lower():
-                title = m.group(2).strip()
-            out.append({"title": title, "audio_path": str(p)})
-        return out
+            title = path.stem
+            match = re.match(r"^(.+?)\s*-\s*(.+)$", title)
+            if match and match.group(1).strip().lower() == artist.lower():
+                title = match.group(2).strip()
+            key = title.casefold()
+            entry = tracks.setdefault(key, {"title": title})
+            if suffix in audio_suffixes:
+                entry["audio_path"] = str(path)
+            else:
+                lyrics = path.read_text(encoding="utf-8", errors="ignore").strip()
+                if lyrics:
+                    entry["lyrics"] = lyrics
+        return [tracks[key] for key in sorted(tracks)]
 
 
 class LyricVaultCollector:
