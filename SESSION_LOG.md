@@ -1,6 +1,14 @@
 
 ---
 
+## КОММИТ — PLAN_v39 ШАГ 026: XTTS-v2 quality и fallback (выполнен, runtime BLOCKED)
+
+Добавлен `validate_vocal_artifact()`: gate связывает токены текста с минимальной длительностью, а также применяет readability/RMS/peak-проверки. Если XTTS недоступен или его файл отклонён, вызывается `voice_synth.synth(engine="auto")`; success возможен только для реально созданного и валидированного WAV. Отсутствие всех движков возвращает explicit failure, без фиктивного вокала.
+
+Проверка: валидный WAV проходит; короткий relative-to-text WAV отклоняется; fallback копирует и валидирует audio; отсутствие движка честно падает. `pytest tests/` = **70/70 PASS**; compileall OK; AST dead-imports = **0**. XTTS runtime не установлен. Детали: `docs/STEP_STATUS/026_xtts_quality.md`.
+
+---
+
 ## КОММИТ — PLAN_v39 ШАГ 025: XTTS-v2 integration (выполнен, runtime BLOCKED)
 
 `stage_vocal` теперь вызывает изолированный `render_xtts_vocal()`: контракт включает `text`, `file_path`, `language=ru` и существующий `speaker_wav`; success требует созданный непустой аудиофайл. Fake XTTS подтвердил параметры и WAV, пустой output отклоняется без ложного успеха.

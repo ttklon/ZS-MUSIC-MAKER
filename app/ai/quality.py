@@ -132,6 +132,16 @@ def validate_audio_artifact(path: str | Path, *, min_duration_sec: float = 1.0) 
     return {"ok": True, "reason": None, "metrics": metrics}
 
 
+def validate_vocal_artifact(path: str | Path, text: str) -> dict[str, Any]:
+    """Проверить, что синтезированный вокал существует и не слишком короток для текста."""
+    token_count = len(TOKEN_RE.findall(text or ""))
+    expected_min_duration = min(3.0, max(0.25, token_count * 0.05))
+    result = validate_audio_artifact(path, min_duration_sec=expected_min_duration)
+    result["metrics"]["text_tokens"] = token_count
+    result["metrics"]["expected_min_duration_sec"] = round(expected_min_duration, 3)
+    return result
+
+
 def validate_stereo_texture(path: str | Path, *, min_duration_sec: float = 1.0) -> dict[str, Any]:
     """Проверить, что texture-artifact является слышимым и фактически стерео."""
     base = validate_audio_artifact(path, min_duration_sec=min_duration_sec)

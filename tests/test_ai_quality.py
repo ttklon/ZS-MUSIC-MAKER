@@ -183,3 +183,53 @@ def test_xtts_handle_rejects_empty_output(tmp_path) -> None:
 
     assert result["ok"] is False
     assert result["reason"] == "XTTS did not produce an audio file"
+
+
+
+def test_vocal_quality_accounts_for_text_length(tmp_path) -> None:
+    from app.ai.quality import validate_vocal_artifact
+
+    sample_rate = 8_000
+    valid = tmp_path / "voice_valid.wav"
+    short = tmp_path / "voice_short.wav"
+    signal = 0.1 * np.sin(2 * np.pi * 180 * np.arange(sample_rate) / sample_rate)
+    sf.write(valid, signal, sample_rate)
+    sf.write(short, signal[:500], sample_rate)
+    long_text = "слово " * 10
+
+    assert validate_vocal_artifact(valid, long_text)["ok"] is True
+    rejected = validate_vocal_artifact(short, long_text)
+    assert rejected["ok"] is False
+    assert rejected["reason"] == "audio duration below minimum"
+
+
+def test_voice_synth_fallback_validates_and_copies_audio(tmp_path) -> None:
+    from app.core.orchestrator_ai import render_voice_synth_fallback
+
+    source = tmp_path / "draft.wav"
+    target = tmp_path / "project" / "vocal_xtts.wav"
+    sample_rate = 8_000
+    signal = 0.1 * np.sin(2 * np.pi * 160 * np.arange(sample_rate) / sample_rate)
+    sf.write(source, signal, sample_rate)
+
+    def fake_synth(text, engine, out_name):
+        assert engine == "auto"
+        assert out_name == target.name
+        return str(source)
+
+    result = render_voice_synth_fallback("проверочный голос", str(target), synth_fn=fake_synth)
+
+    assert result["ok"] is True
+    assert result["engine"] == "voice_synth_fallback"
+    assert target.exists()
+
+
+def test_voice_synth_fallback_reports_absence_of_engine(tmp_path) -> None:
+    from app.core.orchestrator_ai import render_voice_synth_fallback
+
+    result = render_voice_synth_fallback(
+        "текст", str(tmp_path / "voice.wav"), synth_fn=lambda *_, **__: ""
+    )
+
+    assert result["ok"] is False
+    assert result["reason"] == "no fallback TTS engine produced audio"

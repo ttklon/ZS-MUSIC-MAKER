@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """ZS Music Maker - app/core/orchestrator_ai.py (v38 GOD MODE 4.0 AI)"""
 from __future__ import annotations
-import json, math
+import json, math, shutil
 from pathlib import Path
 from app.core.logger import app_logger
 from app.ai.sequential_runner import SequentialAIRunner, AIStage
@@ -12,6 +12,7 @@ from app.ai.quality import (
     validate_lyrics,
     validate_metadata_json,
     validate_stereo_texture,
+    validate_vocal_artifact,
 )
 from modules.artist_dossier import DossierManager
 
@@ -56,9 +57,41 @@ def render_xtts_vocal(handle, text: str, out_path: str, speaker_wav: str | None 
         target = Path(out_path)
         if not target.exists() or target.stat().st_size <= 100:
             return {"ok": False, "reason": "XTTS did not produce an audio file"}
-        return {"ok": True, "vocal_path": str(target), "engine": "xtts_v2"}
+        quality = validate_vocal_artifact(target, text)
+        return {
+            "ok": bool(quality["ok"]),
+            "vocal_path": str(target),
+            "engine": "xtts_v2",
+            "quality": quality,
+            "reason": quality["reason"],
+        }
     except Exception as exc:
         return {"ok": False, "reason": f"XTTS synthesis failed: {exc}"}
+
+
+def render_voice_synth_fallback(text: str, out_path: str, synth_fn=None) -> dict:
+    """Запустить существующую честную TTS-цепочку и привести результат к vocal-артефакту проекта."""
+    try:
+        if synth_fn is None:
+            from modules.voice_synth import synth as synth_fn
+        source_path = synth_fn(text, engine="auto", out_name=Path(out_path).name)
+        source = Path(source_path) if source_path else None
+        if source is None or not source.exists():
+            return {"ok": False, "reason": "no fallback TTS engine produced audio"}
+        target = Path(out_path)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        if source.resolve() != target.resolve():
+            shutil.copy2(source, target)
+        quality = validate_vocal_artifact(target, text)
+        return {
+            "ok": bool(quality["ok"]),
+            "vocal_path": str(target),
+            "engine": "voice_synth_fallback",
+            "quality": quality,
+            "reason": quality["reason"],
+        }
+    except Exception as exc:
+        return {"ok": False, "reason": f"fallback TTS failed: {exc}"}
 
 
 def run_ai_pipeline(project_id, wizard_state=None, out_root=None, dry_run=False):
@@ -258,8 +291,8 @@ def run_ai_pipeline(project_id, wizard_state=None, out_root=None, dry_run=False)
         return result
 
     def stage_vocal(handle, ctx):
-        if dry_run or handle is None:
-            return {"skipped": "dry-run" if dry_run else "no tts model"}
+        if dry_run:
+            return {"skipped": "dry-run"}
         lyrics = (ctx["sink"].get("lyrics") or {}).get("lyrics") or ""
         if not lyrics.strip():
             return {"skipped": "no lyrics"}
@@ -267,7 +300,15 @@ def run_ai_pipeline(project_id, wizard_state=None, out_root=None, dry_run=False)
         clean = re.sub(r"^\[.*?\]\s*$", "", lyrics, flags=re.MULTILINE).strip()
         clean = re.sub(r"\n{3,}", "\n\n", clean)[:3500]
         out_path = str(out_root / "vocal_xtts.wav")
-        return render_xtts_vocal(handle, clean, out_path, speaker_wav=ws.get("speaker_wav"))
+        if handle is not None:
+            primary = render_xtts_vocal(handle, clean, out_path, speaker_wav=ws.get("speaker_wav"))
+            if primary.get("ok"):
+                return primary
+        else:
+            primary = {"ok": False, "reason": "XTTS model unavailable"}
+        fallback = render_voice_synth_fallback(clean, out_path)
+        fallback["xtts_attempt"] = primary.get("reason")
+        return fallback
 
     def stage_rvc(handle, ctx):
         if dry_run or handle is None:
