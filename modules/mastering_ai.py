@@ -6,20 +6,40 @@ from typing import Any, Dict, Optional
 from app.ai.registry import registry
 
 
+def master_with_matchering(handle: Any, input_wav: str, out_wav: str,
+                           reference_wav: str) -> Dict[str, Any]:
+    """Выполнить matchering через уже загруженный registry handle."""
+    try:
+        handle.process(
+            target=input_wav,
+            reference=reference_wav,
+            results=[handle.pcm16(out_wav)],
+        )
+        if not Path(out_wav).exists():
+            return {"ok": False, "reason": "matchering completed without output", "engine": "matchering"}
+        return {"ok": True, "engine": "matchering", "reference": reference_wav, "path": out_wav}
+    except Exception as exc:
+        return {"ok": False, "reason": f"matchering failed: {exc}", "engine": "matchering"}
+
+
 def master_ai(input_wav: str, out_wav: str, reference_wav: Optional[str] = None,
-              target_lufs: float = -9.0) -> Dict[str, Any]:
+              target_lufs: float = -9.0, handle: Any = None) -> Dict[str, Any]:
     Path(out_wav).parent.mkdir(parents=True, exist_ok=True)
     fallback_reason = ""
-    if reference_wav and registry.is_available("mastering_ai"):
+    if reference_wav and handle is not None:
+        result = master_with_matchering(handle, input_wav, out_wav, reference_wav)
+        if result.get("ok"):
+            return result
+        fallback_reason = result.get("reason", "matchering failed")
+    elif reference_wav and registry.is_available("mastering_ai"):
         try:
-            with registry.use("mastering_ai") as m:
-                mg = m.handle
-                mg.process(target=input_wav, reference=reference_wav,
-                           results=[mg.pcm16(out_wav)])
-            return {"ok": True, "engine": "matchering",
-                    "reference": reference_wav, "path": out_wav}
-        except Exception as e:
-            fallback_reason = str(e)
+            with registry.use("mastering_ai") as loaded:
+                result = master_with_matchering(loaded.handle, input_wav, out_wav, reference_wav)
+            if result.get("ok"):
+                return result
+            fallback_reason = result.get("reason", "matchering failed")
+        except Exception as exc:
+            fallback_reason = f"matchering load failed: {exc}"
     else:
         fallback_reason = "no reference" if not reference_wav else "matchering unavailable"
     try:

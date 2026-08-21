@@ -397,14 +397,19 @@ def run_ai_pipeline(project_id, wizard_state=None, out_root=None, dry_run=False)
         except Exception as e:
             return {"ok": False, "reason": str(e)}
 
-    def stage_master(_, ctx):
+    def stage_master(handle, ctx):
         mix = (ctx["sink"].get("mix") or {}).get("mix_path")
         if not mix:
             return {"skipped": "no mix"}
         out_master = str(out_root / "masters" / "master_ai.wav")
         from modules.mastering_ai import master_ai
-        return master_ai(mix, out_master, reference_wav=ws.get("reference_master_wav"),
-                         target_lufs=-9.0)
+        return master_ai(
+            mix,
+            out_master,
+            reference_wav=ws.get("reference_master_wav"),
+            target_lufs=-9.0,
+            handle=handle,
+        )
 
     def stage_cover(handle, ctx):
         meta = ctx["sink"].get("metadata") or {}
@@ -462,7 +467,12 @@ def run_ai_pipeline(project_id, wizard_state=None, out_root=None, dry_run=False)
     runner.add(AIStage("vocal_synth",  "tts_vocal",        stage_vocal,    optional=True))
     runner.add(AIStage("rvc",          "vocal_rvc",        stage_rvc,      optional=True))
     runner.add(AIStage("mix",          None,               stage_mix))
-    runner.add(AIStage("master",       None,               stage_master))
+    runner.add(AIStage(
+        "master",
+        "mastering_ai" if ws.get("reference_master_wav") else None,
+        stage_master,
+        optional=True,
+    ))
     runner.add(AIStage("cover",        "cover_art",        stage_cover,    optional=True))
     runner.add(AIStage("tag",          "audio_tagger",     stage_tag,      optional=True))
     report = runner.run({"project_id": project_id, "wizard_state": ws})

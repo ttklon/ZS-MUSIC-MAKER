@@ -409,3 +409,47 @@ def test_cover_quality_requires_readable_large_rgb_artifact(tmp_path) -> None:
     assert validate_cover_artifact(valid)["ok"] is True
     assert validate_cover_artifact(small)["reason"] == "cover resolution is below minimum"
     assert validate_cover_artifact(grayscale)["reason"] == "cover color mode is unsupported"
+
+
+
+def test_matchering_handle_processes_reference_without_registry_reload(tmp_path) -> None:
+    from pathlib import Path
+
+    from modules.mastering_ai import master_with_matchering
+
+    class FakeMatchering:
+        def __init__(self):
+            self.calls = []
+
+        def pcm16(self, path):
+            return path
+
+        def process(self, **kwargs):
+            self.calls.append(kwargs)
+            Path(kwargs["results"][0]).write_bytes(b"mastered-audio")
+
+    output = tmp_path / "master.wav"
+    handle = FakeMatchering()
+    result = master_with_matchering(handle, "mix.wav", str(output), "reference.wav")
+
+    assert result["ok"] is True
+    assert result["engine"] == "matchering"
+    assert output.exists()
+    assert handle.calls[0]["target"] == "mix.wav"
+    assert handle.calls[0]["reference"] == "reference.wav"
+
+
+def test_matchering_handle_rejects_missing_output(tmp_path) -> None:
+    from modules.mastering_ai import master_with_matchering
+
+    class SilentMatchering:
+        def pcm16(self, path):
+            return path
+
+        def process(self, **kwargs):
+            return None
+
+    result = master_with_matchering(SilentMatchering(), "mix.wav", str(tmp_path / "master.wav"), "reference.wav")
+
+    assert result["ok"] is False
+    assert result["reason"] == "matchering completed without output"

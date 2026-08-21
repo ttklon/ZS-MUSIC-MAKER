@@ -208,3 +208,17 @@ ASR-вызов вынесен в `transcribe_reference_audio()`: handle полу
 | 010 | tools/ast_dead_imports.py — повторный аудит = 0: musical_intelligence (sf/aT/audioBasicIO/ShortTermFeatures), orchestrator_god (app_logger), genre_validator (os), test_ai_layer (os), ui/__init__ (re-exports) | +tools/ast_dead_imports.py, 5 файлов, +tests/test_ast_dead_imports.py |
 
 Проверка: compileall OK, AST-аудит = 0 dead-imports, pytest = **41 PASS**, main.py --version/--help OK. Версия: 39.5.0.
+
+
+---
+## PLAN_v39 — ШАГ 039: mastering_ai / matchering integration
+
+| Область | Результат |
+|---|---|
+| Adapter-контракт | Добавлен `master_with_matchering(handle, input_wav, out_wav, reference_wav)`: он использует переданный handle, вызывает `process(target, reference, results=[pcm16])` и не признаёт успехом отсутствие физического output-файла. |
+| Runner lifecycle | `stage_master` получает handle от `SequentialAIRunner` и передаёт его в `master_ai`; при reference stage становится role-backed `mastering_ai`, а выгрузка роли остаётся ответственностью runner. |
+| Отсутствие reference | Роль не загружается без `reference_master_wav`; сохранён `mastering_pro` fallback с явной причиной `no reference`. |
+| Ошибка matchering | Сбой inference либо отсутствие output становятся `fallback_reason`, затем применяется существующий DSP fallback. |
+| Регрессии | Добавлены fake-handle тесты успешной передачи `target/reference` и отказа при пустом output. |
+
+Проверка: `pytest tests/test_ai_quality.py -q` = **24 PASS**; `pytest tests/ -q` = **90 PASS**; `compileall` OK; `python tools/ast_dead_imports.py` = **0**. `matchering` отсутствует в sandbox: реальный inference честно **BLOCKED**, но контракт adapter/runner и fallback проверены без тяжёлой зависимости.
