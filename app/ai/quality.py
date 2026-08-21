@@ -142,6 +142,24 @@ def validate_vocal_artifact(path: str | Path, text: str) -> dict[str, Any]:
     return result
 
 
+def validate_rvc_artifact(input_path: str | Path, output_path: str | Path) -> dict[str, Any]:
+    """Проверить output RVC: аудио валидно и сохраняет временную структуру исходного вокала."""
+    source = audio_metrics(input_path)
+    if not source.get("readable"):
+        return {"ok": False, "reason": "RVC input audio is unreadable", "metrics": {"input": source}}
+    result = validate_audio_artifact(output_path, min_duration_sec=0.25)
+    result["metrics"]["input_duration_sec"] = source.get("duration_sec")
+    if not result["ok"]:
+        return result
+    input_duration = float(source["duration_sec"])
+    output_duration = float(result["metrics"]["duration_sec"])
+    ratio = output_duration / input_duration if input_duration > 0 else 0.0
+    result["metrics"]["duration_ratio"] = round(ratio, 3)
+    if not 0.85 <= ratio <= 1.15:
+        return {"ok": False, "reason": "RVC output duration diverges from input", "metrics": result["metrics"]}
+    return {"ok": True, "reason": None, "metrics": result["metrics"]}
+
+
 def validate_stereo_texture(path: str | Path, *, min_duration_sec: float = 1.0) -> dict[str, Any]:
     """Проверить, что texture-artifact является слышимым и фактически стерео."""
     base = validate_audio_artifact(path, min_duration_sec=min_duration_sec)

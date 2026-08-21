@@ -11,6 +11,7 @@ from app.ai.quality import (
     validate_audio_artifact,
     validate_lyrics,
     validate_metadata_json,
+    validate_rvc_artifact,
     validate_stereo_texture,
     validate_vocal_artifact,
 )
@@ -113,12 +114,15 @@ def render_rvc_vocal(handle, input_wav: str, out_path: str, voice_name: str, pit
         target.parent.mkdir(parents=True, exist_ok=True)
         if source.resolve() != target.resolve():
             shutil.copy2(source, target)
+        quality = validate_rvc_artifact(input_wav, target)
         return {
-            "ok": True,
+            "ok": bool(quality["ok"]),
             "vocal_path": str(target),
             "engine": "rvc",
             "voice_name": safe_voice_name,
             "pitch_shift": int(pitch_shift),
+            "quality": quality,
+            "reason": quality["reason"],
         }
     except Exception as exc:
         return {"ok": False, "reason": f"RVC inference failed: {exc}"}

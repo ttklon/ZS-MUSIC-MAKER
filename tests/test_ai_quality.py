@@ -281,3 +281,22 @@ def test_rvc_handle_reports_runtime_error_without_pitch_fallback(tmp_path) -> No
 
     assert result["ok"] is False
     assert "rvc-python unavailable" in result["reason"]
+
+
+
+def test_rvc_quality_requires_duration_preservation(tmp_path) -> None:
+    from app.ai.quality import validate_rvc_artifact
+
+    sample_rate = 8_000
+    input_path = tmp_path / "input.wav"
+    valid_output = tmp_path / "valid.wav"
+    short_output = tmp_path / "short.wav"
+    signal = 0.1 * np.sin(2 * np.pi * 180 * np.arange(sample_rate) / sample_rate)
+    sf.write(input_path, signal, sample_rate)
+    sf.write(valid_output, signal, sample_rate)
+    sf.write(short_output, signal[:4_000], sample_rate)
+
+    assert validate_rvc_artifact(input_path, valid_output)["ok"] is True
+    shortened = validate_rvc_artifact(input_path, short_output)
+    assert shortened["ok"] is False
+    assert shortened["reason"] == "RVC output duration diverges from input"
