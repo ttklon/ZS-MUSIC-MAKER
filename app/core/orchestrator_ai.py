@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """ZS Music Maker - app/core/orchestrator_ai.py (v38 GOD MODE 4.0 AI)"""
 from __future__ import annotations
-import json, math, shutil
+import json, shutil
 from pathlib import Path
 from app.core.logger import app_logger
 from app.ai.sequential_runner import SequentialAIRunner, AIStage
@@ -249,69 +249,50 @@ def run_ai_pipeline(project_id, wizard_state=None, out_root=None, dry_run=False)
     def stage_music(handle, ctx):
         if dry_run:
             return {"ok": True, "beat_path": "[dry]"}
+        out_path = str(out_root / "beat.wav")
         if handle is None:
             try:
                 from modules.cyber_synth import CyberSynth
-                out_p = str(out_root / "beat.wav")
-                res = CyberSynth().synthesize_track(bpm=ws["bpm"],
-                    duration_sec=ws["duration_sec"], out_path=out_p)
-                res = dict(res) if isinstance(res, dict) else {}
-                quality = validate_audio_artifact(
-                    out_p, min_duration_sec=max(1.0, min(5.0, ws["duration_sec"] * 0.5))
+
+                result = CyberSynth().synthesize_track(
+                    bpm=ws["bpm"], duration_sec=ws["duration_sec"], out_path=out_path
                 )
-                res.update({"engine": "cyber_synth_fallback", "beat_path": out_p,
-                            "quality": quality, "reason": quality["reason"],
-                            "ok": bool(res.get("ok", True)) and bool(quality["ok"])})
-                return res
-            except Exception as e:
-                return {"ok": False, "reason": f"no music engine: {e}"}
-        art = (ctx["sink"].get("dossier_load") or {}).get("artist_dossier")
-        trk = (ctx["sink"].get("dossier_load") or {}).get("track_dossier")
-        instruments = trk.get("reusable_elements", [])[:5] if isinstance(trk, dict) else []
-        ref_feats = {"instruments": instruments,
-                     "atmosphere": (art or {}).get("flow", "")} if art else None
-        prompt = P.build_music_prompt(ws["genre"], ws["bpm"], ws["key"], ws["mood"],
-            reference_artist=ws.get("reference_artist") or ws.get("artist_slug"),
-            reference_track_features=ref_feats)
-        import numpy as np, soundfile as sf, torch
-        out_path = str(out_root / "beat.wav")
-        model = handle
-        try:
-            model.set_generation_params(duration=20, top_k=250, temperature=1.0, cfg_coef=3.0)
-        except Exception:
-            pass
-        n_chunks = max(1, math.ceil(ws["duration_sec"] / 20))
-        sr = getattr(model, "sample_rate", 32000)
-        chunks = [model.generate([prompt], progress=False)[0].cpu().numpy()]
-        for i in range(1, n_chunks):
-            try:
-                prev_t = torch.from_numpy(chunks[-1]).unsqueeze(0)
-                if any(p.is_cuda for p in model.lm.parameters()):
-                    prev_t = prev_t.cuda()
-                cont = model.generate_continuation(prev_t, sr, [prompt], progress=False)[0]
-                chunks.append(cont.cpu().numpy())
-            except Exception:
-                chunks.append(model.generate([prompt], progress=False)[0].cpu().numpy())
-        full = np.concatenate(chunks, axis=-1)
-        total = int(ws["duration_sec"] * sr)
-        if full.shape[-1] > total:
-            full = full[..., :total]
-        if full.ndim == 1:
-            full = np.stack([full, full], axis=-1)
+                result = dict(result) if isinstance(result, dict) else {}
+                result["engine"] = "cyber_synth_fallback"
+                result["beat_path"] = out_path
+            except Exception as exc:
+                return {"ok": False, "reason": f"no music engine: {exc}"}
         else:
-            full = full.T
-            if full.shape[1] == 1:
-                full = np.concatenate([full, full], axis=1)
-        peak = float(np.max(np.abs(full)) + 1e-9)
-        if peak > 0.99:
-            full = full * (0.98 / peak)
-        sf.write(out_path, full.astype("float32"), int(sr), subtype="PCM_16")
+            art = (ctx["sink"].get("dossier_load") or {}).get("artist_dossier")
+            track = (ctx["sink"].get("dossier_load") or {}).get("track_dossier")
+            instruments = track.get("reusable_elements", [])[:5] if isinstance(track, dict) else []
+            reference_features = {
+                "instruments": instruments,
+                "atmosphere": (art or {}).get("flow", ""),
+            } if art else None
+            prompt = P.build_music_prompt(
+                ws["genre"], ws["bpm"], ws["key"], ws["mood"],
+                reference_artist=ws.get("reference_artist") or ws.get("artist_slug"),
+                reference_track_features=reference_features,
+            )
+            from modules.beat_gen_ai import render_beat_ai
+
+            result = render_beat_ai(
+                prompt=prompt,
+                bpm=ws["bpm"],
+                duration_sec=ws["duration_sec"],
+                out_path=out_path,
+                reference_wav=ws.get("reference_wav"),
+                handle=handle,
+            )
+            result["prompt"] = prompt
         quality = validate_audio_artifact(
             out_path, min_duration_sec=max(1.0, min(5.0, ws["duration_sec"] * 0.5))
         )
-        return {"ok": bool(quality["ok"]), "beat_path": out_path, "engine": "musicgen-large",
-                "sample_rate": int(sr), "prompt": prompt, "chunks": n_chunks,
-                "quality": quality, "reason": quality["reason"]}
+        result["quality"] = quality
+        result["reason"] = quality["reason"]
+        result["ok"] = bool(result.get("ok", True)) and bool(quality["ok"])
+        return result
 
     def stage_music_stereo(handle, ctx):
         """Создать отдельную стерео-текстуру; основной beat не меняется на этой стадии."""

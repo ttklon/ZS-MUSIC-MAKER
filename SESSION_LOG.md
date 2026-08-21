@@ -296,3 +296,17 @@ ASR-вызов вынесен в `transcribe_reference_audio()`: handle полу
 | Честная среда | `lyrics_llm`/llama_cpp отсутствуют: inference не заявлен выполненным, но AI adapter с fake handle, routing и no-model fallback проверены. |
 
 Проверка: `pytest tests/test_ai_quality.py -q` = **33 PASS**; `pytest tests/ -q` = **111 PASS**; `--ai --dry-run` OK; `compileall` OK; AST = **0**.
+
+
+---
+## PLAN_v39 — ШАГ 045: beat_gen_ai / stage_music
+
+| Область | Результат |
+|---|---|
+| Единый adapter | Inline MusicGen перенесён из `stage_music` в `beat_gen_ai.render_beat_ai`; stage передаёт runner handle, вложенной загрузки registry нет. |
+| Audio integrity | Chunks ≤30 s, output обязан иметь не меньше requested samples, затем точно обрезается до целевой длительности и ceiling 0.98. |
+| Continuation | `generate_continuation` используется при поддержке handle; несовместимость даёт controlled independent-chunk fallback. |
+| Fallback/quality | При недоступной роли сохранён CyberSynth, все ветви проходят audio artifact gate. |
+| Reference honesty | `reference_wav` сохраняется как provenance, `reference_applied=False`: не заявляется несуществующее MusicGen audio conditioning. |
+
+Проверка: fake MusicGen/short-output регрессии; `pytest tests/test_ai_quality.py -q` = **35 PASS**, полный `pytest tests/` = **113 PASS**, dry-run/compileall OK, AST = **0**. MusicGen/audiocraft/torch inference в sandbox честно **BLOCKED**.

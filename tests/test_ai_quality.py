@@ -607,3 +607,73 @@ def test_punch_library_fallback_meets_release_lyrics_contract(monkeypatch) -> No
 
     assert generated["source"] == "template"
     assert quality["ok"] is True
+
+
+
+class _FakeBeatTensor:
+    def __init__(self, value):
+        self.value = value
+
+    def detach(self):
+        return self
+
+    def cpu(self):
+        return self
+
+    def numpy(self):
+        return self.value
+
+
+class _FakeBeatMusicGen:
+    sample_rate = 8_000
+
+    def __init__(self, *, samples=8_000):
+        self.samples = samples
+        self.params = None
+        self.generate_calls = 0
+
+    def set_generation_params(self, **kwargs):
+        self.params = kwargs
+
+    def generate(self, prompts, progress=False):
+        assert prompts and progress is False
+        self.generate_calls += 1
+        t = np.arange(self.samples) / self.sample_rate
+        audio = np.vstack([
+            0.25 * np.sin(2 * np.pi * 180 * t),
+            0.25 * np.sin(2 * np.pi * 230 * t),
+        ])
+        return [_FakeBeatTensor(audio)]
+
+
+def test_beat_gen_ai_uses_runner_handle_and_writes_exact_duration(tmp_path) -> None:
+    from modules.beat_gen_ai import render_beat_ai
+
+    handle = _FakeBeatMusicGen()
+    output = tmp_path / "beat.wav"
+    result = render_beat_ai(
+        "dark phonk 140 BPM", bpm=140, duration_sec=2, out_path=str(output),
+        chunk_sec=1, reference_wav="reference.wav", handle=handle,
+    )
+
+    assert result["ok"] is True
+    assert result["chunks"] == 2
+    assert result["reference_wav"] == "reference.wav"
+    assert result["reference_applied"] is False
+    assert handle.params["duration"] == 1
+    quality = validate_audio_artifact(output, min_duration_sec=1.9)
+    assert quality["ok"] is True
+    assert quality["metrics"]["duration_sec"] == 2.0
+    assert quality["metrics"]["peak"] < 0.99
+
+
+def test_beat_gen_ai_rejects_short_generator_output(tmp_path) -> None:
+    from modules.beat_gen_ai import render_beat_ai
+
+    result = render_beat_ai(
+        "short", duration_sec=2, out_path=str(tmp_path / "short.wav"), chunk_sec=2,
+        handle=_FakeBeatMusicGen(samples=8_000),
+    )
+
+    assert result["ok"] is False
+    assert result["reason"] == "music generator returned fewer samples than requested duration"
