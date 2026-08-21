@@ -160,6 +160,26 @@ def validate_rvc_artifact(input_path: str | Path, output_path: str | Path) -> di
     return {"ok": True, "reason": None, "metrics": result["metrics"]}
 
 
+def validate_dsp_features(features: Any) -> dict[str, Any]:
+    """Проверить пригодность DSP metadata до использования в dossier/LLM."""
+    payload = features if isinstance(features, dict) else {}
+    allowed_keys = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"}
+    try:
+        bpm = float(payload.get("bpm"))
+        duration = float(payload.get("duration_sec"))
+        rms = float(payload.get("loudness_rms"))
+    except (TypeError, ValueError):
+        return {"ok": False, "reason": "DSP features are incomplete", "metrics": {"keys": len(payload)}}
+    metrics = {"bpm": bpm, "duration_sec": duration, "loudness_rms": rms, "key": payload.get("key")}
+    if not 40.0 <= bpm <= 240.0:
+        return {"ok": False, "reason": "DSP BPM is outside musical range", "metrics": metrics}
+    if payload.get("key") not in allowed_keys:
+        return {"ok": False, "reason": "DSP key is invalid", "metrics": metrics}
+    if duration <= 0 or rms < 1e-5:
+        return {"ok": False, "reason": "DSP audio metrics are invalid", "metrics": metrics}
+    return {"ok": True, "reason": None, "metrics": metrics}
+
+
 def validate_audio_tags(tags: Any, candidates: list[str], *, max_tags: int = 6) -> dict[str, Any]:
     """Проверить CLAP tags: непустой уникальный subset исходного словаря кандидатов."""
     values = list(tags) if isinstance(tags, (list, tuple)) else []

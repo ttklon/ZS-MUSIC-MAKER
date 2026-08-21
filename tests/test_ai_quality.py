@@ -342,3 +342,14 @@ def test_audio_tag_quality_requires_unique_known_subset() -> None:
     assert duplicate["reason"] == "audio tag output contains duplicates"
     unknown = validate_audio_tags(["trap", "jazz"], candidates)
     assert unknown["reason"] == "audio tag output contains unknown labels"
+
+
+
+def test_dsp_feature_quality_requires_musical_complete_metadata() -> None:
+    from app.ai.quality import validate_dsp_features
+
+    valid = {"bpm": 128.0, "key": "A", "duration_sec": 180.0, "loudness_rms": 0.12}
+    assert validate_dsp_features(valid)["ok"] is True
+    assert validate_dsp_features({**valid, "bpm": 0})["reason"] == "DSP BPM is outside musical range"
+    assert validate_dsp_features({**valid, "key": "H"})["reason"] == "DSP key is invalid"
+    assert validate_dsp_features({**valid, "loudness_rms": 0.0})["reason"] == "DSP audio metrics are invalid"

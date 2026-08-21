@@ -14,6 +14,7 @@ from app.ai.quality import (
     validate_analysis_json,
     validate_asr_transcript,
     validate_audio_tags,
+    validate_dsp_features,
     validate_stem_artifact,
 )
 
@@ -269,7 +270,20 @@ class DossierManager:
                     "skipped": "essentia/librosa unavailable",
                     "fallback": "reference audio retained without DSP metadata",
                 }
-            return extract_dsp_features(tr.audio_path, engine=str(handle))
+            features = extract_dsp_features(tr.audio_path, engine=str(handle))
+            if not features.get("ok"):
+                return features
+            quality = validate_dsp_features(features)
+            if not quality["ok"]:
+                return {
+                    "ok": False,
+                    "reason": quality["reason"],
+                    "quality": quality,
+                    "fallback": "reference audio retained without unreliable DSP metadata",
+                }
+            features["quality"] = quality
+            features["reason"] = None
+            return features
         runner.add(AIStage("features", "essentia", _features_stage, optional=True))
 
         def _tag_stage(bundle, ctx):

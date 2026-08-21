@@ -1,6 +1,14 @@
 
 ---
 
+## КОММИТ — PLAN_v39 ШАГ 036: DSP quality и fallback (выполнен)
+
+Добавлен `validate_dsp_features()`: BPM должен быть в 40–240, key — хроматическим, duration/RMS — валидными. Неритмический или silent reference не превращается в ложную метрику: dossier сохраняет source audio без ненадёжных DSP данных.
+
+Проверка: валидный payload проходит, BPM=0/invalid key/silent RMS отклоняются. `pytest tests/` = **85/85 PASS**; compileall OK; AST dead-imports = **0**. Детали: `docs/STEP_STATUS/036_essentia_dsp_quality.md`.
+
+---
+
 ## КОММИТ — PLAN_v39 ШАГ 035: essentia/librosa DSP integration (выполнен)
 
 Dossier DSP-stage подключена к зарегистрированной роли `essentia`; `extract_dsp_features()` возвращает BPM/key/duration/RMS с честным marker `librosa_dsp`. При runtime-deps absence этап не имитирует метаданные и возвращает explicit skipped. Во время приёмки `librosa` отсутствовал, хотя закреплён в requirements, и был восстановлен из него; real WAV extraction после этого прошёл.
