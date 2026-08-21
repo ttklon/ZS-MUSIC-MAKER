@@ -42,6 +42,7 @@ def _mk_job_id() -> str:
 
 
 def _save_job(job: dict) -> str:
+    JOBS_DIR.mkdir(parents=True, exist_ok=True)
     p = JOBS_DIR / f"{job['id']}.json"
     p.write_text(json.dumps(job, ensure_ascii=False, indent=2), encoding="utf-8")
     return str(p)
@@ -124,7 +125,8 @@ def _run_training_bg(job: dict, progress_cb: Callable[[dict], None] | None = Non
                     job["current_epoch"] = e
                     if progress_cb:
                         progress_cb(job)
-                job["status"] = "done"
+                job["status"] = "done_unverified"
+                job["log"].append("trainer API returned without verified exported .pth")
                 _save_job(job)
                 return
         except Exception as e:
@@ -141,6 +143,7 @@ def _run_training_bg(job: dict, progress_cb: Callable[[dict], None] | None = Non
             if progress_cb:
                 progress_cb(job)
     job["status"] = "done_dry"
+    job["log"].append("dry-run completed; no .pth model was produced")
     job["finished_at"] = _now()
     job["elapsed_sec"] = round(_now() - started, 2)
     _save_job(job)

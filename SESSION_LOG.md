@@ -431,3 +431,11 @@ AI pipeline теперь создаёт `manifest.json` с `schema_version=1`, w
 `release_export` теперь добавляет SHA-256 всех существующих package artifacts в `manifest.json` и формирует `release.zip`. Metadata/ISRC и optional ID3/MP3/FLAC путь сохранены; WAV/metadata/manifest/archive остаются обязательным baseline без зависимости от ffmpeg.
 
 Проверка: release WAV package regression = **1 PASS**; полный `pytest tests/` = **126 PASS**; compileall/AST OK.
+
+
+---
+## PLAN_v39 — ШАГ 059: RVC trainer honesty
+
+Исправлен training job persistence (`JOBS_DIR` создаётся до записи). Dry training фиксирует `done_dry` и явное отсутствие `.pth`; trainer API без верифицированного checkpoint даёт `done_unverified`, не ложный `done`.
+
+Проверка: RVC dry job regression = **1 PASS**; полный `pytest tests/` = **127 PASS**; compileall/AST OK. Real RVC training/export .pth требует runtime/GPU и честно **BLOCKED** в sandbox.
