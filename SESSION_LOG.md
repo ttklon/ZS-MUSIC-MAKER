@@ -1,6 +1,14 @@
 
 ---
 
+## КОММИТ — PLAN_v39 ШАГ 035: essentia/librosa DSP integration (выполнен)
+
+Dossier DSP-stage подключена к зарегистрированной роли `essentia`; `extract_dsp_features()` возвращает BPM/key/duration/RMS с честным marker `librosa_dsp`. При runtime-deps absence этап не имитирует метаданные и возвращает explicit skipped. Во время приёмки `librosa` отсутствовал, хотя закреплён в requirements, и был восстановлен из него; real WAV extraction после этого прошёл.
+
+Проверка: реальный 4-second WAV вернул duration/key/RMS; `pytest tests/` = **84/84 PASS**; compileall OK; AST dead-imports = **0**. Подробности: `docs/STEP_STATUS/035_essentia_dsp_integration.md`.
+
+---
+
 ## КОММИТ — PLAN_v39 ШАГ 034: CLAP tag quality и fallback (выполнен, runtime BLOCKED)
 
 Добавлен `validate_audio_tags()`: tags должны быть непустым уникальным top-6 subset исходного CLAP vocabulary. При duplicate/unknown/empty output теги очищаются и не передаются как достоверные признаки; при отсутствии CLAP остаётся reference audio без фиктивной разметки.

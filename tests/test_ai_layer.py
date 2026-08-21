@@ -485,3 +485,26 @@ def test_clap_tag_ranking_rejects_mismatched_scores() -> None:
 
     with pytest.raises(ValueError, match="do not match"):
         rank_clap_tags(["phonk", "trap"], [0.1])
+
+
+
+def test_dsp_feature_extraction_returns_reference_audio_metadata(tmp_path) -> None:
+    import numpy as np
+    import soundfile as sf
+
+    from modules.artist_dossier.manager import extract_dsp_features
+
+    sample_rate = 22_050
+    seconds = 4
+    t = np.arange(sample_rate * seconds) / sample_rate
+    signal = 0.15 * np.sin(2 * np.pi * 440 * t)
+    audio = tmp_path / "reference.wav"
+    sf.write(audio, signal, sample_rate)
+
+    result = extract_dsp_features(str(audio), engine="librosa_dsp")
+
+    assert result["ok"] is True
+    assert result["engine"] == "librosa_dsp"
+    assert abs(result["duration_sec"] - seconds) <= 0.05
+    assert result["key"] in {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"}
+    assert result["loudness_rms"] > 0

@@ -40,6 +40,30 @@ def resolve_vocal_source_index(model: Any) -> int:
     return sources.index("vocals")
 
 
+def extract_dsp_features(audio_path: str, engine: str = "librosa_dsp") -> dict:
+    """Извлечь BPM, key, длительность и RMS через зарегистрированный DSP-движок."""
+    try:
+        import librosa
+        import numpy as np
+
+        y, sr = librosa.load(audio_path, sr=22050, mono=True, duration=180)
+        if len(y) == 0:
+            return {"ok": False, "reason": "DSP input audio is empty"}
+        tempo, _ = librosa.beat.beat_track(y=y, sr=sr)
+        chroma = librosa.feature.chroma_cqt(y=y, sr=sr).mean(axis=1)
+        keys = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
+        return {
+            "ok": True,
+            "engine": engine,
+            "bpm": float(np.asarray(tempo).reshape(-1)[0]),
+            "key": keys[int(np.argmax(chroma))],
+            "duration_sec": float(len(y) / sr),
+            "loudness_rms": float(np.sqrt(np.mean(y ** 2)) + 1e-9),
+        }
+    except Exception as exc:
+        return {"ok": False, "reason": f"DSP feature extraction failed: {exc}"}
+
+
 def rank_clap_tags(candidates: list[str], logits: Any, limit: int = 6) -> list[str]:
     """Отсортировать CLAP logits и вернуть уникальные top-N labels из переданного словаря."""
     import numpy as np
@@ -237,23 +261,16 @@ class DossierManager:
             )
         runner.add(AIStage("asr", "asr", _asr_stage, optional=True))
 
-        def _features_stage(_, ctx):
-            feats: Dict[str, Any] = {}
-            if tr.audio_path and Path(tr.audio_path).exists():
-                try:
-                    import librosa, numpy as np
-                    y, sr = librosa.load(tr.audio_path, sr=22050, mono=True, duration=180)
-                    tempo, _ = librosa.beat.beat_track(y=y, sr=sr)
-                    feats["bpm"] = float(tempo)
-                    chroma = librosa.feature.chroma_cqt(y=y, sr=sr).mean(axis=1)
-                    keys = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
-                    feats["key"] = keys[int(np.argmax(chroma))]
-                    feats["duration_sec"] = float(len(y) / sr)
-                    feats["loudness_rms"] = float(np.sqrt(np.mean(y ** 2)) + 1e-9)
-                except Exception as e:
-                    feats["error"] = str(e)
-            return feats
-        runner.add(AIStage("features", None, _features_stage))
+        def _features_stage(handle, ctx):
+            if not tr.audio_path or not Path(tr.audio_path).exists():
+                return {"skipped": "no audio for DSP"}
+            if handle is None:
+                return {
+                    "skipped": "essentia/librosa unavailable",
+                    "fallback": "reference audio retained without DSP metadata",
+                }
+            return extract_dsp_features(tr.audio_path, engine=str(handle))
+        runner.add(AIStage("features", "essentia", _features_stage, optional=True))
 
         def _tag_stage(bundle, ctx):
             if bundle is None:
