@@ -39,6 +39,16 @@ def resolve_vocal_source_index(model: Any) -> int:
     return sources.index("vocals")
 
 
+def rank_clap_tags(candidates: list[str], logits: Any, limit: int = 6) -> list[str]:
+    """Отсортировать CLAP logits и вернуть уникальные top-N labels из переданного словаря."""
+    import numpy as np
+
+    scores = np.asarray(logits).reshape(-1)
+    if len(scores) != len(candidates):
+        raise ValueError("CLAP scores do not match the candidate vocabulary")
+    return [candidates[index] for index in np.argsort(-scores)[:max(1, limit)]]
+
+
 def transcribe_reference_audio(model: Any, audio_path: str, output_path: str) -> dict:
     """Распознать reference-аудио совместимым faster-whisper handle и сохранить transcript."""
     try:
@@ -245,6 +255,8 @@ class DossierManager:
         runner.add(AIStage("features", None, _features_stage))
 
         def _tag_stage(bundle, ctx):
+            if bundle is None:
+                return {"skipped": "audio_tagger unavailable"}
             if not tr.audio_path or not Path(tr.audio_path).exists():
                 return {"skipped": "no audio"}
             try:
@@ -262,9 +274,9 @@ class DossierManager:
                               for k, v in inputs.items()}
                 with torch.no_grad():
                     logits = model(**inputs).logits_per_audio[0].cpu().numpy()
-                return {"tags": [cand[i] for i in np.argsort(-logits)[:6]]}
+                return {"ok": True, "tags": rank_clap_tags(cand, logits), "source": "clap"}
             except Exception as e:
-                return {"error": str(e)}
+                return {"ok": False, "error": str(e)}
         runner.add(AIStage("tags", "audio_tagger", _tag_stage, optional=True))
 
         def _llm_stage(handle, ctx):

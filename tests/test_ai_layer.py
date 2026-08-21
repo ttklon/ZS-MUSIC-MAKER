@@ -467,3 +467,21 @@ def test_asr_rejects_invalid_transcript_without_writing_file(tmp_path) -> None:
     assert result["reason"] == "ASR transcript is excessively repetitive"
     assert result["fallback"] == "reference audio retained; transcript is not used"
     assert not transcript.exists()
+
+
+
+def test_clap_tag_ranking_uses_score_order_and_candidate_vocabulary() -> None:
+    from modules.artist_dossier.manager import rank_clap_tags
+
+    tags = rank_clap_tags(["phonk", "trap", "pop", "rock"], [0.2, 0.9, -0.1, 0.5], limit=3)
+
+    assert tags == ["trap", "rock", "phonk"]
+
+
+def test_clap_tag_ranking_rejects_mismatched_scores() -> None:
+    import pytest
+
+    from modules.artist_dossier.manager import rank_clap_tags
+
+    with pytest.raises(ValueError, match="do not match"):
+        rank_clap_tags(["phonk", "trap"], [0.1])

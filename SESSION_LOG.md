@@ -1,6 +1,14 @@
 
 ---
 
+## КОММИТ — PLAN_v39 ШАГ 033: CLAP audio_tagger integration (выполнен, runtime BLOCKED)
+
+Dossier CLAP-stage теперь явно обрабатывает отсутствующий bundle и ранжирует `logits_per_audio` через `rank_clap_tags()` с проверкой соответствия score-vector фиксированному словарю кандидатов. Ошибка размерности или runtime не выдаёт произвольные tags.
+
+Проверка: top-N соответствует logits; mismatch scores/vocabulary отклоняется. `pytest tests/` = **82/82 PASS**; compileall OK; AST dead-imports = **0**. CLAP/weights не установлены. Детали: `docs/STEP_STATUS/033_clap_integration.md`.
+
+---
+
 ## КОММИТ — PLAN_v39 ШАГ 032: ASR quality и fallback (выполнен, runtime BLOCKED)
 
 Добавлен `validate_asr_transcript()`: transcript оценивается по символам, токенам и unique ratio; пустой или зацикленный результат не сохраняется в dossier. При отклонении reference audio остаётся источником, а текст не подменяется фиктивным fallback.
