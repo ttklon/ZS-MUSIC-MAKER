@@ -68,3 +68,35 @@ def test_clipping_detection(tmp_path: Path) -> None:
 
     with pytest.raises(AssertionError, match="Audio is clipping"):
         validate_audio_file(str(path))
+
+
+def test_beat_constructor_stereo_width(tmp_path: Path, monkeypatch) -> None:
+    """Синтезированный бит должен быть стерео и не сводиться к почти mono."""
+    import random
+
+    from modules import beat_constructor
+
+    # Фиксируем стохастические drum/noise-слои: границы теста не должны
+    # зависеть от случайного выбора хэтов или ghost-notes.
+    np.random.seed(20260822)
+    random.seed(20260822)
+    monkeypatch.setattr(beat_constructor, "OUTPUT_DIR", str(tmp_path))
+
+    result = beat_constructor.BeatConstructor(
+        bpm=130,
+        groove={"hihat_density": 0.8, "swing": 0.1},
+    ).build_track(
+        duration_sec=5,
+        include_intro=False,
+        include_outro=False,
+        out_name="stereo_regression.wav",
+    )
+
+    output = Path(result["beat_path"])
+    audio, _ = sf.read(output, always_2d=True)
+    correlation = float(np.corrcoef(audio[:, 0], audio[:, 1])[0, 1])
+
+    assert audio.shape[1] == 2
+    assert 0.3 <= correlation <= 0.98, (
+        f"Stereo correlation must remain audible but non-mono; got {correlation:.3f}"
+    )

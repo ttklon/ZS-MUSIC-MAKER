@@ -1,6 +1,6 @@
 {
- "version": "39.5.0",
- "build": "v39.5-plan-steps-006-010-2026-08-21",
+ "version": "39.6.0",
+ "build": "v39.6-plan-step-011-import-cycle-guard-2026-08-22",
  "based_on": "v37-updater-verify-health-cleanup-2026-08-14",
- "changes": "v39.5 PLAN_v39 ШАГИ 006-010: (006) requirements.txt/requirements_ai.txt выверены AST-аудитом — добавлены реально импортируемые cryptography/audiomentations/moviepy/noisereduce/lyricsgenius/mingus, в AI-стек essentia/pyAudioAnalysis/bark/rvc-python, pyproject синхронизирован + [project.optional-dependencies] ai; (007) config/settings.py — единый загрузчик (.env+env+дефолты), подключён в main.py --version (показывает путь конфига) и orchestrator_ai; (008) ci.yml +job audit (compileall, AST dead-imports, pytest, --version); (009) version.json — единственный источник: pyproject dynamic через app/version_info.py; (010) tools/ast_dead_imports.py + повторный аудит: 0 dead-imports (musical_intelligence sf/aT/audioBasicIO/ShortTermFeatures, orchestrator_god app_logger, genre_validator os, test_ai_layer os, ui/__init__ re-exports). Тесты: +test_settings, +test_version_consistency, +test_ast_dead_imports."
+ "changes": "v39.6 PLAN_v39 ШАГ 011: в tests/test_ai_layer.py добавлен статический AST-граф прямых импортов для app.core, modules и agents; lazy-imports внутри функций намеренно не учитываются. Добавлены регрессии отсутствия циклов в репозитории и обнаружения искусственного цикла с полным путём. Тест доступности essentia сделан переносимым: он проверяет контракт реестра без требования локально установленной опциональной librosa. Дополнительно устранена реальная регрессия smoke_v26: modules/beat_constructor.py использует контролируемое mid/side-расширение вместо одностороннего Haas-mix, а tests/test_audio_quality.py фиксирует стереокорреляцию. Проверка: pytest tests/ = 49 passed, compileall OK, AST dead-imports = 0, smoke_v26 = 6/6, smoke_v29 = 8/8, fallback_audit = 0 red flags, граф = 104 модулей / 18 рёбер / 0 циклов."
 }

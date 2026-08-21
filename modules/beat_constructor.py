@@ -538,30 +538,51 @@ class BeatConstructor:
         if peak > 0:
             full_track = full_track / peak * 0.9
 
-        # v26 FIX (P0): СТЕРЕО (уже собрано в стерео, добавляем финальную ширину)
-        stereo = full_track
+        # v26 FIX (P0): финальная mid/side-ширина с сохранением моносовместимости.
+        # Ранний Haas-mix только в правом канале оставлял corr≈0.986: формально
+        # stereo, но практически почти моно. Контролируемая S-компонента даёт
+        # устойчивую ширину без смещения центра или разрушения суммы L+R.
+        stereo = np.asarray(full_track, dtype=np.float32).copy()
         try:
-            # Более агрессивное расширение для прохождения smoke_v26 (corr < 0.98)
-            # Применяем Haas-эффект к верхней середине и верхам
             from scipy.signal import butter as _bt26
             from scipy.signal import sosfilt as _sf26
 
-            _sos_hp800 = _bt26(4, 800, btype="high", fs=self.sr, output="sos")
-            _mid_hi = _sf26(_sos_hp800, stereo, axis=0)
-            
-            # Задержка 15мс для правого канала в СЧ/ВЧ диапазоне
-            _delay_samples = int(self.sr * 0.015)
-            _mid_hi_r_delayed = np.zeros_like(_mid_hi)
-            _mid_hi_r_delayed[_delay_samples:, 1] = _mid_hi[:-_delay_samples, 1]
-            
-            # Подмешиваем задержанный сигнал
-            stereo[:, 1] = stereo[:, 1] * 0.75 + _mid_hi_r_delayed[:, 1] * 0.45
+            if stereo.ndim == 2 and stereo.shape[1] >= 2:
+                _mid = (stereo[:, 0] + stereo[:, 1]) * 0.5
+                _side = (stereo[:, 0] - stereo[:, 1]) * 0.5
+                _sos_hp800 = _bt26(4, 800, btype="high", fs=self.sr, output="sos")
+                _high_mid = _sf26(_sos_hp800, _mid)
+
+                # Разность исходного и задержанного ВЧ-сигналов декоррелирована
+                # с центром; её нормируем к заданной доле M вместо добавления
+                # произвольной громкости в один канал.
+                _delay_samples = max(1, int(self.sr * 0.015))
+                _delayed = np.zeros_like(_high_mid)
+                _delayed[_delay_samples:] = _high_mid[:-_delay_samples]
+                _width_seed = _high_mid - _delayed
+                _seed_rms = float(np.sqrt(np.mean(_width_seed ** 2)) + 1e-12)
+                _mid_rms = float(np.sqrt(np.mean(_mid ** 2)) + 1e-12)
+                _side_rms = float(np.sqrt(np.mean(_side ** 2)) + 1e-12)
+                # S/M≈0.30 даёт целевую межканальную корреляцию около 0.83–0.95
+                # на синтезированном материале: это заметная ширина без инверсии
+                # фазы и без потери читаемости центра при сведении в mono.
+                _target_side_rms = max(_side_rms, _mid_rms * 0.30)
+
+                if _seed_rms > 1e-8 and _mid_rms > 1e-8:
+                    _candidate_side = _side + _width_seed * (_target_side_rms / _seed_rms)
+                    _candidate_rms = float(
+                        np.sqrt(np.mean(_candidate_side ** 2)) + 1e-12
+                    )
+                    _side = _candidate_side * (_target_side_rms / _candidate_rms)
+                    stereo = np.column_stack((_mid + _side, _mid - _side)).astype(
+                        np.float32, copy=False
+                    )
 
             _pk = float(np.max(np.abs(stereo)) + 1e-9)
             if _pk > 0.98:
                 stereo = stereo / _pk * 0.95
-        except Exception:
-            pass
+        except Exception as exc:
+            print(f"[beat_constructor] stereo width fallback: {exc}")
 
         os.makedirs(OUTPUT_DIR, exist_ok=True)
         out_path = os.path.join(OUTPUT_DIR, out_name)

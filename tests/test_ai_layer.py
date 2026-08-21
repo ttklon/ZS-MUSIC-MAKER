@@ -1,7 +1,184 @@
 # -*- coding: utf-8 -*-
-"""ZS Music Maker - tests/test_ai_layer.py (v38): smoke AI-слоя."""
-import shutil, tempfile, unittest
+"""ZS Music Maker — smoke-тесты AI-слоя и архитектурные инварианты импортов."""
+from __future__ import annotations
+
+import ast
+import shutil
+import tempfile
+import unittest
 from pathlib import Path
+
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+SCOPED_PACKAGE_PREFIXES = ("app.core", "modules", "agents")
+# Lazy imports внутри функций намеренно не попадают в граф. Если в будущем
+# потребуется временно допустить именно top-level цикл, добавляется его
+# каноническое представление без повторяющегося последнего узла.
+ALLOWED_TOP_LEVEL_CYCLES: frozenset[tuple[str, ...]] = frozenset()
+
+
+def _module_name(path: Path) -> str:
+    """Преобразовать путь Python-файла проекта в импортируемое имя модуля."""
+    relative = path.relative_to(PROJECT_ROOT).with_suffix("")
+    parts = list(relative.parts)
+    if parts[-1] == "__init__":
+        parts.pop()
+    return ".".join(parts)
+
+
+def _is_scoped_module(module_name: str) -> bool:
+    return any(
+        module_name == prefix or module_name.startswith(f"{prefix}.")
+        for prefix in SCOPED_PACKAGE_PREFIXES
+    )
+
+
+def _collect_scoped_modules() -> dict[str, Path]:
+    """Собрать фактические модули, которые участвуют в архитектурной проверке."""
+    modules: dict[str, Path] = {}
+    for relative_root in (Path("app/core"), Path("modules"), Path("agents")):
+        for path in sorted((PROJECT_ROOT / relative_root).rglob("*.py")):
+            if "__pycache__" not in path.parts:
+                modules[_module_name(path)] = path
+    return modules
+
+
+def _relative_import_base(
+    source_module: str,
+    source_is_package: bool,
+    node: ast.ImportFrom,
+) -> str:
+    """Разрешить базовое имя ``from .x import y`` без выполнения импортов."""
+    if node.level == 0:
+        return node.module or ""
+
+    package_parts = source_module.split(".")
+    if not source_is_package:
+        package_parts.pop()
+    trim = node.level - 1
+    if trim:
+        package_parts = package_parts[:-trim]
+    base_parts = package_parts + ((node.module or "").split(".") if node.module else [])
+    return ".".join(part for part in base_parts if part)
+
+
+def _targets_from_statement(
+    source_module: str,
+    source_is_package: bool,
+    statement: ast.stmt,
+    known_modules: set[str],
+) -> set[str]:
+    """Вернуть внутренние импорты, выполняемые прямым оператором модуля."""
+    targets: set[str] = set()
+    if isinstance(statement, ast.Import):
+        for alias in statement.names:
+            if alias.name in known_modules:
+                targets.add(alias.name)
+        return targets
+
+    if not isinstance(statement, ast.ImportFrom):
+        return targets
+
+    base = _relative_import_base(source_module, source_is_package, statement)
+    if not base:
+        return targets
+
+    for alias in statement.names:
+        if alias.name == "*":
+            if base in known_modules:
+                targets.add(base)
+            continue
+        child = f"{base}.{alias.name}"
+        # ``from modules import lyrics_gen`` загружает дочерний модуль, в то
+        # время как ``from modules.artist_dossier import DossierManager``
+        # загружает сам пакет, чей __init__.py уже формирует дальнейшие рёбра.
+        if child in known_modules:
+            targets.add(child)
+        elif base in known_modules:
+            targets.add(base)
+    return targets
+
+
+def _build_top_level_import_graph() -> dict[str, set[str]]:
+    """Построить граф только из прямых импортов app.core, modules и agents.
+
+    Вложенные imports (например, в функции stage_* оркестратора) намеренно не
+    обходятся: они являются lazy-imports и не создают циклов при импорте модуля.
+    """
+    module_paths = _collect_scoped_modules()
+    known_modules = set(module_paths)
+    graph: dict[str, set[str]] = {module_name: set() for module_name in module_paths}
+
+    for source_module, path in module_paths.items():
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        source_is_package = path.name == "__init__.py"
+        for statement in tree.body:
+            graph[source_module].update(
+                target
+                for target in _targets_from_statement(
+                    source_module, source_is_package, statement, known_modules
+                )
+                if _is_scoped_module(target)
+            )
+    return graph
+
+
+def _canonical_cycle(cycle: list[str]) -> tuple[str, ...]:
+    """Нормализовать цикл, чтобы одна и та же петля не дублировалась в отчёте."""
+    body = tuple(cycle[:-1])
+    rotations = [body[index:] + body[:index] for index in range(len(body))]
+    return min(rotations)
+
+
+def _find_cycles(graph: dict[str, set[str]]) -> list[tuple[str, ...]]:
+    """Найти все направленные циклы DFS и вернуть их в каноническом виде."""
+    state: dict[str, int] = {node: 0 for node in graph}
+    active_path: list[str] = []
+    cycles: set[tuple[str, ...]] = set()
+
+    def visit(node: str) -> None:
+        state[node] = 1
+        active_path.append(node)
+        for target in sorted(graph[node]):
+            if state[target] == 0:
+                visit(target)
+            elif state[target] == 1:
+                start = active_path.index(target)
+                cycles.add(_canonical_cycle(active_path[start:] + [target]))
+        active_path.pop()
+        state[node] = 2
+
+    for node in sorted(graph):
+        if state[node] == 0:
+            visit(node)
+    return sorted(cycles)
+
+
+def test_cycle_detector_reports_full_path() -> None:
+    """Детектор обязан найти искусственный цикл и показать все его звенья."""
+    graph = {
+        "app.core.alpha": {"modules.beta"},
+        "modules.beta": {"agents.gamma"},
+        "agents.gamma": {"app.core.alpha"},
+    }
+    assert _find_cycles(graph) == [
+        ("agents.gamma", "app.core.alpha", "modules.beta"),
+    ]
+
+
+def test_no_import_cycles() -> None:
+    """Запретить top-level циклы между app.core, modules и agents.
+
+    Тест запускается без импорта проверяемых модулей, поэтому не требует тяжёлых
+    зависимостей и диагностирует цикл до его проявления как частичного импорта.
+    """
+    cycles = _find_cycles(_build_top_level_import_graph())
+    unexpected = [cycle for cycle in cycles if cycle not in ALLOWED_TOP_LEVEL_CYCLES]
+    assert not unexpected, "\n".join(
+        ["Обнаружены запрещённые циклические top-level импорты:"]
+        + [f"  - {' -> '.join(cycle + (cycle[0],))}" for cycle in unexpected]
+        + ["Перенесите одну из зависимостей в lazy-import или устраните архитектурную петлю."]
+    )
 
 
 class TestRegistry(unittest.TestCase):
@@ -12,14 +189,23 @@ class TestRegistry(unittest.TestCase):
                "audio_tagger","essentia","cover_art","mastering_ai"}
         self.assertTrue(exp.issubset(set(MODEL_REGISTRY.keys())))
         self.assertGreaterEqual(registry.hw.vram_gb, 8.0)
+
     def test_status(self):
         from app.ai.registry import registry
         st = registry.status()
         self.assertIn("registry", st)
         self.assertIsNone(st["current"])
-    def test_essentia_avail(self):
+
+    def test_essentia_role_detects_library_presence(self):
+        from unittest.mock import patch
+
         from app.ai.registry import registry
-        self.assertTrue(registry.is_available("essentia"))
+
+        self.assertFalse(registry.is_available("not-a-model-role"))
+        # librosa — опциональная зависимость; тестируем контракт детектора,
+        # а не состав пакетов конкретной машины/CI-образа.
+        with patch.dict("sys.modules", {"librosa": object()}):
+            self.assertTrue(registry.is_available("essentia"))
 
 
 class TestRunner(unittest.TestCase):
@@ -29,6 +215,7 @@ class TestRunner(unittest.TestCase):
         r.add(AIStage("pure", None, lambda h,c: {"v":1}))
         rep = r.run({}).to_dict()
         self.assertTrue(rep["stages"][0]["ok"])
+
     def test_skip(self):
         from app.ai.sequential_runner import SequentialAIRunner, AIStage
         r = SequentialAIRunner()
@@ -36,6 +223,7 @@ class TestRunner(unittest.TestCase):
         rep = r.run({}).to_dict()
         self.assertTrue(rep["stages"][0]["ok"])
         self.assertIn("unavailable", rep["stages"][0]["skipped_reason"])
+
     def test_fallback(self):
         from app.ai.sequential_runner import SequentialAIRunner, AIStage
         calls = []
@@ -50,8 +238,10 @@ class TestRunner(unittest.TestCase):
 class TestDossier(unittest.TestCase):
     def setUp(self):
         self.tmp = Path(tempfile.mkdtemp(prefix="zsmm_d_"))
+
     def tearDown(self):
         shutil.rmtree(self.tmp, ignore_errors=True)
+
     def test_add_list(self):
         from modules.artist_dossier import DossierManager
         mgr = DossierManager(root=self.tmp)
@@ -63,6 +253,7 @@ class TestDossier(unittest.TestCase):
         self.assertEqual(arts[0]["tracks"], 2)
         titles = sorted(t["title"] for t in mgr.list_tracks("Artist X"))
         self.assertEqual(titles, ["A","B"])
+
     def test_dossier_deferred(self):
         from modules.artist_dossier import DossierManager
         mgr = DossierManager(root=self.tmp)
