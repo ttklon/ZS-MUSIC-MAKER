@@ -3,6 +3,16 @@
 > Актуальная версия: **v39.9.0** (2026-08-22). Подробный журнал выполнения — в `SESSION_LOG.md`; каноническое состояние — в `PROJECT_STATE.md`.
 
 
+## v39.9 — PLAN_v39 ШАГИ 023–068 (AI pipeline, safety, release, docs)
+
+- **AI pipeline:** роли, quality gates, dossier, lyrics/beat/vocal/cover/master adapters, secure manifest и deterministic fallbacks расширены последовательными контрактами и regression tests.
+- **Операции:** очередь рендера, release fingerprints/ZIP, hit-score cache, explicit internal AI-risk heuristic, secure installer/update status/path redaction.
+- **Supply chain:** model pull/verify сохраняет role-scoped artifacts и проверяет published checksums; data inventory остаётся 73 managed / 0 unknown / 0 invalid.
+- **CI/CD:** Windows PyInstaller workflow сохраняет EXE artifact 30 дней; `v*` tag после успешной build публикует GitHub Release с ZIP.
+- **Документация:** README/INSTALL/DEVELOPER_GUIDE синхронизированы с реальными v39 CLI contracts. На приёмке документации: 137 pytest PASS, AST dead-imports 0.
+- **Ограничение:** runtime для тяжёлых optional packages и model weights остаётся environment-dependent и при отсутствии честно BLOCKED.
+
+
 ## v39.9 — PLAN_v39 ШАГИ 018–022 (metadata + audio quality gates)
 
 - **ШАГ 018:** analysis_llm применяет общий schema-validator для трековых и агрегированных досье; неполные структуры фиксируются как честный rejected/deferred result.

@@ -503,3 +503,10 @@ Test suite при приёмке: **137 collected / 137 PASS**, существе
 `build.yml` теперь запускается также на тегах `v*`; после успешной Windows PyInstaller build `publish-release` архивирует artifact и создаёт GitHub Release. На main без тега релиз не создаётся, artifact сохраняется 30 дней. Windows runner/tag release локально не запускались.
 
 Проверка: полный `pytest tests/` = **137 PASS**; compileall/AST OK; workflow diff без whitespace errors.
+
+---
+## PLAN_v39 — ШАГ 068: документация v39
+
+README, INSTALL и CHANGELOG обновлены до v39.9.0; добавлен `docs/DEVELOPER_GUIDE.md`. Документированы только работающие CLI contracts: AI status/dry-run, dossier, score, read-only updater и opt-in installer/model-pull. Heavy dependencies/weights явно остаются environment-dependent BLOCKED при отсутствии runtime.
+
+Приёмка: `main.py --help`, `--ai-status`, `pull_ai_models.py --help` успешны; README relative links 2/2 существуют; `pytest tests/ -q` = **137 PASS**, compileall/AST OK.

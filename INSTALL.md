@@ -1,6 +1,6 @@
-# 🛠 INSTALL — ZS Music Maker v36
+# 🛠 INSTALL — ZS Music Maker v39
 
-> Актуальная версия: **v36.0.0** (2026-08-14). Единый источник правды о версии — `version.json`.
+> Актуальная версия: **v39.9.0**. Единый источник правды о версии — `version.json`.
 
 ## 1. Быстрый старт (Windows 11)
 
@@ -31,6 +31,10 @@ python main.py --console     # консольный режим
 python main.py --god         # God Mode: полный пайплайн одной командой (CLI)
 python main.py --health      # проверка здоровья системы
 python main.py --readiness   # чек-лист готовности по ТЗ
+python main.py --ai-status   # availability 13 AI-ролей без загрузки model weights
+python main.py --ai --dry-run --genre phonk --theme "night"  # безопасный AI pipeline dry-run
+python install.py --dry-run --ai  # показать opt-in план core+AI установки без изменений
+python tools/pull_ai_models.py --help  # сверка/pull role-scoped model artifacts
 ```
 
 ## 2. Что ставит `install.py`
@@ -73,7 +77,7 @@ verify.bat                 # Windows: pytest + smoke_v26 + smoke_v29
 run_all_smoke.bat          # Windows: прогон всех tools/smoke_v*.py
 
 # Или вручную (кросс-платформенно):
-python -m pytest tests/                    # юнит-тесты DSP
+python -m pytest tests/                    # полный unit/regression suite
 python tools/smoke_v26.py                  # аудио-качество
 python tools/smoke_v29.py                  # God Mode E2E
 python tools/fallback_audit.py             # аудит fallback-путей

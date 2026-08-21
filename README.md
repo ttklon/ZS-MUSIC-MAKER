@@ -1,6 +1,6 @@
 # ZS Music Maker «Hit Locked Pro»
 
-> **Актуальная версия:** v37.0.0 (2026-08-14) — единый источник правды: `version.json`.
+> **Актуальная версия:** v39.9.0 — единый источник правды: [`version.json`](./version.json).
 > **Статус:** Production Ready (аудио-ядро beat→mix→mastering→God Mode — REAL_PASS).
 
 ## 🎯 Главная цель
@@ -8,6 +8,14 @@
 Создавать **хитовые треки**, которые качают в тачках, звучат в клубах и
 TikTok — полностью **бесплатно**, **автономно**, **автоматизированно**
 и **локально** на ПК пользователя.
+
+## ⚡ Что нового в v39
+
+- **Sequential AI stack** — 13 ролей с honest availability, one-model-at-a-time runner, timeout/OOM telemetry и проверяемыми fallback contracts.
+- **Quality gates** — lyrics, audio, stems, ASR, tags, DSP, cover и master artifacts валидируются перед следующей стадией.
+- **Сессии и релизы** — AI project `manifest.json` schema v1, release ZIP и SHA-256 inventory.
+- **Операционный CLI** — `--ai-status`, `--ai --dry-run`, `--dossier-*`, `--score`, `--update` (status-only).
+- **Честные ограничения** — тяжёлые роли, для которых нет runtime/weights в текущей среде, возвращают BLOCKED/fallback, а не имитируют inference.
 
 ## ⚡ Что нового в v36
 
@@ -36,6 +44,13 @@ python main.py --health     :: health-check стека
 python main.py --readiness  :: честный %
 python main.py --version    :: версия/билд (из version.json)
 python main.py --console    :: headless-режим
+python main.py --ai-status  :: availability 13 AI-ролей без загрузки в VRAM
+python main.py --ai --dry-run --genre phonk --theme "night"  :: sequential AI dry-run
+python main.py --dossier-add ./references --dossier-artist "Artist"  :: добавить локальные референсы
+python main.py --dossier-build --dossier-artist "Artist"  :: построить dossier (heavy roles optional)
+python main.py --score output/master.wav  :: audio-first hit-score + breakdown
+python main.py --update     :: read-only Git update status (не применяет обновление)
+python install.py --dry-run --ai  :: план установки core+AI без установки пакетов
 ```
 
 Если PySide6 недоступен — падает в Gradio (127.0.0.1:7860),
@@ -44,7 +59,7 @@ python main.py --console    :: headless-режим
 ## 🧪 Тесты и smoke
 
 ```bash
-python -m pytest tests/                    # DSP-юниты (7/7 PASS)
+python -m pytest tests/                    # полный unit/regression suite (137 PASS на приёмке v39)
 python tools/smoke_v26.py                  # аудио-качество (stereo/loudness/drop/hit-score) — 6/6 PASS
 python tools/smoke_v29.py                  # God Mode E2E → master_god.wav — 8/8 PASS
 python tools/fallback_audit.py             # honesty-scan (red_flags=0)
