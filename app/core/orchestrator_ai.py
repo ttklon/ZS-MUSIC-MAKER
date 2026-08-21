@@ -17,6 +17,30 @@ def _slug(name: str) -> str:
     return s.lower() or "unknown"
 
 
+def render_stereo_texture(handle, prompt: str, duration_sec: int, out_path: str) -> dict:
+    """Рендерить отдельную стерео-текстуру через совместимый MusicGen handle."""
+    try:
+        import soundfile as sf
+
+        handle.set_generation_params(
+            duration=duration_sec, top_k=250, temperature=1.0, cfg_coef=3.0
+        )
+        generated = handle.generate([prompt], progress=False)[0].detach().cpu().numpy()
+        if generated.ndim == 1:
+            generated = generated[:, None]
+        elif generated.ndim == 2:
+            generated = generated.T
+        else:
+            return {"ok": False, "reason": "unexpected MusicGen stereo tensor shape"}
+        if generated.shape[1] == 1:
+            generated = generated.repeat(2, axis=1)
+        sf.write(out_path, generated.astype("float32"), int(getattr(handle, "sample_rate", 32000)),
+                 subtype="PCM_16")
+        return {"ok": True, "texture_path": out_path}
+    except Exception as exc:
+        return {"ok": False, "reason": f"music_stereo generation failed: {exc}"}
+
+
 def run_ai_pipeline(project_id, wizard_state=None, out_root=None, dry_run=False):
     ws = dict(wizard_state or {})
     try:
@@ -186,6 +210,27 @@ def run_ai_pipeline(project_id, wizard_state=None, out_root=None, dry_run=False)
                 "sample_rate": int(sr), "prompt": prompt, "chunks": n_chunks,
                 "quality": quality, "reason": quality["reason"]}
 
+    def stage_music_stereo(handle, ctx):
+        """Создать отдельную стерео-текстуру; основной beat не меняется на этой стадии."""
+        if dry_run:
+            return {"skipped": "dry-run"}
+        if handle is None:
+            return {
+                "skipped": "music_stereo unavailable",
+                "reason": "audiocraft model is not installed or not loadable",
+            }
+        prompt = P.build_music_prompt(ws["genre"], ws["bpm"], ws["key"], ws["mood"])
+        prompt += ", wide stereo atmosphere, transition texture, no lead vocal"
+        duration = max(2, min(int(ws.get("texture_duration_sec", 8)), 20))
+        out_path = str(out_root / "texture_stereo.wav")
+        result = render_stereo_texture(handle, prompt, duration, out_path)
+        result.update({
+            "engine": "musicgen-stereo-medium",
+            "prompt": prompt,
+            "duration_sec": duration,
+        })
+        return result
+
     def stage_vocal(handle, ctx):
         if dry_run or handle is None:
             return {"skipped": "dry-run" if dry_run else "no tts model"}
@@ -311,6 +356,7 @@ def run_ai_pipeline(project_id, wizard_state=None, out_root=None, dry_run=False)
     runner.add(AIStage("lyrics",       "lyrics_llm",       stage_lyrics,   optional=True))
     runner.add(AIStage("metadata",     "metadata_llm",     stage_metadata, optional=True))
     runner.add(AIStage("music",        "music_generation", stage_music,    optional=True))
+    runner.add(AIStage("music_stereo", "music_stereo",     stage_music_stereo, optional=True))
     runner.add(AIStage("vocal_synth",  "tts_vocal",        stage_vocal,    optional=True))
     runner.add(AIStage("rvc",          "vocal_rvc",        stage_rvc,      optional=True))
     runner.add(AIStage("mix",          None,               stage_mix))
@@ -324,6 +370,7 @@ def run_ai_pipeline(project_id, wizard_state=None, out_root=None, dry_run=False)
               "artefacts": {"lyrics": str(out_root / "lyrics.txt"),
                             "metadata": str(out_root / "metadata.json"),
                             "beat": str(out_root / "beat.wav"),
+                            "texture_stereo": str(out_root / "texture_stereo.wav"),
                             "vocal": str(out_root / "vocal_xtts.wav"),
                             "mix": str(out_root / "mix.wav"),
                             "master": str(out_root / "masters" / "master_ai.wav"),

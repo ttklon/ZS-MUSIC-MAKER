@@ -1,6 +1,14 @@
 
 ---
 
+## КОММИТ — PLAN_v39 ШАГ 023: music_stereo integration (выполнен, runtime BLOCKED)
+
+Добавлена отдельная `AIStage("music_stereo", "music_stereo", ...)` после основной генерации. `render_stereo_texture()` использует только совместимый MusicGen handle (`set_generation_params` → `generate`), конвертирует tensor в stereo WAV и сохраняет `texture_stereo.wav` как независимый артефакт. Основной beat и mix пока не изменяются; это предотвращает скрытую аудиорегрессию до отдельной quality-приёмки ШАГА 024.
+
+Проверка: fake-handle test подтверждает настоящий вызов контракта и stereo WAV; dry-run подтверждает присутствие стадии в runner; `pytest tests/` = **64/64 PASS**; compileall OK; AST dead-imports = **0**. `audiocraft`/веса отсутствуют в sandbox — реальная генерация **не заявляется как выполненная** и возвращает explicit `skipped` до установки на целевой машине. Детали: `docs/STEP_STATUS/023_music_stereo.md`.
+
+---
+
 ## КОММИТ v39.9 — PLAN_v39 ШАГИ 018-022 (metadata + audio quality gates)
 
 | Шаг | Что сделано | Файлы |

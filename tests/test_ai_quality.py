@@ -61,3 +61,61 @@ def test_ai_dry_run_persists_valid_metadata_fallback(tmp_path) -> None:
     assert metadata["ok"] is True
     assert metadata["source"] == "dry"
     assert metadata["quality"]["ok"] is True
+
+
+class _FakeTensor:
+    def __init__(self, value):
+        self.value = value
+
+    def detach(self):
+        return self
+
+    def cpu(self):
+        return self
+
+    def numpy(self):
+        return self.value
+
+
+class _FakeStereoMusicGen:
+    sample_rate = 8_000
+
+    def __init__(self):
+        self.params = None
+
+    def set_generation_params(self, **kwargs):
+        self.params = kwargs
+
+    def generate(self, prompts, progress=False):
+        assert prompts and progress is False
+        signal = np.vstack([
+            0.1 * np.sin(np.linspace(0, 100, 8_000)),
+            0.1 * np.cos(np.linspace(0, 100, 8_000)),
+        ])
+        return [_FakeTensor(signal)]
+
+
+def test_music_stereo_handle_renders_separate_stereo_texture(tmp_path) -> None:
+    from app.core.orchestrator_ai import render_stereo_texture
+
+    handle = _FakeStereoMusicGen()
+    output = tmp_path / "texture.wav"
+    result = render_stereo_texture(handle, "wide transition texture", 4, str(output))
+
+    assert result["ok"] is True
+    assert output.exists()
+    assert handle.params["duration"] == 4
+    quality = validate_audio_artifact(output, min_duration_sec=0.5)
+    assert quality["ok"] is True
+    assert quality["metrics"]["channels"] == 2
+
+
+
+def test_ai_pipeline_includes_music_stereo_stage_in_dry_run(tmp_path) -> None:
+    from app.core.orchestrator_ai import run_ai_pipeline
+
+    result = run_ai_pipeline("stereo_stage", out_root=tmp_path, dry_run=True)
+    stages = {item["name"]: item for item in result["report"]["stages"]}
+
+    assert "music_stereo" in stages
+    assert stages["music_stereo"]["skipped_reason"] is not None
