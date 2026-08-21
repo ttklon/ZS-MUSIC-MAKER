@@ -1,0 +1,7 @@
+# PLAN_v39 — ШАГ 082: voice_cleaner denoise, de-esser и silence gate
+
+`modules/voice_cleaner.py` теперь предоставляет `clean_vocal_chain()`: denoise (optional `noisereduce`, otherwise deterministic DC-removal/high-pass fallback), zero-phase 4.5–9.5 kHz de-esser and 10 ms-smoothed silence gate. Presets for default/phonk/trap/pop contain non-PII technical parameters. De-essing targets only the sibilance band and intentionally does **not** low-pass/remove content above 10 kHz. Output is `vocal_clean.wav` (or caller-provided path) with measured `pause_noise_dbfs` and engine/fallback metadata.
+
+`modules/vocal_fx.process_vocal()` now executes cleanup before optional double/throw polish, accepts `genre`, records `clean_used`/cleaner metadata, and keeps non-critical fallback behavior if cleaner fails. Existing `clean_vocal()` remains a backward-compatible default wrapper.
+
+Synthetic acceptance used a vocal-like 32 kHz WAV with voiced 6 kHz sibilance, 12 kHz air and noise-only pauses. Result: pause noise below **-60 dBFS**, measured sibilance attenuation within **-4.5 to -1.5 dB** (target 3 dB), and 12 kHz band change below 1 dB. A second test confirms clean-before-FX path. Full `pytest tests/ -q` — **189 passed**; `compileall` successfully; AST audit — **0 dead imports**; data inventory — **73 managed, 0 unknown, 0 invalid**. Optional noisereduce was not installed; fallback is explicitly reported.

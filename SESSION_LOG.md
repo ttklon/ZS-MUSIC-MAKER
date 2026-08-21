@@ -580,3 +580,10 @@ Metadata validator теперь требует title 3–80, обе descriptions
 Добавлен deterministic WAV crossfade helper для intro/base/outro. При доступном music_stereo handle stage генерирует/валидирует обе stereo sections, собирает `beat_stereo_extended.wav`, и mix предпочитает этот beat. Любая unavailable/quality/generation failure возвращает explicit skipped/fallback и сохраняет base beat; dry-run не симулирует MusicGen.
 
 Приёмка на real temporary WAV с разными sample rates подтвердила resampling, 2-channel output, peak <=0.981 и expected crossfade duration. Полный `pytest tests/ -q` = **187 PASS**, compileall/AST OK, data inventory 73/0/0. MusicGen weights BLOCKED.
+
+---
+## PLAN_v39 — ШАГ 082: voice cleaner chain
+
+`clean_vocal_chain` реализует denoise -> zero-phase 4.5–9.5 kHz de-esser -> smoothed silence gate с genre presets и measured pause metric. `process_vocal` запускает cleanup до double/throw. На synthetic 32 kHz vocal: pauses < -60 dBFS, sibilance reduction около 3 dB, 12 kHz air не затронут существенно; optional noisereduce отсутствует и fallback явно маркируется.
+
+Приёмка: 2 targeted synthetic tests PASS; полный `pytest tests/ -q` = **189 PASS**, compileall/AST OK, data inventory 73/0/0.

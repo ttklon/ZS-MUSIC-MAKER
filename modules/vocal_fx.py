@@ -300,15 +300,30 @@ def process_vocal(
     double_level_db: float = -10.0,
     throw_level_db: float = -9.0,
     delay_ms: float = 320.0,
+    clean_before_fx: bool = True,
+    genre: str | None = None,
 ) -> dict[str, Any]:
-    """Единая точка: double -> throw -> out. Возвращает dict-результат."""
+    """Единая точка: clean -> double -> throw -> out. Возвращает dict-результат."""
     if not _OK:
         return {"ok": False, "engine": "none", "reason": "numpy/soundfile unavailable"}
 
     cur = vocal_wav
     stages: list[str] = []
     throws = 0
+    tmp_clean = str(Path(out_wav).with_name("_vocal_clean_tmp.wav"))
     tmp_double = str(Path(out_wav).with_name("_fx_double_tmp.wav"))
+    cleaner = None
+
+    if clean_before_fx:
+        try:
+            from modules.voice_cleaner import clean_vocal_chain
+
+            cleaner = clean_vocal_chain(cur, tmp_clean, genre=genre)
+            if cleaner.get("ok"):
+                cur = str(cleaner["path"])
+                stages.append("clean")
+        except Exception as exc:
+            cleaner = {"ok": False, "reason": str(exc)}
 
     if use_double:
         r = apply_vocal_double(cur, tmp_double, double_level_db=double_level_db)
@@ -336,15 +351,25 @@ def process_vocal(
 
     if not stages:
         # оба не сработали — честно сообщаем, не делаем скрытый copy
-        return {"ok": False, "engine": "none", "reason": "double and throw both failed"}
+        return {"ok": False, "engine": "none", "reason": "clean, double and throw all failed"}
 
-    # подчистить временный файл
-    try:
-        p = Path(tmp_double)
-        if p.exists() and cur != tmp_double:
-            p.unlink()
-    except Exception:
-        pass
+    if stages == ["clean"]:
+        try:
+            import shutil
+
+            shutil.copy(cur, out_wav)
+            cur = out_wav
+        except Exception:
+            return {"ok": False, "engine": "none", "reason": "clean vocal could not be finalized"}
+
+    # подчистить временные файлы, не удаляя текущий итог
+    for temporary in (tmp_clean, tmp_double):
+        try:
+            path = Path(temporary)
+            if path.exists() and str(path) != str(cur):
+                path.unlink()
+        except Exception:
+            pass
 
     return {
         "ok": True,
@@ -355,6 +380,8 @@ def process_vocal(
         "throws_applied": throws,
         "double_used": "double" in stages,
         "throw_used": "throw" in stages,
+        "clean_used": "clean" in stages,
+        "cleaner": cleaner,
     }
 
 
