@@ -375,3 +375,11 @@ ASR-вызов вынесен в `transcribe_reference_audio()`: handle полу
 В Wizard добавлена страница AI status и меню `AI → Статус моделей`: она показывает все 13 roles, public availability, engine, VRAM estimate и текущую sequential role без загрузки весов. Обновление доступно вручную и раз в 5 секунд.
 
 Проверка: `compileall app/gui/wizard.py app/ai/registry.py` OK; `pytest tests/` = **116 PASS**; AST = **0**. В headless sandbox PySide interaction не запускалась; UI использует проверенный `ModelRegistry.status()`/`is_available()` API.
+
+
+---
+## PLAN_v39 — ШАГ 052: render queue
+
+`RenderQueue` дополнена явным `cancelled` state и `cancel_requested` для running jobs. Pending отменяется немедленно, running job завершается отменой на следующей stage callback boundary; это не пытается небезопасно убить нативную AI-стадию посередине. FIFO worker, progress persistence и restart restore сохранены.
+
+Проверка: новые fake-orchestrator FIFO/cancel/persistence тесты = **2 PASS**; полный `pytest tests/` = **118 PASS**; compileall/AST OK.

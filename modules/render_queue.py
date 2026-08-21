@@ -28,7 +28,8 @@ STATE_FILE = QUEUE_DIR / "queue_state.json"
 class QueueItem:
     id: str
     recipe: dict
-    status: str = "pending"  # pending | running | done | error
+    status: str = "pending"  # pending | running | done | error | cancelled
+    cancel_requested: bool = False
     progress: float = 0.0
     stage: str = ""
     project_dir: str = ""
@@ -97,7 +98,7 @@ class RenderQueue:
         return [self.enqueue(r) for r in recipes]
 
     def status_summary(self) -> dict:
-        c = {"pending": 0, "running": 0, "done": 0, "error": 0}
+        c = {"pending": 0, "running": 0, "done": 0, "error": 0, "cancelled": 0}
         for it in self.items:
             c[it.status] = c.get(it.status, 0) + 1
         c["total"] = len(self.items)
@@ -109,8 +110,12 @@ class RenderQueue:
     def cancel(self, item_id: str) -> bool:
         for it in self.items:
             if it.id == item_id and it.status == "pending":
-                it.status = "error"
-                it.error = "cancelled"
+                it.status = "cancelled"
+                it.error = "cancelled before execution"
+                self._persist()
+                return True
+            if it.id == item_id and it.status == "running":
+                it.cancel_requested = True
                 self._persist()
                 return True
         return False
@@ -161,6 +166,8 @@ class RenderQueue:
                 self.orchestrator = Orchestrator(probe_hw(), make_logger())
 
             def on_stage(stage: str, progress: float):
+                if item.cancel_requested or self._stop.is_set():
+                    raise RuntimeError("cancelled")
                 item.stage = stage
                 item.progress = float(progress)
                 self._persist()
@@ -170,9 +177,14 @@ class RenderQueue:
             item.status = "done"
             item.progress = 1.0
         except Exception as e:
-            item.status = "error"
-            item.error = str(e)[:400]
-            self.log(f"[queue] {item.id} FAILED: {e}")
+            if item.cancel_requested or str(e) == "cancelled":
+                item.status = "cancelled"
+                item.error = "cancelled"
+                self.log(f"[queue] {item.id} cancelled")
+            else:
+                item.status = "error"
+                item.error = str(e)[:400]
+                self.log(f"[queue] {item.id} FAILED: {e}")
         finally:
             item.finished_at = time.time()
             self._persist()
