@@ -623,3 +623,19 @@ def test_ai_pipeline_writes_versioned_session_manifest(tmp_path) -> None:
     assert len(manifest["stages"]) >= 8
     assert len(manifest["model_roles"]) == 13
     assert manifest["artefacts"]["cover"].endswith("cover.png")
+
+
+
+def test_main_score_cli_wires_hit_scorer(monkeypatch, capsys) -> None:
+    import main
+    import modules.hit_scorer as scorer
+
+    monkeypatch.setattr(main.sys, "argv", ["main.py", "--score", "master.wav"])
+    monkeypatch.setattr(scorer, "score_track", lambda path: {
+        "hit_score": 71.5, "verdict": "solid", "metrics": {"energy": {"score": 80}},
+        "actions": ["refine hook"], "meta": {"file": path},
+    })
+    monkeypatch.setattr(main, "_register_patches", lambda enabled: {})
+
+    assert main.main() == 0
+    assert '"hit_score": 71.5' in capsys.readouterr().out

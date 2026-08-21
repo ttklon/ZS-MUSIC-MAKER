@@ -439,3 +439,11 @@ AI pipeline теперь создаёт `manifest.json` с `schema_version=1`, w
 Исправлен training job persistence (`JOBS_DIR` создаётся до записи). Dry training фиксирует `done_dry` и явное отсутствие `.pth`; trainer API без верифицированного checkpoint даёт `done_unverified`, не ложный `done`.
 
 Проверка: RVC dry job regression = **1 PASS**; полный `pytest tests/` = **127 PASS**; compileall/AST OK. Real RVC training/export .pth требует runtime/GPU и честно **BLOCKED** в sandbox.
+
+
+---
+## PLAN_v39 — ШАГ 060: hit scoring CLI
+
+Существующий audio-first `hit_scorer.score_track` подключён к `main.py --score <master.wav>`: CLI выводит hit score, verdict, 12 metric breakdown, actions и TikTok slice. Это техническая эвристика структуры/энергии, не обещание коммерческого успеха и не LLM-оценка лирики.
+
+Проверка: score CLI regression = **33 PASS** в `test_ai_layer`; полный `pytest tests/` = **128 PASS**; compileall/AST OK.

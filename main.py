@@ -450,6 +450,7 @@ def main() -> int:
     parser.add_argument("--dossier-artist", type=str, default="", help="Artist name/slug for dossier")
     parser.add_argument("--dossier-add", type=str, default="", help="Add local folder source")
     parser.add_argument("--dossier-build", action="store_true", help="Run full AI dossier build (heavy)")
+    parser.add_argument("--score", type=str, default="", help="Score a mastered WAV and print hit-score breakdown")
 
     args = parser.parse_args()
 
@@ -505,6 +506,12 @@ def main() -> int:
 
     if args.console:
         return _cli_console()
+
+    if args.score:
+        from modules.hit_scorer import score_track
+        report = score_track(args.score)
+        print(json.dumps(report, ensure_ascii=False, indent=2))
+        return 0 if not report.get("error") else 2
 
     if args.ai_status:
         from app.ai.registry import registry, MODEL_REGISTRY
