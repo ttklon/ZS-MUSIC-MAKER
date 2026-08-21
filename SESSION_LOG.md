@@ -517,3 +517,10 @@ README, INSTALL и CHANGELOG обновлены до v39.9.0; добавлен `
 `tools/readiness.py` теперь строит воспроизводимую AST/static-reference inventory только по versioned production `.py`, сохраняет прежний `compute()` JSON-контракт и поддерживает `--inventory-markdown`. Удалены пустые dependency `try` probes и legacy v14 test markers; optional heavy engines в sandbox честно BLOCKED.
 
 PROJECT_STATE заменён v39 snapshot: **147/147** matrix rows соответствуют tracked production modules (140 REAL_PASS static, 0 REAL_FAIL, 7 PLANNED). Это не объявляет heavy runtime/inference выполненным. Приёмка: readiness JSON/matrix match, `pytest tests/ -q` = **141 PASS**, compileall/AST OK.
+
+---
+## PLAN_v39 — ШАГ 070: APP_G регресс-сценарии
+
+Добавлен воспроизводимый `tools/regress_v39.py` и 15-сценарная matrix `docs/REGRESS_v39.md`. Фактический прогон: **13 PASS, 2 BLOCKED, 0 FAIL**. BLOCKED: полный heavy 13-role runtime и 300-second MusicGen — sandbox не содержит нужных dependencies/weights/GPU; они не выданы за реальный inference. Машинное evidence: `docs/REGRESS_v39.results.json`.
+
+Приёмка: runner self-tests 3 PASS; полный `pytest tests/ -q` = **144 PASS**, compileall/AST OK.
