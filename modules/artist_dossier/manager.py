@@ -10,7 +10,11 @@ from app.ai.registry import registry
 from app.ai.sequential_runner import SequentialAIRunner, AIStage
 from app.ai import prompts as P
 from app.ai import llm_service as LLM
-from app.ai.quality import validate_analysis_json, validate_stem_artifact
+from app.ai.quality import (
+    validate_analysis_json,
+    validate_asr_transcript,
+    validate_stem_artifact,
+)
 
 ROOT = Path(__file__).resolve().parents[2]
 DOSSIER_ROOT = ROOT / "data" / "artist_dossier"
@@ -42,6 +46,14 @@ def transcribe_reference_audio(model: Any, audio_path: str, output_path: str) ->
         text = "\n".join(
             str(getattr(segment, "text", "")).strip() for segment in segments
         ).strip()
+        quality = validate_asr_transcript(text)
+        if not quality["ok"]:
+            return {
+                "ok": False,
+                "reason": quality["reason"],
+                "quality": quality,
+                "fallback": "reference audio retained; transcript is not used",
+            }
         target = Path(output_path)
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(text, encoding="utf-8")
@@ -51,6 +63,8 @@ def transcribe_reference_audio(model: Any, audio_path: str, output_path: str) ->
             "language": str(getattr(info, "language", "")),
             "source": "faster_whisper",
             "transcript_path": str(target),
+            "quality": quality,
+            "reason": None,
         }
     except Exception as exc:
         return {"ok": False, "reason": f"ASR transcription failed: {exc}"}

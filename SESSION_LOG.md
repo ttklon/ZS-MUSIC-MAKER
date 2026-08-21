@@ -1,6 +1,14 @@
 
 ---
 
+## КОММИТ — PLAN_v39 ШАГ 032: ASR quality и fallback (выполнен, runtime BLOCKED)
+
+Добавлен `validate_asr_transcript()`: transcript оценивается по символам, токенам и unique ratio; пустой или зацикленный результат не сохраняется в dossier. При отклонении reference audio остаётся источником, а текст не подменяется фиктивным fallback.
+
+Проверка: валидный transcript проходит; пустой и повторяющийся отклоняются; невалидный transcript не создаёт файл. `pytest tests/` = **80/80 PASS**; compileall OK; AST dead-imports = **0**. ASR runtime/weights отсутствуют. Детали: `docs/STEP_STATUS/032_asr_quality.md`.
+
+---
+
 ## КОММИТ — PLAN_v39 ШАГ 031: faster-whisper ASR integration (выполнен, runtime BLOCKED)
 
 ASR-вызов вынесен в `transcribe_reference_audio()`: handle получает `language=ru` и `beam_size=5`, сегменты объединяются и transcript сохраняется в dossier. При отсутствии ASR или audio возвращается explicit skipped, а runtime-error остаётся диагностируемым failure.

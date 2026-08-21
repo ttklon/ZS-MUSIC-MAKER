@@ -448,3 +448,22 @@ def test_asr_reports_runtime_failure() -> None:
 
     assert result["ok"] is False
     assert "model load failed" in result["reason"]
+
+
+
+def test_asr_rejects_invalid_transcript_without_writing_file(tmp_path) -> None:
+    from types import SimpleNamespace
+
+    from modules.artist_dossier.manager import transcribe_reference_audio
+
+    class RepetitiveASR:
+        def transcribe(self, *args, **kwargs):
+            return iter([SimpleNamespace(text="эй эй эй эй")]), SimpleNamespace(language="ru")
+
+    transcript = tmp_path / "lyrics" / "invalid.txt"
+    result = transcribe_reference_audio(RepetitiveASR(), "reference.wav", str(transcript))
+
+    assert result["ok"] is False
+    assert result["reason"] == "ASR transcript is excessively repetitive"
+    assert result["fallback"] == "reference audio retained; transcript is not used"
+    assert not transcript.exists()

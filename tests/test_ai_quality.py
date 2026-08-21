@@ -319,3 +319,14 @@ def test_stem_quality_requires_near_input_duration(tmp_path) -> None:
     rejected = validate_stem_artifact(original, truncated)
     assert rejected["ok"] is False
     assert rejected["reason"] == "stem duration diverges from input"
+
+
+
+def test_asr_transcript_quality_rejects_empty_and_repetitive_text() -> None:
+    from app.ai.quality import validate_asr_transcript
+
+    assert validate_asr_transcript("в городе горят огни")["ok"] is True
+    assert validate_asr_transcript(" ")["reason"] == "ASR transcript is empty or too short"
+    repeated = validate_asr_transcript("эй эй эй эй эй")
+    assert repeated["ok"] is False
+    assert repeated["reason"] == "ASR transcript is excessively repetitive"

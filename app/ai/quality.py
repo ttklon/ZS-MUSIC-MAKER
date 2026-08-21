@@ -160,6 +160,24 @@ def validate_rvc_artifact(input_path: str | Path, output_path: str | Path) -> di
     return {"ok": True, "reason": None, "metrics": result["metrics"]}
 
 
+def validate_asr_transcript(text: str) -> dict[str, Any]:
+    """Проверить пригодность transcript, полученного ASR: содержательность и отсутствие зацикливания."""
+    normalized = " ".join((text or "").split())
+    tokens = TOKEN_RE.findall(normalized.lower())
+    unique_tokens = len(set(tokens))
+    metrics = {
+        "characters": len(normalized),
+        "tokens": len(tokens),
+        "unique_tokens": unique_tokens,
+        "unique_ratio": round(unique_tokens / len(tokens), 3) if tokens else 0.0,
+    }
+    if len(normalized) < 3 or not tokens:
+        return {"ok": False, "reason": "ASR transcript is empty or too short", "metrics": metrics}
+    if len(tokens) >= 4 and metrics["unique_ratio"] <= 0.25:
+        return {"ok": False, "reason": "ASR transcript is excessively repetitive", "metrics": metrics}
+    return {"ok": True, "reason": None, "metrics": metrics}
+
+
 def validate_stem_artifact(input_path: str | Path, output_path: str | Path) -> dict[str, Any]:
     """Проверить stem Demucs: пригодный audio output с длительностью исходного трека."""
     source = audio_metrics(input_path)
