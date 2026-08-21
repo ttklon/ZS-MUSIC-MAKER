@@ -11,6 +11,7 @@ from app.ai.quality import (
     validate_audio_artifact,
     validate_cover_artifact,
     validate_lyrics,
+    validate_master_artifact,
     validate_metadata_json,
     validate_rvc_artifact,
     validate_stereo_texture,
@@ -403,13 +404,19 @@ def run_ai_pipeline(project_id, wizard_state=None, out_root=None, dry_run=False)
             return {"skipped": "no mix"}
         out_master = str(out_root / "masters" / "master_ai.wav")
         from modules.mastering_ai import master_ai
-        return master_ai(
+        result = master_ai(
             mix,
             out_master,
             reference_wav=ws.get("reference_master_wav"),
             target_lufs=-9.0,
             handle=handle,
         )
+        if result.get("ok") and result.get("path"):
+            quality = validate_master_artifact(mix, result["path"])
+            result["quality"] = quality
+            result["ok"] = bool(quality["ok"])
+            result["reason"] = quality["reason"]
+        return result
 
     def stage_cover(handle, ctx):
         meta = ctx["sink"].get("metadata") or {}

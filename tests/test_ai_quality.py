@@ -453,3 +453,97 @@ def test_matchering_handle_rejects_missing_output(tmp_path) -> None:
 
     assert result["ok"] is False
     assert result["reason"] == "matchering completed without output"
+
+
+
+def _write_master_candidate(path, *, seconds=2.0, amplitude=0.5, stereo=True) -> None:
+    sample_rate = 8_000
+    t = np.arange(int(sample_rate * seconds)) / sample_rate
+    left = amplitude * np.sin(2 * np.pi * 220 * t)
+    right = amplitude * np.sin(2 * np.pi * 330 * t)
+    audio = np.column_stack([left, right]) if stereo else left
+    sf.write(path, audio.astype("float32"), sample_rate)
+
+
+def test_master_quality_accepts_stereo_loudness_and_true_peak_within_contract(tmp_path) -> None:
+    from app.ai.quality import validate_master_artifact
+
+    mix = tmp_path / "mix.wav"
+    master = tmp_path / "master.wav"
+    _write_master_candidate(mix)
+    _write_master_candidate(master)
+
+    result = validate_master_artifact(mix, master)
+
+    assert result["ok"] is True
+    assert result["metrics"]["channels"] == 2
+    assert result["metrics"]["true_peak_dbtp"] <= -0.5
+    assert -20.0 <= result["metrics"]["rms_dbfs"] <= -5.0
+
+
+def test_master_quality_rejects_true_peak_above_ceiling(tmp_path) -> None:
+    from app.ai.quality import validate_master_artifact
+
+    mix = tmp_path / "mix.wav"
+    too_loud = tmp_path / "too_loud.wav"
+    _write_master_candidate(mix)
+    _write_master_candidate(too_loud, amplitude=0.99)
+
+    result = validate_master_artifact(mix, too_loud)
+
+    assert result["ok"] is False
+    assert result["reason"] == "master true peak exceeds ceiling"
+
+
+def test_master_quality_rejects_mono_output(tmp_path) -> None:
+    from app.ai.quality import validate_master_artifact
+
+    mix = tmp_path / "mix.wav"
+    mono_master = tmp_path / "mono_master.wav"
+    _write_master_candidate(mix)
+    _write_master_candidate(mono_master, stereo=False)
+
+    result = validate_master_artifact(mix, mono_master)
+
+    assert result["ok"] is False
+    assert result["reason"] == "master is not stereo"
+
+
+def test_master_quality_rejects_duration_divergence(tmp_path) -> None:
+    from app.ai.quality import validate_master_artifact
+
+    mix = tmp_path / "mix.wav"
+    short_master = tmp_path / "short_master.wav"
+    _write_master_candidate(mix, seconds=2.0)
+    _write_master_candidate(short_master, seconds=1.0)
+
+    result = validate_master_artifact(mix, short_master)
+
+    assert result["ok"] is False
+    assert result["reason"] == "master duration diverges from mix"
+
+
+def test_master_quality_rejects_rms_outside_target_range(tmp_path) -> None:
+    from app.ai.quality import validate_master_artifact
+
+    mix = tmp_path / "mix.wav"
+    quiet_master = tmp_path / "quiet_master.wav"
+    _write_master_candidate(mix)
+    _write_master_candidate(quiet_master, amplitude=0.03)
+
+    result = validate_master_artifact(mix, quiet_master)
+
+    assert result["ok"] is False
+    assert result["reason"] == "master RMS is outside target range"
+
+
+def test_master_quality_rejects_missing_output(tmp_path) -> None:
+    from app.ai.quality import validate_master_artifact
+
+    mix = tmp_path / "mix.wav"
+    _write_master_candidate(mix)
+
+    result = validate_master_artifact(mix, tmp_path / "missing.wav")
+
+    assert result["ok"] is False
+    assert result["reason"] == "audio file missing"

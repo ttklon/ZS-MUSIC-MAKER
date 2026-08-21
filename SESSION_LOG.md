@@ -222,3 +222,17 @@ ASR-вызов вынесен в `transcribe_reference_audio()`: handle полу
 | Регрессии | Добавлены fake-handle тесты успешной передачи `target/reference` и отказа при пустом output. |
 
 Проверка: `pytest tests/test_ai_quality.py -q` = **24 PASS**; `pytest tests/ -q` = **90 PASS**; `compileall` OK; `python tools/ast_dead_imports.py` = **0**. `matchering` отсутствует в sandbox: реальный inference честно **BLOCKED**, но контракт adapter/runner и fallback проверены без тяжёлой зависимости.
+
+
+---
+## PLAN_v39 — ШАГ 040: mastering_ai quality gate
+
+| Проверка | Реализация |
+|---|---|
+| True peak | `master_audio_metrics()` измеряет 4× oversampled оценку `true_peak_dbtp`; master отклоняется выше **−0.5 dBTP**. |
+| Loudness safety | RMS должен находиться в диапазоне **−20…−5 dBFS**. |
+| Stereo и time integrity | Output обязан быть 2-channel; длительность должна составлять **0.95–1.05×** длительности mix. |
+| Pipeline gate | `stage_master` добавляет `quality`, заменяет `ok` результатом проверки и возвращает конкретную `reason`; успешный engine-output более не равен принятому master-артефакту. |
+| Регрессии | Реальные WAV-тесты покрывают допустимый master, peak ceiling, mono, duration, RMS и missing output. |
+
+Проверка: `pytest tests/test_ai_quality.py -q` = **30 PASS**; `pytest tests/ -q` = **96 PASS**; `compileall` OK; `python tools/ast_dead_imports.py` = **0**. Inference matchering в sandbox отсутствует и остаётся честно **BLOCKED**; gate протестирован независимо на реальных аудиоданных.

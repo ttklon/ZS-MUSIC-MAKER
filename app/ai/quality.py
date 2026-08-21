@@ -115,6 +115,68 @@ def audio_metrics(path: str | Path) -> dict[str, Any]:
     return metrics
 
 
+def master_audio_metrics(path: str | Path) -> dict[str, Any]:
+    """Измерить пригодные для мастеринга уровни, включая 4x оценку true peak."""
+    metrics = audio_metrics(path)
+    if not metrics.get("readable"):
+        return metrics
+    try:
+        import numpy as np
+        import soundfile as sf
+
+        samples, _ = sf.read(str(path), always_2d=True)
+        peak = max(float(np.max(np.abs(samples))), 1e-12)
+        rms = max(float(np.sqrt(np.mean(samples ** 2))), 1e-12)
+        oversampled = samples
+        try:
+            from scipy.signal import resample_poly
+
+            oversampled = resample_poly(samples, 4, 1, axis=0)
+        except Exception:
+            # Без scipy peak остаётся консервативной нижней оценкой true peak.
+            pass
+        true_peak = max(float(np.max(np.abs(oversampled))), 1e-12)
+        metrics.update({
+            "peak_dbfs": round(20.0 * float(np.log10(peak)), 3),
+            "rms_dbfs": round(20.0 * float(np.log10(rms)), 3),
+            "true_peak_dbtp": round(20.0 * float(np.log10(true_peak)), 3),
+        })
+        return metrics
+    except Exception as exc:
+        return {"readable": False, "reason": f"master metrics failed: {exc}"}
+
+
+def validate_master_artifact(input_path: str | Path, output_path: str | Path, *,
+                             max_true_peak_dbtp: float = -0.5,
+                             min_rms_dbfs: float = -20.0,
+                             max_rms_dbfs: float = -5.0) -> dict[str, Any]:
+    """Проверить мастеринг: длину, stereo output, RMS-диапазон и true-peak ceiling."""
+    source = audio_metrics(input_path)
+    if not source.get("readable"):
+        return {"ok": False, "reason": "master input audio is unreadable", "metrics": {"input": source}}
+    base = validate_audio_artifact(output_path, min_duration_sec=0.25)
+    base_metrics = base.get("metrics", {})
+    base_metrics["input_duration_sec"] = source.get("duration_sec")
+    if not base.get("ok"):
+        return {"ok": False, "reason": base.get("reason"), "metrics": base_metrics}
+    metrics = master_audio_metrics(output_path)
+    metrics["input_duration_sec"] = source.get("duration_sec")
+    if not metrics.get("readable"):
+        return {"ok": False, "reason": metrics.get("reason"), "metrics": metrics}
+    input_duration = float(source["duration_sec"])
+    duration_ratio = float(metrics["duration_sec"]) / input_duration if input_duration > 0 else 0.0
+    metrics["duration_ratio"] = round(duration_ratio, 3)
+    if metrics.get("channels") != 2:
+        return {"ok": False, "reason": "master is not stereo", "metrics": metrics}
+    if not 0.95 <= duration_ratio <= 1.05:
+        return {"ok": False, "reason": "master duration diverges from mix", "metrics": metrics}
+    if float(metrics["true_peak_dbtp"]) > max_true_peak_dbtp:
+        return {"ok": False, "reason": "master true peak exceeds ceiling", "metrics": metrics}
+    if not min_rms_dbfs <= float(metrics["rms_dbfs"]) <= max_rms_dbfs:
+        return {"ok": False, "reason": "master RMS is outside target range", "metrics": metrics}
+    return {"ok": True, "reason": None, "metrics": metrics}
+
+
 def validate_audio_artifact(path: str | Path, *, min_duration_sec: float = 1.0) -> dict[str, Any]:
     """Отсечь пустой, короткий, silent или клиппующий audio output."""
     target = Path(path)
