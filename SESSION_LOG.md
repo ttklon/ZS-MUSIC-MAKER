@@ -236,3 +236,19 @@ ASR-вызов вынесен в `transcribe_reference_audio()`: handle полу
 | Регрессии | Реальные WAV-тесты покрывают допустимый master, peak ceiling, mono, duration, RMS и missing output. |
 
 Проверка: `pytest tests/test_ai_quality.py -q` = **30 PASS**; `pytest tests/ -q` = **96 PASS**; `compileall` OK; `python tools/ast_dead_imports.py` = **0**. Inference matchering в sandbox отсутствует и остаётся честно **BLOCKED**; gate протестирован независимо на реальных аудиоданных.
+
+
+---
+## PLAN_v39 — ШАГ 041: SequentialAIRunner timeout и OOM-защита
+
+| Область | Результат |
+|---|---|
+| Таймауты стадий | `AIStage.timeout_sec`; default **600 s**, `music_generation`/`music_stereo` **1800 s**, явный stage limit приоритетен. |
+| Watchdog | На POSIX main-thread применяется `SIGALRM` с `StageTimeoutError`; daemon timer фиксирует истечение лимита на остальных путях. Timeout возвращает `ok=False`, error и не останавливает последующие стадии. |
+| OOM ceiling | До stage и после загрузки роли проверяется VRAM; значение выше budget (default 12 GB) отменяет stage **до вызова fn** с reason `oom: …`. |
+| Lifecycle и telemetry | `finally` всегда запускает `registry.unload()`/`gc.collect()`; отчёты теперь включают timeout, VRAM до/после каждой стадии, лог выводит matrix времени/VRAM. |
+| Безопасность | Небезопасный kill потока не применяется. Если C/CUDA extension не перехватывает сигнал до возврата, watchdog честно отмечает timeout после возврата и lifecycle всё равно освобождается. |
+
+Проверка: `pytest tests/test_ai_layer.py -q` = **29 PASS**; `pytest tests/ -q` = **99 PASS**; `compileall` OK; `python tools/ast_dead_imports.py` = **0**. Добавлены детерминированные fake-VRAM, timeout и continuation регрессии.
+
+Дополнение приёмки: исправлен приоритет `--ai --dry-run` в `main.py`. Комбинация теперь запускает AI sequential pipeline, а не legacy dry-run. Сквозная проверка завершилась за **0.6 s**: все 12 стадий выдали timeout/VRAM telemetry, музыкальные роли получили **1800 s**, тяжёлые зависимости в sandbox остались честно fallback/skipped.

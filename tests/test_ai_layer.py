@@ -508,3 +508,46 @@ def test_dsp_feature_extraction_returns_reference_audio_metadata(tmp_path) -> No
     assert abs(result["duration_sec"] - seconds) <= 0.05
     assert result["key"] in {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"}
     assert result["loudness_rms"] > 0
+
+
+
+def test_runner_watchdog_marks_timeout_and_continues() -> None:
+    import time
+
+    from app.ai.sequential_runner import AIStage, SequentialAIRunner
+
+    runner = SequentialAIRunner(vram_probe=lambda: 0.0)
+    runner.add(AIStage("slow", None, lambda _handle, _ctx: time.sleep(0.2), timeout_sec=0.05))
+    runner.add(AIStage("after_timeout", None, lambda _handle, _ctx: {"ok": True}, timeout_sec=0.5))
+
+    report = runner.run({}).to_dict()
+
+    assert report["stages"][0]["ok"] is False
+    assert "timed out after 0.1s" in report["stages"][0]["error"]
+    assert report["stages"][0]["timeout_sec"] == 0.05
+    assert report["stages"][1]["ok"] is True
+    assert report["stages"][1]["vram_before_gb"] == 0.0
+
+
+def test_runner_rejects_vram_over_budget_before_stage_execution() -> None:
+    from app.ai.sequential_runner import AIStage, SequentialAIRunner
+
+    calls = []
+    runner = SequentialAIRunner(vram_budget_gb=12.0, vram_probe=lambda: 13.0)
+    runner.add(AIStage("over_budget", None, lambda _handle, _ctx: calls.append(True)))
+
+    report = runner.run({}).to_dict()
+
+    assert calls == []
+    assert report["stages"][0]["ok"] is False
+    assert report["stages"][0]["error"].startswith("oom: 13.000 GB exceeds 12.000 GB budget")
+    assert report["stages"][0]["vram_before_gb"] == 13.0
+
+
+def test_runner_assigns_extended_default_timeout_to_music_roles() -> None:
+    from app.ai.sequential_runner import AIStage, MUSIC_STAGE_TIMEOUT_SEC, SequentialAIRunner
+
+    runner = SequentialAIRunner(vram_probe=lambda: 0.0)
+
+    assert runner._timeout_for(AIStage("music", "music_generation", lambda _h, _c: None)) == MUSIC_STAGE_TIMEOUT_SEC
+    assert runner._timeout_for(AIStage("pure", None, lambda _h, _c: None)) == 600.0

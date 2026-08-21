@@ -478,6 +478,17 @@ def main() -> int:
     _register_patches(enabled=not args.legacy_off)
 
     if args.dry_run:
+        if args.ai:
+            from app.core.orchestrator_ai import run_ai_pipeline
+
+            ws = {
+                "genre": args.genre,
+                "theme": args.theme,
+                "artist_slug": args.dossier_artist or None,
+            }
+            out = run_ai_pipeline("ai_cli_dry_run", ws, dry_run=True)
+            print(json.dumps({"stages": out["report"]["stages"]}, ensure_ascii=False, indent=2))
+            return 0
         return _cli_dry_run()
 
     if args.dashboard:
