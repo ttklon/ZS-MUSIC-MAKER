@@ -1,53 +1,87 @@
 # -*- coding: utf-8 -*-
-"""
-ZS Music Maker — genre_validator.py (GOD MODE)
-========================================================================
-Автоматическая валидация всех 119+ жанров.
-Гарантирует целостность конфигов и отсутствие критических ошибок в профилях.
-"""
+"""Проверка versioned JSON пресетов и runtime genre profiles."""
+from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
-# Добавляем корень проекта в пути
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+ROOT = Path(__file__).resolve().parents[1]
+PRESETS_DIR = ROOT / "data" / "genre_presets"
+sys.path.insert(0, str(ROOT))
 
-from modules.genre_engine import StyleRegistry, GenreFactory
+from modules.genre_engine import GenreFactory, StyleRegistry
 
-def validate_all():
-    print("=== Genre Integrity Audit (100+ Styles) ===")
-    reg = StyleRegistry()
-    factory = GenreFactory(reg)
-    
-    genres = reg.list_genres()
-    print(f"Total genres found: {len(genres)}")
-    
-    errors = []
-    for g_name in genres:
+PRESET_REQUIRED = {
+    "genre": str,
+    "bpm_range": list,
+    "typical_keys": list,
+    "structure_templates": list,
+    "mood_tags": list,
+    "vocal_style": str,
+    "mastering_profile_default": str,
+}
+
+
+def validate_preset_assets(presets_dir: Path = PRESETS_DIR) -> list[str]:
+    """Проверить 50 versioned preset JSON по реальной data schema."""
+    errors: list[str] = []
+    files = sorted(presets_dir.glob("*.json"))
+    for path in files:
         try:
-            state = factory.create_wizard_state(g_name)
-            # Проверка обязательных полей
-            required = ["bpm_override", "key_override", "energy", "tags"]
-            for field in required:
-                if field not in state:
-                    errors.append(f"Genre '{g_name}' missing required field: {field}")
-            
-            # Проверка диапазонов
-            if not (20 <= state["bpm_override"] <= 300):
-                errors.append(f"Genre '{g_name}' has insane BPM: {state['bpm_override']}")
-                
-        except Exception as e:
-            errors.append(f"CRITICAL failure in genre '{g_name}': {e}")
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except Exception as exc:
+            errors.append(f"{path.name}: invalid JSON: {exc}")
+            continue
+        for field, field_type in PRESET_REQUIRED.items():
+            if field not in payload:
+                errors.append(f"{path.name}: missing {field}")
+            elif not isinstance(payload[field], field_type) or not payload[field]:
+                errors.append(f"{path.name}: invalid {field}")
+        bpm = payload.get("bpm_range", [])
+        if isinstance(bpm, list) and len(bpm) == 2:
+            if not all(isinstance(value, (int, float)) for value in bpm) or not (20 <= bpm[0] <= bpm[1] <= 300):
+                errors.append(f"{path.name}: invalid bpm_range={bpm!r}")
+        else:
+            errors.append(f"{path.name}: bpm_range must contain [min, max]")
+    if len(files) != 50:
+        errors.append(f"expected exactly 50 JSON presets, found {len(files)}")
+    return errors
 
-    if not errors:
-        print("✅ All 119+ genres are VALID and BATTLE-READY.")
-        return True
-    else:
-        print(f"❌ Found {len(errors)} issues:")
-        for err in errors:
-            print(f"  - {err}")
+
+def validate_runtime_genres() -> list[str]:
+    """Проверить runtime factory profiles, включая non-JSON built-ins."""
+    registry = StyleRegistry()
+    factory = GenreFactory(registry)
+    errors: list[str] = []
+    for genre in registry.list_genres():
+        try:
+            state = factory.create_wizard_state(genre)
+            for field in ("bpm_override", "key_override", "energy", "tags"):
+                if field not in state:
+                    errors.append(f"runtime {genre}: missing {field}")
+            if not 20 <= state["bpm_override"] <= 300:
+                errors.append(f"runtime {genre}: invalid BPM {state['bpm_override']}")
+        except Exception as exc:
+            errors.append(f"runtime {genre}: {exc}")
+    return errors
+
+
+def validate_all() -> bool:
+    asset_errors = validate_preset_assets()
+    runtime_errors = validate_runtime_genres()
+    runtime_count = len(StyleRegistry().list_genres())
+    print(f"Preset assets: {len(list(PRESETS_DIR.glob('*.json')))}/50")
+    print(f"Runtime genres: {runtime_count}")
+    errors = asset_errors + runtime_errors
+    if errors:
+        print(f"FAIL: {len(errors)} issue(s)")
+        for error in errors:
+            print(f"  - {error}")
         return False
+    print("PASS: 50/50 preset assets and all runtime genres are valid")
+    return True
+
 
 if __name__ == "__main__":
-    success = validate_all()
-    sys.exit(0 if success else 1)
+    raise SystemExit(0 if validate_all() else 1)

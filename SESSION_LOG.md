@@ -391,3 +391,11 @@ ASR-вызов вынесен в `transcribe_reference_audio()`: handle полу
 AI pipeline теперь создаёт `manifest.json` с `schema_version=1`, wizard state, stage report, engine/file/HF provenance 13 ролей и artifact map. `project_meta.json` сохранён для обратной совместимости. Regression проверяет manifest в isolated dry project output.
 
 Проверка: `pytest tests/test_ai_layer.py` = **32 PASS**; полный `pytest tests/` = **119 PASS**; compileall/AST OK.
+
+
+---
+## PLAN_v39 — ШАГ 054: genre preset validation
+
+`genre_validator` разделён на проверку **50/50 versioned JSON assets** по фактической schema и проверку **119 runtime genres** через `GenreFactory`. Реальный запуск: `Preset assets: 50/50`, `Runtime genres: 119`, `PASS`.
+
+Проверка: validator OK; полный `pytest tests/` = **119 PASS**; compileall/AST OK.
