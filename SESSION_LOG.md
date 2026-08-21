@@ -310,3 +310,17 @@ ASR-вызов вынесен в `transcribe_reference_audio()`: handle полу
 | Reference honesty | `reference_wav` сохраняется как provenance, `reference_applied=False`: не заявляется несуществующее MusicGen audio conditioning. |
 
 Проверка: fake MusicGen/short-output регрессии; `pytest tests/test_ai_quality.py -q` = **35 PASS**, полный `pytest tests/` = **113 PASS**, dry-run/compileall OK, AST = **0**. MusicGen/audiocraft/torch inference в sandbox честно **BLOCKED**.
+
+
+---
+## PLAN_v39 — ШАГ 046: XTTS-v2 → RVC
+
+| Область | Результат |
+|---|---|
+| Исправление API | `voice_synth_ai` больше не вызывает несуществующий `convert`; использует фактический `rvc_manager.infer(input_wav, voice_name, pitch_shift, out_name)`. |
+| Handle lifecycle | XTTS adapter принимает runner `tts_handle`; stage_vocal переведена на этот adapter. RVC может принять `rvc_handle`, standalone path выгружается через registry. |
+| RVC honesty | `rvc_applied=True` только после output+quality success; `rvc_model` path не выдаётся за применённую модель без реального `rvc_voice_name`. |
+| Quality | К audio metrics добавлен DC offset; RVC отклоняется выше **0.02** вместе с duration/signal constraints. |
+| Регрессии | Fake XTTS→RVC проверяет voice name/pitch/project output, отдельный WAV проверяет DC-offset reject. |
+
+Проверка: `pytest tests/test_ai_quality.py -q` = **37 PASS**; полный `pytest tests/` = **115 PASS**; dry-run/compileall OK; AST = **0**. XTTS/rvc-python/user model/GPU в sandbox отсутствуют: real inference честно **BLOCKED**.

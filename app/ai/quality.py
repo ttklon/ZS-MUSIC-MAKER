@@ -148,6 +148,7 @@ def audio_metrics(path: str | Path) -> dict[str, Any]:
         "channels": int(samples.shape[1]),
         "peak": round(peak, 6),
         "rms": round(rms, 6),
+        "dc_offset": round(float(np.max(np.abs(np.mean(samples, axis=0)))), 6),
     }
     if samples.shape[1] >= 2:
         left, right = samples[:, 0], samples[:, 1]
@@ -262,6 +263,8 @@ def validate_rvc_artifact(input_path: str | Path, output_path: str | Path) -> di
     result["metrics"]["duration_ratio"] = round(ratio, 3)
     if not 0.85 <= ratio <= 1.15:
         return {"ok": False, "reason": "RVC output duration diverges from input", "metrics": result["metrics"]}
+    if float(result["metrics"].get("dc_offset", 0.0)) > 0.02:
+        return {"ok": False, "reason": "RVC output DC offset is too high", "metrics": result["metrics"]}
     return {"ok": True, "reason": None, "metrics": result["metrics"]}
 
 

@@ -332,7 +332,15 @@ def run_ai_pipeline(project_id, wizard_state=None, out_root=None, dry_run=False)
         clean = re.sub(r"\n{3,}", "\n\n", clean)[:3500]
         out_path = str(out_root / "vocal_xtts.wav")
         if handle is not None:
-            primary = render_xtts_vocal(handle, clean, out_path, speaker_wav=ws.get("speaker_wav"))
+            from modules.voice_synth_ai import synth_vocal_ai
+
+            primary = synth_vocal_ai(
+                clean,
+                out_path,
+                speaker_wav=ws.get("speaker_wav"),
+                language="ru",
+                tts_handle=handle,
+            )
             if primary.get("ok"):
                 return primary
         else:

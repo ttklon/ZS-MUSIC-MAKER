@@ -677,3 +677,43 @@ def test_beat_gen_ai_rejects_short_generator_output(tmp_path) -> None:
 
     assert result["ok"] is False
     assert result["reason"] == "music generator returned fewer samples than requested duration"
+
+
+
+def test_voice_synth_ai_uses_xtts_and_public_rvc_infer_contract(tmp_path) -> None:
+    from modules.voice_synth_ai import synth_vocal_ai
+
+    xtts_output = tmp_path / "vocal_xtts.wav"
+    rvc_engine_output = tmp_path / "rvc_engine.wav"
+    result = synth_vocal_ai(
+        "Проверочный вокальный текст для RVC",
+        str(xtts_output),
+        tts_handle=_FakeXTTS(),
+        rvc_handle=_FakeRVCManager(rvc_engine_output),
+        rvc_voice_name="artist_voice",
+        pitch_shift=2,
+    )
+
+    assert result["ok"] is True
+    assert result["engine"] == "xtts_v2"
+    assert result["rvc_applied"] is True
+    assert result["rvc"]["voice_name"] == "artist_voice"
+    assert result["rvc"]["pitch_shift"] == 2
+    assert Path(result["vocal_path"]).exists()
+
+
+def test_rvc_quality_rejects_dc_offset(tmp_path) -> None:
+    from app.ai.quality import validate_rvc_artifact
+
+    sample_rate = 8_000
+    samples = np.arange(sample_rate) / sample_rate
+    source = 0.1 * np.sin(2 * np.pi * 180 * samples)
+    input_wav = tmp_path / "input.wav"
+    offset_wav = tmp_path / "offset.wav"
+    sf.write(input_wav, source, sample_rate)
+    sf.write(offset_wav, source + 0.03, sample_rate)
+
+    result = validate_rvc_artifact(input_wav, offset_wav)
+
+    assert result["ok"] is False
+    assert result["reason"] == "RVC output DC offset is too high"
