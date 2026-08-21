@@ -20,6 +20,13 @@ from __future__ import annotations
 
 import random
 import re
+import warnings
+
+warnings.warn(
+    "modules.lyrics_gen_v8 is deprecated; prefer modules.lyrics_gen_ai when lyrics_llm is available",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
 from modules import (
     author_ref_lyrics,

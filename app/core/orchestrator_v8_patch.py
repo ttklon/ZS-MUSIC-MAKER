@@ -27,6 +27,49 @@ def _stage(hook, name: str, progress: float):
         pass
 
 
+def _chorus_lines(text: str) -> list[str]:
+    """Extract a compact chorus list for legacy female-backing compatibility."""
+    lines: list[str] = []
+    in_chorus = False
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        low = line.lower()
+        if line.startswith("[") and line.endswith("]"):
+            in_chorus = any(token in low for token in ("припев", "chorus", "hook"))
+            continue
+        if in_chorus and line:
+            lines.append(line)
+    return lines
+
+
+def _generate_ai_lyrics(recipe: dict) -> dict | None:
+    """Use the current AI adapter only when its registered role is available."""
+    from app.ai.registry import registry
+
+    if not registry.is_available("lyrics_llm"):
+        return None
+    from modules.lyrics_gen_ai import generate_lyrics_ai
+
+    result = generate_lyrics_ai(
+        theme=recipe.get("theme", "лето тачки"),
+        style_vector={"target_bpm": int(recipe.get("bpm", 130))},
+        n_verses=2,
+        user_lyrics_lines=recipe.get("user_lyrics_lines", []),
+        bilingual=recipe.get("lang_mix", "ru+en") == "ru+en",
+        genre=recipe.get("genre", "phonk"),
+    )
+    if not result.get("ok") or not result.get("lyrics"):
+        return None
+    text = str(result["lyrics"])
+    return {
+        "text": text,
+        "chorus_lines": _chorus_lines(text),
+        "used_slang": [],
+        "author_style_used": False,
+        "source": "lyrics_gen_ai",
+    }
+
+
 def run_pipeline_v8(orch, recipe: dict, stage_hook=None):
     """
     Полный v8 pipeline. `orch` — экземпляр v7 Orchestrator.
@@ -37,26 +80,31 @@ def run_pipeline_v8(orch, recipe: dict, stage_hook=None):
     # ---------- 0) v8 lyrics с автором-референсом ------------------
     _stage(stage_hook, "lyrics_v8", 0.10)
     try:
-        from modules.lyrics_gen_v8 import generate_lyrics_v8
+        lyrics_res = _generate_ai_lyrics(recipe)
+        if lyrics_res is None:
+            from modules.lyrics_gen_v8 import generate_lyrics_v8
 
-        lyrics_res = generate_lyrics_v8(
-            theme=recipe.get("theme", "лето тачки"),
-            user_words=recipe.get("user_lyrics_lines", []),
-            bpm=int(recipe.get("bpm", 130)),
-            author=recipe.get("author_ref", None),
-            target_lines=recipe.get("target_lines", 16),
-            want_female_backing=recipe.get("female_backing", False),
-            lang_mix=recipe.get("lang_mix", "ru+en"),
-        )
+            lyrics_res = generate_lyrics_v8(
+                theme=recipe.get("theme", "лето тачки"),
+                user_words=recipe.get("user_lyrics_lines", []),
+                bpm=int(recipe.get("bpm", 130)),
+                author=recipe.get("author_ref", None),
+                target_lines=recipe.get("target_lines", 16),
+                want_female_backing=recipe.get("female_backing", False),
+                lang_mix=recipe.get("lang_mix", "ru+en"),
+            )
+            lyrics_res["source"] = "lyrics_gen_v8"
         recipe["lyrics_text"] = lyrics_res["text"]
         recipe["chorus_lines"] = lyrics_res["chorus_lines"]
         recipe["used_slang"] = lyrics_res["used_slang"]
+        recipe["lyrics_source"] = lyrics_res["source"]
         log(
-            f"[v8] lyrics: author_style={lyrics_res['author_style_used']}, "
+            f"[v8] lyrics: source={lyrics_res['source']}, "
+            f"author_style={lyrics_res['author_style_used']}, "
             f"slang={len(lyrics_res['used_slang'])}"
         )
     except Exception as e:
-        log(f"[v8] lyrics_v8 FAILED, use v7 default: {e}")
+        log(f"[v8] lyrics stage failed, use v7 default: {e}")
 
     # ---------- 1) v7 core pipeline (analyze → beat → voice → mix) ---
     _stage(stage_hook, "v7_core", 0.20)

@@ -545,3 +545,10 @@ PROJECT_STATE заменён v39 snapshot: **147/147** matrix rows соотве�
 Все 15 versioned `.prompt.txt` ранее не читались runtime. В `app/ai/prompts.py` добавлен allowlisted role catalog: lyrics=4, metadata=8, analysis=1, cover_art=1, trend_analysis=1. Loader отклоняет произвольные filenames, renderer валидирует placeholders; builders lyrics/dossier/metadata используют role assets, cover asset проверяется без изменения совместимого concise prompt.
 
 Приёмка: 15/15 mapped/renderable, catalog tests 4 PASS, unknown/path traversal name rejected. `pytest tests/ -q` = **171 PASS**, compileall/AST OK, data inventory 73/0/0. Heavy inference не заявляется.
+
+---
+## PLAN_v39 — ШАГ 077: lyrics_gen_v8 deprecation и AI-first legacy path
+
+`lyrics_gen_v8` сохранён для Wizard compatibility, но импорт явно выдаёт DeprecationWarning. `orchestrator_v8_patch` сначала проверяет availability `lyrics_llm`; только при доступной роли вызывает `lyrics_gen_ai` и конвертирует result в legacy recipe fields. При отсутствии/ошибке role честно возвращается к v8 generator, так что warning/fallback не скрывают blocked model.
+
+Приёмка: 4 targeted tests (warning, unavailable role, fake AI output, v8 preference) PASS; полный `pytest tests/ -q` = **175 PASS**, compileall/AST OK, data inventory 73/0/0. Real LLM inference не запускался.
