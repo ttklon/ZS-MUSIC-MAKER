@@ -10,10 +10,10 @@ from app.ai import llm_service as LLM
 from app.ai.quality import (
     validate_audio_artifact,
     validate_cover_artifact,
-    validate_lyrics,
     validate_master_artifact,
     validate_metadata_json,
     validate_rvc_artifact,
+    validate_song_lyrics,
     validate_stereo_texture,
     validate_vocal_artifact,
 )
@@ -171,32 +171,46 @@ def run_ai_pipeline(project_id, wizard_state=None, out_root=None, dry_run=False)
     def stage_lyrics(handle, ctx):
         if dry_run:
             return {"ok": True, "lyrics": "[dry-run]", "source": "dry"}
-        art = (ctx["sink"].get("dossier_load") or {}).get("artist_dossier")
-        trk = (ctx["sink"].get("dossier_load") or {}).get("track_dossier")
+        requested_lines = ws.get("user_lyrics_lines") or []
         text, source = "", "lyrics_llm"
+        quality = {"ok": False, "reason": "lyrics_llm unavailable", "metrics": {}}
         if handle is not None:
-            prompt = P.build_lyrics_prompt(theme=ws["theme"], genre=ws["genre"], bpm=ws["bpm"],
-                n_verses=ws["n_verses"], bilingual=ws["bilingual"],
-                user_lines=ws.get("user_lyrics_lines"),
-                artist_dossier=art, track_reference=trk)
-            text = LLM.complete(handle, P.SYSTEM_LYRICS, prompt, max_tokens=1400,
-                                temperature=0.9, repeat_penalty=1.15)
+            try:
+                from modules.lyrics_gen_ai import generate_lyrics_ai
 
-        quality = validate_lyrics(text)
+                ai_result = generate_lyrics_ai(
+                    theme=ws["theme"],
+                    style_vector={"target_bpm": ws["bpm"]},
+                    n_verses=ws["n_verses"],
+                    user_lyrics_lines=requested_lines,
+                    bilingual=ws["bilingual"],
+                    artist_slug=artist_slug,
+                    track_id=ref_track_id,
+                    genre=ws["genre"],
+                    handle=handle,
+                )
+                text = str(ai_result.get("lyrics") or "")
+                source = str(ai_result.get("source") or "lyrics_llm")
+                quality = validate_song_lyrics(text, user_lines=requested_lines)
+            except Exception as exc:  # noqa: BLE001
+                app_logger.error("[orchestrator_ai] stage=lyrics event=ai_failed reason=%s", exc)
+                quality = {"ok": False, "reason": f"lyrics_ai failed: {exc}", "metrics": {}}
         if not quality["ok"]:
             try:
                 from modules import lyrics_gen
-                r = lyrics_gen.generate_lyrics(theme=ws["theme"],
-                    style_vector={"target_bpm": ws["bpm"]}, n_verses=ws["n_verses"],
-                    user_lyrics_lines=ws.get("user_lyrics_lines") or [],
-                    bilingual=ws["bilingual"])
-                text = r.get("lyrics", "")
+
+                fallback = lyrics_gen.generate_lyrics(
+                    theme=ws["theme"],
+                    style_vector={"target_bpm": ws["bpm"]},
+                    n_verses=ws["n_verses"],
+                    user_lyrics_lines=requested_lines,
+                    bilingual=ws["bilingual"],
+                )
+                text = str(fallback.get("lyrics") or "")
                 source = "punch_lib_fallback"
-                quality = validate_lyrics(text)
-            except Exception as _lg_e:  # noqa: BLE001
-                app_logger.error(
-                    f"[orchestrator_ai] stage=lyrics event=fallback_failed "
-                    f"reason={type(_lg_e).__name__}: {_lg_e}")
+                quality = validate_song_lyrics(text, user_lines=requested_lines)
+            except Exception as exc:  # noqa: BLE001
+                app_logger.error("[orchestrator_ai] stage=lyrics event=fallback_failed reason=%s", exc)
         (out_root / "lyrics.txt").write_text(text or "", encoding="utf-8")
         return {"ok": bool(quality["ok"]), "lyrics": text, "source": source,
                 "path": str(out_root / "lyrics.txt"), "quality": quality,

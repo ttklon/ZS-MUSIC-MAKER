@@ -282,3 +282,17 @@ ASR-вызов вынесен в `transcribe_reference_audio()`: handle полу
 | Inventory | `data/artist_dossier/` классифицирован как user-generated runtime output и исключён только из versioned fixture audit. |
 
 Проверка: `pytest tests/test_ai_layer.py -q` = **31 PASS**; `pytest tests/ -q` = **108 PASS**; `compileall` OK; AST = **0**; data inventory **73 managed / 0 unknown / 0 invalid**. Heavy Demucs/ASR/CLAP/LLM inference в sandbox остаётся честно **BLOCKED**.
+
+
+---
+## PLAN_v39 — ШАГ 044: AI-first lyrics + dossier
+
+| Область | Результат |
+|---|---|
+| Основная ветвь | `stage_lyrics` вызывает `lyrics_gen_ai.generate_lyrics_ai` и передаёт runner handle; nested registry load при model-backed stage исключён. |
+| Контекст | Adapter строит prompt с dossier/track reference, BPM/жанром/темой и `user_lyrics_lines`; обязательные строки проверяются в output. |
+| Release gate | Добавлены 200–800 words, 2+ verse, repeated hook, user-line inclusion и AI filler checks. Длинный structured lyric получает контролируемую lexical-overlap поправку только с сохранённым line repetition limit. |
+| Fallback | Punch library усилен до двух 16-line куплетов с единым повторяемым hook и циклическим punch-list; реальная fallback-regression проходит gate. |
+| Честная среда | `lyrics_llm`/llama_cpp отсутствуют: inference не заявлен выполненным, но AI adapter с fake handle, routing и no-model fallback проверены. |
+
+Проверка: `pytest tests/test_ai_quality.py -q` = **33 PASS**; `pytest tests/ -q` = **111 PASS**; `--ai --dry-run` OK; `compileall` OK; AST = **0**.

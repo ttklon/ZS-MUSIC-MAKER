@@ -547,3 +547,63 @@ def test_master_quality_rejects_missing_output(tmp_path) -> None:
 
     assert result["ok"] is False
     assert result["reason"] == "audio file missing"
+
+
+
+def test_song_lyrics_quality_requires_release_structure_and_user_lines() -> None:
+    from app.ai.quality import validate_song_lyrics
+
+    verse_one = [f"Ночной маршрут {index} несёт меня через кварталы города" for index in range(40)]
+    verse_two = [f"Неоновый ритм {index} помогает не терять направление" for index in range(40)]
+    hook = [
+        "Мы летим выше огней и не теряем свой путь",
+        "Сквозь холодный воздух город оставляет свой след",
+    ] * 2
+    text = "\n".join([
+        "[Куплет 1]", *verse_one, "[Hook]", *hook,
+        "[Куплет 2]", *verse_two, "[Hook]", *hook,
+        "Моя обязательная строка",
+    ])
+
+    result = validate_song_lyrics(text, user_lines=["Моя обязательная строка"])
+
+    assert result["ok"] is True
+    assert 200 <= result["metrics"]["words"] <= 800
+    assert result["metrics"]["hook_headers"] == 2
+
+
+def test_song_lyrics_quality_rejects_missing_structure_or_ai_filler() -> None:
+    from app.ai.quality import validate_song_lyrics
+
+    short = "[Куплет 1]\n" + "\n".join(
+        f"Уникальная строка номер {index} звучит в темноте" for index in range(80)
+    )
+    assert validate_song_lyrics(short)["reason"] == "lyrics require at least two verses"
+
+    def section(start: int) -> str:
+        return "\n".join(
+            f"Уникальная строка номер {index} звучит в темноте" for index in range(start, start + 25)
+        )
+
+    filler = "\n".join([
+        "[Куплет 1]", section(0), "[Hook]", section(25),
+        "[Куплет 2]", section(50), "[Hook]", section(75), "как ии",
+    ])
+    assert validate_song_lyrics(filler)["reason"] == "lyrics contain prohibited AI filler"
+
+
+def test_punch_library_fallback_meets_release_lyrics_contract(monkeypatch) -> None:
+    import modules.lyrics_gen as lyrics_gen
+    from app.ai.quality import validate_song_lyrics
+
+    monkeypatch.setattr(lyrics_gen, "_try_ollama", lambda _prompt: None)
+    monkeypatch.setattr(lyrics_gen, "_save_lyric_memory", lambda _entry: None)
+    generated = lyrics_gen.generate_lyrics(
+        "ночь город скорость", n_verses=2, bilingual=True,
+        user_lyrics_lines=["Моя обязательная строка"],
+    )
+
+    quality = validate_song_lyrics(generated["lyrics"], user_lines=["Моя обязательная строка"])
+
+    assert generated["source"] == "template"
+    assert quality["ok"] is True

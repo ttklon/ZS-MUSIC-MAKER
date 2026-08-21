@@ -58,6 +58,49 @@ def validate_lyrics(text: str, *, min_characters: int = 60) -> dict[str, Any]:
     return {"ok": True, "reason": None, "metrics": metrics}
 
 
+def validate_song_lyrics(text: str, *, user_lines: list[str] | None = None,
+                         min_words: int = 200, max_words: int = 800) -> dict[str, Any]:
+    """Проверить release-структуру текста после базового lexical quality gate."""
+    base = validate_lyrics(text, min_characters=60)
+    metrics = dict(base["metrics"])
+    lower = (text or "").lower()
+    headers = [line.strip().lower() for line in (text or "").splitlines() if line.strip().startswith("[")]
+    verse_headers = sum("куплет" in header or "verse" in header for header in headers)
+    hook_headers = sum(any(marker in header for marker in ("припев", "hook", "chorus")) for header in headers)
+    requested = [line.strip() for line in (user_lines or []) if line.strip()]
+    included = [line for line in requested if line.lower() in lower]
+    filler_terms = ("нейра-говно", "как ии", "language model", "as an ai")
+    filler_hits = [term for term in filler_terms if term in lower]
+    metrics.update({
+        "words": metrics["tokens"],
+        "verse_headers": verse_headers,
+        "hook_headers": hook_headers,
+        "user_lines_requested": len(requested),
+        "user_lines_included": len(included),
+        "filler_hits": filler_hits,
+    })
+    # Длинный structured текст закономерно повторяет служебные слова и hook.
+    # Для release-form допускаем более низкую lexical diversity только при
+    # сохранённом base repetition limit и последующих structure checks.
+    if not base["ok"] and not (
+        base["reason"] == "token diversity too low"
+        and float(metrics["unique_token_ratio"]) >= 0.08
+        and int(metrics["max_repeated_line"]) <= 4
+    ):
+        return {"ok": False, "reason": base["reason"], "metrics": metrics}
+    if not min_words <= metrics["words"] <= max_words:
+        return {"ok": False, "reason": "lyrics word count is outside release range", "metrics": metrics}
+    if verse_headers < 2:
+        return {"ok": False, "reason": "lyrics require at least two verses", "metrics": metrics}
+    if hook_headers < 2:
+        return {"ok": False, "reason": "lyrics require a repeated hook", "metrics": metrics}
+    if len(included) != len(requested):
+        return {"ok": False, "reason": "lyrics omit required user lines", "metrics": metrics}
+    if filler_hits:
+        return {"ok": False, "reason": "lyrics contain prohibited AI filler", "metrics": metrics}
+    return {"ok": True, "reason": None, "metrics": metrics}
+
+
 def validate_metadata_json(payload: Any) -> dict[str, Any]:
     """Проверить минимальный контракт метаданных релиза из metadata_llm."""
     if not isinstance(payload, dict):

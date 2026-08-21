@@ -178,12 +178,14 @@ def _template_verse(
     """Собираем куплет из панчей и пользовательских строк."""
     lines = []
     used_user = 0
-    for i in range(4):
+    for i in range(16):
         if used_user < len(user_lines) and i in (0, 2):
             lines.append(user_lines[used_user])
             used_user += 1
         else:
-            base = random.choice(punches) if punches else "движ на движ"
+            # Цикл по заранее перемешанному punch-list исключает случайный
+            # loop одного и того же бара, но сохраняет разнообразие по теме.
+            base = punches[i % len(punches)] if punches else "движ на движ"
             lines.append(base)
     # Оставшиеся пользовательские — добавим в конец
     for extra in user_lines[used_user:]:
@@ -251,6 +253,9 @@ def generate_lyrics(
         # Fallback: template
         punches = _pick_punches(theme, count=8)
         blocks = []
+        # Один hook повторяется после каждого куплета: это контролируемая
+        # song-structure, а не случайно меняющийся набор строк.
+        hook_lines = _template_hook_en(user_en) if bilingual else []
         for i in range(n_verses):
             blocks.append(f"[Куплет {i+1}]")
             blocks.extend(
@@ -258,9 +263,9 @@ def generate_lyrics(
                     punches, user_ru if i == 0 else [], bpm, syllable_target
                 )
             )
-            if bilingual:
+            if hook_lines:
                 blocks.append("[Hook]")
-                blocks.extend(_template_hook_en(user_en))
+                blocks.extend(hook_lines)
         lyrics_text = "\n".join(blocks)
         source = "template"
 

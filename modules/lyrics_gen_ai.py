@@ -16,7 +16,7 @@ MEMORY = VAULT / "lyrics_memory.jsonl"
 
 def generate_lyrics_ai(theme, style_vector=None, n_verses=2, user_lyrics_lines=None,
                        bilingual=True, artist_slug=None, track_id=None,
-                       genre="phonk") -> Dict[str, Any]:
+                       genre="phonk", handle: Any = None) -> Dict[str, Any]:
     style_vector = style_vector or {}
     user_lyrics_lines = [l.strip() for l in (user_lyrics_lines or []) if l.strip()]
     bpm = int(style_vector.get("target_bpm") or 140)
@@ -29,12 +29,17 @@ def generate_lyrics_ai(theme, style_vector=None, n_verses=2, user_lyrics_lines=N
                                    n_verses=n_verses, bilingual=bilingual,
                                    user_lines=user_lyrics_lines,
                                    artist_dossier=art_dos, track_reference=trk_dos)
-    if not registry.is_available("lyrics_llm"):
+    if handle is None and not registry.is_available("lyrics_llm"):
         return {"ok": False, "lyrics": "",
-                "reason": "lyrics_llm unavailable - run tools/pull_ai_models.py --model lyrics_llm",
+                "reason": "lyrics_llm unavailable - run tools/pull_ai_models.py --role lyrics_llm",
                 "source": "BLOCKED"}
-    with registry.use("lyrics_llm") as m:
-        text = LLM.complete(m.handle, P.SYSTEM_LYRICS, prompt,
+    if handle is None:
+        with registry.use("lyrics_llm") as loaded:
+            text = LLM.complete(loaded.handle, P.SYSTEM_LYRICS, prompt,
+                                max_tokens=1400, temperature=0.9, top_p=0.95,
+                                repeat_penalty=1.15)
+    else:
+        text = LLM.complete(handle, P.SYSTEM_LYRICS, prompt,
                             max_tokens=1400, temperature=0.9, top_p=0.95,
                             repeat_penalty=1.15)
     if not text or len(text) < 60:
