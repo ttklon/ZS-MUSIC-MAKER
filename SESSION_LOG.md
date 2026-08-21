@@ -415,3 +415,11 @@ AI pipeline теперь создаёт `manifest.json` с `schema_version=1`, w
 Добавлен `select_speaker_wav`: выбор clean recording по стилю/SNR с исключением clipped clips и controlled fallback. `stage_vocal` использует explicit `speaker_wav` или выбранный Voice Vault clip. В проверке выявлен и исправлен first-import bug: vault directory создаётся до `copy2`, не только перед index save.
 
 Проверка: Voice Vault WAV intake/selection tests = **2 PASS**; полный `pytest tests/` = **123 PASS**; compileall/AST OK.
+
+
+---
+## PLAN_v39 — ШАГ 057: authorized remix workflow
+
+Добавлен `modules.remix.render_remix`: remix возможен только с явным `source_authorized=True`, использует новый beat и vocal stem без source looping, ресемплирует к beat sample rate, гарантирует stereo и peak ceiling. Demucs dossier stem остаётся аналитическим; его применение требует прав пользователя.
+
+Проверка: remix authorization/audio tests = **2 PASS**; полный `pytest tests/` = **125 PASS**; compileall/AST OK.
