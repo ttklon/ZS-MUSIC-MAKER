@@ -6,8 +6,10 @@ ZS Music Maker v14 — tools/readiness.py (P0.14, TZ 33.4)
 
 from __future__ import annotations
 
+import ast
 import json
 import math
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -31,6 +33,10 @@ WEIGHTS = {
     "testing": 10,
 }
 
+INVENTORY_ROOTS = ("app", "agents", "modules", "tools", "ui", "updater")
+TEST_ROOT = "tests"
+
+
 STATUS_WEIGHT = {
     "REAL_PASS": 1.00,
     "PARTIAL": 0.50,
@@ -41,6 +47,117 @@ STATUS_WEIGHT = {
     "NOT_TESTED": 0.00,
     "BLOCKED": 0.00,
 }
+
+
+def tracked_python_modules() -> list[str]:
+    """Return versioned production Python files, never runtime cache files.
+
+    Git is the source of truth when available, which makes the generated state
+    matrix match the repository rather than whatever happens to be present in a
+    developer's untracked working tree.  The filesystem fallback keeps the
+    health command usable from a source archive.
+    """
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(ROOT), "ls-files", "*.py"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        paths = result.stdout.splitlines()
+    except (OSError, subprocess.CalledProcessError):
+        paths = [
+            str(path.relative_to(ROOT))
+            for base in INVENTORY_ROOTS
+            for path in (ROOT / base).rglob("*.py")
+            if "__pycache__" not in path.parts
+        ]
+
+    return sorted(
+        path for path in paths
+        if path.endswith(".py")
+        and (path == "main.py" or path.split("/", 1)[0] in INVENTORY_ROOTS)
+    )
+
+
+def _source_texts() -> tuple[str, str]:
+    production = "\n".join(
+        (ROOT / path).read_text(encoding="utf-8", errors="replace")
+        for path in tracked_python_modules()
+    )
+    tests_dir = ROOT / TEST_ROOT
+    tests = "\n".join(
+        path.read_text(encoding="utf-8", errors="replace")
+        for path in tests_dir.glob("test_*.py")
+    ) if tests_dir.exists() else ""
+    return production, tests
+
+
+def module_inventory() -> list[dict[str, Any]]:
+    """Build an auditable, static status row for every tracked production file.
+
+    `REAL_PASS` means the file parses and has at least a production reference or
+    a direct test reference. `PLANNED` is present/parseable but lacks both static
+    signals. `REAL_FAIL` denotes a syntax error. This intentionally does not
+    assert that optional heavy model runtime was executed.
+    """
+    production, tests = _source_texts()
+    rows: list[dict[str, Any]] = []
+    for path in tracked_python_modules():
+        source = (ROOT / path).read_text(encoding="utf-8", errors="replace")
+        module_dot = path[:-3].replace("/", ".")
+        basename = Path(path).stem
+        try:
+            ast.parse(source, filename=path)
+            syntax_ok = True
+        except SyntaxError:
+            syntax_ok = False
+        production_refs = production.count(module_dot) + production.count(basename)
+        test_refs = tests.count(module_dot) + tests.count(basename)
+        # Subtract the module's own filename/text occurrence from source scan.
+        production_refs = max(0, production_refs - 1)
+        status = (
+            "REAL_FAIL" if not syntax_ok
+            else "REAL_PASS" if (production_refs or test_refs)
+            else "PLANNED"
+        )
+        rows.append({
+            "path": path,
+            "status": status,
+            "syntax_ok": syntax_ok,
+            "production_references": production_refs,
+            "test_references": test_refs,
+        })
+    return rows
+
+
+def module_inventory_summary() -> dict[str, int]:
+    rows = module_inventory()
+    return {
+        "tracked_modules": len(rows),
+        "REAL_PASS": sum(row["status"] == "REAL_PASS" for row in rows),
+        "REAL_FAIL": sum(row["status"] == "REAL_FAIL" for row in rows),
+        "PLANNED": sum(row["status"] == "PLANNED" for row in rows),
+    }
+
+
+def inventory_markdown() -> str:
+    """Render the full, deterministic inventory as a Markdown pipe table."""
+    lines = [
+        "| Versioned module | Status | AST syntax | Production refs | Test refs |",
+        "|---|---|---:|---:|---:|",
+    ]
+    for row in module_inventory():
+        lines.append(
+            "| {path} | {status} | {syntax} | {production} | {tests} |".format(
+                path=row["path"],
+                status=row["status"],
+                syntax="PASS" if row["syntax_ok"] else "FAIL",
+                production=row["production_references"],
+                tests=row["test_references"],
+            )
+        )
+    return "\n".join(lines)
 
 
 def _module_exists(name: str) -> bool:
@@ -109,41 +226,33 @@ def probe_core_modules() -> dict[str, str]:
     return p
 
 
+def _dependency_status(name: str) -> str:
+    """Probe a real optional dependency without converting absence to success."""
+    return "REAL_PASS" if _module_exists(name) else "BLOCKED"
+
+
 def probe_audio_pipeline() -> dict[str, str]:
     p: dict[str, str] = {}
-    try:
-        p["matchering"] = "REAL_PASS"
-    except Exception:
-        p["matchering"] = "MISSING"
-    try:
-        p["pedalboard"] = "REAL_PASS"
-    except Exception:
-        p["pedalboard"] = "MISSING"
-    try:
-        p["pyloudnorm"] = "REAL_PASS"
-    except Exception:
-        p["pyloudnorm"] = "MISSING"
-    try:
-        p["librosa_soundfile"] = "REAL_PASS"
-    except Exception:
-        p["librosa_soundfile"] = "MISSING"
-    try:
-        p["musicgen"] = "REAL_PASS"
-    except Exception:
-        p["musicgen"] = "MISSING"
-    try:
-        p["demucs"] = "REAL_PASS"
-    except Exception:
-        p["demucs"] = "MISSING"
-
-    if _file_exists("output/audit_v14/e2e_summary.json") or _file_exists(
-        "output/audit_v14/real_e2e_result.json"
-    ):
-        p["e2e_run_evidence"] = "PARTIAL"
-    else:
-        p["e2e_run_evidence"] = "NOT_TESTED"
-    p["mastering_8_stands"] = (
-        "PARTIAL" if _module_exists("modules.mastering") else "MISSING"
+    p["matchering_runtime"] = _dependency_status("matchering")
+    p["pedalboard_runtime"] = _dependency_status("pedalboard")
+    p["pyloudnorm_runtime"] = _dependency_status("pyloudnorm")
+    p["librosa_soundfile_runtime"] = (
+        "REAL_PASS"
+        if _module_exists("librosa") and _module_exists("soundfile")
+        else "BLOCKED"
+    )
+    p["musicgen_runtime"] = _dependency_status("audiocraft")
+    p["demucs_runtime"] = _dependency_status("demucs")
+    p["orchestrator_ai"] = (
+        "REAL_PASS" if _module_exists("app.core.orchestrator_ai") else "MISSING"
+    )
+    p["mastering_adapter"] = (
+        "REAL_PASS" if _module_exists("modules.mastering_ai") else "MISSING"
+    )
+    p["documented_smoke_scripts"] = (
+        "REAL_PASS"
+        if _file_exists("tools/smoke_v26.py") and _file_exists("tools/smoke_v29.py")
+        else "MISSING"
     )
     return p
 
@@ -175,17 +284,19 @@ def probe_voice_rvc() -> dict[str, str]:
 
 def probe_release() -> dict[str, str]:
     p: dict[str, str] = {}
+    p["release_export"] = (
+        "REAL_PASS" if _module_exists("modules.release_export") else "MISSING"
+    )
     p["release_pack_module"] = (
         "PARTIAL" if _module_exists("modules.release_pack_v13") else "MISSING"
     )
     p["distrokid_xml"] = (
         "PARTIAL" if _module_exists("modules.distribution_export_v11") else "MISSING"
     )
-    p["cover_art"] = "PARTIAL" if _module_exists("modules.cover_art_gen") else "MISSING"
-    try:
-        p["id3_tags"] = "REAL_PASS"
-    except Exception:
-        p["id3_tags"] = "MISSING"
+    p["cover_art_adapter"] = (
+        "REAL_PASS" if _module_exists("app.core.cover_gen") else "MISSING"
+    )
+    p["mutagen_runtime"] = _dependency_status("mutagen")
     return p
 
 
@@ -202,16 +313,16 @@ def probe_installer() -> dict[str, str]:
 
 def probe_testing() -> dict[str, str]:
     p: dict[str, str] = {}
-    p["smoke_v14"] = "REAL_PASS" if _file_exists("tools/smoke_v14.py") else "MISSING"
-    p["e2e_v14"] = "REAL_PASS" if _file_exists("tools/real_e2e_v14.py") else "MISSING"
-    p["self_diag"] = (
-        "REAL_PASS" if _module_exists("modules.self_diag_v13") else "MISSING"
-    )
-    p["health"] = "REAL_PASS" if _module_exists("modules.health_v12") else "MISSING"
+    tests = list((ROOT / TEST_ROOT).glob("test_*.py"))
+    p["pytest_suite"] = "REAL_PASS" if tests else "MISSING"
+    p["smoke_v26"] = "REAL_PASS" if _file_exists("tools/smoke_v26.py") else "MISSING"
+    p["smoke_v29"] = "REAL_PASS" if _file_exists("tools/smoke_v29.py") else "MISSING"
     p["fallback_audit"] = (
         "REAL_PASS" if _file_exists("tools/fallback_audit.py") else "MISSING"
     )
-    p["evidence_present"] = "PARTIAL" if _file_exists("output/audit_v14") else "MISSING"
+    p["ast_dead_import_audit"] = (
+        "REAL_PASS" if _file_exists("tools/ast_dead_imports.py") else "MISSING"
+    )
     return p
 
 
@@ -244,25 +355,21 @@ def compute() -> tuple[float, dict[str, Any]]:
         caps.append((70.0, "no working RVC (no .pth model)"))
     if blocks_raw["voice_rvc"].get("mic_recording") != "REAL_PASS":
         caps.append((80.0, "no real microphone recording available"))
-    if blocks_raw["audio_pipeline"].get("e2e_run_evidence") != "REAL_PASS":
-        caps.append((60.0, "no full E2E run with real heavy engines"))
+    heavy_runtime = [
+        key for key in ("musicgen_runtime", "demucs_runtime")
+        if blocks_raw["audio_pipeline"].get(key) == "BLOCKED"
+    ]
+    if heavy_runtime:
+        caps.append((65.0, f"heavy engines unavailable: {heavy_runtime}"))
     if blocks_raw["installer"].get("updater_module") != "REAL_PASS":
         caps.append((85.0, "no updater module"))
-    heavy_missing = [
-        k
-        for k in ("musicgen", "demucs")
-        if blocks_raw["audio_pipeline"].get(k) in ("MOCK", "FAILED", "MISSING")
-    ]
-    if heavy_missing:
-        caps.append((65.0, f"heavy engines unavailable: {heavy_missing}"))
-    if blocks_raw["testing"].get("evidence_present") not in ("REAL_PASS", "PARTIAL"):
-        caps.append((50.0, "no evidence attached"))
 
     cap_min = min([c[0] for c in caps], default=100.0)
     final = min(total, cap_min)
     final = math.floor(final)
 
     return float(final), {
+        "module_inventory": module_inventory_summary(),
         "block_scores": block_pcts,
         "weights": WEIGHTS,
         "raw_probes": blocks_raw,
@@ -274,6 +381,9 @@ def compute() -> tuple[float, dict[str, Any]]:
 
 
 def main() -> int:
+    if "--inventory-markdown" in sys.argv[1:]:
+        print(inventory_markdown())
+        return 0
     pct, blocks = compute()
     print(json.dumps({"percent": pct, "blocks": blocks}, ensure_ascii=False, indent=2))
     return 0

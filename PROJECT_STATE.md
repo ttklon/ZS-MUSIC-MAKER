@@ -1,67 +1,185 @@
-# ZS Music Maker — PROJECT_STATE (канонический журнал)
+# PROJECT_STATE — ZS Music Maker
 
-> Единый источник правды о состоянии проекта. Обновляется каждой сессией.
-> README/CHANGELOG/старые аудиты — НЕ источник истины, если расходятся с кодом.
+> **Канонический snapshot:** v39.9.0, PLAN_v39 ШАГ 069. Этот файл фиксирует состояние versioned дерева на момент приёмки; воспроизводимый источник матрицы — `python tools/readiness.py --inventory-markdown`.
+>
+> **Метод:** Git перечисляет только versioned `.py` в `main.py`, `app/`, `agents/`, `modules/`, `tools/`, `ui/`, `updater/`. Для каждого файла readiness проверяет AST syntax и статические references в production/test sources. Он **не запускает** optional model weights и не переводит absence dependency в успех.
 
-## Текущая версия
-- **v39.9.0** — `v39.9-plan-steps-018-022-metadata-audio-quality-2026-08-22` (единый источник: `version.json`)
-  - v39.9, ШАГИ 018–020: analysis_llm и metadata_llm используют schema/quality validators; неполный output не проходит как успех, metadata всегда получает проверенный deterministic fallback.
-  - v39.9, ШАГИ 021–022: MusicGen и CyberSynth fallback оцениваются по readability, duration, sample-rate, channels, peak и RMS до возврата `ok=True`.
-  - v39.8, ШАГИ 013–014: `data/` инвентаризирован (73/73 managed assets), добавлен format-аудит, runtime cache/history/secrets игнорируются; reference cache очищен до `.gitkeep`, архив HEAD — ~1.0 MB.
-  - v39.8, ШАГИ 015–017: lyrics_llm и analysis_llm получили детерминированные метрики/валидацию и честную fallback-цепочку. Тяжёлые llama_cpp/веса отсутствуют в sandbox, поэтому роли корректно BLOCKED до `tools/pull_ai_models.py`, а не заявлены как готовые.
-  - v39.7, ШАГ 012: `--legacy-off` отключает импорт и регистрацию legacy v8–v12-патчей, сохраняя совместимость существующих веток. Runtime-вызов `anti_neuro_v10` маркируется `LEGACY`; fallback отражает `legacy_attempt`.
-  - v39.7, P0: God Mode checkpoints перенесены в конкретный `out_root`; повторный smoke больше не загружает результаты из удалённого каталога и создаёт `master_god.wav` заново.
-  - v39.6, ШАГ 011: AST-граф top-level импортов для `app.core`, `modules`, `agents`; lazy-imports не считаются. Зафиксировано: 104 модуля, 18 рёбер, 0 циклов; есть регрессия на искусственную петлю с полным путём диагностики. Дополнительно устранена регрессия `smoke_v26`: controlled mid/side widening даёт beat correlation 0.842 и закреплён детерминированным тестом.
-  - v39.5, ШАГИ 006–010: единая конфигурация и версия, CI-аудит, синхронизация зависимостей и отсутствие dead-imports.
-  - v37: updater реально сохраняет USER_PRESERVED (install/rollback), verify_zip по реальным маркерам, health-совет numpy>=1.26, вычищены ссылки на несуществующие windows_build.bat/smoke_v12/CONTEXT.md
+## Сводка фактической инвентаризации
 
-## Статусы модулей (легенда: REAL_PASS / PARTIAL / FALLBACK_ONLY / BLOCKED / FAILED / MISSING / NOT_TESTED)
+| Показатель | Значение |
+|---|---:|
+| Versioned production Python modules | 147 |
+| `REAL_PASS` — parseable с production или test static signal | 140 |
+| `REAL_FAIL` — syntax error | 0 |
+| `PLANNED` — parseable, без static signal | 7 |
+| Versioned test files | 26 |
+| Полный pytest suite на приёмке | 141 passed |
+| AST dead imports на приёмке | 0 |
 
-| Модуль | Статус | Комментарий |
+> `REAL_PASS` в этой matrix означает **статически проверяемую связность**, а не утверждение о real AI inference. Runtime с optional packages/weights имеет отдельные честные статусы ниже.
+
+## Runtime и acceptance status
+
+| Область | Статус | Основание и граница |
 |---|---|---|
-| main.py entry | REAL_PASS | `--version` работает, версии из version.json; `--smoke` очищен до v29/v26 (v36) |
-| orchestrator (core) | REAL_PASS | полный пайплайн до release |
-| orchestrator_god | REAL_PASS | v29: E2E завершается `completed`, master_god.wav создан (stereo, 120с, -1 dBTP) |
-| orchestrator_async | REAL_PASS | v33: возвращает rc=1 при падении пайплайна (раньше врал 0) |
-| midi_generator | REAL_PASS | v29: guard в melody + расширенные паттерны phonk/trap/techno, honest BLOCKED без mido |
-| mastering_pro | REAL_PASS | v29: true-peak -1 dBTP, honest output metrics, mono→stereo, NaN/Inf guard |
-| mastering (modules) | REAL_PASS | создан в v27 |
-| mastering_stands | REAL_PASS | стерео EQ (без монодаунмикса) |
-| voice_synth (Silero) | REAL_PASS | v35: RU v3.1, kseniya/aidar, CPU, WAV 48kHz — реальный прогон подтверждён |
-| voice_cleaner | FALLBACK_ONLY | noisereduce опционален, fallback=highpass+DC |
-| musicgen_texture | BLOCKED | v35: honest detect_availability()/get_status(); audiocraft heavy-dep |
-| RVC | BLOCKED | pitch-shift-fallback ЗАПРЕЩЁН ТЗ 33.5 (honest RuntimeError) |
-| beat_constructor | REAL_PASS | стерео corr ≈ 0.96, drop-fade, groove |
-| mixdown | REAL_PASS | реальный bus + sidechain (v17+) |
-| lyrics_gen | PARTIAL | LLM цепочка + офлайн-фолбэк |
-| license_manager | REAL_PASS | v34: URL-normalize + подключён к sample_hunter_v9 |
-| hit_scorer | REAL_PASS | librosa-based |
-| release_pack | REAL_PASS | full-pack или honest minimal-fallback |
-| CLI --health / --readiness / --dashboard | REAL_PASS | запускаются, exit 0 |
-| God Mode E2E (smoke_v29) | REAL_PASS | 8/8 стабильно |
-| Audio quality (smoke_v26) | REAL_PASS | 6/6 стабильно |
-| pytest tests/ | REAL_PASS | 62/62 на v39.9 |
-| fallback_audit | REAL_PASS | red_flags=0 (v33 fix детектора многострочных вызовов) |
-| Windows EXE (build.yml) | NOT_TESTED на Windows | v36: spec поднят (models + collect-submodules), smoke без continue-on-error |
-| PySide6 GUI (desktop) | NOT_TESTED на Windows | требует целевой ПК |
+| Core CLI, orchestrators, adapters | REAL_PASS (static) | Parseable/import-referenced inventory, pytest coverage; фактические команды проходят отдельные regression tests. |
+| Audio core (librosa + soundfile) | REAL_PASS | В среде доступны `librosa` и `soundfile`; audio tests выполняются. |
+| MusicGen, Demucs, Matchering, Pedalboard, pyloudnorm | BLOCKED | Optional runtime packages отсутствуют в sandbox; adapters/gates и fake-handle contracts тестируются, но real engine run не заявляется. |
+| XTTS/RVC/SDXL/CLAP/ASR/LLM weights | BLOCKED | Нет соответствующих heavy runtime/weights; pipeline фиксирует skipped/fallback, не fake-success. |
+| AI sequential runner / manifest / quality gates | REAL_PASS (contract) | Regression suite покрывает timeout/OOM lifecycle, artifact validation и manifest contracts. |
+| Windows EXE build / desktop GUI | NOT_TESTED | Выполняется только Windows GitHub runner/целевой Windows host. Build workflow хранит artifact 30 дней; `v*` tag release job не исполнялся в sandbox. |
+| Release export | REAL_PASS (contract) | ZIP/fingerprint tests существуют; external store/distribution не выполнялись. |
 
-## Что реально работает end-to-end
-- **God Mode CLI**: `python main.py --god --genre <жанр>` → master_god.wav (5 стадий: ai_arrangement → midi → audio_gen → vocal_cleaning → god_mastering_pro) → REAL_PASS.
-- **Smoke**: `python tools/smoke_v29.py` 8/8, `python main.py --legacy-off --smoke` 8/8, `python tools/smoke_v26.py` 6/6 (beat correlation 0.842), `python -m pytest tests/` 62/62 на v39.9.
-- **Fallback honesty**: `python tools/fallback_audit.py` → red_flags=0.
-- **License gate**: sample_hunter_v9.search_online() блокирует NC/SA/unknown.
+## Формальная matrix versioned модулей
 
-## Что честно BLOCKED (требует heavy-deps на целевом ПК)
-- `audiocraft` (MusicGen текстуры) — не установлен в sandbox, инструкция в INSTALL.md.
-- `demucs` (стемы) — опциональный.
-- Реальная RVC-inference на .pth — требует rvc-python + модель.
-- PySide6 desktop и Windows EXE build — требуют Windows.
+Следующая таблица сгенерирована при приёмке командой `python tools/readiness.py --inventory-markdown`. При изменении production `.py` её необходимо регенерировать в том же коммите; число строк должно совпадать с `tracked_modules` в обычном `python tools/readiness.py` JSON.
 
-## Активный бэклог
-См. `SESSION_LOG.md` — активная секция сверху, архив снизу (не удаляется, история важна).
-
-## Правила сессий
-1. Читать `SESSION_LOG.md` целиком перед правками.
-2. Правки → верификация (`pytest` + `smoke_v26` + `smoke_v29` + `fallback_audit`) → дописать блок в SESSION_LOG.
-3. Не плодить `_final_final.py`, не оставлять «отчёты ради отчётов».
-4. Все статусы — REAL_PASS/PARTIAL/BLOCKED/FAILED/NOT_TESTED, никаких «готово» без реального прогона.
+| Versioned module | Status | AST syntax | Production refs | Test refs |
+|---|---|---:|---:|---:|
+| agents/__init__.py | REAL_PASS | PASS | 76 | 14 |
+| agents/sample_hunter.py | REAL_PASS | PASS | 21 | 0 |
+| agents/sample_hunter_v9.py | REAL_PASS | PASS | 10 | 0 |
+| agents/training_texts.py | PLANNED | PASS | 0 | 0 |
+| agents/trend_scout.py | REAL_PASS | PASS | 9 | 0 |
+| agents/trend_scout_v3.py | REAL_PASS | PASS | 7 | 0 |
+| app/__init__.py | REAL_PASS | PASS | 76 | 14 |
+| app/ai/__init__.py | REAL_PASS | PASS | 76 | 14 |
+| app/ai/llm_service.py | REAL_PASS | PASS | 3 | 0 |
+| app/ai/prompts.py | REAL_PASS | PASS | 17 | 4 |
+| app/ai/quality.py | REAL_PASS | PASS | 190 | 87 |
+| app/ai/registry.py | REAL_PASS | PASS | 82 | 28 |
+| app/ai/sequential_runner.py | REAL_PASS | PASS | 5 | 12 |
+| app/core/__init__.py | REAL_PASS | PASS | 76 | 14 |
+| app/core/cover_gen.py | REAL_PASS | PASS | 4 | 0 |
+| app/core/font_utils.py | REAL_PASS | PASS | 11 | 2 |
+| app/core/hw_autodetect.py | REAL_PASS | PASS | 18 | 0 |
+| app/core/isrc.py | REAL_PASS | PASS | 76 | 38 |
+| app/core/license_manager.py | REAL_PASS | PASS | 8 | 0 |
+| app/core/logger.py | REAL_PASS | PASS | 74 | 0 |
+| app/core/model_manager.py | REAL_PASS | PASS | 2 | 0 |
+| app/core/musicgen_texture.py | REAL_PASS | PASS | 17 | 0 |
+| app/core/orchestrator.py | REAL_PASS | PASS | 109 | 30 |
+| app/core/orchestrator_ai.py | REAL_PASS | PASS | 11 | 22 |
+| app/core/orchestrator_async.py | REAL_PASS | PASS | 2 | 0 |
+| app/core/orchestrator_god.py | REAL_PASS | PASS | 10 | 0 |
+| app/core/orchestrator_v10_patch.py | REAL_PASS | PASS | 2 | 0 |
+| app/core/orchestrator_v11_patch.py | REAL_PASS | PASS | 9 | 0 |
+| app/core/orchestrator_v12_patch.py | REAL_PASS | PASS | 7 | 0 |
+| app/core/orchestrator_v8_patch.py | REAL_PASS | PASS | 3 | 0 |
+| app/core/orchestrator_v9_patch.py | REAL_PASS | PASS | 3 | 0 |
+| app/core/pipeline_core.py | REAL_PASS | PASS | 2 | 2 |
+| app/core/security_utils.py | REAL_PASS | PASS | 8 | 2 |
+| app/gui/__init__.py | REAL_PASS | PASS | 76 | 14 |
+| app/gui/onboarding.py | REAL_PASS | PASS | 40 | 0 |
+| app/gui/theme.py | REAL_PASS | PASS | 152 | 15 |
+| app/gui/theme_v12.py | REAL_PASS | PASS | 3 | 0 |
+| app/gui/wizard.py | REAL_PASS | PASS | 179 | 1 |
+| app/gui/wizard_v8_extensions.py | PLANNED | PASS | 0 | 0 |
+| app/hw_probe.py | REAL_PASS | PASS | 6 | 0 |
+| app/logger.py | REAL_PASS | PASS | 72 | 0 |
+| app/plugins/advanced.py | REAL_PASS | PASS | 6 | 0 |
+| app/plugins/base.py | REAL_PASS | PASS | 120 | 11 |
+| app/runtime_orchestrator.py | REAL_PASS | PASS | 1 | 0 |
+| app/version_info.py | REAL_PASS | PASS | 2 | 3 |
+| main.py | REAL_PASS | PASS | 493 | 64 |
+| modules/__init__.py | REAL_PASS | PASS | 76 | 14 |
+| modules/ai_arranger.py | REAL_PASS | PASS | 2 | 0 |
+| modules/ai_detector_pro.py | REAL_PASS | PASS | 4 | 2 |
+| modules/analyzer.py | REAL_PASS | PASS | 19 | 0 |
+| modules/anti_ai_polish.py | REAL_PASS | PASS | 15 | 0 |
+| modules/anti_neuro_v10.py | REAL_PASS | PASS | 20 | 4 |
+| modules/arrangement_engine.py | REAL_PASS | PASS | 13 | 0 |
+| modules/artist_dossier/__init__.py | REAL_PASS | PASS | 76 | 14 |
+| modules/artist_dossier/collectors.py | REAL_PASS | PASS | 2 | 2 |
+| modules/artist_dossier/manager.py | REAL_PASS | PASS | 48 | 23 |
+| modules/author_ref_lyrics.py | REAL_PASS | PASS | 20 | 0 |
+| modules/auto_qa.py | REAL_PASS | PASS | 16 | 0 |
+| modules/beat_constructor.py | REAL_PASS | PASS | 25 | 4 |
+| modules/beat_gen.py | REAL_PASS | PASS | 5 | 6 |
+| modules/beat_gen_ai.py | REAL_PASS | PASS | 1 | 6 |
+| modules/chanson_engine.py | REAL_PASS | PASS | 1 | 0 |
+| modules/cover_art_ai.py | REAL_PASS | PASS | 2 | 9 |
+| modules/cover_art_gen.py | REAL_PASS | PASS | 8 | 0 |
+| modules/cyber_synth.py | REAL_PASS | PASS | 4 | 0 |
+| modules/distribution_export_v11.py | REAL_PASS | PASS | 15 | 0 |
+| modules/essentia_analyzer.py | REAL_PASS | PASS | 3 | 0 |
+| modules/expert_mode_v11.py | REAL_PASS | PASS | 9 | 0 |
+| modules/female_backing.py | REAL_PASS | PASS | 33 | 0 |
+| modules/freesound_client.py | REAL_PASS | PASS | 3 | 0 |
+| modules/genre_engine.py | REAL_PASS | PASS | 9 | 0 |
+| modules/genre_expansion_100.py | REAL_PASS | PASS | 0 | 2 |
+| modules/global_audit_fixer.py | REAL_PASS | PASS | 0 | 2 |
+| modules/groove_extractor.py | REAL_PASS | PASS | 16 | 0 |
+| modules/health_v12.py | REAL_PASS | PASS | 32 | 0 |
+| modules/hit_kpi_monitor_v11.py | REAL_PASS | PASS | 14 | 0 |
+| modules/hit_scorer.py | REAL_PASS | PASS | 40 | 6 |
+| modules/hw_directml.py | REAL_PASS | PASS | 9 | 0 |
+| modules/karaoke_engine.py | REAL_PASS | PASS | 5 | 0 |
+| modules/kpi_dashboard_v12.py | REAL_PASS | PASS | 18 | 0 |
+| modules/llm_clients_v15.py | REAL_PASS | PASS | 3 | 0 |
+| modules/lyric_vault_v10.py | REAL_PASS | PASS | 6 | 0 |
+| modules/lyrics_gen.py | REAL_PASS | PASS | 29 | 7 |
+| modules/lyrics_gen_ai.py | REAL_PASS | PASS | 2 | 0 |
+| modules/lyrics_gen_v8.py | REAL_PASS | PASS | 7 | 0 |
+| modules/master_pipeline_v12.py | REAL_PASS | PASS | 24 | 0 |
+| modules/mastering.py | REAL_PASS | PASS | 151 | 15 |
+| modules/mastering_ai.py | REAL_PASS | PASS | 9 | 9 |
+| modules/mastering_pro.py | REAL_PASS | PASS | 26 | 0 |
+| modules/mastering_v9.py | REAL_PASS | PASS | 10 | 0 |
+| modules/matchering_master.py | REAL_PASS | PASS | 10 | 0 |
+| modules/midi_generator.py | REAL_PASS | PASS | 16 | 0 |
+| modules/mixdown.py | REAL_PASS | PASS | 20 | 0 |
+| modules/musical_intelligence.py | REAL_PASS | PASS | 2 | 0 |
+| modules/onboarding_tour.py | REAL_PASS | PASS | 6 | 0 |
+| modules/phoneme_coverage.py | REAL_PASS | PASS | 15 | 0 |
+| modules/phonk_engine.py | REAL_PASS | PASS | 4 | 2 |
+| modules/phonk_engine_v2.py | PLANNED | PASS | 0 | 0 |
+| modules/presets.py | REAL_PASS | PASS | 37 | 6 |
+| modules/pro_audio_dsp.py | REAL_PASS | PASS | 0 | 4 |
+| modules/provenance.py | REAL_PASS | PASS | 15 | 0 |
+| modules/reference_ingest.py | REAL_PASS | PASS | 14 | 0 |
+| modules/release_export.py | REAL_PASS | PASS | 11 | 6 |
+| modules/release_pack_full.py | REAL_PASS | PASS | 5 | 0 |
+| modules/release_pack_v9.py | REAL_PASS | PASS | 15 | 0 |
+| modules/remix.py | REAL_PASS | PASS | 4 | 8 |
+| modules/render_queue.py | REAL_PASS | PASS | 9 | 6 |
+| modules/rvc_manager.py | REAL_PASS | PASS | 36 | 0 |
+| modules/rvc_trainer_v9.py | REAL_PASS | PASS | 12 | 2 |
+| modules/self_diag_v13.py | REAL_PASS | PASS | 8 | 0 |
+| modules/sidechain.py | REAL_PASS | PASS | 30 | 0 |
+| modules/stem_splitter.py | REAL_PASS | PASS | 17 | 2 |
+| modules/tiktok_edit_v9.py | REAL_PASS | PASS | 8 | 0 |
+| modules/track_templates.py | REAL_PASS | PASS | 7 | 0 |
+| modules/user_profile.py | REAL_PASS | PASS | 15 | 0 |
+| modules/video_edit_v11.py | REAL_PASS | PASS | 20 | 0 |
+| modules/vocal_fx.py | REAL_PASS | PASS | 12 | 0 |
+| modules/voice_cleaner.py | REAL_PASS | PASS | 4 | 0 |
+| modules/voice_convert.py | REAL_PASS | PASS | 19 | 0 |
+| modules/voice_onboarding.py | REAL_PASS | PASS | 8 | 0 |
+| modules/voice_recording.py | REAL_PASS | PASS | 7 | 0 |
+| modules/voice_synth.py | REAL_PASS | PASS | 37 | 10 |
+| modules/voice_synth_ai.py | REAL_PASS | PASS | 1 | 3 |
+| modules/voice_vault_v9.py | REAL_PASS | PASS | 17 | 2 |
+| modules/wizard_v12_integration.py | REAL_PASS | PASS | 3 | 0 |
+| tools/__init__.py | REAL_PASS | PASS | 76 | 14 |
+| tools/ab_compare.py | REAL_PASS | PASS | 3 | 0 |
+| tools/ast_dead_imports.py | REAL_PASS | PASS | 3 | 2 |
+| tools/audit_data_inventory.py | REAL_PASS | PASS | 1 | 2 |
+| tools/deep_audit_v40.py | REAL_PASS | PASS | 2 | 0 |
+| tools/deep_audit_v40_expand.py | PLANNED | PASS | 0 | 0 |
+| tools/deep_audit_v40_report.py | PLANNED | PASS | 0 | 0 |
+| tools/fallback_audit.py | REAL_PASS | PASS | 7 | 0 |
+| tools/genre_validator.py | REAL_PASS | PASS | 0 | 2 |
+| tools/lazy_dirs_patch.py | PLANNED | PASS | 0 | 0 |
+| tools/p0_truth_test.py | PLANNED | PASS | 0 | 0 |
+| tools/pull_ai_models.py | REAL_PASS | PASS | 6 | 1 |
+| tools/readiness.py | REAL_PASS | PASS | 20 | 13 |
+| tools/real_e2e_v14.py | REAL_PASS | PASS | 5 | 0 |
+| tools/smoke_v26.py | REAL_PASS | PASS | 22 | 0 |
+| tools/smoke_v29.py | REAL_PASS | PASS | 24 | 0 |
+| tools/validate_final_track.py | REAL_PASS | PASS | 1 | 0 |
+| ui/__init__.py | REAL_PASS | PASS | 76 | 14 |
+| ui/karaoke_recorder.py | REAL_PASS | PASS | 4 | 0 |
+| ui/tutorial.py | REAL_PASS | PASS | 22 | 0 |
+| updater/__init__.py | REAL_PASS | PASS | 76 | 14 |
+| updater/updater.py | REAL_PASS | PASS | 29 | 3 |

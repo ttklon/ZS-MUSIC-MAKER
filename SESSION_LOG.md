@@ -510,3 +510,10 @@ Test suite при приёмке: **137 collected / 137 PASS**, существе
 README, INSTALL и CHANGELOG обновлены до v39.9.0; добавлен `docs/DEVELOPER_GUIDE.md`. Документированы только работающие CLI contracts: AI status/dry-run, dossier, score, read-only updater и opt-in installer/model-pull. Heavy dependencies/weights явно остаются environment-dependent BLOCKED при отсутствии runtime.
 
 Приёмка: `main.py --help`, `--ai-status`, `pull_ai_models.py --help` успешны; README relative links 2/2 существуют; `pytest tests/ -q` = **137 PASS**, compileall/AST OK.
+
+---
+## PLAN_v39 — ШАГ 069: PROJECT_STATE и readiness
+
+`tools/readiness.py` теперь строит воспроизводимую AST/static-reference inventory только по versioned production `.py`, сохраняет прежний `compute()` JSON-контракт и поддерживает `--inventory-markdown`. Удалены пустые dependency `try` probes и legacy v14 test markers; optional heavy engines в sandbox честно BLOCKED.
+
+PROJECT_STATE заменён v39 snapshot: **147/147** matrix rows соответствуют tracked production modules (140 REAL_PASS static, 0 REAL_FAIL, 7 PLANNED). Это не объявляет heavy runtime/inference выполненным. Приёмка: readiness JSON/matrix match, `pytest tests/ -q` = **141 PASS**, compileall/AST OK.
