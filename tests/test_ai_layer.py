@@ -410,3 +410,41 @@ def test_demucs_refuses_model_without_vocals_source() -> None:
 
     with pytest.raises(ValueError, match="does not expose"):
         resolve_vocal_source_index(SimpleNamespace(sources=["bass", "drums", "other"]))
+
+
+
+def test_asr_transcribes_reference_with_faster_whisper_contract(tmp_path) -> None:
+    from types import SimpleNamespace
+
+    from modules.artist_dossier.manager import transcribe_reference_audio
+
+    class FakeASR:
+        def __init__(self):
+            self.kwargs = None
+
+        def transcribe(self, audio_path, **kwargs):
+            self.kwargs = {"audio_path": audio_path, **kwargs}
+            return iter([SimpleNamespace(text=" первая строка "), SimpleNamespace(text="вторая строка")]), SimpleNamespace(language="ru")
+
+    handle = FakeASR()
+    transcript = tmp_path / "lyrics" / "reference.txt"
+    result = transcribe_reference_audio(handle, "reference.wav", str(transcript))
+
+    assert result["ok"] is True
+    assert result["lyrics"] == "первая строка\nвторая строка"
+    assert result["language"] == "ru"
+    assert transcript.read_text(encoding="utf-8") == result["lyrics"]
+    assert handle.kwargs == {"audio_path": "reference.wav", "language": "ru", "beam_size": 5}
+
+
+def test_asr_reports_runtime_failure() -> None:
+    from modules.artist_dossier.manager import transcribe_reference_audio
+
+    class FailingASR:
+        def transcribe(self, *args, **kwargs):
+            raise RuntimeError("model load failed")
+
+    result = transcribe_reference_audio(FailingASR(), "reference.wav", "/tmp/unused.txt")
+
+    assert result["ok"] is False
+    assert "model load failed" in result["reason"]

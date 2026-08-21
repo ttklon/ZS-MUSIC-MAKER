@@ -35,6 +35,27 @@ def resolve_vocal_source_index(model: Any) -> int:
     return sources.index("vocals")
 
 
+def transcribe_reference_audio(model: Any, audio_path: str, output_path: str) -> dict:
+    """Распознать reference-аудио совместимым faster-whisper handle и сохранить transcript."""
+    try:
+        segments, info = model.transcribe(audio_path, language="ru", beam_size=5)
+        text = "\n".join(
+            str(getattr(segment, "text", "")).strip() for segment in segments
+        ).strip()
+        target = Path(output_path)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(text, encoding="utf-8")
+        return {
+            "ok": True,
+            "lyrics": text,
+            "language": str(getattr(info, "language", "")),
+            "source": "faster_whisper",
+            "transcript_path": str(target),
+        }
+    except Exception as exc:
+        return {"ok": False, "reason": f"ASR transcription failed: {exc}"}
+
+
 @dataclass
 class TrackEntry:
     track_id: str
@@ -178,14 +199,17 @@ class DossierManager:
         def _asr_stage(model, ctx):
             if tr.lyrics:
                 return {"lyrics": tr.lyrics, "source": "user"}
+            if model is None:
+                return {"skipped": "asr unavailable"}
             vocals = (ctx.get("sink", {}).get("demucs") or {}).get("vocals_path")
             src = vocals or tr.audio_path
             if not src or not Path(src).exists():
                 return {"skipped": "no audio for ASR"}
-            segments, info = model.transcribe(src, language="ru", beam_size=5)
-            text = "\n".join(s.text.strip() for s in segments)
-            (self.root / slug / "lyrics" / f"{tr.track_id}.txt").write_text(text, encoding="utf-8")
-            return {"lyrics": text, "language": info.language, "source": "whisper"}
+            return transcribe_reference_audio(
+                model,
+                str(src),
+                str(self.root / slug / "lyrics" / f"{tr.track_id}.txt"),
+            )
         runner.add(AIStage("asr", "asr", _asr_stage, optional=True))
 
         def _features_stage(_, ctx):

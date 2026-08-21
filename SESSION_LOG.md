@@ -1,6 +1,14 @@
 
 ---
 
+## КОММИТ — PLAN_v39 ШАГ 031: faster-whisper ASR integration (выполнен, runtime BLOCKED)
+
+ASR-вызов вынесен в `transcribe_reference_audio()`: handle получает `language=ru` и `beam_size=5`, сегменты объединяются и transcript сохраняется в dossier. При отсутствии ASR или audio возвращается explicit skipped, а runtime-error остаётся диагностируемым failure.
+
+Проверка: fake ASR подтвердил параметры, transcript и UTF-8 файл; error-case подтверждает отсутствие ложного успеха. `pytest tests/` = **78/78 PASS**; compileall OK; AST dead-imports = **0**. `faster-whisper`/weights отсутствуют. Детали: `docs/STEP_STATUS/031_asr_integration.md`.
+
+---
+
 ## КОММИТ — PLAN_v39 ШАГ 030: Demucs quality gate (выполнен, runtime BLOCKED)
 
 Добавлен `validate_stem_artifact(original, stem)`: vocal stem проходит базовый audio gate и обязан сохранить 95–105% длительности входного трека до передачи в ASR. Silent, битые и усечённые stems теперь не выдаются за пригодные данные.
