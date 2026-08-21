@@ -717,3 +717,22 @@ def test_rvc_quality_rejects_dc_offset(tmp_path) -> None:
 
     assert result["ok"] is False
     assert result["reason"] == "RVC output DC offset is too high"
+
+
+
+def test_pil_cover_fallback_meets_production_1024px_and_byte_contract(tmp_path, monkeypatch) -> None:
+    import modules.cover_art_ai as cover_art_ai
+    from app.ai.quality import validate_cover_artifact
+
+    monkeypatch.setattr(cover_art_ai.registry, "is_available", lambda _role: False)
+    output = tmp_path / "cover.png"
+    result = cover_art_ai.render_cover_ai(
+        title="Night Drive", artist="ZS", genre="phonk", mood="dark neon",
+        out_path=str(output), size=1024,
+    )
+
+    assert result["ok"] is True
+    assert result["engine"] == "PIL_fallback"
+    quality = validate_cover_artifact(output, min_size=1024, min_bytes=100_000)
+    assert quality["ok"] is True
+    assert quality["metrics"]["bytes"] >= 100_000

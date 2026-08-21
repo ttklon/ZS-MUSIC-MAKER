@@ -33,7 +33,7 @@ def render_cover_ai(title: str, artist: str, genre: str, mood: str,
         try:
             from modules import cover_art_gen
             res = cover_art_gen.generate(title=title, artist=artist,
-                                         out_path=out_path, style="gradient")
+                                         out_path=out_path, style="gradient", size=size)
             res["engine"] = "PIL_fallback"
             res["prompt"] = prompt
             return res

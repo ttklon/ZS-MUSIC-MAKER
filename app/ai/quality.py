@@ -268,11 +268,16 @@ def validate_rvc_artifact(input_path: str | Path, output_path: str | Path) -> di
     return {"ok": True, "reason": None, "metrics": result["metrics"]}
 
 
-def validate_cover_artifact(path: str | Path, *, min_size: int = 512) -> dict[str, Any]:
+def validate_cover_artifact(path: str | Path, *, min_size: int = 512,
+                            min_bytes: int = 100) -> dict[str, Any]:
     """Проверить cover-art: файл существует, декодируется и соответствует минимальному разрешению."""
     target = Path(path)
-    if not target.exists() or target.stat().st_size <= 100:
-        return {"ok": False, "reason": "cover file is missing or too small", "metrics": {"path": str(target)}}
+    if not target.exists() or target.stat().st_size < min_bytes:
+        return {
+            "ok": False,
+            "reason": "cover file is missing or below byte-size minimum",
+            "metrics": {"path": str(target), "min_bytes": min_bytes},
+        }
     try:
         from PIL import Image
 
@@ -282,7 +287,10 @@ def validate_cover_artifact(path: str | Path, *, min_size: int = 512) -> dict[st
             width, height, mode = image.size[0], image.size[1], image.mode
     except Exception as exc:
         return {"ok": False, "reason": f"cover file is unreadable: {exc}", "metrics": {"path": str(target)}}
-    metrics = {"width": int(width), "height": int(height), "mode": mode, "bytes": target.stat().st_size}
+    metrics = {
+        "width": int(width), "height": int(height), "mode": mode,
+        "bytes": target.stat().st_size, "min_bytes": min_bytes,
+    }
     if width < min_size or height < min_size:
         return {"ok": False, "reason": "cover resolution is below minimum", "metrics": metrics}
     if mode not in {"RGB", "RGBA"}:

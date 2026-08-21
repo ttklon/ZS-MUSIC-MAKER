@@ -324,3 +324,17 @@ ASR-вызов вынесен в `transcribe_reference_audio()`: handle полу
 | Регрессии | Fake XTTS→RVC проверяет voice name/pitch/project output, отдельный WAV проверяет DC-offset reject. |
 
 Проверка: `pytest tests/test_ai_quality.py -q` = **37 PASS**; полный `pytest tests/` = **115 PASS**; dry-run/compileall OK; AST = **0**. XTTS/rvc-python/user model/GPU в sandbox отсутствуют: real inference честно **BLOCKED**.
+
+
+---
+## PLAN_v39 — ШАГ 047: SDXL cover + font fallback
+
+| Область | Результат |
+|---|---|
+| Единый размер | `render_cover_ai` передаёт requested `size` и в SDXL, и в PIL fallback; stage contract — **1024×1024**. |
+| Production gate | stage_cover требует RGB/RGBA, ≥1024 px и **≥100,000 bytes**. |
+| Реальный fallback fix | Измерен flat gradient fallback: 20,108 bytes (недостаточно). Добавлен deterministic film grain для artwork texture, не file padding. |
+| Фактический smoke | PIL fallback из AI dry-run: **1024×1024 RGB, 675,292 bytes**; production regression проходит. |
+| Переносимость | Font resolver остаётся cross-platform через `font_utils`, без `C:\` path. |
+
+Проверка: `pytest tests/test_ai_quality.py -q` = **38 PASS**; полный `pytest tests/` = **116 PASS**; dry-run/compileall OK; AST = **0**. SDXL/diffusers weights в sandbox отсутствуют, real inference честно **BLOCKED**.

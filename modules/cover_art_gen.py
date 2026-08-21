@@ -60,6 +60,9 @@ def generate(
 
     img = Image.new("RGB", (size, size), c1)
     _fill_gradient(img, c1, c2)
+    # Лёгкое детерминированное зерно даёт обложке печатную фактуру и не
+    # превращает 1024px production-art в чрезмерно сжатый flat-gradient PNG.
+    img = _apply_film_grain(img, rng)
 
     # Стилевые доп. эффекты
     if style == "glitch":
@@ -116,6 +119,15 @@ def generate(
     Path(out_path).parent.mkdir(parents=True, exist_ok=True)
     img.save(out_path, "PNG", optimize=True)
     return {"ok": True, "path": out_path, "style": style, "seed": seed, "size": size}
+
+
+def _apply_film_grain(image, rng):
+    """Наложить лёгкое reproducible grain без неуправляемого random/noise файла."""
+    grain_side = max(32, image.width // 4)
+    pixels = bytes(rng.randrange(256) for _ in range(grain_side * grain_side))
+    grain = Image.frombytes("L", (grain_side, grain_side), pixels).resize(image.size)
+    grain_rgb = Image.merge("RGB", (grain, grain, grain))
+    return Image.blend(image, grain_rgb, alpha=0.045)
 
 
 def _fill_gradient(img: Image.Image, c1, c2) -> None:

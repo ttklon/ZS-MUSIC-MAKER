@@ -435,7 +435,9 @@ def run_ai_pipeline(project_id, wizard_state=None, out_root=None, dry_run=False)
             handle=handle,
         )
         if result.get("ok") and result.get("path"):
-            quality = validate_cover_artifact(result["path"])
+            quality = validate_cover_artifact(
+                result["path"], min_size=1024, min_bytes=100_000
+            )
             result["ok"] = bool(quality["ok"])
             result["quality"] = quality
             result["reason"] = quality["reason"]
