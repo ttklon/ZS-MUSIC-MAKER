@@ -216,15 +216,31 @@ def run_ai_pipeline(project_id, wizard_state=None, out_root=None, dry_run=False)
                 "path": str(out_root / "lyrics.txt"), "quality": quality,
                 "reason": quality["reason"]}
 
+    def _metadata_fallback() -> dict[str, object]:
+        """Create genre-aware metadata that satisfies the release quality contract."""
+        genre = str(ws.get("genre") or "music").strip() or "music"
+        theme = " ".join(str(ws.get("theme") or "").split()).strip()
+        mood = " ".join(str(ws.get("mood") or "").split()).strip() or "выразительное"
+        title = theme[:80] or f"{genre.title()} Pulse"
+        if len(title) < 3:
+            title = f"{genre.title()} Pulse"
+        return {
+            "title": title,
+            "spotify_desc": (
+                f"Независимый {genre}-релиз «{title}» с настроением {mood}. "
+                "Трек создан для внимательного прослушивания и ночной дороги."
+            )[:400],
+            "youtube_desc": (
+                f"«{title}» — новый {genre}-трек о теме «{theme or title}» и настроении {mood}. "
+                "Слушайте релиз, сохраняйте и делитесь с теми, кому близен этот звук."
+            )[:400],
+            "tags_tiktok": [genre, "newmusic", "independent"],
+            "tags_instagram": ["music", "release", "underground"],
+        }
+
     def stage_metadata(handle, ctx):
         lyrics = (ctx["sink"].get("lyrics") or {}).get("lyrics") or ""
-        fallback = {
-            "title": ws.get("theme", "Untitled").strip()[:120] or "Untitled",
-            "spotify_desc": f"{ws['genre']} трек: {ws['theme']}.",
-            "youtube_desc": f"{ws['theme']} — {ws['genre']} / {ws['mood']}.",
-            "tags_tiktok": [ws["genre"], "newmusic", "independent"],
-            "tags_instagram": [ws["genre"], "music", "release"],
-        }
+        fallback = _metadata_fallback()
         source = "metadata_fallback"
         if dry_run:
             js, source = fallback, "dry"

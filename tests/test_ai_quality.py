@@ -62,6 +62,32 @@ def test_ai_dry_run_persists_valid_metadata_fallback(tmp_path) -> None:
     assert metadata["ok"] is True
     assert metadata["source"] == "dry"
     assert metadata["quality"]["ok"] is True
+    assert 3 <= len(metadata["title"]) <= 80
+    assert all(20 <= len(metadata[key]) <= 400 for key in ("spotify_desc", "youtube_desc"))
+    tags = [tag for key, value in metadata.items() if key.startswith("tags_") for tag in value]
+    assert len(tags) <= 8
+    assert len({tag.lower() for tag in tags}) == len(tags)
+
+
+def test_metadata_quality_enforces_release_boundaries_and_forbidden_terms() -> None:
+    valid = {
+        "title": "Night Pulse",
+        "spotify_desc": "Независимый трек для ночной дороги и внимательного прослушивания.",
+        "youtube_desc": "Новый релиз с плотным ритмом, атмосферой города и чистым стерео-звуком.",
+        "tags_tiktok": ["phonk", "newmusic", "independent"],
+        "tags_instagram": ["music", "release", "underground"],
+    }
+    assert validate_metadata_json(valid)["ok"] is True
+
+    duplicate = {**valid, "tags_instagram": ["phonk", "music"]}
+    too_many = {**valid, "tags_tiktok": [f"tag{index}" for index in range(9)]}
+    forbidden = {**valid, "title": "ChatGPT Night"}
+    short_description = {**valid, "spotify_desc": "too short"}
+
+    assert "hashtags_unique" in validate_metadata_json(duplicate)["reason"]
+    assert "hashtags_count" in validate_metadata_json(too_many)["reason"]
+    assert "forbidden_terms" in validate_metadata_json(forbidden)["reason"]
+    assert "description" in validate_metadata_json(short_description)["reason"]
 
 
 class _FakeTensor:

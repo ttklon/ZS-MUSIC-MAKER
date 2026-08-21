@@ -566,3 +566,10 @@ PROJECT_STATE заменён v39 snapshot: **147/147** matrix rows соотве�
 Добавлен versioned `data/artist_dossier/schema.json` v1; tracked только schema, runtime dossier JSON остаются ignored. Manager нормализует aliases/schema_version, валидирует complete dossiers при aggregate/save, отклоняет новые incomplete payloads, а неполный legacy artist JSON при чтении честно мигрирует в deferred с причиной.
 
 Приёмка: 4 schema/migration tests PASS; полный `pytest tests/ -q` = **184 PASS**, compileall/AST OK, data inventory 73/0/0. Реальный analysis LLM не запускался.
+
+---
+## PLAN_v39 — ШАГ 080: metadata release quality
+
+Metadata validator теперь требует title 3–80, обе descriptions 20–400, максимум 8 unique normalized tags и отсутствие AI filler. `stage_metadata` использует genre-aware deterministic fallback, который проходит тот же gate; LLM invalid/missing output не сохраняется как valid metadata.
+
+Приёмка: boundary/dry-run tests PASS; полный `pytest tests/ -q` = **185 PASS**, compileall/AST OK, data inventory 73/0/0. Heavy metadata LLM inference не запускался.
