@@ -4,7 +4,9 @@
 > README/CHANGELOG/старые аудиты — НЕ источник истины, если расходятся с кодом.
 
 ## Текущая версия
-- **v39.8.0** — `v39.8-plan-steps-013-017-data-ai-quality-2026-08-22` (единый источник: `version.json`)
+- **v39.9.0** — `v39.9-plan-steps-018-022-metadata-audio-quality-2026-08-22` (единый источник: `version.json`)
+  - v39.9, ШАГИ 018–020: analysis_llm и metadata_llm используют schema/quality validators; неполный output не проходит как успех, metadata всегда получает проверенный deterministic fallback.
+  - v39.9, ШАГИ 021–022: MusicGen и CyberSynth fallback оцениваются по readability, duration, sample-rate, channels, peak и RMS до возврата `ok=True`.
   - v39.8, ШАГИ 013–014: `data/` инвентаризирован (73/73 managed assets), добавлен format-аудит, runtime cache/history/secrets игнорируются; reference cache очищен до `.gitkeep`, архив HEAD — ~1.0 MB.
   - v39.8, ШАГИ 015–017: lyrics_llm и analysis_llm получили детерминированные метрики/валидацию и честную fallback-цепочку. Тяжёлые llama_cpp/веса отсутствуют в sandbox, поэтому роли корректно BLOCKED до `tools/pull_ai_models.py`, а не заявлены как готовые.
   - v39.7, ШАГ 012: `--legacy-off` отключает импорт и регистрацию legacy v8–v12-патчей, сохраняя совместимость существующих веток. Runtime-вызов `anti_neuro_v10` маркируется `LEGACY`; fallback отражает `legacy_attempt`.
@@ -38,14 +40,14 @@
 | CLI --health / --readiness / --dashboard | REAL_PASS | запускаются, exit 0 |
 | God Mode E2E (smoke_v29) | REAL_PASS | 8/8 стабильно |
 | Audio quality (smoke_v26) | REAL_PASS | 6/6 стабильно |
-| pytest tests/ | REAL_PASS | 58/58 на v39.8 |
+| pytest tests/ | REAL_PASS | 62/62 на v39.9 |
 | fallback_audit | REAL_PASS | red_flags=0 (v33 fix детектора многострочных вызовов) |
 | Windows EXE (build.yml) | NOT_TESTED на Windows | v36: spec поднят (models + collect-submodules), smoke без continue-on-error |
 | PySide6 GUI (desktop) | NOT_TESTED на Windows | требует целевой ПК |
 
 ## Что реально работает end-to-end
 - **God Mode CLI**: `python main.py --god --genre <жанр>` → master_god.wav (5 стадий: ai_arrangement → midi → audio_gen → vocal_cleaning → god_mastering_pro) → REAL_PASS.
-- **Smoke**: `python tools/smoke_v29.py` 8/8, `python main.py --legacy-off --smoke` 8/8, `python tools/smoke_v26.py` 6/6 (beat correlation 0.842), `python -m pytest tests/` 58/58 на v39.8.
+- **Smoke**: `python tools/smoke_v29.py` 8/8, `python main.py --legacy-off --smoke` 8/8, `python tools/smoke_v26.py` 6/6 (beat correlation 0.842), `python -m pytest tests/` 62/62 на v39.9.
 - **Fallback honesty**: `python tools/fallback_audit.py` → red_flags=0.
 - **License gate**: sample_hunter_v9.search_online() блокирует NC/SA/unknown.
 

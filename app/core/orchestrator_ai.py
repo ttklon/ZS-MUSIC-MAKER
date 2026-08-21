@@ -7,7 +7,7 @@ from app.core.logger import app_logger
 from app.ai.sequential_runner import SequentialAIRunner, AIStage
 from app.ai import prompts as P
 from app.ai import llm_service as LLM
-from app.ai.quality import validate_lyrics
+from app.ai.quality import validate_audio_artifact, validate_lyrics, validate_metadata_json
 from modules.artist_dossier import DossierManager
 
 
@@ -90,13 +90,31 @@ def run_ai_pipeline(project_id, wizard_state=None, out_root=None, dry_run=False)
                 "reason": quality["reason"]}
 
     def stage_metadata(handle, ctx):
-        if dry_run or handle is None:
-            return {"ok": True, "title": ws.get("theme", "Untitled")[:30],
-                    "source": "dry" if dry_run else "no_llm"}
         lyrics = (ctx["sink"].get("lyrics") or {}).get("lyrics") or ""
-        js = LLM.complete_json(handle, P.SYSTEM_METADATA,
-            P.build_metadata_prompt(ws["theme"], ws["genre"], lyrics),
-            max_tokens=1200, temperature=0.6) or {}
+        fallback = {
+            "title": ws.get("theme", "Untitled").strip()[:120] or "Untitled",
+            "spotify_desc": f"{ws['genre']} трек: {ws['theme']}.",
+            "youtube_desc": f"{ws['theme']} — {ws['genre']} / {ws['mood']}.",
+            "tags_tiktok": [ws["genre"], "newmusic", "independent"],
+            "tags_instagram": [ws["genre"], "music", "release"],
+        }
+        source = "metadata_fallback"
+        if dry_run:
+            js, source = fallback, "dry"
+        elif handle is not None:
+            js = LLM.complete_json(handle, P.SYSTEM_METADATA,
+                P.build_metadata_prompt(ws["theme"], ws["genre"], lyrics),
+                max_tokens=1200, temperature=0.6) or {}
+            source = "metadata_llm"
+        else:
+            js = fallback
+        quality = validate_metadata_json(js)
+        if not quality["ok"]:
+            js, source = fallback, "metadata_fallback"
+            quality = validate_metadata_json(js)
+        js = dict(js)
+        js.update({"ok": bool(quality["ok"]), "source": source, "quality": quality,
+                   "reason": quality["reason"]})
         (out_root / "metadata.json").write_text(
             json.dumps(js, ensure_ascii=False, indent=2), encoding="utf-8")
         return js
@@ -110,7 +128,13 @@ def run_ai_pipeline(project_id, wizard_state=None, out_root=None, dry_run=False)
                 out_p = str(out_root / "beat.wav")
                 res = CyberSynth().synthesize_track(bpm=ws["bpm"],
                     duration_sec=ws["duration_sec"], out_path=out_p)
-                res["engine"] = "cyber_synth_fallback"; res["beat_path"] = out_p
+                res = dict(res) if isinstance(res, dict) else {}
+                quality = validate_audio_artifact(
+                    out_p, min_duration_sec=max(1.0, min(5.0, ws["duration_sec"] * 0.5))
+                )
+                res.update({"engine": "cyber_synth_fallback", "beat_path": out_p,
+                            "quality": quality, "reason": quality["reason"],
+                            "ok": bool(res.get("ok", True)) and bool(quality["ok"])})
                 return res
             except Exception as e:
                 return {"ok": False, "reason": f"no music engine: {e}"}
@@ -155,8 +179,12 @@ def run_ai_pipeline(project_id, wizard_state=None, out_root=None, dry_run=False)
         if peak > 0.99:
             full = full * (0.98 / peak)
         sf.write(out_path, full.astype("float32"), int(sr), subtype="PCM_16")
-        return {"ok": True, "beat_path": out_path, "engine": "musicgen-large",
-                "sample_rate": int(sr), "prompt": prompt, "chunks": n_chunks}
+        quality = validate_audio_artifact(
+            out_path, min_duration_sec=max(1.0, min(5.0, ws["duration_sec"] * 0.5))
+        )
+        return {"ok": bool(quality["ok"]), "beat_path": out_path, "engine": "musicgen-large",
+                "sample_rate": int(sr), "prompt": prompt, "chunks": n_chunks,
+                "quality": quality, "reason": quality["reason"]}
 
     def stage_vocal(handle, ctx):
         if dry_run or handle is None:

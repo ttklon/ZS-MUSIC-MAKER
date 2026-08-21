@@ -1,6 +1,6 @@
 {
- "version": "39.8.0",
- "build": "v39.8-plan-steps-013-017-data-ai-quality-2026-08-22",
+ "version": "39.9.0",
+ "build": "v39.9-plan-steps-018-022-metadata-audio-quality-2026-08-22",
  "based_on": "v37-updater-verify-health-cleanup-2026-08-14",
- "changes": "v39.8 PLAN_v39 ШАГИ 013-017: tools/audit_data_inventory.py читает и валидирует каждый versioned data-asset; data/README.md задаёт жизненный цикл seed/fixture/cache; reference_cache очищен от устаревшего JSON и защищён .gitkeep; .gitignore исключает локальные runtime cache/history/secrets. Добавлены детерминированные валидаторы outputs lyrics_llm и analysis_llm (длина, токены, повторы, schema), подключённые к orchestrator_ai и artist dossier; fallback теперь активируется при непригодном LLM output. Обе LLM-роли остаются честно BLOCKED до установки llama_cpp и весов через tools/pull_ai_models.py; sequential runner гарантирует unload после стадии. Проверка: data audit 73/73 managed, pytest tests/test_data_inventory.py = 2 passed, pytest tests/test_ai_layer.py = 18 passed, readiness CLI OK, main.py --ai-status OK."
+ "changes": "v39.9 PLAN_v39 ШАГИ 018-022: общий quality-слой расширен schema-валидатором analysis_llm, metadata_llm и объективными audio metrics (readability, duration, sample rate, channels, peak, RMS). stage_metadata всегда сохраняет валидный metadata.json с детерминированным fallback при недоступной/битой LLM. stage_music валидирует output MusicGen и CyberSynth fallback до возврата ok=True. Добавлены тесты metadata contract, audio signal/silence gate и dry-run metadata fallback. Тяжёлые metadata_llm/MusicGen веса остаются честно BLOCKED до явной установки; generic pull и sequential unload уже реализованы. Проверка: pytest tests/test_ai_quality.py + tests/test_ai_layer.py = 22 passed, compileall OK."
 }

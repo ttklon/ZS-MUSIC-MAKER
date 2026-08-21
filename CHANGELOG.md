@@ -1,6 +1,14 @@
 # CHANGELOG
 
-> Актуальная версия: **v39.8.0** (2026-08-22). Подробный журнал выполнения — в `SESSION_LOG.md`; каноническое состояние — в `PROJECT_STATE.md`.
+> Актуальная версия: **v39.9.0** (2026-08-22). Подробный журнал выполнения — в `SESSION_LOG.md`; каноническое состояние — в `PROJECT_STATE.md`.
+
+
+## v39.9 — PLAN_v39 ШАГИ 018–022 (metadata + audio quality gates)
+
+- **ШАГ 018:** analysis_llm применяет общий schema-validator для трековых и агрегированных досье; неполные структуры фиксируются как честный rejected/deferred result.
+- **ШАГИ 019–020:** metadata-стадия формирует и сохраняет валидный `metadata.json` даже без LLM, используя прозрачный deterministic fallback. Валидация проверяет title, описание и непустые теги.
+- **ШАГИ 021–022:** добавлены метрики audio artifact (читаемость, длительность, sample rate, каналы, peak, RMS). И MusicGen, и CyberSynth fallback проходят gate до выставления `ok=True`; silent, missing и слишком короткий файл блокируются с reason.
+- **Покрытие:** добавлены регрессии metadata-контракта, signal/silence audio quality и dry-run fallback; тяжёлые модели остаются BLOCKED до явного pull/install.
 
 
 ## v39.8 — PLAN_v39 ШАГИ 013–017 (data inventory + LLM quality)

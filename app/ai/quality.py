@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import re
 from collections import Counter
+from pathlib import Path
 from typing import Any
 
 
@@ -54,6 +55,73 @@ def validate_lyrics(text: str, *, min_characters: int = 60) -> dict[str, Any]:
         return {"ok": False, "reason": "line repetition exceeds hook limit", "metrics": metrics}
     if metrics["unique_token_ratio"] < 0.12:
         return {"ok": False, "reason": "token diversity too low", "metrics": metrics}
+    return {"ok": True, "reason": None, "metrics": metrics}
+
+
+def validate_metadata_json(payload: Any) -> dict[str, Any]:
+    """Проверить минимальный контракт метаданных релиза из metadata_llm."""
+    if not isinstance(payload, dict):
+        return {"ok": False, "reason": "metadata response is not an object", "metrics": {}}
+    title = str(payload.get("title") or "").strip()
+    descriptions = [str(payload.get(key) or "").strip() for key in ("spotify_desc", "youtube_desc")]
+    missing = []
+    if not 2 <= len(title) <= 120:
+        missing.append("title")
+    if not any(descriptions):
+        missing.append("description")
+    tag_count = sum(
+        len(value) for key, value in payload.items()
+        if key.startswith("tags_") and isinstance(value, list)
+    )
+    if tag_count == 0:
+        missing.append("tags")
+    if missing:
+        return {
+            "ok": False,
+            "reason": "missing or invalid metadata fields: " + ", ".join(missing),
+            "metrics": {"keys": len(payload), "tags": tag_count},
+        }
+    return {"ok": True, "reason": None, "metrics": {"keys": len(payload), "tags": tag_count}}
+
+
+def audio_metrics(path: str | Path) -> dict[str, Any]:
+    """Измерить базовые объективные показатели WAV/аудиофайла без ML."""
+    try:
+        import numpy as np
+        import soundfile as sf
+
+        samples, sample_rate = sf.read(str(path), always_2d=True)
+    except Exception as exc:
+        return {"readable": False, "reason": f"audio read failed: {exc}"}
+    if samples.size == 0:
+        return {"readable": False, "reason": "audio is empty"}
+    peak = float(np.max(np.abs(samples)))
+    rms = float(np.sqrt(np.mean(samples ** 2)))
+    duration = len(samples) / sample_rate
+    return {
+        "readable": True,
+        "duration_sec": round(duration, 3),
+        "sample_rate": int(sample_rate),
+        "channels": int(samples.shape[1]),
+        "peak": round(peak, 6),
+        "rms": round(rms, 6),
+    }
+
+
+def validate_audio_artifact(path: str | Path, *, min_duration_sec: float = 1.0) -> dict[str, Any]:
+    """Отсечь пустой, короткий, silent или клиппующий audio output."""
+    target = Path(path)
+    if not target.exists():
+        return {"ok": False, "reason": "audio file missing", "metrics": {"path": str(target)}}
+    metrics = audio_metrics(target)
+    if not metrics.get("readable"):
+        return {"ok": False, "reason": metrics.get("reason"), "metrics": metrics}
+    if metrics["duration_sec"] < min_duration_sec:
+        return {"ok": False, "reason": "audio duration below minimum", "metrics": metrics}
+    if metrics["rms"] < 1e-5:
+        return {"ok": False, "reason": "audio is silent", "metrics": metrics}
+    if metrics["peak"] > 1.0001:
+        return {"ok": False, "reason": "audio clips", "metrics": metrics}
     return {"ok": True, "reason": None, "metrics": metrics}
 
 
