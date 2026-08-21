@@ -18,6 +18,7 @@ ID3-теги пишутся через mutagen — artist_name из user_profile
 """
 
 import csv
+import hashlib
 import json
 import os
 import shutil
@@ -253,6 +254,18 @@ def export_release(
     )
     (rel_dir / "release_notes.txt").write_text(notes, encoding="utf-8")
     files["release_notes.txt"] = str(rel_dir / "release_notes.txt")
+
+    fingerprints = {}
+    for key, file_path in files.items():
+        path = Path(file_path)
+        if path.is_file():
+            fingerprints[key] = hashlib.sha256(path.read_bytes()).hexdigest()
+    manifest["artifacts_sha256"] = fingerprints
+    (rel_dir / "manifest.json").write_text(
+        json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    archive_path = shutil.make_archive(str(rel_dir), "zip", root_dir=str(rel_dir))
+    files["release.zip"] = archive_path
 
     return {
         "ok": True,

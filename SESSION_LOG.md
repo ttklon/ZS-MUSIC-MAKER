@@ -423,3 +423,11 @@ AI pipeline теперь создаёт `manifest.json` с `schema_version=1`, w
 Добавлен `modules.remix.render_remix`: remix возможен только с явным `source_authorized=True`, использует новый beat и vocal stem без source looping, ресемплирует к beat sample rate, гарантирует stereo и peak ceiling. Demucs dossier stem остаётся аналитическим; его применение требует прав пользователя.
 
 Проверка: remix authorization/audio tests = **2 PASS**; полный `pytest tests/` = **125 PASS**; compileall/AST OK.
+
+
+---
+## PLAN_v39 — ШАГ 058: release export + fingerprints
+
+`release_export` теперь добавляет SHA-256 всех существующих package artifacts в `manifest.json` и формирует `release.zip`. Metadata/ISRC и optional ID3/MP3/FLAC путь сохранены; WAV/metadata/manifest/archive остаются обязательным baseline без зависимости от ffmpeg.
+
+Проверка: release WAV package regression = **1 PASS**; полный `pytest tests/` = **126 PASS**; compileall/AST OK.
