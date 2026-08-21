@@ -4,7 +4,9 @@
 > README/CHANGELOG/старые аудиты — НЕ источник истины, если расходятся с кодом.
 
 ## Текущая версия
-- **v39.7.0** — `v39.7-plan-step-012-legacy-off-checkpoints-2026-08-22` (единый источник: `version.json`)
+- **v39.8.0** — `v39.8-plan-steps-013-017-data-ai-quality-2026-08-22` (единый источник: `version.json`)
+  - v39.8, ШАГИ 013–014: `data/` инвентаризирован (73/73 managed assets), добавлен format-аудит, runtime cache/history/secrets игнорируются; reference cache очищен до `.gitkeep`, архив HEAD — ~1.0 MB.
+  - v39.8, ШАГИ 015–017: lyrics_llm и analysis_llm получили детерминированные метрики/валидацию и честную fallback-цепочку. Тяжёлые llama_cpp/веса отсутствуют в sandbox, поэтому роли корректно BLOCKED до `tools/pull_ai_models.py`, а не заявлены как готовые.
   - v39.7, ШАГ 012: `--legacy-off` отключает импорт и регистрацию legacy v8–v12-патчей, сохраняя совместимость существующих веток. Runtime-вызов `anti_neuro_v10` маркируется `LEGACY`; fallback отражает `legacy_attempt`.
   - v39.7, P0: God Mode checkpoints перенесены в конкретный `out_root`; повторный smoke больше не загружает результаты из удалённого каталога и создаёт `master_god.wav` заново.
   - v39.6, ШАГ 011: AST-граф top-level импортов для `app.core`, `modules`, `agents`; lazy-imports не считаются. Зафиксировано: 104 модуля, 18 рёбер, 0 циклов; есть регрессия на искусственную петлю с полным путём диагностики. Дополнительно устранена регрессия `smoke_v26`: controlled mid/side widening даёт beat correlation 0.842 и закреплён детерминированным тестом.
@@ -36,14 +38,14 @@
 | CLI --health / --readiness / --dashboard | REAL_PASS | запускаются, exit 0 |
 | God Mode E2E (smoke_v29) | REAL_PASS | 8/8 стабильно |
 | Audio quality (smoke_v26) | REAL_PASS | 6/6 стабильно |
-| pytest tests/ | REAL_PASS | 53/53 на v39.7 |
+| pytest tests/ | REAL_PASS | 58/58 на v39.8 |
 | fallback_audit | REAL_PASS | red_flags=0 (v33 fix детектора многострочных вызовов) |
 | Windows EXE (build.yml) | NOT_TESTED на Windows | v36: spec поднят (models + collect-submodules), smoke без continue-on-error |
 | PySide6 GUI (desktop) | NOT_TESTED на Windows | требует целевой ПК |
 
 ## Что реально работает end-to-end
 - **God Mode CLI**: `python main.py --god --genre <жанр>` → master_god.wav (5 стадий: ai_arrangement → midi → audio_gen → vocal_cleaning → god_mastering_pro) → REAL_PASS.
-- **Smoke**: `python tools/smoke_v29.py` 8/8, `python main.py --legacy-off --smoke` 8/8, `python tools/smoke_v26.py` 6/6 (beat correlation 0.842), `python -m pytest tests/` 53/53 на v39.7.
+- **Smoke**: `python tools/smoke_v29.py` 8/8, `python main.py --legacy-off --smoke` 8/8, `python tools/smoke_v26.py` 6/6 (beat correlation 0.842), `python -m pytest tests/` 58/58 на v39.8.
 - **Fallback honesty**: `python tools/fallback_audit.py` → red_flags=0.
 - **License gate**: sample_hunter_v9.search_online() блокирует NC/SA/unknown.
 

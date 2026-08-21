@@ -1,6 +1,14 @@
 # CHANGELOG
 
-> Актуальная версия: **v39.7.0** (2026-08-22). Подробный журнал выполнения — в `SESSION_LOG.md`; каноническое состояние — в `PROJECT_STATE.md`.
+> Актуальная версия: **v39.8.0** (2026-08-22). Подробный журнал выполнения — в `SESSION_LOG.md`; каноническое состояние — в `PROJECT_STATE.md`.
+
+
+## v39.8 — PLAN_v39 ШАГИ 013–017 (data inventory + LLM quality)
+
+- **ШАГ 013:** `tools/audit_data_inventory.py` читает и валидирует каждый versioned asset из `data/`; добавлены тесты чистого каталога и диагностики неизвестного/битого файла. Инвентарь: 73 managed, 0 unknown, 0 invalid.
+- **ШАГ 014:** удалён устаревший reference-cache JSON, сохранён `.gitkeep`; `.gitignore` защищает локальные `reference_cache`, KPI/history, profile, secrets и API-key от случайного коммита. Сжатый архив HEAD — около 1.0 MB, tracked audio/model binaries отсутствуют.
+- **ШАГИ 015–016:** `lyrics_llm` использует общий валидатор длины, токенов и повторяемости; invalid output запускает существующий fallback до записи `lyrics.txt`. Метрики прикладываются к результату стадии.
+- **ШАГ 017:** output analysis_llm в artist dossier и track dossier проходит schema-валидацию; неполный JSON становится честным deferred/error результатом. Обе LLM-роли остаются BLOCKED без весов и `llama_cpp`, а не заявляются как установленные.
 
 
 ## v39.7 — PLAN_v39 ШАГ 012 (legacy isolation + God Mode checkpoints)

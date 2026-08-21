@@ -352,3 +352,42 @@ def test_pipeline_uses_explicit_checkpoint_directory(tmp_path: Path) -> None:
 
 if __name__ == "__main__":
     unittest.main()
+
+
+
+def test_lyrics_quality_accepts_structured_non_repetitive_text() -> None:
+    from app.ai.quality import validate_lyrics
+
+    text = """[Куплет 1]
+Ночной проспект отражает неон в окне
+Мы считаем минуты на скорости в тишине
+Двигатель шепчет, город держит ритм
+Я пишу этот маршрут, пока свет не остыл
+[Припев]
+Выше, выше, держим линию огней
+Выше, выше, не теряем своих дней
+"""
+    result = validate_lyrics(text)
+
+    assert result["ok"] is True
+    assert result["metrics"]["tokens"] >= 12
+
+
+def test_lyrics_quality_rejects_empty_short_and_looped_text() -> None:
+    from app.ai.quality import validate_lyrics
+
+    assert validate_lyrics("")["reason"] == "empty lyrics"
+    assert validate_lyrics("слишком коротко")["ok"] is False
+    loop = "\n".join(["одна и та же строка"] * 5)
+    assert validate_lyrics(loop, min_characters=1)["reason"] == "line repetition exceeds hook limit"
+
+
+def test_analysis_quality_requires_schema_for_artist_and_track() -> None:
+    from app.ai.quality import validate_analysis_json
+
+    artist = {"core_themes": ["ночь"], "lexicon": ["неон"], "flow": "плотный"}
+    track = {"storyline": "побег из города", "hook": "выше", "reusable_elements": ["cowbell"]}
+
+    assert validate_analysis_json(artist)["ok"] is True
+    assert validate_analysis_json(track, track_level=True)["ok"] is True
+    assert validate_analysis_json({"core_themes": []})["ok"] is False

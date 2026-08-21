@@ -7,6 +7,7 @@ from app.core.logger import app_logger
 from app.ai.sequential_runner import SequentialAIRunner, AIStage
 from app.ai import prompts as P
 from app.ai import llm_service as LLM
+from app.ai.quality import validate_lyrics
 from modules.artist_dossier import DossierManager
 
 
@@ -67,7 +68,9 @@ def run_ai_pipeline(project_id, wizard_state=None, out_root=None, dry_run=False)
                 artist_dossier=art, track_reference=trk)
             text = LLM.complete(handle, P.SYSTEM_LYRICS, prompt, max_tokens=1400,
                                 temperature=0.9, repeat_penalty=1.15)
-        if not text or len(text) < 60:
+
+        quality = validate_lyrics(text)
+        if not quality["ok"]:
             try:
                 from modules import lyrics_gen
                 r = lyrics_gen.generate_lyrics(theme=ws["theme"],
@@ -76,14 +79,15 @@ def run_ai_pipeline(project_id, wizard_state=None, out_root=None, dry_run=False)
                     bilingual=ws["bilingual"])
                 text = r.get("lyrics", "")
                 source = "punch_lib_fallback"
+                quality = validate_lyrics(text)
             except Exception as _lg_e:  # noqa: BLE001
-                # v39.4 (ШАГ 005): молчаливый except заменён на честный лог
                 app_logger.error(
                     f"[orchestrator_ai] stage=lyrics event=fallback_failed "
                     f"reason={type(_lg_e).__name__}: {_lg_e}")
         (out_root / "lyrics.txt").write_text(text or "", encoding="utf-8")
-        return {"ok": bool(text), "lyrics": text, "source": source,
-                "path": str(out_root / "lyrics.txt")}
+        return {"ok": bool(quality["ok"]), "lyrics": text, "source": source,
+                "path": str(out_root / "lyrics.txt"), "quality": quality,
+                "reason": quality["reason"]}
 
     def stage_metadata(handle, ctx):
         if dry_run or handle is None:

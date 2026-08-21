@@ -61,3 +61,15 @@ ENV/
 .aider*
 logs/
 !data/tutorial_settings.json
+
+# v39.8 (PLAN_v39 ШАГИ 013–014): локальные данные исполнения.
+# Versioned fixtures остаются явно в data/; кэши, ключи и пользовательская
+# история не должны снова раздувать репозиторий.
+data/reference_cache/*
+!data/reference_cache/.gitkeep
+data/kpi_history.jsonl
+data/history.json
+data/templates/
+data/user_profile.json
+data/freesound.key
+data/secrets.enc

@@ -10,6 +10,7 @@ from app.ai.registry import registry
 from app.ai.sequential_runner import SequentialAIRunner, AIStage
 from app.ai import prompts as P
 from app.ai import llm_service as LLM
+from app.ai.quality import validate_analysis_json
 
 ROOT = Path(__file__).resolve().parents[2]
 DOSSIER_ROOT = ROOT / "data" / "artist_dossier"
@@ -218,7 +219,11 @@ class DossierManager:
             js = LLM.complete_json(handle, P.SYSTEM_TRACK_ANALYSIS,
                                    P.build_track_dossier_prompt(tr.title, lyrics, feats),
                                    max_tokens=3000, temperature=0.35)
-            return js or {"error": "llm returned no json"}
+            quality = validate_analysis_json(js, track_level=True)
+            if not quality["ok"]:
+                return {"error": quality["reason"], "quality": quality}
+            js["quality"] = quality
+            return js
         runner.add(AIStage("llm_breakdown", "analysis_llm", _llm_stage, optional=True))
 
         report = runner.run({"track_id": tr.track_id, "artist": tr.artist})
@@ -255,8 +260,14 @@ class DossierManager:
             js = LLM.complete_json(m.handle, P.SYSTEM_ANALYSIS,
                                    P.build_dossier_prompt(a.artist, blob),
                                    max_tokens=2500, temperature=0.4)
-        if not js:
-            return {"note": "llm returned no json", "tracks_count": len(a.tracks)}
+        quality = validate_analysis_json(js)
+        if not quality["ok"]:
+            return {
+                "note": "analysis_llm output rejected: " + str(quality["reason"]),
+                "tracks_count": len(a.tracks),
+                "quality": quality,
+            }
+        js["quality"] = quality
         js["tracks_count"] = len(a.tracks)
         js["updated_at"] = time.time()
         return js

@@ -1,6 +1,6 @@
 {
- "version": "39.7.0",
- "build": "v39.7-plan-step-012-legacy-off-checkpoints-2026-08-22",
+ "version": "39.8.0",
+ "build": "v39.8-plan-steps-013-017-data-ai-quality-2026-08-22",
  "based_on": "v37-updater-verify-health-cleanup-2026-08-14",
- "changes": "v39.7 PLAN_v39 ШАГ 012: добавлен CLI-флаг --legacy-off, который не импортирует и не регистрирует legacy-патчи v8–v12; loader возвращает прозрачный отчёт. Единственный вызов versioned v10-модуля в core-оркестраторе теперь маркируется LEGACY в данных стадии и сохраняет legacy_attempt при fallback. Дополнительно устранена реальная ошибка smoke_v29: God Mode использовал старые global checkpoints после удаления out_root и пропускал создание master_god.wav. ZSPipeline поддерживает custom checkpoint_dir, а God Mode хранит checkpoints рядом с out_root и отключает их reuse для изолированных запусков. Проверка: pytest tests/ = 53 passed, compileall OK, AST dead-imports = 0, smoke_v26 = 6/6, smoke_v29 = 8/8, main.py --legacy-off --smoke = 8/8, fallback_audit = 0 red flags."
+ "changes": "v39.8 PLAN_v39 ШАГИ 013-017: tools/audit_data_inventory.py читает и валидирует каждый versioned data-asset; data/README.md задаёт жизненный цикл seed/fixture/cache; reference_cache очищен от устаревшего JSON и защищён .gitkeep; .gitignore исключает локальные runtime cache/history/secrets. Добавлены детерминированные валидаторы outputs lyrics_llm и analysis_llm (длина, токены, повторы, schema), подключённые к orchestrator_ai и artist dossier; fallback теперь активируется при непригодном LLM output. Обе LLM-роли остаются честно BLOCKED до установки llama_cpp и весов через tools/pull_ai_models.py; sequential runner гарантирует unload после стадии. Проверка: data audit 73/73 managed, pytest tests/test_data_inventory.py = 2 passed, pytest tests/test_ai_layer.py = 18 passed, readiness CLI OK, main.py --ai-status OK."
 }
