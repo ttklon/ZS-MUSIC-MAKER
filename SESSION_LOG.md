@@ -351,3 +351,11 @@ ASR-вызов вынесен в `transcribe_reference_audio()`: handle полу
 | Измерения | `pyloudnorm` путь маркируется `integrated_lufs`; без него строго указывается `rms_approximation`, без фиктивного LUFS claim. |
 
 Проверка: matchering fake WAV contract + `pytest tests/test_ai_quality.py tests/test_mastering_results.py` = **39 PASS**; полный `pytest tests/` = **116 PASS**, compileall/AST OK. matchering/pyloudnorm в sandbox отсутствуют, real integrated-LUFS inference честно **BLOCKED**.
+
+
+---
+## PLAN_v39 — ШАГ 049: замыкание dossier pipeline
+
+`DossierManager` теперь persist-ит успешные промежуточные outputs, ранее жившие только в runner sink: `features.stems.vocals`, `stem_source_index` и `transcript_path`. Уже сохраняемые DSP BPM/key/duration/RMS и CLAP tags остаются в том же track JSON. При недоступных ролях contract по-прежнему честно фиксирует skipped reason без ложного analysis success.
+
+Проверка: `pytest tests/ -q` = **116 PASS**; `compileall` OK; AST = **0**. Demucs/faster-whisper/CLAP weights в sandbox отсутствуют: real inference **BLOCKED**.

@@ -352,10 +352,17 @@ class DossierManager:
         report = runner.run({"track_id": tr.track_id, "artist": tr.artist})
         sink = runner.sink()
         tr.features.update(sink.get("features") or {})
+        demucs = sink.get("demucs") or {}
+        if demucs.get("vocals_path"):
+            tr.features["stems"] = {"vocals": demucs["vocals_path"]}
+            tr.features["stem_source_index"] = demucs.get("source_index")
         if (sink.get("tags") or {}).get("tags"):
             tr.features["tags"] = sink["tags"]["tags"]
-        if (sink.get("asr") or {}).get("lyrics") and not tr.lyrics:
-            tr.lyrics = sink["asr"]["lyrics"]
+        asr = sink.get("asr") or {}
+        if asr.get("transcript_path"):
+            tr.features["transcript_path"] = asr["transcript_path"]
+        if asr.get("lyrics") and not tr.lyrics:
+            tr.lyrics = asr["lyrics"]
         br = sink.get("llm_breakdown")
         if isinstance(br, dict) and "error" not in br and "skipped" not in br:
             tr.dossier = br
