@@ -31,6 +31,47 @@ OUTPUT_DIR = os.environ.get(
     os.path.join(os.path.dirname(__file__), "..", "output", "beats"),
 )
 
+SLOT_NAMES = ("kick", "snare", "hat", "bass", "melody")
+GENRE_SLOT_PRESETS = {
+    "phonk": {
+        "kick": [1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0],
+        "snare": [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0],
+        "hat": [1, 0, 1, 0, 1, 0, 1, 1, 1, 0, 1, 0, 1, 0, 1, 1],
+        "bass": [1, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0],
+        "melody": [1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0],
+    },
+    "trap": {
+        "kick": [1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0],
+        "snare": [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0],
+        "hat": [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+        "bass": [1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0],
+        "melody": [1, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 1, 0],
+    },
+    "house": {
+        "kick": [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0],
+        "snare": [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0],
+        "hat": [0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0],
+        "bass": [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0],
+        "melody": [1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0],
+    },
+}
+
+
+LEGACY_SLOT_PRESET = {
+    "kick": [1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0],
+    "snare": [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0],
+    "hat": [0] * 16,
+    "bass": [1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0],
+    "melody": [0] * 16,
+}
+
+
+def slot_preset_for_genre(genre: str | None) -> dict[str, list[int]]:
+    """Return a copy of a complete 16-step preset for the requested genre."""
+    normalized = (genre or "").lower()
+    selected = "phonk" if "phonk" in normalized or "drift" in normalized else "trap" if "trap" in normalized or "hip" in normalized else "house" if "house" in normalized or "techno" in normalized else "phonk"
+    return {slot: list(values) for slot, values in GENRE_SLOT_PRESETS[selected].items()}
+
 
 class BeatConstructor:
     """Конструктор оригинального бита из сэмплов + groove template."""
@@ -41,10 +82,20 @@ class BeatConstructor:
         key: str = "A minor",
         groove: dict = None,
         samples: list = None,
+        genre: str = "legacy",
     ):
         self.bpm = bpm
         self.key = key
+        self.genre = genre
         self.groove = groove or {}
+        self.slot_patterns = (
+            {slot: list(values) for slot, values in LEGACY_SLOT_PRESET.items()}
+            if genre == "legacy"
+            else slot_preset_for_genre(genre)
+        )
+        for slot, groove_key in (("kick", "kick_pattern"), ("snare", "snare_pattern"), ("hat", "hat_pattern"), ("bass", "bass_pattern"), ("melody", "melody_pattern")):
+            if isinstance(self.groove.get(groove_key), list) and len(self.groove[groove_key]) == 16:
+                self.slot_patterns[slot] = [int(bool(value)) for value in self.groove[groove_key]]
         self.samples = samples or []  # список путей к wav-файлам сэмплов
         self.sr = 44100
 
@@ -56,6 +107,12 @@ class BeatConstructor:
         self.melody_samples = []
         self.fx_samples = []
         self._classify_samples()
+
+    def build_slot_plan(self, bars: int = 8) -> dict[str, list[int]]:
+        """Expose the exact five 16-step slots used for a fixed number of bars."""
+        if bars < 1:
+            raise ValueError("bars must be positive")
+        return {slot: pattern * bars for slot, pattern in self.slot_patterns.items()}
 
     def _classify_samples(self):
         """Грубо классифицирует сэмплы по имени файла."""
@@ -113,10 +170,8 @@ class BeatConstructor:
 
     def _generate_kick(self, step: int, bar: int) -> np.ndarray:
         """Возвращает кик для данного шага с учетом акцентов и вариаций."""
-        # Базовый паттерн
-        kick_pattern = self.groove.get(
-            "kick_pattern", [1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0]
-        )
+        # Core 16-step pattern is sourced from the selected genre slot.
+        kick_pattern = self.slot_patterns["kick"]
 
         # Вариация каждые 4 такта
         if bar % 4 == 3 and step >= 12:
@@ -150,9 +205,7 @@ class BeatConstructor:
 
     def _generate_snare(self, step: int, bar: int) -> np.ndarray:
         """Возвращает снейр/клэп для данного шага с учетом акцентов."""
-        snare_pattern = self.groove.get(
-            "snare_pattern", [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0]
-        )
+        snare_pattern = self.slot_patterns["snare"]
 
         # Ghost notes (призрачные ноты) для живости
         is_ghost = False
@@ -182,8 +235,14 @@ class BeatConstructor:
         density = self.groove.get("hihat_density", 0.5)
         swing = self.groove.get("swing", 0.0)
 
-        # На нечётных шагах добавляем свинг (смещение)
-        play = random.random() < density
+        # Legacy default preserves its historical density-only hat behavior;
+        # genre presets use explicit steps plus only a small density variation.
+        if self.genre == "legacy":
+            play = random.random() < density
+        else:
+            play = bool(self.slot_patterns["hat"][step % 16])
+            if not play:
+                play = random.random() < density * 0.12
         if step % 2 == 1 and random.random() < swing * 0.5:
             play = True  # свинг добавляет доп. удары
 
@@ -233,14 +292,12 @@ class BeatConstructor:
         root = self.key.split()[0] if " " in self.key else "A"
         base_freq = root_freqs.get(root, 440.0) / 2  # на октаву ниже
 
-        # Простой паттерн: I на 1 и 9 шагах
-        kick_pattern = self.groove.get(
-            "kick_pattern", [1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0]
-        )
+        # Bass is an independent slot, not an implicit duplicate of the kick.
+        bass_pattern = self.slot_patterns["bass"]
         bass = np.zeros(bar_samples, dtype=np.float32)
 
         step_len = bar_samples // 16
-        for i, play in enumerate(kick_pattern):
+        for i, play in enumerate(bass_pattern):
             if play:
                 start = i * step_len
                 end = min(start + step_len * 2, bar_samples)
@@ -606,6 +663,7 @@ class BeatConstructor:
             "bpm": self.bpm,
             "key": self.key,
             "sections": section_info,
+            "slot_plan": self.build_slot_plan(max(1, sum(s["bars"] for s in section_info))),
             "total_bars": sum(s["bars"] for s in section_info),
             "samples_used": {
                 "kicks": len(self.kick_samples),
@@ -636,7 +694,13 @@ def construct_beat(
         break
     key = f"{key_root} {mode}"
 
-    bc = BeatConstructor(bpm=bpm, key=key, groove=groove, samples=samples)
+    bc = BeatConstructor(
+        bpm=bpm,
+        key=key,
+        groove=groove,
+        samples=samples,
+        genre=str(style_vector.get("genre") or style_vector.get("style") or "phonk"),
+    )
     return bc.build_track(
         duration_sec=duration_sec,
         n_verses=n_verses,

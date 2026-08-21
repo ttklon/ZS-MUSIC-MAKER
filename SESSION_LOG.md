@@ -587,3 +587,10 @@ Metadata validator теперь требует title 3–80, обе descriptions
 `clean_vocal_chain` реализует denoise -> zero-phase 4.5–9.5 kHz de-esser -> smoothed silence gate с genre presets и measured pause metric. `process_vocal` запускает cleanup до double/throw. На synthetic 32 kHz vocal: pauses < -60 dBFS, sibilance reduction около 3 dB, 12 kHz air не затронут существенно; optional noisereduce отсутствует и fallback явно маркируется.
 
 Приёмка: 2 targeted synthetic tests PASS; полный `pytest tests/ -q` = **189 PASS**, compileall/AST OK, data inventory 73/0/0.
+
+---
+## PLAN_v39 — ШАГ 083: five-slot beat constructor
+
+Добавлены genre-aware 16-step slots kick/snare/hat/bass/melody, deterministic 8-bar plan и MIDI exporter contract. Отдельный phonk bass pattern больше не дублирует kick. После обнаруженного golden RMS regression legacy constructor default сохранён отдельным `legacy` preset; новые genre-aware calls получают новые slots, а existing default fixture остаётся воспроизводимой. mido отсутствует — five-slot MIDI export честно BLOCKED, events доступны.
+
+Приёмка: 8 bars/stereo <5s, five slots по 128 steps, golden rerender зелёный. Полный `pytest tests/ -q` = **193 PASS**, compileall/AST OK, data inventory 73/0/0.

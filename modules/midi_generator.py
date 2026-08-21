@@ -37,6 +37,18 @@ except Exception:  # pragma: no cover
     _HAS_MIDO = False
 
 
+SLOT_NOTES = {"kick": 36, "snare": 38, "hat": 42, "bass": 36, "melody": 60}
+
+
+def slot_events_for_genre(genre: str, bars: int = 8) -> dict[str, list[int]]:
+    """Expose complete 16-step events for kick/snare/hat/bass/melody."""
+    from modules.beat_constructor import slot_preset_for_genre
+
+    if bars < 1:
+        raise ValueError("bars must be positive")
+    return {slot: pattern * bars for slot, pattern in slot_preset_for_genre(genre).items()}
+
+
 class MIDIGenerator:
     """Алгоритмический MIDI-генератор с honest BLOCKED-fallback."""
 
@@ -58,6 +70,46 @@ class MIDIGenerator:
             "engine": "mido" if _HAS_MIDO else "BLOCKED",
             "reason": None if _HAS_MIDO else "mido not installed — MIDI export disabled, honest fallback",
         }
+
+    def export_slot_pattern(
+        self,
+        genre: str,
+        bpm: int,
+        bars: int = 8,
+        out_name: str | None = None,
+    ) -> dict:
+        """Export all five deterministic slots to one MIDI file when mido is available."""
+        events = slot_events_for_genre(genre, bars=bars)
+        if not _HAS_MIDO:
+            return {
+                "ok": False,
+                "status": "BLOCKED",
+                "reason": "mido not installed — five-slot MIDI export unavailable",
+                "events": events,
+            }
+        try:
+            self._ensure_dir()
+            midi = MidiFile()
+            ticks = max(1, midi.ticks_per_beat // 4)
+            tempo = mido.bpm2tempo(max(40, min(int(bpm), 240)))
+            for slot, pattern in events.items():
+                track = MidiTrack()
+                midi.tracks.append(track)
+                track.append(mido.MetaMessage("track_name", name=slot, time=0))
+                track.append(mido.MetaMessage("set_tempo", tempo=tempo, time=0))
+                note = SLOT_NOTES[slot]
+                for active in pattern:
+                    if active:
+                        track.append(Message("note_on", note=note, velocity=96, time=0, channel=9 if slot in {"kick", "snare", "hat"} else 0))
+                        track.append(Message("note_off", note=note, velocity=0, time=ticks, channel=9 if slot in {"kick", "snare", "hat"} else 0))
+                    else:
+                        track.append(mido.MetaMessage("marker", text="rest", time=ticks))
+            safe_genre = "".join(char for char in genre.lower() if char.isalnum() or char in ("_", "-")) or "genre"
+            target = os.path.join(self.output_dir, out_name or f"{safe_genre}_{bars}bars_slots.mid")
+            midi.save(target)
+            return {"ok": True, "status": "REAL_PASS", "path": target, "events": events, "slots": list(events)}
+        except Exception as exc:
+            return {"ok": False, "status": "FAILED", "reason": str(exc), "events": events}
 
     # ------------------------------------------------------------------ #
     #  DRUM PATTERN
