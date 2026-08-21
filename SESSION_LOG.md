@@ -399,3 +399,11 @@ AI pipeline теперь создаёт `manifest.json` с `schema_version=1`, w
 `genre_validator` разделён на проверку **50/50 versioned JSON assets** по фактической schema и проверку **119 runtime genres** через `GenreFactory`. Реальный запуск: `Preset assets: 50/50`, `Runtime genres: 119`, `PASS`.
 
 Проверка: validator OK; полный `pytest tests/` = **119 PASS**; compileall/AST OK.
+
+
+---
+## PLAN_v39 — ШАГ 055: Phonk engine unification
+
+Исправлен фактический API-разрыв: V2 вызывал cowbell как in-memory frequency/duration primitive, legacy V1 принимал только file-output аргументы. `phonk_engine` теперь canonical primitive с modern ndarray и backward-compatible WAV adapter; V2 остаётся advanced composition layer.
+
+Проверка: phonk waveform + legacy output tests = **2 PASS**; полный `pytest tests/` = **121 PASS**; compileall/AST OK.
