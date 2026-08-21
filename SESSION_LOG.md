@@ -573,3 +573,10 @@ PROJECT_STATE заменён v39 snapshot: **147/147** matrix rows соотве�
 Metadata validator теперь требует title 3–80, обе descriptions 20–400, максимум 8 unique normalized tags и отсутствие AI filler. `stage_metadata` использует genre-aware deterministic fallback, который проходит тот же gate; LLM invalid/missing output не сохраняется как valid metadata.
 
 Приёмка: boundary/dry-run tests PASS; полный `pytest tests/ -q` = **185 PASS**, compileall/AST OK, data inventory 73/0/0. Heavy metadata LLM inference не запускался.
+
+---
+## PLAN_v39 — ШАГ 081: MusicGen stereo beat extension
+
+Добавлен deterministic WAV crossfade helper для intro/base/outro. При доступном music_stereo handle stage генерирует/валидирует обе stereo sections, собирает `beat_stereo_extended.wav`, и mix предпочитает этот beat. Любая unavailable/quality/generation failure возвращает explicit skipped/fallback и сохраняет base beat; dry-run не симулирует MusicGen.
+
+Приёмка на real temporary WAV с разными sample rates подтвердила resampling, 2-channel output, peak <=0.981 и expected crossfade duration. Полный `pytest tests/ -q` = **187 PASS**, compileall/AST OK, data inventory 73/0/0. MusicGen weights BLOCKED.

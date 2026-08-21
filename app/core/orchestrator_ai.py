@@ -50,6 +50,70 @@ def render_stereo_texture(handle, prompt: str, duration_sec: int, out_path: str)
         return {"ok": False, "reason": f"music_stereo generation failed: {exc}"}
 
 
+def extend_beat_with_stereo_sections(
+    base_path: str,
+    intro_path: str,
+    outro_path: str,
+    out_path: str,
+    fade_sec: float = 1.0,
+) -> dict:
+    """Stitch generated stereo intro/outro around a beat using equal-power fades."""
+    try:
+        import numpy as np
+        import soundfile as sf
+
+        def stereo(data):
+            array = np.asarray(data, dtype="float32")
+            if array.ndim == 1:
+                return np.column_stack((array, array))
+            if array.ndim != 2:
+                raise ValueError("audio must be mono or stereo")
+            if array.shape[1] == 1:
+                return np.repeat(array, 2, axis=1)
+            return array[:, :2]
+
+        def resample(data, from_sr: int, to_sr: int):
+            if from_sr == to_sr:
+                return data
+            from scipy.signal import resample_poly
+            from math import gcd
+            divisor = gcd(from_sr, to_sr)
+            return resample_poly(data, to_sr // divisor, from_sr // divisor, axis=0).astype("float32")
+
+        def crossfade(left, right, samples: int):
+            overlap = min(samples, len(left), len(right))
+            if overlap <= 0:
+                return np.vstack((left, right))
+            phase = np.linspace(0.0, np.pi / 2.0, overlap, endpoint=False, dtype="float32")
+            mixed = left[-overlap:] * np.cos(phase)[:, None] + right[:overlap] * np.sin(phase)[:, None]
+            return np.vstack((left[:-overlap], mixed, right[overlap:]))
+
+        base, sample_rate = sf.read(base_path, always_2d=False)
+        intro, intro_rate = sf.read(intro_path, always_2d=False)
+        outro, outro_rate = sf.read(outro_path, always_2d=False)
+        base = stereo(base)
+        intro = resample(stereo(intro), int(intro_rate), int(sample_rate))
+        outro = resample(stereo(outro), int(outro_rate), int(sample_rate))
+        fade_samples = max(1, int(float(fade_sec) * sample_rate))
+        stitched = crossfade(crossfade(intro, base, fade_samples), outro, fade_samples)
+        peak = float(np.max(np.abs(stitched))) if len(stitched) else 0.0
+        if peak > 0.98:
+            stitched *= 0.98 / peak
+        target = Path(out_path)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        sf.write(target, stitched, int(sample_rate), subtype="PCM_16")
+        return {
+            "ok": True,
+            "beat_path": str(target),
+            "sample_rate": int(sample_rate),
+            "channels": 2,
+            "duration_sec": len(stitched) / sample_rate,
+            "fade_sec": float(fade_sec),
+        }
+    except Exception as exc:
+        return {"ok": False, "reason": f"stereo beat extension failed: {exc}"}
+
+
 def render_xtts_vocal(handle, text: str, out_path: str, speaker_wav: str | None = None) -> dict:
     """Синтезировать вокал через совместимый XTTS handle и подтвердить файл-результат."""
     try:
@@ -311,29 +375,62 @@ def run_ai_pipeline(project_id, wizard_state=None, out_root=None, dry_run=False)
         return result
 
     def stage_music_stereo(handle, ctx):
-        """Создать отдельную стерео-текстуру; основной beat не меняется на этой стадии."""
+        """Extend the base beat with MusicGen stereo intro/outro through crossfades."""
         if dry_run:
-            return {"skipped": "dry-run"}
+            return {"skipped": "dry-run", "fallback": "base beat is preserved"}
+        base_beat = (ctx["sink"].get("music") or {}).get("beat_path")
+        if not base_beat or not Path(base_beat).exists():
+            return {"skipped": "no base beat", "fallback": "base beat is unavailable"}
         if handle is None:
             return {
                 "skipped": "music_stereo unavailable",
                 "reason": "audiocraft model is not installed or not loadable",
-                "fallback": "base beat is preserved without a synthetic texture",
+                "fallback": "base beat is preserved without a synthetic extension",
             }
         prompt = P.build_music_prompt(ws["genre"], ws["bpm"], ws["key"], ws["mood"])
-        prompt += ", wide stereo atmosphere, transition texture, no lead vocal"
         duration = max(2, min(int(ws.get("texture_duration_sec", 8)), 20))
-        out_path = str(out_root / "texture_stereo.wav")
-        result = render_stereo_texture(handle, prompt, duration, out_path)
-        if result.get("ok"):
-            quality = validate_stereo_texture(out_path, min_duration_sec=max(1.0, duration * 0.5))
-            result["ok"] = bool(quality["ok"])
-            result["quality"] = quality
-            result["reason"] = quality["reason"]
+        intro_path = str(out_root / "texture_intro_stereo.wav")
+        outro_path = str(out_root / "texture_outro_stereo.wav")
+        intro = render_stereo_texture(
+            handle, prompt + ", wide stereo intro, gentle fade-in, no lead vocal", duration, intro_path
+        )
+        outro = render_stereo_texture(
+            handle, prompt + ", wide stereo outro, resolving fade-out, no lead vocal", duration, outro_path
+        )
+        for section in (intro, outro):
+            path = section.get("texture_path")
+            if not section.get("ok") or not path:
+                return {
+                    "skipped": "music_stereo generation failed",
+                    "reason": section.get("reason", "texture did not render"),
+                    "fallback": "base beat is preserved without a synthetic extension",
+                }
+            quality = validate_stereo_texture(path, min_duration_sec=max(1.0, duration * 0.5))
+            if not quality["ok"]:
+                return {
+                    "skipped": "music_stereo quality rejected",
+                    "reason": quality["reason"],
+                    "fallback": "base beat is preserved without a synthetic extension",
+                }
+        result = extend_beat_with_stereo_sections(
+            str(base_beat),
+            str(intro["texture_path"]),
+            str(outro["texture_path"]),
+            str(out_root / "beat_stereo_extended.wav"),
+            fade_sec=float(ws.get("texture_crossfade_sec", 1.0)),
+        )
+        if not result.get("ok"):
+            result.update({"skipped": "stereo extension failed", "fallback": "base beat is preserved"})
+            return result
+        quality = validate_audio_artifact(result["beat_path"], min_duration_sec=1.0)
         result.update({
+            "ok": bool(quality["ok"]),
+            "quality": quality,
+            "reason": quality["reason"],
             "engine": "musicgen-stereo-medium",
-            "prompt": prompt,
-            "duration_sec": duration,
+            "intro_path": intro["texture_path"],
+            "outro_path": outro["texture_path"],
+            "extension_sec": duration * 2,
         })
         return result
 
@@ -393,7 +490,8 @@ def run_ai_pipeline(project_id, wizard_state=None, out_root=None, dry_run=False)
         )
 
     def stage_mix(_, ctx):
-        beat = (ctx["sink"].get("music") or {}).get("beat_path")
+        beat = ((ctx["sink"].get("music_stereo") or {}).get("beat_path")
+                or (ctx["sink"].get("music") or {}).get("beat_path"))
         vocal = ((ctx["sink"].get("rvc") or {}).get("vocal_path")
                  or (ctx["sink"].get("vocal_synth") or {}).get("vocal_path"))
         texture = (ctx["sink"].get("music_stereo") or {}).get("texture_path")

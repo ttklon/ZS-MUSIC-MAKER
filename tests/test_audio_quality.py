@@ -59,6 +59,44 @@ def test_placeholder_audio_quality(tmp_path: Path) -> None:
     validate_audio_file(str(path), expected_duration=duration)
 
 
+def test_stereo_beat_crossfade_extension_preserves_audio_contract(tmp_path: Path) -> None:
+    from app.core.orchestrator_ai import extend_beat_with_stereo_sections
+
+    def tone(path: Path, sample_rate: int, seconds: float, frequency: float) -> None:
+        time_vec = np.arange(int(sample_rate * seconds)) / sample_rate
+        data = np.column_stack(
+            (
+                0.16 * np.sin(2 * np.pi * frequency * time_vec),
+                0.12 * np.cos(2 * np.pi * (frequency + 30) * time_vec),
+            )
+        )
+        sf.write(path, data, sample_rate)
+
+    base, intro, outro, extended = (tmp_path / name for name in ("base.wav", "intro.wav", "outro.wav", "extended.wav"))
+    tone(base, 8_000, 4.0, 220)
+    tone(intro, 4_000, 2.0, 180)
+    tone(outro, 16_000, 2.0, 260)
+
+    result = extend_beat_with_stereo_sections(base, intro, outro, extended, fade_sec=1.0)
+    data, sample_rate = sf.read(extended)
+
+    assert result["ok"] is True
+    assert sample_rate == 8_000
+    assert data.ndim == 2 and data.shape[1] == 2
+    assert 5.95 <= result["duration_sec"] <= 6.05  # 2 + 4 + 2 - two 1-second overlaps
+    assert float(np.max(np.abs(data))) <= 0.981
+    assert np.isfinite(data).all()
+
+
+def test_stereo_beat_crossfade_reports_missing_input(tmp_path: Path) -> None:
+    from app.core.orchestrator_ai import extend_beat_with_stereo_sections
+
+    result = extend_beat_with_stereo_sections("missing.wav", "missing.wav", "missing.wav", tmp_path / "out.wav")
+
+    assert result["ok"] is False
+    assert "stereo beat extension failed" in result["reason"]
+
+
 def test_clipping_detection(tmp_path: Path) -> None:
     """Verifies that the validator correctly identifies clipping."""
     import pytest  # pylint: disable=import-outside-toplevel
