@@ -29,6 +29,10 @@ MANAGED_DIRECTORIES = {
     "reference_cache": "reference-analysis cache fixture",
     "sample_manifests": "sample manifest fixture",
 }
+# Runtime weights и их integrity manifests создаются pull-инструментом, находятся
+# под .gitignore и не входят в инвентарь versioned data-assets.
+RUNTIME_DIRECTORIES = {"ai_models"}
+
 MANAGED_FILES = {
     "README.md": "data catalog documentation",
     "tutorial_settings.json": "onboarding settings",
@@ -85,9 +89,12 @@ def scan_data(data_dir: Path = DATA_DIR) -> dict[str, Any]:
         return {"data_dir": str(data_dir), "files": entries, "unknown": [], "invalid": []}
 
     for path in sorted(item for item in data_dir.rglob("*") if item.is_file()):
+        relative = path.relative_to(data_dir)
+        if relative.parts and relative.parts[0] in RUNTIME_DIRECTORIES:
+            continue
         purpose = classify_data_file(path, data_dir)
         valid, error = validate_data_file(path)
-        relative = path.relative_to(data_dir).as_posix()
+        relative = relative.as_posix()
         entry = {
             "path": relative,
             "purpose": purpose,

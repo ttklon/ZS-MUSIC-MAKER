@@ -25,3 +25,18 @@ def test_inventory_reports_unknown_and_invalid_assets(tmp_path) -> None:
     assert report["invalid"][0]["error"].startswith(
         "Expecting property name enclosed in double quotes"
     )
+
+
+
+def test_inventory_ignores_runtime_ai_model_manifests(tmp_path) -> None:
+    (tmp_path / "genre_presets").mkdir()
+    (tmp_path / "genre_presets" / "valid.json").write_text("{}", encoding="utf-8")
+    (tmp_path / "ai_models" / "lyrics_llm").mkdir(parents=True)
+    (tmp_path / "ai_models" / "lyrics_llm" / "manifest.json").write_text(
+        '{"runtime": true}', encoding="utf-8"
+    )
+
+    report = scan_data(tmp_path)
+
+    assert [entry["path"] for entry in report["files"]] == ["genre_presets/valid.json"]
+    assert report["unknown"] == []

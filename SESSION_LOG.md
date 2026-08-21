@@ -252,3 +252,19 @@ ASR-вызов вынесен в `transcribe_reference_audio()`: handle полу
 Проверка: `pytest tests/test_ai_layer.py -q` = **29 PASS**; `pytest tests/ -q` = **99 PASS**; `compileall` OK; `python tools/ast_dead_imports.py` = **0**. Добавлены детерминированные fake-VRAM, timeout и continuation регрессии.
 
 Дополнение приёмки: исправлен приоритет `--ai --dry-run` в `main.py`. Комбинация теперь запускает AI sequential pipeline, а не legacy dry-run. Сквозная проверка завершилась за **0.6 s**: все 12 стадий выдали timeout/VRAM telemetry, музыкальные роли получили **1800 s**, тяжёлые зависимости в sandbox остались честно fallback/skipped.
+
+
+---
+## PLAN_v39 — ШАГ 042: pull-скрипт и manifest 13 AI-ролей
+
+| Область | Результат |
+|---|---|
+| Единое хранилище | `data/ai_models/<role>/`, а LLM registry/loader синхронизированы с тем же per-role путём. |
+| Verification | `manifest.json` содержит source, sizes и SHA-256; `--verify` пересчитывает файл и ловит corruption. Для GGUF закреплены опубликованные LFS SHA-256 и byte sizes. |
+| Матрица 13 ролей | GGUF (3), HF snapshots (6), Demucs external cache (1), user-supplied RVC (1), pip-only essentia/matchering (2) — ни одна роль не остаётся неописанной. |
+| CLI | Добавлены `--role` (совместимый alias `--model`), `--all`, `--list`, `--verify`; unknown role возвращает exit 1. |
+| Честная среда | `mastering_ai` pip-only manifest успешно записан и проверен. `lyrics_llm` pull вернул exit 1: `huggingface_hub` отсутствует; 8.99 GB GGUF не скачан и не заявлен готовым. |
+
+Проверка: `pytest tests/test_ai_model_pull.py -q` = **6 PASS**; `compileall` OK; `python tools/ast_dead_imports.py` = **0**. `huggingface_hub` и heavyweight weights в sandbox отсутствуют, поэтому network download/inference ролей остаётся честно **BLOCKED**.
+
+Дополнение приёмки: full pytest обнаружил, что runtime `data/ai_models/mastering_ai/manifest.json` ошибочно считался неизвестным versioned data. `audit_data_inventory` исправлен: `data/ai_models/` исключён как .gitignored runtime weight storage; добавлен регрессионный тест. Итог: **106 PASS**, inventory **73/73 managed**, **0 unknown**, **0 invalid**.

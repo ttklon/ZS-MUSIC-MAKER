@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, Optional
 
 ROOT = Path(__file__).resolve().parents[2]
-MODELS_DIR = ROOT / "models"
+MODELS_DIR = ROOT / "data" / "ai_models"
 MODELS_DIR.mkdir(parents=True, exist_ok=True)
 
 
@@ -38,18 +38,24 @@ MODEL_REGISTRY: Dict[str, Dict[str, Any]] = {
         "engine": "llama_cpp",
         "hf_repo": "bartowski/Qwen2.5-14B-Instruct-GGUF",
         "file": "Qwen2.5-14B-Instruct-Q4_K_M.gguf",
+        "sha256": "e47ad95dad6ff848b431053b375adb5d39321290ea2c638682577dafca87c008",
+        "expected_size_bytes": 8988110976,
         "context": 8192, "vram_est_gb": 9.5, "ram_est_gb": 12.0, "device_pref": "auto"},
     "analysis_llm": {
         "role": "Досье на артистов/треки (длинный контекст 32k)",
         "engine": "llama_cpp",
         "hf_repo": "bartowski/Qwen2.5-14B-Instruct-GGUF",
         "file": "Qwen2.5-14B-Instruct-Q4_K_M.gguf",
+        "sha256": "e47ad95dad6ff848b431053b375adb5d39321290ea2c638682577dafca87c008",
+        "expected_size_bytes": 8988110976,
         "context": 32768, "vram_est_gb": 9.5, "ram_est_gb": 14.0, "device_pref": "auto"},
     "metadata_llm": {
         "role": "Названия/описания/хэштеги (Llama-3.1-8B)",
         "engine": "llama_cpp",
         "hf_repo": "bartowski/Meta-Llama-3.1-8B-Instruct-GGUF",
         "file": "Meta-Llama-3.1-8B-Instruct-Q5_K_M.gguf",
+        "sha256": "14e10feba0c82a55da198dcd69d137206ad22d116a809926d27fa5f2398c69c7",
+        "expected_size_bytes": 5732992416,
         "context": 8192, "vram_est_gb": 7.0, "ram_est_gb": 10.0, "device_pref": "auto"},
     "music_generation": {
         "role": "Генерация бита (MusicGen-large 3.3B)",
@@ -67,7 +73,7 @@ MODEL_REGISTRY: Dict[str, Dict[str, Any]] = {
         "vram_est_gb": 4.0, "ram_est_gb": 6.0, "device_pref": "cuda"},
     "vocal_rvc": {
         "role": "Voice-conversion под голос артиста (.pth кладёт юзер)",
-        "engine": "rvc", "hf_repo": "user_supplied", "file": "models/rvc/*.pth",
+        "engine": "rvc", "hf_repo": "user_supplied", "file": "data/ai_models/vocal_rvc/*.pth",
         "vram_est_gb": 3.0, "ram_est_gb": 4.0, "device_pref": "cuda"},
     "stem_splitter": {
         "role": "Демиксинг референса (Demucs htdemucs)",
@@ -136,7 +142,7 @@ class ModelRegistry:
         try:
             if eng == "llama_cpp":
                 import llama_cpp  # noqa
-                return (MODELS_DIR / "llm" / spec["file"]).exists()
+                return (MODELS_DIR / key / spec["file"]).exists()
             if eng == "audiocraft_musicgen":
                 import audiocraft  # noqa
                 return True
@@ -144,7 +150,7 @@ class ModelRegistry:
                 from TTS.api import TTS  # noqa
                 return True
             if eng == "rvc":
-                d = ROOT / "models" / "rvc"
+                d = MODELS_DIR / "vocal_rvc"
                 return d.exists() and any(d.glob("*.pth"))
             if eng == "demucs":
                 import demucs  # noqa
@@ -247,7 +253,7 @@ class ModelRegistry:
             def _do():
                 from llama_cpp import Llama
                 spec = MODEL_REGISTRY[key]
-                mp = MODELS_DIR / "llm" / spec["file"]
+                mp = MODELS_DIR / key / spec["file"]
                 mp.parent.mkdir(parents=True, exist_ok=True)
                 if not mp.exists():
                     raise FileNotFoundError(
