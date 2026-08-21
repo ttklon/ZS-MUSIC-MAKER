@@ -531,3 +531,10 @@ PROJECT_STATE заменён v39 snapshot: **147/147** matrix rows соотве�
 Добавлены versioned fixtures `tests/fixtures/audio/golden_beat_15s.wav` и `golden_master_10s.wav`, generator и metric helper. Golden tests сравнивают 15s fixed-seed beat и 10s local DSP master по duration, RMS, peak, spectrum/correlation с допусками, а не по хрупкому byte equality. `.gitignore` разрешает только `tests/fixtures/audio/golden_*.wav`.
 
 Приёмка: focused golden tests = **8 PASS**; полный suite до финального fixture tracking check = **148 PASS**, AST=0. Matchering runtime не установлен: master fixture покрывает ProAudioDSP, не заявляется Matchering inference.
+
+---
+## PLAN_v39 — ШАГ 075: единый CLI-стиль tools
+
+Выполнен audit 19 executable tools. `--help` раньше у части scripts запускал smoke/E2E/deep audit или падал на optional deps. Добавлен safe shared help guard для no-option tools, `readiness` переведён на собственный argparse parser, `p0_truth_test` получил main/exit contract, `ab_compare` lazy-check optional pyloudnorm, `validate_final_track` argparse. Все **19/19** `python tools/<script> --help` теперь дают usage и rc=0 без workload; contract покрыт тестом.
+
+Первичный небезопасный audit создал deep-audit reports и ignored health JSON; они полностью удалены/восстановлены, data inventory вновь **73 managed, 0 unknown, 0 invalid**. Финальная приёмка: `pytest tests/ -q` = **167 PASS**, compileall/AST OK.

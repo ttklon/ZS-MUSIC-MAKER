@@ -9,6 +9,7 @@ masters/*.wav в output/; если и его нет — честный usage + e
     python tools/validate_final_track.py [путь/к/track.wav]
 """
 
+import argparse
 import sys
 from pathlib import Path
 
@@ -26,9 +27,12 @@ def _find_latest_master() -> Path | None:
     return masters[-1] if masters else None
 
 
-def main() -> int:
-    if len(sys.argv) > 1:
-        track_path = Path(sys.argv[1])
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Validate a final mastered WAV artifact")
+    parser.add_argument("track_path", nargs="?", help="WAV to validate; defaults to latest output master")
+    args = parser.parse_args(argv)
+    if args.track_path:
+        track_path = Path(args.track_path)
     else:
         found = _find_latest_master()
         if not found:
@@ -62,4 +66,4 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(main())

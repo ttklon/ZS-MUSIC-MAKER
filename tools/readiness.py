@@ -6,6 +6,7 @@ ZS Music Maker v14 — tools/readiness.py (P0.14, TZ 33.4)
 
 from __future__ import annotations
 
+import argparse
 import ast
 import json
 import math
@@ -380,8 +381,15 @@ def compute() -> tuple[float, dict[str, Any]]:
     }
 
 
-def main() -> int:
-    if "--inventory-markdown" in sys.argv[1:]:
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Compute factual ZS Music Maker readiness")
+    parser.add_argument(
+        "--inventory-markdown",
+        action="store_true",
+        help="render the full tracked Python module matrix as Markdown",
+    )
+    args = parser.parse_args(argv)
+    if args.inventory_markdown:
         print(inventory_markdown())
         return 0
     pct, blocks = compute()

@@ -214,4 +214,8 @@ def _write_report(name: str, passed: int, failed: int) -> None:
 
 
 if __name__ == "__main__":
+    from cli_contract import help_or_error
+
+    if help_or_error(__doc__ or "ZS Music Maker tool"):
+        raise SystemExit(0)
     raise SystemExit(main())

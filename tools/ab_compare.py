@@ -24,11 +24,15 @@ from typing import Any
 
 try:
     import numpy as np
-    import pyloudnorm as pyln
     import soundfile as sf
-except Exception as e:
-    print(f"[ab_compare] deps missing: {e}", file=sys.stderr)
+except Exception as exc:
+    print(f"[ab_compare] core dependencies missing: {exc}", file=sys.stderr)
     raise
+
+try:
+    import pyloudnorm as pyln
+except ImportError:
+    pyln = None
 
 try:
     import matplotlib
@@ -210,12 +214,15 @@ def _verdict(u_l, r_l, u_tp, r_tp, u_w, r_w):
     return notes
 
 
-def main():
-    p = argparse.ArgumentParser()
+def main() -> int:
+    p = argparse.ArgumentParser(description="Compare a user WAV against a reference WAV")
     p.add_argument("user_wav")
     p.add_argument("ref_wav")
     p.add_argument("--out", default="output/ab_compare")
     a = p.parse_args()
+    if pyln is None:
+        print("[ab_compare] optional dependency missing: pyloudnorm", file=sys.stderr)
+        return 2
     r = compare(a.user_wav, a.ref_wav, a.out)
     # Печатаем без spectrograms полных путей (короткая версия)
     print(

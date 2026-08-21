@@ -84,4 +84,8 @@ def validate_all() -> bool:
 
 
 if __name__ == "__main__":
+    from cli_contract import help_or_error
+
+    if help_or_error(__doc__ or "ZS Music Maker tool"):
+        raise SystemExit(0)
     raise SystemExit(0 if validate_all() else 1)
