@@ -451,6 +451,7 @@ def main() -> int:
     parser.add_argument("--dossier-add", type=str, default="", help="Add local folder source")
     parser.add_argument("--dossier-build", action="store_true", help="Run full AI dossier build (heavy)")
     parser.add_argument("--score", type=str, default="", help="Score a mastered WAV and print hit-score breakdown")
+    parser.add_argument("--update", action="store_true", help="Check Git update status without applying changes")
 
     args = parser.parse_args()
 
@@ -506,6 +507,12 @@ def main() -> int:
 
     if args.console:
         return _cli_console()
+
+    if args.update:
+        from updater.updater import check_git_update_status
+        report = check_git_update_status(ROOT)
+        print(json.dumps(report, ensure_ascii=False, indent=2))
+        return 0 if report.get("ok") else 2
 
     if args.score:
         from modules.hit_scorer import score_track

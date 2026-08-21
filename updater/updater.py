@@ -439,6 +439,25 @@ def rollback_last() -> dict[str, Any]:
         return {"ok": False, "error": str(e)}
 
 
+def check_git_update_status(repo: Path | None = None) -> dict[str, Any]:
+    """Проверить remote revision без fetch/pull или изменения рабочего дерева."""
+    repo = Path(repo or program_dir())
+    try:
+        def git(*args: str) -> str:
+            return subprocess.check_output(["git", "-C", str(repo), *args], text=True).strip()
+        branch = git("branch", "--show-current") or "main"
+        local = git("rev-parse", "HEAD")
+        dirty = bool(git("status", "--porcelain"))
+        remote_line = git("ls-remote", "origin", f"refs/heads/{branch}")
+        remote = remote_line.split()[0] if remote_line else None
+        relation = "unknown" if not remote else ("up_to_date" if remote == local else "update_available")
+        return {"ok": True, "branch": branch, "local": local, "remote": remote,
+                "relation": relation, "working_tree_clean": not dirty,
+                "apply_performed": False}
+    except Exception as exc:
+        return {"ok": False, "reason": str(exc), "apply_performed": False}
+
+
 def check_updates(release_url: str) -> dict[str, Any]:
     try:
         import urllib.request as urlreq
@@ -459,6 +478,7 @@ def main() -> int:
     ap.add_argument("--rollback", action="store_true")
     ap.add_argument("--list-backups", action="store_true")
     ap.add_argument("--check", help="URL проверки обновлений")
+    ap.add_argument("--git-status", action="store_true", help="Проверить Git revision без обновления")
     ap.add_argument("--info", action="store_true")
     args = ap.parse_args()
 
@@ -486,6 +506,10 @@ def main() -> int:
     if args.list_backups:
         print(json.dumps(list_backups(), indent=2))
         return 0
+    if args.git_status:
+        result = check_git_update_status()
+        print(json.dumps(result, indent=2, ensure_ascii=False))
+        return 0 if result.get("ok") else 1
     if args.check:
         print(json.dumps(check_updates(args.check), indent=2))
         return 0

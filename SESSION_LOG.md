@@ -463,3 +463,11 @@ AI pipeline теперь создаёт `manifest.json` с `schema_version=1`, w
 `install.py` теперь использует only argv subprocess calls без shell; core manifest по умолчанию, `requirements_ai.txt` только через `--ai`, Linux packages только через `--system-deps`. `--dry-run` создаёт required runtime dirs, печатает план и не устанавливает пакеты.
 
 Проверка: installer unit tests = **2 PASS**; полный `pytest tests/` = **131 PASS**; compileall/AST OK. Реальный pip/GPU install в sandbox намеренно не запускался.
+
+
+---
+## PLAN_v39 — ШАГ 063: safe updater status
+
+Добавлен `main.py --update` → `check_git_update_status`: report включает branch, local/remote revision, relation, чистоту дерева и `apply_performed=false`. Проверка читает Git status/remote revision и не выполняет fetch/pull/reset/checkout/install/rollback.
+
+Проверка: `main.py --update` OK; updater read-only regression = **1 PASS**; полный `pytest tests/` = **132 PASS**; compileall/AST OK.
