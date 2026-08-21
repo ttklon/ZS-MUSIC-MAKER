@@ -471,3 +471,11 @@ AI pipeline теперь создаёт `manifest.json` с `schema_version=1`, w
 Добавлен `main.py --update` → `check_git_update_status`: report включает branch, local/remote revision, relation, чистоту дерева и `apply_performed=false`. Проверка читает Git status/remote revision и не выполняет fetch/pull/reset/checkout/install/rollback.
 
 Проверка: `main.py --update` OK; updater read-only regression = **1 PASS**; полный `pytest tests/` = **132 PASS**; compileall/AST OK.
+
+
+---
+## PLAN_v39 — ШАГ 064: security path и redaction
+
+Добавлены `safe_identifier`/`safe_child_path` против path traversal и `redact_secrets` для GitHub/API/Bearer-shaped tokens. Central logger применяет redacting filter к file/console handlers. Scoped audit Python-кода не обнаружил PAT-shaped значения.
+
+Проверка: security tests = **2 PASS**; полный `pytest tests/` = **134 PASS**; compileall/AST OK; PAT pattern grep = **0**.

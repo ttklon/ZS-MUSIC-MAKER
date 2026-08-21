@@ -10,6 +10,16 @@ import logging
 from pathlib import Path
 from logging.handlers import RotatingFileHandler
 
+from app.core.security_utils import redact_secrets
+
+
+class _SecretRedactingFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        record.msg = redact_secrets(record.getMessage())
+        record.args = ()
+        return True
+
+
 def setup_logger(name: str, log_file: str = "app.log", level=logging.INFO):
     """Настраивает профессиональный логгер с ротацией файлов."""
     log_dir = Path(__file__).resolve().parents[2] / "output" / "logs"
@@ -25,10 +35,12 @@ def setup_logger(name: str, log_file: str = "app.log", level=logging.INFO):
         encoding='utf-8'
     )
     file_handler.setFormatter(formatter)
+    file_handler.addFilter(_SecretRedactingFilter())
 
     # Обработчик для консоли
     console_handler = logging.StreamHandler()
     console_handler.setFormatter(formatter)
+    console_handler.addFilter(_SecretRedactingFilter())
 
     logger = logging.getLogger(name)
     logger.setLevel(level)
