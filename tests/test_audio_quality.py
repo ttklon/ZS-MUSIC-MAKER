@@ -10,6 +10,10 @@ from typing import Optional
 import numpy as np
 import soundfile as sf
 
+from tools.audio_golden_metrics import audio_signature
+
+FIXTURE_DIR = Path(__file__).parent / "fixtures" / "audio"
+
 
 def validate_audio_file(
     path: str, expected_duration: Optional[float] = None, tolerance: float = 0.5
@@ -100,3 +104,43 @@ def test_beat_constructor_stereo_width(tmp_path: Path, monkeypatch) -> None:
     assert 0.3 <= correlation <= 0.98, (
         f"Stereo correlation must remain audible but non-mono; got {correlation:.3f}"
     )
+
+
+def test_golden_beat_fixture_signature_is_stable() -> None:
+    """The committed 15-second beat fixture must remain a readable stereo signal."""
+    signature = audio_signature(FIXTURE_DIR / "golden_beat_15s.wav")
+
+    assert signature["sample_rate"] == 44_100
+    assert signature["channels"] == 2
+    assert signature["duration_sec"] == 15.0
+    assert signature["peak"] <= 0.83
+    assert 0.070 <= signature["rms"] <= 0.079
+    assert 9_500 <= signature["spectral_centroid_hz"] <= 11_200
+    assert 0.80 <= signature["stereo_correlation"] <= 0.89
+
+
+def test_deterministic_beat_rerender_matches_golden_features(tmp_path: Path, monkeypatch) -> None:
+    """Flag DSP changes that materially alter the fixed-seed beat's sound profile."""
+    import random
+
+    from modules import beat_constructor
+
+    np.random.seed(20260822)
+    random.seed(20260822)
+    monkeypatch.setattr(beat_constructor, "OUTPUT_DIR", str(tmp_path))
+    result = beat_constructor.BeatConstructor(
+        bpm=130,
+        groove={"hihat_density": 0.8, "swing": 0.1},
+    ).build_track(
+        duration_sec=15,
+        include_intro=False,
+        include_outro=False,
+        out_name="rerender.wav",
+    )
+
+    golden = audio_signature(FIXTURE_DIR / "golden_beat_15s.wav")
+    rerender = audio_signature(result["beat_path"])
+    assert rerender["duration_sec"] == golden["duration_sec"]
+    assert abs(rerender["rms"] - golden["rms"]) / golden["rms"] <= 0.05
+    assert abs(rerender["spectral_centroid_hz"] - golden["spectral_centroid_hz"]) / golden["spectral_centroid_hz"] <= 0.05
+    assert abs(rerender["stereo_correlation"] - golden["stereo_correlation"]) <= 0.03

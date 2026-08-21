@@ -26,6 +26,9 @@ output/
 checkpoints/
 lyric_vault/lyrics_memory.jsonl
 *.wav
+!tests/fixtures/
+!tests/fixtures/audio/
+!tests/fixtures/audio/golden_*.wav
 *.mp3
 *.pkl
 # Build artifacts

@@ -524,3 +524,10 @@ PROJECT_STATE заменён v39 snapshot: **147/147** matrix rows соотве�
 Добавлен воспроизводимый `tools/regress_v39.py` и 15-сценарная matrix `docs/REGRESS_v39.md`. Фактический прогон: **13 PASS, 2 BLOCKED, 0 FAIL**. BLOCKED: полный heavy 13-role runtime и 300-second MusicGen — sandbox не содержит нужных dependencies/weights/GPU; они не выданы за реальный inference. Машинное evidence: `docs/REGRESS_v39.results.json`.
 
 Приёмка: runner self-tests 3 PASS; полный `pytest tests/ -q` = **144 PASS**, compileall/AST OK.
+
+---
+## PLAN_v39 — ШАГ 071: golden-тесты звука
+
+Добавлены versioned fixtures `tests/fixtures/audio/golden_beat_15s.wav` и `golden_master_10s.wav`, generator и metric helper. Golden tests сравнивают 15s fixed-seed beat и 10s local DSP master по duration, RMS, peak, spectrum/correlation с допусками, а не по хрупкому byte equality. `.gitignore` разрешает только `tests/fixtures/audio/golden_*.wav`.
+
+Приёмка: focused golden tests = **8 PASS**; полный suite до финального fixture tracking check = **148 PASS**, AST=0. Matchering runtime не установлен: master fixture покрывает ProAudioDSP, не заявляется Matchering inference.
