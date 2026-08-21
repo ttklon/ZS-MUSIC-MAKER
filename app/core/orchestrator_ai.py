@@ -46,6 +46,21 @@ def render_stereo_texture(handle, prompt: str, duration_sec: int, out_path: str)
         return {"ok": False, "reason": f"music_stereo generation failed: {exc}"}
 
 
+def render_xtts_vocal(handle, text: str, out_path: str, speaker_wav: str | None = None) -> dict:
+    """Синтезировать вокал через совместимый XTTS handle и подтвердить файл-результат."""
+    try:
+        kwargs = {"text": text, "file_path": out_path, "language": "ru"}
+        if speaker_wav and Path(speaker_wav).exists():
+            kwargs["speaker_wav"] = speaker_wav
+        handle.tts_to_file(**kwargs)
+        target = Path(out_path)
+        if not target.exists() or target.stat().st_size <= 100:
+            return {"ok": False, "reason": "XTTS did not produce an audio file"}
+        return {"ok": True, "vocal_path": str(target), "engine": "xtts_v2"}
+    except Exception as exc:
+        return {"ok": False, "reason": f"XTTS synthesis failed: {exc}"}
+
+
 def run_ai_pipeline(project_id, wizard_state=None, out_root=None, dry_run=False):
     ws = dict(wizard_state or {})
     try:
@@ -252,15 +267,7 @@ def run_ai_pipeline(project_id, wizard_state=None, out_root=None, dry_run=False)
         clean = re.sub(r"^\[.*?\]\s*$", "", lyrics, flags=re.MULTILINE).strip()
         clean = re.sub(r"\n{3,}", "\n\n", clean)[:3500]
         out_path = str(out_root / "vocal_xtts.wav")
-        speaker_wav = ws.get("speaker_wav")
-        try:
-            kwargs = dict(text=clean, file_path=out_path, language="ru")
-            if speaker_wav and Path(speaker_wav).exists():
-                kwargs["speaker_wav"] = speaker_wav
-            handle.tts_to_file(**kwargs)
-            return {"ok": True, "vocal_path": out_path, "engine": "xtts_v2"}
-        except Exception as e:
-            return {"ok": False, "reason": str(e)}
+        return render_xtts_vocal(handle, clean, out_path, speaker_wav=ws.get("speaker_wav"))
 
     def stage_rvc(handle, ctx):
         if dry_run or handle is None:

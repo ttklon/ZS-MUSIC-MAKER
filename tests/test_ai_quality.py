@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import numpy as np
 import soundfile as sf
@@ -141,3 +142,44 @@ def test_stereo_texture_quality_rejects_mono_like_audio(tmp_path) -> None:
     assert abs(valid["metrics"]["stereo_correlation"]) < 0.995
     assert mono_like["ok"] is False
     assert mono_like["reason"] in {"stereo side energy too low", "stereo channels are over-correlated"}
+
+
+class _FakeXTTS:
+    def __init__(self):
+        self.kwargs = None
+
+    def tts_to_file(self, **kwargs):
+        self.kwargs = kwargs
+        sample_rate = 8_000
+        t = np.arange(sample_rate) / sample_rate
+        signal = 0.1 * np.sin(2 * np.pi * 180 * t)
+        sf.write(kwargs["file_path"], signal, sample_rate)
+
+
+class _EmptyXTTS:
+    def tts_to_file(self, **kwargs):
+        Path(kwargs["file_path"]).write_bytes(b"")
+
+
+def test_xtts_handle_saves_vocal_artifact_and_propagates_speaker(tmp_path) -> None:
+    from app.core.orchestrator_ai import render_xtts_vocal
+
+    speaker = tmp_path / "speaker.wav"
+    sf.write(speaker, np.zeros(800), 8_000)
+    output = tmp_path / "voice.wav"
+    handle = _FakeXTTS()
+    result = render_xtts_vocal(handle, "Тестовый вокальный текст", str(output), str(speaker))
+
+    assert result["ok"] is True
+    assert result["vocal_path"] == str(output)
+    assert handle.kwargs["speaker_wav"] == str(speaker)
+    assert handle.kwargs["language"] == "ru"
+
+
+def test_xtts_handle_rejects_empty_output(tmp_path) -> None:
+    from app.core.orchestrator_ai import render_xtts_vocal
+
+    result = render_xtts_vocal(_EmptyXTTS(), "Текст", str(tmp_path / "empty.wav"))
+
+    assert result["ok"] is False
+    assert result["reason"] == "XTTS did not produce an audio file"

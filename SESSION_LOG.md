@@ -1,6 +1,14 @@
 
 ---
 
+## КОММИТ — PLAN_v39 ШАГ 025: XTTS-v2 integration (выполнен, runtime BLOCKED)
+
+`stage_vocal` теперь вызывает изолированный `render_xtts_vocal()`: контракт включает `text`, `file_path`, `language=ru` и существующий `speaker_wav`; success требует созданный непустой аудиофайл. Fake XTTS подтвердил параметры и WAV, пустой output отклоняется без ложного успеха.
+
+Проверка: `pytest tests/` = **67/67 PASS**; compileall OK; AST dead-imports = **0**. Coqui TTS/XTTS не установлены в sandbox, поэтому реальный voice render **не заявляется как выполненный**; optional stage продолжает возвращать explicit `skipped`. Детали: `docs/STEP_STATUS/025_xtts_integration.md`.
+
+---
+
 ## КОММИТ — PLAN_v39 ШАГ 024: music_stereo quality gate (выполнен, runtime BLOCKED)
 
 `audio_metrics()` дополнен `stereo_correlation` и `stereo_side_rms`; `validate_stereo_texture()` требует stereo-каналы, side RMS ≥ 0.0005 и `abs(correlation) ≤ 0.995`, помимо базовой проверки WAV. `stage_music_stereo` может вернуть `ok=True` только после этого gate. При отсутствии MusicGen fallback явный: основной beat сохраняется без поддельной текстуры.
