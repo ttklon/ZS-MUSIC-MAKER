@@ -948,3 +948,10 @@ Self-diagnostic action planning now delegates layout, health, KPI and smoke guid
 Release packaging now delegates artist fallback, media variants, listening stands, release documents and archive finalization to focused helpers. Existing public export regression validates ZIP, SHA-256 manifest, ISRC, metadata CSV and release notes from a temporary WAV; no distribution upload, model inference or unavailable encoder success is claimed.
 
 Приёмка: focused release-export suite 1 PASS; `pytest tests/ -q` = **274 PASS**, compileall/AST OK, data inventory 73/0/0. Fresh audit: HIGH_COMPLEXITY **30** (was 31), none in `modules/release_export.py`; LONG_FUNCTION **28** (was 29); **882** total heuristic records across 224 files.
+
+---
+## APP_L v40 — KPI readiness decomposition
+
+KPI readiness now separates filesystem evidence, health-driven import downgrades and checklist summary. A deterministic regression proves missing RVC/MusicGen internals downgrade only those claims while confirmed KPI/unrelated checks remain; no real RVC or MusicGen runtime is claimed.
+
+Приёмка: focused KPI readiness suite 1 PASS; `pytest tests/ -q` = **275 PASS**, compileall/AST OK, data inventory 73/0/0. Fresh audit: HIGH_COMPLEXITY **29** (was 30), none in `modules/kpi_dashboard_v12.py`; LONG_FUNCTION **27** (was 28); **881** total heuristic records across 225 files.

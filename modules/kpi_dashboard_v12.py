@@ -207,6 +207,72 @@ def _smoke_section(smoke: dict[str, Any] | None) -> DashboardSection:
     return DashboardSection(f"Smoke-тесты ({label})", failed == 0, pct, lines)
 
 
+def _filesystem_tz_checks() -> dict[str, bool]:
+    """Return checklist evidence derived only from repository filesystem state."""
+    def has(path: str) -> bool:
+        return (ROOT / path).exists()
+
+    module_names = (
+        "analyzer", "beat_constructor", "groove_extractor", "arrangement_engine",
+        "voice_synth", "voice_convert", "voice_vault_v9", "rvc_manager", "mixdown",
+        "matchering_master", "release_pack_v9", "lyric_vault_v10", "author_ref_lyrics",
+    )
+    return {
+        "modules_12": all(has(f"modules/{name}.py") for name in module_names),
+        "gui_wizard": has("app/gui/wizard.py"),
+        "karaoke": has("modules/karaoke_engine.py") and has("ui/karaoke_recorder.py"),
+        "onboarding": has("modules/onboarding_tour.py") or has("app/gui/onboarding.py"),
+        "utf8_cp866": True,
+        "auto_deps": has("install.py") and has("requirements.txt"),
+        "smoke_tests": has("tools/smoke_v26.py") and has("tools/smoke_v29.py"),
+        "readme_context": has("README.md") and has("SESSION_LOG.md"),
+        "agents_free": has("agents/sample_hunter_v9.py") or has("agents/sample_hunter.py"),
+        "logging": (ROOT / "logs").exists(),
+        "hw_autodetect": has("app/core/hw_autodetect.py"),
+        "rvc_real": has("modules/rvc_manager.py") and has("modules/rvc_trainer_v9.py"),
+        "musicgen_full": has("app/core/musicgen_texture.py"),
+        "author_ref": has("modules/author_ref_lyrics.py"),
+        "female_backing": has("modules/female_backing.py"),
+        "expert_mode": has("modules/expert_mode_v11.py"),
+        "license_provenance": has("modules/provenance.py") and has("app/core/license_manager.py"),
+        "release_full": has("modules/release_pack_v9.py"),
+        "distribution_5": has("modules/distribution_export_v11.py"),
+        "hit_scorer": has("modules/hit_scorer.py") and has("modules/ai_detector_pro.py"),
+        "queue_5": has("modules/render_queue.py"),
+        "kpi_20_5": has("modules/hit_kpi_monitor_v11.py"),
+    }
+
+
+def _apply_health_constraints(checks: dict[str, bool], health: dict[str, Any] | None) -> None:
+    """Downgrade filesystem evidence when a related internal module cannot import."""
+    if health is None:
+        return
+    internal_ok = {entry.get("name"): entry.get("ok") for entry in health.get("internals", [])}
+    if not internal_ok.get("modules.rvc_manager", True) or not internal_ok.get(
+        "modules.rvc_trainer_v9", True
+    ):
+        checks["rvc_real"] = False
+    if not internal_ok.get("app.core.musicgen_texture", True):
+        checks["musicgen_full"] = False
+    if not internal_ok.get("modules.hit_kpi_monitor_v11", True):
+        checks["kpi_20_5"] = False
+
+
+def _checklist_summary(checks: dict[str, bool]) -> tuple[int, list[dict[str, Any]], list[str]]:
+    """Build checklist entries, percentage and advice from checked evidence."""
+    entries = [
+        {"key": item["key"], "tz": item["tz"], "title": item["title"], "ok": bool(checks.get(item["key"], False))}
+        for item in TZ_CHECKLIST
+    ]
+    passed = sum(1 for entry in entries if entry["ok"])
+    percent = int(100 * passed / max(1, len(TZ_CHECKLIST)))
+    advice = [
+        f"[TZ {entry['tz']}] {entry['title']} — не подтверждено, проверь наличие соответствующего файла/модуля."
+        for entry in entries if not entry["ok"]
+    ]
+    return percent, entries, advice
+
+
 def _tz_percent(
     health: dict[str, Any] | None,
     pipe: dict[str, Any] | None,
@@ -238,93 +304,10 @@ def _tz_percent(
     * kpi_20_5            — есть modules/hit_kpi_monitor_v11.py.
     """
 
-    def has(p: str) -> bool:
-        return (ROOT / p).exists()
-
-    checks = {
-        "modules_12": all(
-            has(f"modules/{m}.py")
-            for m in [
-                "analyzer",
-                "beat_constructor",
-                "groove_extractor",
-                "arrangement_engine",
-                "voice_synth",
-                "voice_convert",
-                "voice_vault_v9",
-                "rvc_manager",
-                "mixdown",
-                "matchering_master",
-                "release_pack_v9",
-                "lyric_vault_v10",
-                "author_ref_lyrics",
-            ]
-        ),
-        "gui_wizard": has("app/gui/wizard.py"),
-        "karaoke": has("modules/karaoke_engine.py") and has("ui/karaoke_recorder.py"),
-        "onboarding": has("modules/onboarding_tour.py") or has("app/gui/onboarding.py"),
-        "utf8_cp866": True,
-        # v33 FIX: windows_build.bat НЕ существовал — критерий всегда
-        # полагался на requirements.txt. Убрана ссылка на несуществующий файл.
-        "auto_deps": has("install.py") and has("requirements.txt"),
-        # v33 FIX (P1, SESSION_LOG v31.7): smoke_v11.py давно удалён,
-        # активные smoke — tools/smoke_v26.py и tools/smoke_v29.py.
-        "smoke_tests": has("tools/smoke_v26.py") and has("tools/smoke_v29.py"),
-        # v33 FIX: CONTEXT.md физически отсутствует в репо — роль
-        # канонического журнала выполняет SESSION_LOG.md.
-        "readme_context": has("README.md") and has("SESSION_LOG.md"),
-        "agents_free": has("agents/sample_hunter_v9.py")
-        or has("agents/sample_hunter.py"),
-        "logging": (ROOT / "logs").exists(),
-        "hw_autodetect": has("app/core/hw_autodetect.py"),
-        "rvc_real": has("modules/rvc_manager.py") and has("modules/rvc_trainer_v9.py"),
-        "musicgen_full": has("app/core/musicgen_texture.py"),
-        "author_ref": has("modules/author_ref_lyrics.py"),
-        "female_backing": has("modules/female_backing.py"),
-        "expert_mode": has("modules/expert_mode_v11.py"),
-        "license_provenance": has("modules/provenance.py")
-        and has("app/core/license_manager.py"),
-        "release_full": has("modules/release_pack_v9.py"),
-        "distribution_5": has("modules/distribution_export_v11.py"),
-        "hit_scorer": has("modules/hit_scorer.py")
-        and has("modules/ai_detector_pro.py"),
-        "queue_5": has("modules/render_queue.py"),
-        "kpi_20_5": has("modules/hit_kpi_monitor_v11.py"),
-    }
-
-    # Небольшая корректировка по health-report:
-    if health is not None:
-        int_ok = {e.get("name"): e.get("ok") for e in health.get("internals", [])}
-        # Если internal-модуль не импортируется — снимаем соответствующий флаг
-        if not int_ok.get("modules.rvc_manager", True) or not int_ok.get(
-            "modules.rvc_trainer_v9", True
-        ):
-            checks["rvc_real"] = False
-        if not int_ok.get("app.core.musicgen_texture", True):
-            checks["musicgen_full"] = False
-        if not int_ok.get("modules.hit_kpi_monitor_v11", True):
-            checks["kpi_20_5"] = False
-
-    entries = []
-    passed = 0
-    for item in TZ_CHECKLIST:
-        ok = bool(checks.get(item["key"], False))
-        entries.append(
-            {"key": item["key"], "tz": item["tz"], "title": item["title"], "ok": ok}
-        )
-        if ok:
-            passed += 1
-    percent = int(100 * passed / max(1, len(TZ_CHECKLIST)))
-
-    # Советы по проваленным пунктам
-    advice: list[str] = []
-    for e in entries:
-        if not e["ok"]:
-            advice.append(
-                f"[TZ {e['tz']}] {e['title']} — не подтверждено, "
-                f"проверь наличие соответствующего файла/модуля."
-            )
-    return percent, entries, advice
+    del pipe, smoke  # compatibility parameters; checklist evidence is filesystem/health based.
+    checks = _filesystem_tz_checks()
+    _apply_health_constraints(checks, health)
+    return _checklist_summary(checks)
 
 
 def build(save: bool = True) -> Dashboard:
