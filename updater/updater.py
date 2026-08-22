@@ -77,6 +77,19 @@ def staging_dir() -> Path:
     return d
 
 
+def online_enabled(allow_online: bool = False, settings_path: Path | None = None) -> bool:
+    """Allow remote updater traffic only after an explicit user opt-in."""
+    if allow_online:
+        return True
+    path = Path(settings_path) if settings_path else program_dir() / "data" / "settings.json"
+    try:
+        settings = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError, TypeError):
+        return False
+    network = settings.get("network", {}) if isinstance(settings, dict) else {}
+    return isinstance(network, dict) and network.get("online") is True
+
+
 # Каталоги/файлы ПОЛЬЗОВАТЕЛЯ, которые НЕЛЬЗЯ затирать при обновлении из ZIP.
 # v37 FIX: раньше список только объявлялся, но НИГДЕ не применялся — install
 # удалял всё подряд. Плюс 'presets'/'prompts' в реальном layout репо лежат в
@@ -439,9 +452,22 @@ def rollback_last() -> dict[str, Any]:
         return {"ok": False, "error": str(e)}
 
 
-def check_git_update_status(repo: Path | None = None) -> dict[str, Any]:
-    """Проверить remote revision без fetch/pull или изменения рабочего дерева."""
+def check_git_update_status(
+    repo: Path | None = None, allow_online: bool = False
+) -> dict[str, Any]:
+    """Проверить remote revision without changing the working tree.
+
+    ``git ls-remote`` is a network call, so it is skipped until ``--online``
+    or ``network.online=true`` in settings explicitly permits it.
+    """
     repo = Path(repo or program_dir())
+    if not online_enabled(allow_online):
+        return {
+            "ok": True,
+            "offline": True,
+            "reason": "remote update check requires --online or network.online=true",
+            "apply_performed": False,
+        }
     try:
         def git(*args: str) -> str:
             return subprocess.check_output(["git", "-C", str(repo), *args], text=True).strip()
@@ -458,7 +484,13 @@ def check_git_update_status(repo: Path | None = None) -> dict[str, Any]:
         return {"ok": False, "reason": str(exc), "apply_performed": False}
 
 
-def check_updates(release_url: str) -> dict[str, Any]:
+def check_updates(release_url: str, allow_online: bool = False) -> dict[str, Any]:
+    if not online_enabled(allow_online):
+        return {
+            "ok": True,
+            "offline": True,
+            "reason": "release check requires --online or network.online=true",
+        }
     try:
         import urllib.request as urlreq
 
@@ -479,6 +511,7 @@ def main() -> int:
     ap.add_argument("--list-backups", action="store_true")
     ap.add_argument("--check", help="URL проверки обновлений")
     ap.add_argument("--git-status", action="store_true", help="Проверить Git revision без обновления")
+    ap.add_argument("--online", action="store_true", help="Разрешить сетевой запрос для --check/--git-status")
     ap.add_argument("--info", action="store_true")
     args = ap.parse_args()
 
@@ -507,11 +540,11 @@ def main() -> int:
         print(json.dumps(list_backups(), indent=2))
         return 0
     if args.git_status:
-        result = check_git_update_status()
+        result = check_git_update_status(allow_online=args.online)
         print(json.dumps(result, indent=2, ensure_ascii=False))
         return 0 if result.get("ok") else 1
     if args.check:
-        print(json.dumps(check_updates(args.check), indent=2))
+        print(json.dumps(check_updates(args.check, allow_online=args.online), indent=2))
         return 0
     ap.print_help()
     return 0

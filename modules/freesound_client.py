@@ -38,6 +38,24 @@ CCBY_LICENSES = ("Attribution", "cc-by")
 
 DEFAULT_CACHE = Path("samples_cache")
 DEFAULT_MANIFEST = Path("data/sample_manifests/freesound_cache.json")
+DEFAULT_SETTINGS = Path("data/settings.json")
+
+
+def online_enabled(allow_online: bool = False, settings_path: Path = DEFAULT_SETTINGS) -> bool:
+    """Return whether a remote request is explicitly permitted.
+
+    Network access is disabled by default. A caller may opt in for one request
+    with ``allow_online=True`` or a user may persist ``{"network":
+    {"online": true}}`` in settings. Invalid settings are treated as offline.
+    """
+    if allow_online:
+        return True
+    try:
+        settings = json.loads(Path(settings_path).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError, TypeError):
+        return False
+    network = settings.get("network", {}) if isinstance(settings, dict) else {}
+    return isinstance(network, dict) and network.get("online") is True
 
 
 def _load_key() -> str | None:
@@ -59,13 +77,17 @@ def search(
     duration_max: float = 20.0,
     license_only_cc0: bool = True,
     page_size: int = 20,
+    allow_online: bool = False,
 ) -> dict[str, Any]:
     """
     Ищет сэмплы. Всегда возвращает dict {ok, results, offline?}
     """
+    if not online_enabled(allow_online):
+        log.info("Freesound offline mode (online access not explicitly enabled)")
+        return _offline_search(query)
     api_key = _load_key()
     if not (requests and api_key):
-        log.info("Freesound offline mode (no key or no requests)")
+        log.info("Freesound online request unavailable (no key or no requests)")
         return _offline_search(query)
 
     filt_parts = [f"duration:[0 TO {duration_max}]"]
@@ -143,14 +165,14 @@ def _offline_search(query: str) -> dict[str, Any]:
 
 
 def download_preview(
-    item: dict[str, Any], dest_dir: str = "samples_cache"
+    item: dict[str, Any], dest_dir: str = "samples_cache", allow_online: bool = False
 ) -> str | None:
     """
     Скачивает preview mp3/ogg (доступен без auth).
     Полный wav требует OAuth (пропускаем — используем preview).
     """
     url = item.get("preview_mp3") or item.get("preview_ogg")
-    if not url or not requests:
+    if not online_enabled(allow_online) or not url or not requests:
         return item.get("local_path")
     Path(dest_dir).mkdir(parents=True, exist_ok=True)
     ext = ".mp3" if item.get("preview_mp3") else ".ogg"
@@ -196,5 +218,5 @@ if __name__ == "__main__":
     import sys
 
     q = sys.argv[1] if len(sys.argv) > 1 else "trap 808 kick"
-    res = search(q, bpm_min=120, bpm_max=160, duration_max=5.0)
+    res = search(q, bpm_min=120, bpm_max=160, duration_max=5.0, allow_online="--online" in sys.argv)
     print(json.dumps(res, ensure_ascii=False, indent=2)[:2000])

@@ -671,3 +671,10 @@ All 50 versioned genre presets now carry renderable `prompt_cover` and `cover_in
 KPI history now stores only a schema-v1 allowlist: stage duration, VRAM, score, status, aggregate pipeline metrics and verdict. Project IDs, lyrics/notes, prompt text, release paths and filenames are excluded; unsafe stage labels are redacted. KPI dashboard consumes only valid sanitized telemetry lines.
 
 Приёмка: raw JSONL privacy assertions and dashboard metric rendering PASS; полный `pytest tests/ -q` = **222 PASS**, compileall/AST OK, data inventory 73/0/0.
+
+---
+## PLAN_v39 — ШАГ 095: офлайн-режим с явным разрешением сети
+
+Freesound search/download и GitHub/release update checks теперь deny-by-default: удалённые вызовы запускаются только через `--online`/`allow_online=True` либо пользовательское `network.online=true`. `--ai --dry-run` выполнен офлайн; model deps/weights отсутствуют и честно прошли fallback, без заявлений об inference. Созданный runtime backup удалён после проверки.
+
+Приёмка: mocked network regression PASS; `pytest tests/ -q` = **226 PASS**, compileall/AST OK, data inventory 73/0/0.

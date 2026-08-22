@@ -20,7 +20,7 @@ def test_git_update_status_is_read_only(tmp_path, monkeypatch) -> None:
         return answers[args]
 
     monkeypatch.setattr(subprocess, "check_output", fake_output)
-    report = check_git_update_status(tmp_path)
+    report = check_git_update_status(tmp_path, allow_online=True)
 
     assert report["ok"] is True
     assert report["relation"] == "up_to_date"
