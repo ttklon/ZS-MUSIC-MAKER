@@ -934,3 +934,10 @@ Health `collect()` now delegates dependency probing, readiness scoring, advice a
 MIDI drum genre selection now lives in pure `_drum_events`; the export path only serializes its 16-step pattern and logs export errors. Techno/phonk/default placement regressions run without mido. The module still honestly returns empty when mido is absent; no export availability is claimed.
 
 Приёмка: focused MIDI suite 3 PASS; `pytest tests/ -q` = **272 PASS**, compileall/AST OK, data inventory 73/0/0. Fresh audit: HIGH_COMPLEXITY **32** (was 33), BARE_PRINT **316** (was 317); **884** total heuristic records across 223 files. Remaining MIDI prints are explicit CLI/self-test output.
+
+---
+## APP_L v40 — self-diagnostic action-plan decomposition
+
+Self-diagnostic action planning now delegates layout, health, KPI and smoke guidance to dedicated helpers while preserving ordering, messages, five-item health and three-item KPI advice caps, plus the all-clear fallback. Focused tests cover combined severities/limits and unknown empty reports without running external reports or services.
+
+Приёмка: focused self-diagnostic suite 2 PASS; `pytest tests/ -q` = **274 PASS**, compileall/AST OK, data inventory 73/0/0. Fresh audit: HIGH_COMPLEXITY **31** (was 32), none in `modules/self_diag_v13.py`; **884** total heuristic records across 224 files.

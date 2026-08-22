@@ -153,84 +153,79 @@ def check_smoke_recent() -> dict[str, Any] | None:
     return None
 
 
+def _append_layout_actions(plan: list[str], layout: list[dict[str, Any]]) -> None:
+    """Append urgent and deferred filesystem actions."""
+    red_layout = [item for item in layout if item["severity"] == "red"]
+    if red_layout:
+        plan.append(BOLD("🔴 СРОЧНО: восстановить недостающие файлы:"))
+        plan.extend(f"    ✗ {item['path']}  —  {item['message']}" for item in red_layout)
+    yellow_layout = [item for item in layout if item["severity"] == "yellow"]
+    if yellow_layout:
+        plan.append("🟡 Эти папки появятся автоматически при первом запуске:")
+        plan.extend(f"    · {item['path']}" for item in yellow_layout)
+
+
+def _append_health_actions(plan: list[str], health: dict[str, Any] | None) -> None:
+    """Append actionable health-report guidance."""
+    if health is None:
+        plan.append("🟡 Не запускался health_v12 — рекомендую прогнать `python -m modules.health_v12`")
+        return
+    verdict = health.get("verdict", "?")
+    advice = (health.get("advice", []) or [])[:5]
+    messages = {
+        "GREEN": "🟢 Стек в порядке (health GREEN) — можно делать трек.",
+        "YELLOW": "🟡 Стек работает, но без этих модулей качество ниже:",
+        "RED": "🔴 Стек сломан (health RED) — сначала поставь:",
+    }
+    if verdict in messages:
+        plan.append(messages[verdict])
+        if verdict != "GREEN":
+            plan.extend(f"    · {item}" for item in advice)
+
+
+def _append_kpi_actions(plan: list[str], kpi: dict[str, Any] | None) -> None:
+    """Append actionable KPI-report guidance."""
+    if kpi is None:
+        plan.append("🟡 KPI дашборд ещё не строился — `python -m modules.kpi_dashboard_v12`")
+        return
+    verdict = kpi.get("verdict", "?")
+    percent = kpi.get("percent_tz", 0)
+    if verdict == "GREEN" and percent >= 95:
+        plan.append(f"🟢 Готовность ТЗ {percent}% — отлично, можно релизить.")
+    elif verdict in {"YELLOW", "RED"}:
+        suffix = "есть место для роста:" if verdict == "YELLOW" else "нужно доработать модули:"
+        marker = "🟡" if verdict == "YELLOW" else "🔴"
+        plan.append(f"{marker} Готовность ТЗ {percent}% — {suffix}")
+        plan.extend(f"    · {item}" for item in (kpi.get("advice", []) or [])[:3])
+
+
+def _append_smoke_actions(plan: list[str], smoke: dict[str, Any] | None) -> None:
+    """Append smoke-report action guidance."""
+    if smoke is None:
+        plan.append("🟡 Smoke ещё не гонялся — запусти `python tools/smoke_v26.py` и `python tools/smoke_v29.py`.")
+        return
+    passed = smoke.get("passed", 0)
+    failed = smoke.get("failed", 0)
+    total = smoke.get("total", 0)
+    if failed == 0 and total > 0:
+        plan.append(f"🟢 Smoke {passed}/{total} PASS — стабильно.")
+    elif failed > 0:
+        plan.append(f"🔴 Smoke {passed}/{total} PASS, {failed} FAIL — нужны исправления.")
+
+
 def collect_action_plan(
     layout: list[dict[str, Any]],
     health: dict[str, Any] | None,
     kpi: dict[str, Any] | None,
     smoke: dict[str, Any] | None,
 ) -> list[str]:
-    """Краткий список конкретных действий для пользователя."""
+    """Build the ordered human action plan from layout and report snapshots."""
     plan: list[str] = []
-
-    # 1) layout
-    red_layout = [it for it in layout if it["severity"] == "red"]
-    if red_layout:
-        plan.append(BOLD("🔴 СРОЧНО: восстановить недостающие файлы:"))
-        for it in red_layout:
-            plan.append(f"    ✗ {it['path']}  —  {it['message']}")
-
-    yellow_layout = [it for it in layout if it["severity"] == "yellow"]
-    if yellow_layout:
-        plan.append("🟡 Эти папки появятся автоматически при первом запуске:")
-        for it in yellow_layout:
-            plan.append(f"    · {it['path']}")
-
-    # 2) health
-    if health is None:
-        plan.append(
-            "🟡 Не запускался health_v12 — рекомендую прогнать "
-            "`python -m modules.health_v12`"
-        )
-    else:
-        verdict = health.get("verdict", "?")
-        adv = health.get("advice", [])
-        if verdict == "GREEN":
-            plan.append("🟢 Стек в порядке (health GREEN) — можно делать трек.")
-        elif verdict == "YELLOW":
-            plan.append("🟡 Стек работает, но без этих модулей качество ниже:")
-            for a in (adv or [])[:5]:
-                plan.append(f"    · {a}")
-        elif verdict == "RED":
-            plan.append("🔴 Стек сломан (health RED) — сначала поставь:")
-            for a in (adv or [])[:5]:
-                plan.append(f"    · {a}")
-
-    # 3) kpi
-    if kpi is None:
-        plan.append(
-            "🟡 KPI дашборд ещё не строился — " "`python -m modules.kpi_dashboard_v12`"
-        )
-    else:
-        verdict = kpi.get("verdict", "?")
-        pct = kpi.get("percent_tz", 0)
-        if verdict == "GREEN" and pct >= 95:
-            plan.append(f"🟢 Готовность ТЗ {pct}% — отлично, можно релизить.")
-        elif verdict == "YELLOW":
-            plan.append(f"🟡 Готовность ТЗ {pct}% — есть место для роста:")
-            for a in (kpi.get("advice", []) or [])[:3]:
-                plan.append(f"    · {a}")
-        elif verdict == "RED":
-            plan.append(f"🔴 Готовность ТЗ {pct}% — нужно доработать модули:")
-            for a in (kpi.get("advice", []) or [])[:3]:
-                plan.append(f"    · {a}")
-
-    # 4) smoke
-    if smoke is None:
-        plan.append("🟡 Smoke ещё не гонялся — запусти `python tools/smoke_v26.py` и `python tools/smoke_v29.py`.")
-    else:
-        passed = smoke.get("passed", 0)
-        failed = smoke.get("failed", 0)
-        total = smoke.get("total", 0)
-        if failed == 0 and total > 0:
-            plan.append(f"🟢 Smoke {passed}/{total} PASS — стабильно.")
-        elif failed > 0:
-            plan.append(
-                f"🔴 Smoke {passed}/{total} PASS, {failed} FAIL — " "нужны исправления."
-            )
-
-    if not plan:
-        plan.append("🟢 Все системы в порядке. Запускай wizard!")
-    return plan
+    _append_layout_actions(plan, layout)
+    _append_health_actions(plan, health)
+    _append_kpi_actions(plan, kpi)
+    _append_smoke_actions(plan, smoke)
+    return plan or ["🟢 Все системы в порядке. Запускай wizard!"]
 
 
 def render_report(
