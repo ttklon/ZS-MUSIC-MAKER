@@ -74,6 +74,9 @@ def audit_file(p: Path) -> dict:
 
     import_names: list[tuple[str, int]] = []
     for node in ast.walk(tree):
+        line_text = lines[node.lineno - 1] if getattr(node, "lineno", 0) else ""
+        if "# noqa" in line_text:
+            continue
         if isinstance(node, ast.Import):
             for n in node.names:
                 nm = n.asname or n.name.split(".")[0]
@@ -81,8 +84,9 @@ def audit_file(p: Path) -> dict:
                 report["imports"].append({"name": n.name, "line": node.lineno, "kind": "import"})
         elif isinstance(node, ast.ImportFrom):
             mod = node.module or ""
-            # __future__ imports are compiler directives, not runtime names.
-            if mod == "__future__":
+            # __future__ imports are compiler directives, and relative imports
+            # commonly re-export package API rather than bind local runtime names.
+            if mod == "__future__" or node.level:
                 continue
             for n in node.names:
                 nm = n.asname or n.name

@@ -41,3 +41,21 @@ def test_deep_audit_ignores_future_directives_but_keeps_real_dead_imports(
 
     assert [issue["kind"] for issue in issues] == ["DEAD_IMPORT"]
     assert "unused_module" in issues[0]["msg"]
+
+
+def test_deep_audit_honors_noqa_and_relative_reexport_imports(
+    tmp_path: Path, monkeypatch
+) -> None:
+    source = tmp_path / "package_api.py"
+    source.write_text(
+        "from .submodule import public_api  # noqa: F401\n"
+        "import optional_backend  # noqa\n"
+        "import actually_unused\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(deep_audit_v40, "ROOT", tmp_path)
+
+    issues = deep_audit_v40.audit_file(source)["issues"]
+
+    assert [issue["kind"] for issue in issues] == ["DEAD_IMPORT"]
+    assert "actually_unused" in issues[0]["msg"]

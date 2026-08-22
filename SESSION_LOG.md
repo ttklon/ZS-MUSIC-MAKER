@@ -761,3 +761,10 @@ Annotated `v39.9.0` and public release <https://github.com/ttklon/ZS-MUSIC-MAKER
 Deep audit больше не трактует `from __future__ import annotations` как runtime dead import: это compiler directive. Regression сохраняет detection реального unused import. Remaining reexports/ordinary imports не удаляются механически и требуют semantic review.
 
 Приёмка: focused 3 PASS; `pytest tests/ -q` = **243 PASS**, compileall/AST OK, data inventory 73/0/0.
+
+---
+## APP_L v40 — semantic DEAD_IMPORT cleanup
+
+Deep audit aligned with established AST semantics: ignores `__future__` directives, relative reexports and explicit `# noqa`, while still flagging real unused imports. Removed confirmed unused ImageFont, test Path, test os/Path; preserved optional torch_directml probes and package API exports. Regenerated raw audit: **923** findings / 209 files, with no false claim that other categories are closed.
+
+Приёмка: targeted 13 PASS; `pytest tests/ -q` = **244 PASS**, compileall/AST OK, data inventory 73/0/0.

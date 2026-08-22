@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Any
 
 try:
-    from PIL import Image, ImageDraw, ImageFilter, ImageFont
+    from PIL import Image, ImageDraw, ImageFilter
 
     PIL_OK = True
 except Exception:

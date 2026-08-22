@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import threading
-from pathlib import Path
 
 import modules.render_queue as queue_module
 from modules.render_queue import RenderQueue
