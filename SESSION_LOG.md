@@ -990,3 +990,10 @@ Voice Vault phoneme scanning now preserves valid transcripts while reporting unr
 Vocal FX now returns an explicit failure when a post-throw fallback copy cannot be written and exposes non-fatal temporary-cleanup failures through `cleanup_warnings`. Fake-DSP regressions prove both contracts; no neural voice processing is claimed.
 
 Приёмка: focused vocal-FX suite 2 PASS; `pytest tests/ -q` = **282 PASS, 1 expected deprecation warning**, compileall/AST OK, data inventory 73/0/0. Fresh audit: SILENT_EXCEPT_PASS **110** (was 112), none in `modules/vocal_fx.py`; **877** total heuristic records across 230 files.
+
+---
+## APP_L v40 — Lyric Vault JSONL recovery observability
+
+Lyric Vault now retains valid JSONL entries while exposing malformed-line diagnostics through a new diagnostics accessor; the historical list API remains intact. Temporary-file regression proves recovery without touching the repository vault or invoking Ollama/trend/model paths.
+
+Приёмка: focused Lyric Vault suite 1 PASS; `pytest tests/ -q` = **283 PASS, 1 expected deprecation warning**, compileall/AST OK, data inventory 73/0/0. Fresh audit: SILENT_EXCEPT_PASS **109** (was 110); selected loader record removed, while the separate intentional local Ollama fallback remains unclaimed; **877** total heuristic records across 231 files.
