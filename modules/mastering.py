@@ -24,6 +24,7 @@ v27 (P0): раньше orchestrator._stage_mastering делал
 
 from __future__ import annotations
 
+import logging
 import os
 from pathlib import Path
 from typing import Any
@@ -52,6 +53,7 @@ STAND_TARGET_DBFS: dict[str, float] = {
 }
 
 ALL_STANDS = list(STAND_TARGET_DBFS.keys())
+_LOG = logging.getLogger(__name__)
 
 
 def _one_pole_shelf(y: np.ndarray, sr: int, cutoff: float, gain_db: float,
@@ -103,17 +105,27 @@ def _loudness_dbfs(y: np.ndarray) -> float:
     return 20.0 * np.log10(max(rms, 1e-12))
 
 
+def _measure_lufs(y: np.ndarray, sr: int) -> tuple[float, dict[str, str]]:
+    """Измеряет LUFS и раскрывает fallback точной метрики, если он случился."""
+    fallback = _loudness_dbfs(y) - 3.0
+    if not _HAS_PYLN:
+        return fallback, {"lufs_engine": "dbfs_estimate", "lufs_status": "unavailable"}
+    try:
+        meter = pyln.Meter(sr)
+        mono = y.mean(axis=1) if y.ndim > 1 else y
+        return float(meter.integrated_loudness(mono)), {"lufs_engine": "pyloudnorm"}
+    except Exception as exc:
+        _LOG.warning("pyloudnorm measurement failed; using dBFS estimate: %s", exc)
+        return fallback, {
+            "lufs_engine": "dbfs_estimate",
+            "lufs_status": "failed",
+            "lufs_error": f"{type(exc).__name__}: {exc}",
+        }
+
+
 def _loudness_lufs(y: np.ndarray, sr: int) -> float:
-    """LUFS через pyloudnorm если есть; иначе dBFS -3dB (sweet-spot под
-    mono-downmix, v26)."""
-    if _HAS_PYLN:
-        try:
-            meter = pyln.Meter(sr)
-            mono = y.mean(axis=1) if y.ndim > 1 else y
-            return float(meter.integrated_loudness(mono))
-        except Exception:
-            pass
-    return _loudness_dbfs(y) - 3.0
+    """Совместимый числовой LUFS API с документированным dBFS fallback."""
+    return _measure_lufs(y, sr)[0]
 
 
 def _tanh_limit(y: np.ndarray, drive: float = 1.0, ceiling: float = 0.98) -> np.ndarray:
@@ -136,9 +148,11 @@ def _try_numpy_dsp(y: np.ndarray, sr: int, stand: str) -> tuple[np.ndarray, dict
         delta = target - cur
         y = y * (10.0 ** (delta / 20.0))
         y = _tanh_limit(y, drive=1.4)
+    final_lufs, lufs_info = _measure_lufs(y, sr)
     info["target_dbfs"] = target + 3.1
     info["final_dbfs"] = round(_loudness_dbfs(y), 2)
-    info["final_lufs"] = round(_loudness_lufs(y, sr), 2)
+    info["final_lufs"] = round(final_lufs, 2)
+    info.update(lufs_info)
     return y, info
 
 
