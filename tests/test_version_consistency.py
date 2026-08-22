@@ -33,6 +33,11 @@ def test_version_json_matches_app_version_info():
     assert vj == _version_from_app()
 
 
+def test_wheel_version_mirror_matches_version_json():
+    vj = json.loads((ROOT / "version.json").read_text(encoding="utf-8"))["version"]
+    assert (ROOT / "VERSION").read_text(encoding="utf-8").strip() == vj
+
+
 def test_pyproject_static_version_if_present_matches():
     vj = json.loads((ROOT / "version.json").read_text(encoding="utf-8"))["version"]
     pv = _version_from_pyproject()

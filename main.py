@@ -32,8 +32,17 @@ sys.path.insert(0, str(ROOT))
 
 
 def _load_version_info():
+    # A source checkout uses version.json as its release source of truth.  The
+    # wheel ships main.py as a module, where that root-level JSON file is not
+    # present, so use the packaged dynamic version as a safe installed fallback.
     default_v = "17.0.0"
-    default_b = "v17-consolidated"
+    default_b = "wheel-installed"
+    try:
+        from app.version_info import __version__
+
+        default_v = str(__version__)
+    except Exception:
+        pass
     try:
         vp = ROOT / "version.json"
         if vp.exists():

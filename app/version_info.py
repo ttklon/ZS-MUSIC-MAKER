@@ -1,14 +1,31 @@
-# -*- coding: utf-8 -*-
 """
-ZS Music Maker — app/version_info.py (v39.5, ШАГ 009 PLAN_v39)
-========================================================================
-Единый источник версии: читает version.json ПО ОДНОМУ РАЗУ при импорте.
-pyproject.toml ссылается на этот атрибут через [tool.setuptools.dynamic],
-main.py уже читает version.json напрямую — расхождений быть не может.
+ZS Music Maker — app/version_info.py
+====================================
+
+Single runtime version source. Source checkouts read canonical ``version.json``;
+installed wheels read their distribution metadata because root-level source JSON
+is intentionally not installed beside the package.
 """
+from __future__ import annotations
+
 import json
+from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 
-__version__: str = json.loads(
-    (Path(__file__).resolve().parents[1] / "version.json").read_text(encoding="utf-8")
-)["version"]
+
+def _source_version() -> str | None:
+    version_file = Path(__file__).resolve().parents[1] / "version.json"
+    try:
+        return str(json.loads(version_file.read_text(encoding="utf-8"))["version"])
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
+
+
+def _installed_version() -> str:
+    try:
+        return version("zs-music-maker")
+    except PackageNotFoundError:
+        return "0+unknown"
+
+
+__version__: str = _source_version() or _installed_version()

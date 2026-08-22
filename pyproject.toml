@@ -45,12 +45,22 @@ dependencies = [
     "mingus>=0.6.1"
 ]
 
+[project.scripts]
+zs-music-maker = "main:main"
+
+[tool.setuptools]
+# main.py is the stable CLI entrypoint and must be shipped with the wheel.
+py-modules = ["main", "install"]
+include-package-data = true
+
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["app*", "modules*", "agents*", "ui*", "tools*", "config*"]
 
 [tool.setuptools.dynamic]
-version = {attr = "app.version_info.__version__"}
+# setuptools reads this static metadata mirror during isolated builds; tests
+# require it to remain exactly equal to version.json, the source release file.
+version = {file = ["VERSION"]}
 
 [project.optional-dependencies]
 # Зеркало requirements_ai.txt — тяжёлый AI-стек ставится отдельно (install.py).

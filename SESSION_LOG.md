@@ -685,3 +685,10 @@ Freesound search/download и GitHub/release update checks теперь deny-by-d
 Core now declares a factual v8–v12 compatibility manifest. `--legacy-off` prints the disabled entrypoints before dispatch (including `--smoke`) without importing patch modules; `--legacy-report` displays the same matrix independently. The report distinguishes omitted legacy compatibility behavior from the modern core's CPU path.
 
 Приёмка: `python3 main.py --legacy-off --smoke` printed five disabled entries and produced **8 PASS / 0 FAIL**; mido/torch/TTS absences stayed honest BLOCKED/fallback. `pytest tests/ -q` = **229 PASS**, compileall/AST OK, data inventory 73/0/0.
+
+---
+## PLAN_v39 — ШАГ 097: wheel + clean venv
+
+Published packaging metadata now installs `main.py` and exposes `zs-music-maker`. Dynamic package metadata uses a static `VERSION` mirror guarded against `version.json` drift; source checkout version lookup remains canonical and installed wheels use distribution metadata.
+
+Приёмка: `python3 -m build` создал wheel; чистый `/tmp` venv установил wheel с `--no-deps`, а `zs-music-maker --version` и установленный `python -m main --version` вне checkout вернули 39.9.0. `pytest tests/ -q` = **230 PASS**, compileall/AST OK, data inventory 73/0/0.
