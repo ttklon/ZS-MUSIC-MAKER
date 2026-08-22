@@ -149,19 +149,30 @@ def hunt(
     local = list_local(query)
     online = search_online(query, max_results) if allow_online else []
 
+    license_filter_status = {"ok": False, "status": "not_requested"}
     if license_filter:
         try:
             from app.core.license_manager import is_free_commercial
 
             online = [
-                s for s in online if is_free_commercial(s.get("license", "unknown"))
+                sample for sample in online
+                if is_free_commercial(sample.get("license", "unknown"))
             ]
-        except Exception:
-            pass
+            license_filter_status = {"ok": True, "status": "applied"}
+        except Exception as exc:
+            # Online license provenance is safety-critical: never pass unvalidated
+            # samples through merely because the optional validator failed.
+            online = []
+            license_filter_status = {
+                "ok": False,
+                "status": "failed_closed",
+                "error": f"{type(exc).__name__}: {exc}",
+            }
 
     return {
         "ok": True,
         "query": query,
+        "license_filter": license_filter_status,
         "local": local[:max_results],
         "online": online[:max_results],
         "samples": local[:max_results]

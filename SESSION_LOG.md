@@ -1060,3 +1060,10 @@ Chanson guitar effects now expose per-render provenance. Missing or failed optio
 Legacy lyrics author-reference fallback is now explicit: generated metadata distinguishes unrequested, unavailable and failed reference-style capability while preserving the established prompt/boolean helper contract. The diagnostic handoff is context-local; no global state or remote ingestion success is claimed.
 
 Приёмка: focused observability + established orchestration suites **3 PASS, 1 expected deprecation warning**; `pytest tests/ -q` = **301 PASS, 1 expected deprecation warning**, compileall/AST OK, data inventory 73/0/0. Fresh audit: SILENT_EXCEPT_PASS **99** (was 100), none in `modules/lyrics_gen_v8.py`, no GLOBAL_STATEMENT category; **882** total heuristic records across 240 files.
+
+---
+## APP_L v40 — sample-acquisition license-filter observability
+
+Sample Hunter now exposes license-filter provenance and fails closed for online sources if commercial-use validation is unavailable or errors. Local samples remain visible; unvalidated online sources are not represented as cleared.
+
+Приёмка: focused sample-license suite 2 PASS; `pytest tests/ -q` = **303 PASS, 1 expected deprecation warning**, compileall/AST OK, data inventory 73/0/0. Fresh audit: SILENT_EXCEPT_PASS **98** (was 99), none in `agents/sample_hunter.py`; **883** total heuristic records across 241 files.
