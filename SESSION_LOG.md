@@ -1074,3 +1074,10 @@ Sample Hunter now exposes license-filter provenance and fails closed for online 
 TrendScout now distinguishes cached trends, live/local contributions and built-in fallback, retaining typed failed-source diagnostics without claiming live trend retrieval. The separate `get_hot_topics()` online fallback at `agents/trend_scout.py:155` remains open and is not claimed resolved.
 
 Приёмка: focused TrendScout suite 2 PASS; `pytest tests/ -q` = **305 PASS, 1 expected deprecation warning**, compileall/AST OK, data inventory 73/0/0. Fresh audit: SILENT_EXCEPT_PASS **96** (was 98); two scout-trends source paths resolved, one separate hot-topics record remains; **883** total heuristic records across 242 files.
+
+---
+## APP_L v40 — TrendScout hot-topics observability
+
+TrendScout hot-topics now reveal cache, built-in and live-plus-built-in provenance; a failed online lookup retains only built-in topics with typed diagnostics rather than implying live trend retrieval. The compatibility list API remains intact.
+
+Приёмка: focused TrendScout suite 3 PASS; `pytest tests/ -q` = **306 PASS, 1 expected deprecation warning**, compileall/AST OK, data inventory 73/0/0. Fresh audit: SILENT_EXCEPT_PASS **95** (was 96), none in `agents/trend_scout.py`; **883** total heuristic records across 242 files.

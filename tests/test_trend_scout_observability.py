@@ -50,3 +50,22 @@ def test_trend_scout_reports_failed_sources_and_builtin_fallback(monkeypatch):
         {"source": "duckduckgo", "ok": False, "error": "ConnectionError: offline"},
         {"source": "local_slang", "ok": False, "error": "RuntimeError: dictionary unreadable"},
     ]
+
+
+def test_hot_topics_reports_failed_online_lookup_and_keeps_builtin_topics(monkeypatch):
+    monkeypatch.setattr(trend_scout, "_load_cache", lambda: {})
+    monkeypatch.setattr(trend_scout, "_save_cache", lambda cache: None)
+    monkeypatch.setattr(
+        trend_scout,
+        "_duckduckgo_search",
+        lambda query: (_ for _ in ()).throw(ConnectionError("offline")),
+    )
+
+    result = trend_scout.get_hot_topics_with_diagnostics()
+
+    assert result["source"] == "built_in"
+    assert result["topics"]
+    assert result["diagnostics"] == [
+        {"source": "duckduckgo", "ok": False, "error": "ConnectionError: offline"}
+    ]
+    assert trend_scout.get_hot_topics() == result["topics"]

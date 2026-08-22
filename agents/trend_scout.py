@@ -130,11 +130,11 @@ def _save_cache(data: dict):
     )
 
 
-def get_hot_topics() -> list:
-    """Возвращает актуальные горячие темы для треков."""
+def get_hot_topics_with_diagnostics() -> dict:
+    """Возвращает темы с provenance online-подмешивания без false live-claims."""
     cache = _load_cache()
     if "hot_topics" in cache and time.time() - cache["hot_topics"].get("ts", 0) < 86400:
-        return cache["hot_topics"].get("topics", [])
+        return {"topics": cache["hot_topics"].get("topics", []), "source": "cache", "diagnostics": []}
 
     topics = [
         "лето, море, тачки, движение",
@@ -146,18 +146,26 @@ def get_hot_topics() -> list:
         "трэп, тёмный вайб, 808",
         "TikTok тренд, залетевший хук",
     ]
+    diagnostics = []
+    source = "built_in"
 
     # Пробуем найти актуальные тренды в интернете
     try:
-        online = _duckduckgo_search("тrend music tiktok 2026")
+        online = _duckduckgo_search("trend music tiktok 2026")
         if online:
             topics = online[:4] + topics
-    except Exception:
-        pass
+            source = "live_plus_built_in"
+    except Exception as exc:
+        diagnostics.append({"source": "duckduckgo", "ok": False, "error": f"{type(exc).__name__}: {exc}"})
 
     cache["hot_topics"] = {"topics": topics, "ts": time.time()}
     _save_cache(cache)
-    return topics
+    return {"topics": topics, "source": source, "diagnostics": diagnostics}
+
+
+def get_hot_topics() -> list:
+    """Совместимый list API для горячих тем."""
+    return get_hot_topics_with_diagnostics()["topics"]
 
 
 if __name__ == "__main__":
