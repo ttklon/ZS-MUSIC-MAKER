@@ -21,6 +21,7 @@ ZS Music Maker v14 — voice_onboarding.py (P0.07, TZ 14)
 from __future__ import annotations
 
 import json
+import logging
 import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -31,6 +32,7 @@ VAULT_DIR = ROOT / "voice_vault"
 # v22: ленивое создание (не при импорте)
 
 MANIFEST = VAULT_DIR / "onboarding_manifest.json"
+LOGGER = logging.getLogger(__name__)
 
 RUS_PHONEMES = list("абвгдеёжзийклмнопрстуфхцчшщъыьэюя")
 
@@ -171,8 +173,8 @@ def _load_manifest() -> dict[str, Any]:
     if MANIFEST.exists():
         try:
             return json.loads(MANIFEST.read_text(encoding="utf-8"))
-        except Exception:
-            pass
+        except (OSError, json.JSONDecodeError) as error:
+            LOGGER.warning("voice onboarding manifest unreadable; using empty plan: %s", error)
     return {"steps": [], "started_at": None, "completed_at": None}
 
 

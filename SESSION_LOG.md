@@ -857,3 +857,10 @@ Karaoke count-in and poll waits now use session Event.wait, preserving normal ti
 Non-dry RVC requests no longer advance fake epochs after import detection and report `done_unverified`. They terminate as `blocked_backend` with a persisted statement that no backend invocation/model output was claimed. The short dry path remains explicitly labeled CI/UI simulation and continues to report no model.
 
 Приёмка: focused RVC suite 2 PASS; `pytest tests/ -q` = **255 PASS**, compileall/AST OK, data inventory 73/0/0. Fresh audit: RVC has 0 `BLOCKING_SLEEP`; category is **8** (was 10), total **908** heuristic records across 215 files.
+
+---
+## APP_L v40 — voice-onboarding manifest observability
+
+Malformed/unreadable persisted onboarding manifests retain the compatible empty-plan fallback but now emit a narrow JSON/I/O warning rather than being silently swallowed. Missing first-run manifest remains quiet. Regression verifies fallback shape and warning in a temporary file.
+
+Приёмка: focused 1 PASS; `pytest tests/ -q` = **256 PASS**, compileall/AST OK, data inventory 73/0/0. Fresh audit: **120 SILENT_EXCEPT_PASS** (was 121), none in `modules/voice_onboarding.py`; total **907** heuristic records across 216 files.
