@@ -163,8 +163,8 @@ def load_state() -> dict[str, Any]:
     if TOUR_STATE.exists():
         try:
             return json.loads(TOUR_STATE.read_text(encoding="utf-8"))
-        except Exception:
-            pass
+        except Exception as exc:
+            log.warning("tour state unreadable; using default state: %s", exc)
     return {"tour_done": False, "last_step": 0}
 
 

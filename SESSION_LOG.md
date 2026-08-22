@@ -1081,3 +1081,10 @@ TrendScout now distinguishes cached trends, live/local contributions and built-i
 TrendScout hot-topics now reveal cache, built-in and live-plus-built-in provenance; a failed online lookup retains only built-in topics with typed diagnostics rather than implying live trend retrieval. The compatibility list API remains intact.
 
 Приёмка: focused TrendScout suite 3 PASS; `pytest tests/ -q` = **306 PASS, 1 expected deprecation warning**, compileall/AST OK, data inventory 73/0/0. Fresh audit: SILENT_EXCEPT_PASS **95** (was 96), none in `agents/trend_scout.py`; **883** total heuristic records across 242 files.
+
+---
+## APP_L v40 — onboarding tour-state observability
+
+Malformed onboarding state now emits a typed operational warning while retaining the safe default tour state; no prior progress is fabricated or claimed restored.
+
+Приёмка: focused onboarding-state suite 1 PASS; `pytest tests/ -q` = **307 PASS, 1 expected deprecation warning**, compileall/AST OK, data inventory 73/0/0. Fresh audit: SILENT_EXCEPT_PASS **94** (was 95), none in `modules/onboarding_tour.py`; **882** total heuristic records across 243 files.
