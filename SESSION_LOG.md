@@ -955,3 +955,10 @@ Release packaging now delegates artist fallback, media variants, listening stand
 KPI readiness now separates filesystem evidence, health-driven import downgrades and checklist summary. A deterministic regression proves missing RVC/MusicGen internals downgrade only those claims while confirmed KPI/unrelated checks remain; no real RVC or MusicGen runtime is claimed.
 
 Приёмка: focused KPI readiness suite 1 PASS; `pytest tests/ -q` = **275 PASS**, compileall/AST OK, data inventory 73/0/0. Fresh audit: HIGH_COMPLEXITY **29** (was 30), none in `modules/kpi_dashboard_v12.py`; LONG_FUNCTION **27** (was 28); **881** total heuristic records across 225 files.
+
+---
+## APP_L v40 — groove-extractor metric decomposition
+
+Groove extraction now separates frequency envelopes, 16th-step aggregation, swing, triplet, pattern-change and drop metrics while retaining the public output contract. Focused tests use pure arrays only; no audio ingestion, librosa runtime or reference inference is claimed.
+
+Приёмка: focused groove metric suite 2 PASS; `pytest tests/ -q` = **277 PASS**, compileall/AST OK, data inventory 73/0/0. Fresh audit: HIGH_COMPLEXITY **28** (was 29), none in `modules/groove_extractor.py`; LONG_FUNCTION **26** (was 27); **880** total heuristic records across 226 files.

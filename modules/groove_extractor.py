@@ -19,6 +19,90 @@ except ImportError:
     librosa = None
 
 
+def _frequency_envelopes(samples: np.ndarray, sample_rate: int) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Extract low, snare-band and high-frequency frame envelopes."""
+    spectrum = np.abs(librosa.stft(samples, n_fft=1024, hop_length=512))
+    frequencies = librosa.fft_frequencies(sr=sample_rate, n_fft=1024)
+    kick = spectrum[frequencies < 80].mean(axis=0)
+    snare = spectrum[(frequencies >= 150) & (frequencies <= 400)].mean(axis=0)
+    hihat_mask = frequencies > 5000
+    hihat = spectrum[hihat_mask].mean(axis=0) if hihat_mask.any() else np.zeros(spectrum.shape[1])
+    return kick, snare, hihat
+
+
+def _step_envelopes(
+    kick: np.ndarray,
+    snare: np.ndarray,
+    hihat: np.ndarray,
+    frames_per_step: int,
+    max_steps: int,
+) -> tuple[list[float], list[float], list[float]]:
+    """Aggregate spectral envelopes into bounded sixteenth-note steps."""
+    kick_steps: list[float] = []
+    snare_steps: list[float] = []
+    hihat_steps: list[float] = []
+    for step in range(max_steps):
+        start = step * frames_per_step
+        end = start + frames_per_step
+        if end > len(kick):
+            break
+        kick_steps.append(float(kick[start:end].mean()))
+        snare_steps.append(float(snare[start:end].mean()))
+        hihat_steps.append(float(hihat[start:end].mean()))
+    return kick_steps, snare_steps, hihat_steps
+
+
+def _swing_value(kick_steps: list[float], steps_per_bar: int) -> float:
+    """Measure odd/even sixteenth-note energy displacement."""
+    bars = len(kick_steps) // steps_per_bar
+    odd = [
+        kick_steps[bar * steps_per_bar + step + 1]
+        for bar in range(bars)
+        for step in range(0, steps_per_bar, 2)
+        if bar * steps_per_bar + step + 1 < len(kick_steps)
+    ]
+    even = [
+        kick_steps[bar * steps_per_bar + step]
+        for bar in range(bars)
+        for step in range(0, steps_per_bar, 2)
+        if bar * steps_per_bar + step < len(kick_steps)
+    ]
+    if not odd or not even:
+        return 0.0
+    return min(1.0, abs(np.mean(odd) - np.mean(even)) / (np.mean(even) + 1e-9))
+
+
+def _has_triplet_rolls(kick_binary: list[int], steps_per_bar: int) -> bool:
+    """Detect a dense three-step kick group in the first four complete bars."""
+    bars = len(kick_binary) // steps_per_bar
+    return any(
+        sum(kick_binary[bar * steps_per_bar + step : bar * steps_per_bar + step + 3]) >= 2
+        for bar in range(min(bars, 4))
+        for step in range(steps_per_bar - 2)
+        if bar * steps_per_bar + step + 2 < len(kick_binary)
+    )
+
+
+def _pattern_changes(kick_binary: list[int], steps_per_bar: int, bar_sec: float) -> list[dict]:
+    """Return time-marked kick-pattern changes between adjacent complete bars."""
+    bars = len(kick_binary) // steps_per_bar
+    return [
+        {"bar": bar, "time_sec": round(bar * bar_sec, 2)}
+        for bar in range(1, bars)
+        if kick_binary[(bar - 1) * steps_per_bar : bar * steps_per_bar]
+        != kick_binary[bar * steps_per_bar : (bar + 1) * steps_per_bar]
+    ]
+
+
+def _drop_intensity(kick_steps: list[float], steps_per_bar: int) -> float:
+    """Measure the strongest complete bar against mean bar energy."""
+    energies = [
+        float(np.mean(kick_steps[bar * steps_per_bar : (bar + 1) * steps_per_bar]))
+        for bar in range(len(kick_steps) // steps_per_bar)
+    ]
+    return min(1.0, max(energies) / (np.mean(energies) + 1e-9) - 1.0) if energies else 0.0
+
+
 def extract_groove(audio_path: str, bpm: float = None) -> dict:
     """
     Извлекает ритмический шаблон из трека.
@@ -47,44 +131,12 @@ def extract_groove(audio_path: str, bpm: float = None) -> dict:
     steps_per_bar = 16
     step_sec = bar_sec / steps_per_bar
 
-    # Извлекаем kick (низкие частоты)
-    S = np.abs(librosa.stft(y, n_fft=1024, hop_length=512))
-    freqs = librosa.fft_frequencies(sr=sr, n_fft=1024)
-    kick_mask = freqs < 80
-    kick_envelope = S[kick_mask].mean(axis=0)
-
-    # Извлекаем snare (200-400 Hz + высокий ZCR)
-    snare_mask = (freqs >= 150) & (freqs <= 400)
-    snare_envelope = S[snare_mask].mean(axis=0)
-
-    # Извлекаем hihat (высокие частоты > 5000 Hz)
-    hihat_mask = freqs > 5000
-    hihat_envelope = (
-        S[hihat_mask].mean(axis=0) if hihat_mask.any() else np.zeros(S.shape[1])
+    kick_envelope, snare_envelope, hihat_envelope = _frequency_envelopes(y, sr)
+    frames_per_step = max(1, int(step_sec * sr / 512))
+    total_steps = min(len(kick_envelope) // frames_per_step, steps_per_bar * 8)
+    kick_pattern, snare_pattern, hihat_pattern = _step_envelopes(
+        kick_envelope, snare_envelope, hihat_envelope, frames_per_step, total_steps
     )
-
-    # Вычисляем огибающие по 16 шагам в такте
-    hop = 512
-    frames_per_step = max(1, int(step_sec * sr / hop))
-
-    total_frames = len(kick_envelope)
-    total_steps = min(total_frames // frames_per_step, steps_per_bar * 8)  # 8 тактов
-
-    kick_pattern = []
-    snare_pattern = []
-    hihat_pattern = []
-
-    for step in range(total_steps):
-        start = step * frames_per_step
-        end = start + frames_per_step
-        if end > total_frames:
-            break
-        kick_val = float(kick_envelope[start:end].mean())
-        snare_val = float(snare_envelope[start:end].mean())
-        hihat_val = float(hihat_envelope[start:end].mean())
-        kick_pattern.append(kick_val)
-        snare_pattern.append(snare_val)
-        hihat_pattern.append(hihat_val)
 
     if not kick_pattern:
         return {"error": "Не удалось извлечь groove (слишком короткий трек)"}
@@ -97,71 +149,13 @@ def extract_groove(audio_path: str, bpm: float = None) -> dict:
 
     # Hihat density
     hihat_mean = float(np.mean(hihat_pattern)) if hihat_pattern else 0
-    hihat_std = float(np.std(hihat_pattern)) if hihat_pattern else 0
     hihat_density = min(1.0, hihat_mean / (max(hihat_pattern) + 1e-9))
 
-    # Свинг: проверяем смещение нечётных шагов
     n_bars = len(kick_pattern) // steps_per_bar
-    swing_vals = []
-    for bar in range(n_bars):
-        bar_start = bar * steps_per_bar
-        for step in range(0, steps_per_bar, 2):  # нечётные 16-е
-            idx = bar_start + step + 1
-            if idx < len(kick_pattern):
-                swing_vals.append(kick_pattern[idx])
-    swing = 0.0
-    if swing_vals:
-        even_vals = [
-            kick_pattern[bar * steps_per_bar + step]
-            for bar in range(n_bars)
-            for step in range(0, steps_per_bar, 2)
-            if bar * steps_per_bar + step < len(kick_pattern)
-        ]
-        if even_vals and swing_vals:
-            swing = min(
-                1.0,
-                abs(np.mean(swing_vals) - np.mean(even_vals))
-                / (np.mean(even_vals) + 1e-9),
-            )
-
-    # Triplet rolls: ищем триольные группы
-    triplet_rolls = False
-    if n_bars > 0:
-        # Проверяем наличие быстрых групп по 3
-        for bar in range(min(n_bars, 4)):
-            bar_start = bar * steps_per_bar
-            for step in range(steps_per_bar - 2):
-                idx = bar_start + step
-                if idx + 2 < len(kick_binary):
-                    if sum(kick_binary[idx : idx + 3]) >= 2:
-                        triplet_rolls = True
-                        break
-
-    # Pattern changes: где меняется ритм
-    pattern_changes = []
-    if n_bars >= 2:
-        for bar in range(1, n_bars):
-            prev_start = (bar - 1) * steps_per_bar
-            curr_start = bar * steps_per_bar
-            prev_pat = kick_binary[prev_start : prev_start + steps_per_bar]
-            curr_pat = kick_binary[curr_start : curr_start + steps_per_bar]
-            if prev_pat != curr_pat:
-                pattern_changes.append(
-                    {"bar": bar, "time_sec": round(bar * bar_sec, 2)}
-                )
-
-    # Drop intensity: разница между самым энергичным и средним тактом
-    bar_energies = []
-    for bar in range(n_bars):
-        bar_start = bar * steps_per_bar
-        bar_end = bar_start + steps_per_bar
-        if bar_end <= len(kick_pattern):
-            bar_energies.append(float(np.mean(kick_pattern[bar_start:bar_end])))
-    drop_intensity = 0.0
-    if bar_energies:
-        drop_intensity = min(
-            1.0, max(bar_energies) / (np.mean(bar_energies) + 1e-9) - 1.0
-        )
+    swing = _swing_value(kick_pattern, steps_per_bar)
+    triplet_rolls = _has_triplet_rolls(kick_binary, steps_per_bar)
+    pattern_changes = _pattern_changes(kick_binary, steps_per_bar, bar_sec)
+    drop_intensity = _drop_intensity(kick_pattern, steps_per_bar)
 
     groove_template = {
         "source": os.path.basename(audio_path),
