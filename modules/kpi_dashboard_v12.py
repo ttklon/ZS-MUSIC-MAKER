@@ -78,6 +78,7 @@ class Dashboard:
     sections: list[dict[str, Any]] = field(default_factory=list)
     checklist: list[dict[str, Any]] = field(default_factory=list)
     advice: list[str] = field(default_factory=list)
+    persistence: dict[str, Any] = field(default_factory=lambda: {"requested": False, "status": "not_requested"})
 
     def as_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -349,19 +350,29 @@ def build(save: bool = True) -> Dashboard:
         dash.verdict = "RED"
 
     if save:
+        json_path = ROOT / "data" / "kpi_dashboard_v12.json"
+        markdown_path = ROOT / "docs" / "KPI_DASHBOARD_v12.md"
         try:
-            outdir = ROOT / "data"
-            outdir.mkdir(exist_ok=True)
-            (outdir / "kpi_dashboard_v12.json").write_text(
+            json_path.parent.mkdir(exist_ok=True)
+            markdown_path.parent.mkdir(exist_ok=True)
+            markdown_path.write_text(render_markdown(dash), encoding="utf-8")
+            dash.persistence = {
+                "requested": True,
+                "ok": True,
+                "status": "saved",
+                "paths": [str(json_path), str(markdown_path)],
+            }
+            json_path.write_text(
                 json.dumps(dash.as_dict(), ensure_ascii=False, indent=2),
                 encoding="utf-8",
             )
-            (ROOT / "docs").mkdir(exist_ok=True)
-            (ROOT / "docs" / "KPI_DASHBOARD_v12.md").write_text(
-                render_markdown(dash), encoding="utf-8"
-            )
-        except Exception:
-            pass
+        except Exception as exc:
+            dash.persistence = {
+                "requested": True,
+                "ok": False,
+                "status": "failed",
+                "error": f"{type(exc).__name__}: {exc}",
+            }
     return dash
 
 

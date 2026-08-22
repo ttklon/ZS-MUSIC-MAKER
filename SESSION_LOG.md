@@ -1144,3 +1144,10 @@ KPI detector score coercion now retains typed malformed-value diagnostics while 
 Single-track analysis now distinguishes successful optional Essentia descriptors from unavailable or failed descriptor extraction while retaining core metrics and never fabricating danceability output.
 
 Приёмка: focused Analyzer Essentia suite 1 PASS; `pytest tests/ -q` = **317 PASS, 1 expected deprecation warning**, compileall/AST OK, data inventory 73/0/0. Fresh audit: SILENT_EXCEPT_PASS **86** (was 87), none in `modules/analyzer.py`; **878** total heuristic records across 251 files.
+
+---
+## APP_L v40 — KPI Dashboard persistence observability
+
+KPI Dashboard now exposes saved or typed failed report-persistence state. A report-write failure is not represented as a published JSON/Markdown artifact; checklist and verdict computation remain unchanged.
+
+Приёмка: focused KPI Dashboard persistence suite 2 PASS; `pytest tests/ -q` = **319 PASS, 1 expected deprecation warning**, compileall/AST OK, data inventory 73/0/0. Fresh audit: SILENT_EXCEPT_PASS **85** (was 86), none in `modules/kpi_dashboard_v12.py`; **878** total heuristic records across 252 files.
