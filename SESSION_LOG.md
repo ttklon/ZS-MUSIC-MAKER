@@ -650,3 +650,10 @@ Versioned deterministic local-DSP fixtures now cover beat 15s, vocal 10s and mas
 BeatConstructor now uses isolated Python/NumPy RNGs when a seed is supplied; same seed produces byte-identical classic WAVs while a different seed differs. CyberSynth exposes only `classical_local_dsp_only` determinism metadata; AI stages are not claimed deterministic. Legacy unseeded golden behavior remains preserved.
 
 Приёмка: same-seed beat/CyberSynth bytes equal, changed beat seed differs, golden stays green; полный `pytest tests/ -q` = **215 PASS**, compileall/AST OK, data inventory 73/0/0.
+
+---
+## PLAN_v39 — ШАГ 092: dependency profiles
+
+pyproject now mirrors base/AI/AMD requirement profiles through extras; torch-heavy packages remain outside default install. Contract tests verify package-name parity for all three manifests and explicitly ensure the heavy AI stack is optional.
+
+Приёмка: dependency profile tests PASS; полный `pytest tests/ -q` = **217 PASS**, compileall/AST OK, data inventory 73/0/0. Heavy packages не устанавливались.
