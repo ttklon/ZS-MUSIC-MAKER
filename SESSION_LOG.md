@@ -1158,3 +1158,10 @@ KPI Dashboard now exposes saved or typed failed report-persistence state. A repo
 Legacy local Ollama probing now distinguishes response, empty response, HTTP error and typed service unavailability while preserving the existing text-or-None helper. No unavailable local model is represented as lyric generation success.
 
 Приёмка: focused local Ollama suite 2 PASS; `pytest tests/ -q` = **321 PASS, 1 expected deprecation warning**, compileall/AST OK, data inventory 73/0/0. Fresh audit: SILENT_EXCEPT_PASS **84** (was 85), none in `modules/lyrics_gen.py`; **879** total heuristic records across 253 files.
+
+---
+## APP_L v40 — Video Editor LRC parsing observability
+
+LRC parsing now exposes malformed timestamp candidates, unterminated tags and source-read failures through an additive diagnostics helper while preserving the established sorted cue-list API. No MoviePy render, media encoding or generated subtitle artifact is claimed.
+
+Приёмка: focused LRC suite 2 PASS; `pytest tests/ -q` = **323 PASS, 1 expected deprecation warning**, compileall/AST OK, data inventory 73/0/0, `git diff --check` OK. Fresh audit: SILENT_EXCEPT_PASS **83** (was 84), **878** total heuristic records across 254 files.
