@@ -789,3 +789,8 @@ HARDCODED_POSIX_PATH now evaluates production sources only; deliberate test PII/
 Последний HARDCODED_POSIX_PATH был self-descriptive pattern in `deep_audit_v40_expand.py`, not runtime filesystem target. Audit meta-tools joined excluded test fixtures only for this source-pattern category; ordinary production/tools scanning stays enabled. Fresh audit: **0** HARDCODED_POSIX_PATH, **916** total findings / 210 files.
 
 Приёмка: focused 6 PASS; `pytest tests/ -q` = **247 PASS**, compileall/AST OK, data inventory 73/0/0.
+
+---
+## APP_L v40 — initial remediation matrix
+
+Fresh clean-head audit scanned 210 Python files: **916** heuristic findings. SECURITY_EVAL/OS_SYSTEM/SHELL_TRUE and hardcoded Windows/POSIX path categories are now 0 detector records. This does not claim formal security proof: BARE_PRINT 326, docstrings 381 combined, SILENT_EXCEPT_PASS 121, complexity/long-function/sleep/global/XXX categories remain open for semantic per-item work.
