@@ -7,6 +7,7 @@
   • Многотрековый микс (beat + vocal + adlibs + backing)
 """
 
+import logging
 import os
 import shutil
 
@@ -14,6 +15,7 @@ import numpy as np
 
 OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "..", "output", "final")
 # v22: ленивое создание (не при импорте)
+_LOG = logging.getLogger(__name__)
 
 
 def mix_beat_and_vocal(
@@ -87,6 +89,21 @@ def apply_eq(
     return out
 
 
+def _export_optional_mp3(master_wav: str) -> dict:
+    """Экспортирует MP3 и честно описывает необязательную ошибку кодирования."""
+    mp3_path = master_wav.replace(".wav", ".mp3")
+    try:
+        from pydub import AudioSegment
+
+        AudioSegment.from_wav(master_wav).export(
+            mp3_path, format="mp3", bitrate="320k"
+        )
+    except Exception as exc:
+        _LOG.warning("MP3 export unavailable for %s: %s", master_wav, exc)
+        return {"ok": False, "path": None, "error": str(exc)}
+    return {"ok": True, "path": mp3_path}
+
+
 def master_with_matchering(
     mix_path: str, reference_path: str, out_name: str = "master.wav"
 ) -> str:
@@ -121,19 +138,12 @@ def master_with_matchering_status(
         shutil.copy(mix_path, out)
         print(f"[matchering error] {e} — fallback: copy")
 
-    # Дополнительно: mp3 320
-    try:
-        from pydub import AudioSegment
-        AudioSegment.from_wav(out).export(
-            out.replace(".wav", ".mp3"), format="mp3", bitrate="320k"
-        )
-    except Exception:
-        pass
-        
+    mp3_export = _export_optional_mp3(out)
     return {
         "master_wav": out,
         "used_matchering": used_matchering,
-        "engine": "matchering" if used_matchering else "copy_fallback"
+        "engine": "matchering" if used_matchering else "copy_fallback",
+        "mp3_export": mp3_export,
     }
 
 
@@ -156,16 +166,15 @@ def full_mixdown(
     if apply_eq_enabled:
         mix = apply_eq(mix, out_name="_temp_eq.wav")
 
-    master = master_with_matchering(mix, reference_path, out_name=out_name)
-    used_matchering = os.path.exists(master.replace(".wav", "_24.wav"))
+    mastering = master_with_matchering_status(mix, reference_path, out_name=out_name)
+    master = mastering["master_wav"]
+    used_matchering = mastering["used_matchering"]
+    mp3_export = mastering["mp3_export"]
     return {
         "mix": mix,
         "master_wav": master,
-        "master_mp3": (
-            master.replace(".wav", ".mp3")
-            if os.path.exists(master.replace(".wav", ".mp3"))
-            else None
-        ),
+        "master_mp3": mp3_export["path"] if mp3_export["ok"] else None,
+        "mp3_export": mp3_export,
         # v18: честный статус, чтобы UI/логи не выдавали copy за мастеринг
         "used_matchering": used_matchering,
         "fallback_used": not used_matchering,

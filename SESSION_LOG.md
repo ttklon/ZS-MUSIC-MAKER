@@ -1004,3 +1004,10 @@ Lyric Vault now retains valid JSONL entries while exposing malformed-line diagno
 Legacy clean_vocal fallback copies now report either the compatible output path or typed filesystem failure in the existing failed-chain result. Focused tests cover both paths without real DSP/model execution.
 
 Приёмка: focused legacy voice-cleaner suite 2 PASS; `pytest tests/ -q` = **285 PASS, 1 expected deprecation warning**, compileall/AST OK, data inventory 73/0/0. Fresh audit: SILENT_EXCEPT_PASS **108** (was 109), none in `modules/voice_cleaner.py`; **877** total heuristic records across 232 files.
+
+---
+## APP_L v40 — mixdown optional MP3-export observability
+
+`master_with_matchering_status()` now describes optional MP3 creation explicitly: successful export returns its path, while encoder/write failure retains the WAV master and reports typed `mp3_export` diagnostics. This does not treat the WAV copy fallback as Matchering or a failed encoder as a media success.
+
+Приёмка: focused mixdown MP3 suite 2 PASS; `pytest tests/ -q` = **287 PASS, 1 expected deprecation warning**, compileall/AST OK, data inventory 73/0/0. Fresh audit: SILENT_EXCEPT_PASS **107** (was 108), none in `modules/mixdown.py`; **878** total heuristic records across 233 files.
