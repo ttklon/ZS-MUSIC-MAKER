@@ -664,3 +664,10 @@ pyproject now mirrors base/AI/AMD requirement profiles through extras; torch-hea
 All 50 versioned genre presets now carry renderable `prompt_cover` and `cover_instruments` metadata. Validator enforces mood/key/instruments placeholders; cover_art_ai renders preset direction and stage_cover passes the actual key. SDXL remains optional/BLOCKED, while the prompt contract is fully tested.
 
 Приёмка: validator 50/50 assets and 119 runtime genres PASS; полный `pytest tests/ -q` = **220 PASS**, compileall/AST OK, data inventory 73/0/0.
+
+---
+## PLAN_v39 — ШАГ 094: KPI telemetry без PII
+
+KPI history now stores only a schema-v1 allowlist: stage duration, VRAM, score, status, aggregate pipeline metrics and verdict. Project IDs, lyrics/notes, prompt text, release paths and filenames are excluded; unsafe stage labels are redacted. KPI dashboard consumes only valid sanitized telemetry lines.
+
+Приёмка: raw JSONL privacy assertions and dashboard metric rendering PASS; полный `pytest tests/ -q` = **222 PASS**, compileall/AST OK, data inventory 73/0/0.

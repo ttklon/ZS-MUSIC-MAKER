@@ -14,6 +14,7 @@ from __future__ import annotations
 import fnmatch
 import json
 import os
+import re
 import sys
 import time
 from dataclasses import asdict, dataclass, field
@@ -24,6 +25,22 @@ def _safe_print(msg):
         print(msg)
     except UnicodeEncodeError:
         sys.stdout.buffer.write((msg + "\n").encode("cp866", errors="replace"))
+
+
+SAFE_STAGE_NAME = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
+
+
+def _safe_stage_name(name: object) -> str:
+    value = str(name or "")
+    return value if SAFE_STAGE_NAME.fullmatch(value) else "redacted"
+
+
+def _numeric_metric(value: object) -> float | None:
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    return number if number >= 0 else None
 
 
 KPI_TARGETS = {
@@ -70,6 +87,8 @@ class KpiStage:
     ended_at: float = 0.0
     ok: bool = False
     note: str = ""
+    vram_gb: float | None = None
+    score: float | None = None
 
     @property
     def duration_min(self) -> float:
@@ -99,10 +118,31 @@ class KpiSession:
         self.stages.append(stg)
         return stg
 
-    def end_stage(self, stg, ok=True, note=""):
+    def end_stage(self, stg, ok=True, note="", vram_gb=None, score=None):
         stg.ended_at = time.time()
         stg.ok = ok
         stg.note = note
+        stg.vram_gb = _numeric_metric(vram_gb)
+        stg.score = _numeric_metric(score)
+
+    def telemetry_dict(self) -> dict:
+        """Return an allowlisted, non-PII telemetry payload for dashboard analytics."""
+        return {
+            "schema": "zsmm.kpi-telemetry.v1",
+            "pipeline_duration_sec": round(self.pipeline_min * 60.0, 3),
+            "ai_detector_percent": _numeric_metric(self.ai_detector_percent),
+            "verdict": self.verdict if self.verdict in {"PASS", "SOFT_FAIL", "HARD_FAIL"} else "PENDING",
+            "stages": [
+                {
+                    "stage": _safe_stage_name(stage.name),
+                    "duration_sec": round(stage.duration_min * 60.0, 3),
+                    "vram_gb": _numeric_metric(stage.vram_gb),
+                    "score": _numeric_metric(stage.score),
+                    "status": "ok" if stage.ok else "failed",
+                }
+                for stage in self.stages
+            ],
+        }
 
     def to_dict(self):
         d = asdict(self)
@@ -252,7 +292,7 @@ def finalize_session(
         with open(
             os.path.join(save_dir, "kpi_history.jsonl"), "a", encoding="utf-8"
         ) as f:
-            f.write(json.dumps(session.to_dict(), ensure_ascii=False) + "\n")
+            f.write(json.dumps(session.telemetry_dict(), ensure_ascii=False) + "\n")
     except Exception as e:
         _safe_print(f"[kpi_v11] cannot persist: {e}")
     _safe_print(

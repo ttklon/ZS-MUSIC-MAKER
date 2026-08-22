@@ -123,6 +123,39 @@ def _health_section(health: dict[str, Any] | None) -> DashboardSection:
     return DashboardSection("Стек / зависимости", v == "GREEN", percent, lines)
 
 
+def _latest_telemetry(path: Path = ROOT / "data" / "kpi_history.jsonl") -> dict[str, Any] | None:
+    """Read only the latest v1 allowlisted telemetry record; malformed/legacy lines are ignored."""
+    try:
+        for raw in reversed(path.read_text(encoding="utf-8").splitlines()):
+            payload = json.loads(raw)
+            if payload.get("schema") == "zsmm.kpi-telemetry.v1" and isinstance(payload.get("stages"), list):
+                return payload
+    except (OSError, json.JSONDecodeError):
+        return None
+    return None
+
+
+def _telemetry_section(telemetry: dict[str, Any] | None) -> DashboardSection:
+    if not telemetry:
+        return DashboardSection("Telemetry (non-PII)", False, 0, ["No sanitized KPI telemetry recorded yet."])
+    stages = telemetry.get("stages", [])
+    successful = sum(stage.get("status") == "ok" for stage in stages)
+    lines = [
+        f"Pipeline duration: {float(telemetry.get('pipeline_duration_sec') or 0):.2f}s",
+        f"Stages OK: {successful}/{len(stages)}",
+    ]
+    for stage in stages[:20]:
+        vram = stage.get("vram_gb")
+        score = stage.get("score")
+        details = [f"{float(stage.get('duration_sec') or 0):.2f}s"]
+        if isinstance(vram, (int, float)):
+            details.append(f"VRAM {vram:.2f}GB")
+        if isinstance(score, (int, float)):
+            details.append(f"score {score:.2f}")
+        lines.append(f"  [{stage.get('status', 'failed')}] {stage.get('stage', 'redacted')}: " + ", ".join(details))
+    return DashboardSection("Telemetry (non-PII)", successful == len(stages), 100 if stages else 0, lines)
+
+
 def _pipeline_section(pipe: dict[str, Any] | None) -> DashboardSection:
     if not pipe:
         return DashboardSection(
@@ -316,7 +349,8 @@ def build(save: bool = True) -> Dashboard:
     s1 = _health_section(health)
     s2 = _pipeline_section(pipe)
     s3 = _smoke_section(smoke)
-    dash.sections = [asdict(s1), asdict(s2), asdict(s3)]
+    s4 = _telemetry_section(_latest_telemetry())
+    dash.sections = [asdict(s1), asdict(s2), asdict(s3), asdict(s4)]
 
     tz_pct, entries, advice = _tz_percent(health, pipe, smoke)
     dash.checklist = entries
