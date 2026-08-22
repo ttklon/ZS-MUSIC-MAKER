@@ -692,3 +692,10 @@ Core now declares a factual v8–v12 compatibility manifest. `--legacy-off` prin
 Published packaging metadata now installs `main.py` and exposes `zs-music-maker`. Dynamic package metadata uses a static `VERSION` mirror guarded against `version.json` drift; source checkout version lookup remains canonical and installed wheels use distribution metadata.
 
 Приёмка: `python3 -m build` создал wheel; чистый `/tmp` venv установил wheel с `--no-deps`, а `zs-music-maker --version` и установленный `python -m main --version` вне checkout вернули 39.9.0. `pytest tests/ -q` = **230 PASS**, compileall/AST OK, data inventory 73/0/0.
+
+---
+## PLAN_v39 — ШАГ 098: terminal AI stage progress
+
+Добавлен dependency-free console renderer real stage lifecycle: START/finish для 12 AI-стадий с measured duration, VRAM and explicit OK/FALLBACK/SKIPPED/FAILED status. CLI `--ai` и `--ai --dry-run` включают его явно; API default remains quiet. Callback errors do not interrupt rendering.
+
+Приёмка: live `--ai --dry-run` дал 12 START и 12 finish records; final `12/12 FALLBACK tag` честно отражает отсутствующий optional model/runtime. Runtime backup удалён. `pytest tests/ -q` = **232 PASS**, compileall/AST OK, data inventory 73/0/0.

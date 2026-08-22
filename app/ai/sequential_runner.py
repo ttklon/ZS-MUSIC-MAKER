@@ -193,12 +193,24 @@ class SequentialAIRunner:
         with _stage_watchdog(timeout_sec, stage.name):
             return stage.fn(handle, context)
 
-    def run(self, context: Optional[Dict[str, Any]] = None) -> RunReport:
+    @staticmethod
+    def _notify_progress(progress: Any, method: str, *args: Any) -> None:
+        """Display is optional; a terminal write must never break a render."""
+        if progress is None:
+            return
+        try:
+            callback = getattr(progress, method, None)
+            if callable(callback):
+                callback(*args)
+        except Exception as exc:
+            logger.warning("terminal progress callback failed: %s", exc)
+
+    def run(self, context: Optional[Dict[str, Any]] = None, progress: Any = None) -> RunReport:
         context = context or {}
         context["sink"] = self._sink
         report = RunReport()
         t0 = time.time()
-        for stage in self.stages:
+        for index, stage in enumerate(self.stages, start=1):
             started_at = time.time()
             timeout_sec = self._timeout_for(stage)
             used_model, device = stage.model, None
@@ -208,6 +220,7 @@ class SequentialAIRunner:
             ok = True
             vram_before = self._read_vram()
             vram_after = vram_before
+            self._notify_progress(progress, "stage_start", index, stage.name, vram_before)
             try:
                 self._check_vram(stage.name, "before stage")
                 if stage.model is None:
@@ -259,7 +272,7 @@ class SequentialAIRunner:
                 "<- stage '%s' ok=%s duration=%.2fs VRAM %.3f->%.3f GB",
                 stage.name, ok, duration_sec, vram_before, vram_after,
             )
-            report.stages.append(StageReport(
+            stage_report = StageReport(
                 name=stage.name,
                 ok=ok,
                 used_model=used_model,
@@ -271,7 +284,9 @@ class SequentialAIRunner:
                 output_summary=_summarize(output),
                 error=error,
                 skipped_reason=skipped_reason,
-            ))
+            )
+            report.stages.append(stage_report)
+            self._notify_progress(progress, "stage_finish", index, stage_report)
         report.total_sec = time.time() - t0
         logger.info("pipeline done in %.1fs", report.total_sec)
         return report

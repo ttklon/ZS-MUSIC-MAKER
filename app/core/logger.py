@@ -7,8 +7,10 @@ ZS Music Maker — logger.py (GOD MODE)
 """
 
 import logging
+import sys
 from pathlib import Path
 from logging.handlers import RotatingFileHandler
+from typing import Any, TextIO
 
 from app.core.security_utils import redact_secrets
 
@@ -53,6 +55,53 @@ def setup_logger(name: str, log_file: str = "app.log", level=logging.INFO):
 
 # Глобальный логгер по умолчанию
 app_logger = setup_logger("ZS_Music_Maker")
+
+
+class TerminalStageProgress:
+    """Small terminal-only progress renderer for real sequential AI stage events.
+
+    It intentionally prints newline-delimited updates instead of terminal control
+    codes so CI logs, redirected stdout and Windows consoles preserve every
+    completed stage. All values come from runner callbacks; it never estimates
+    a successful model run.
+    """
+
+    def __init__(self, total_stages: int, stream: TextIO | None = None):
+        self.total_stages = max(1, int(total_stages))
+        self.stream = stream or sys.stdout
+
+    def _bar(self, completed: int) -> str:
+        width = 12
+        filled = min(width, round(width * max(0, completed) / self.total_stages))
+        return "[" + "#" * filled + "-" * (width - filled) + "]"
+
+    def stage_start(self, index: int, stage_name: str, vram_gb: float) -> None:
+        print(
+            f"[AI] {self._bar(index - 1)} {index}/{self.total_stages} "
+            f"START {stage_name} | VRAM {float(vram_gb):.3f} GB",
+            file=self.stream,
+            flush=True,
+        )
+
+    def stage_finish(self, index: int, report: Any) -> None:
+        if not bool(getattr(report, "ok", False)):
+            status = "FAILED"
+        elif "fallback" in str(getattr(report, "skipped_reason", "")).lower():
+            status = "FALLBACK"
+        elif getattr(report, "skipped_reason", None) or "skipped" in str(
+            getattr(report, "output_summary", "")
+        ).lower():
+            status = "SKIPPED"
+        else:
+            status = "OK"
+        print(
+            f"[AI] {self._bar(index)} {index}/{self.total_stages} {status} "
+            f"{getattr(report, 'name', 'stage')} | {float(getattr(report, 'duration_sec', 0.0)):.2f}s "
+            f"| VRAM {float(getattr(report, 'vram_before_gb', 0.0)):.3f}"
+            f"->{float(getattr(report, 'vram_after_gb', 0.0)):.3f} GB",
+            file=self.stream,
+            flush=True,
+        )
 
 
 def log_stage(logger, stage: str, event: str = "start", duration_ms=None, **extra):

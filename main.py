@@ -536,7 +536,7 @@ def main() -> int:
                 "theme": args.theme,
                 "artist_slug": args.dossier_artist or None,
             }
-            out = run_ai_pipeline("ai_cli_dry_run", ws, dry_run=True)
+            out = run_ai_pipeline("ai_cli_dry_run", ws, dry_run=True, terminal_progress=True)
             print(json.dumps({"stages": out["report"]["stages"]}, ensure_ascii=False, indent=2))
             return 0
         return _cli_dry_run()
@@ -612,7 +612,7 @@ def main() -> int:
         from app.core.orchestrator_ai import run_ai_pipeline
         ws = {"genre": args.genre, "theme": args.theme,
               "artist_slug": args.dossier_artist or None}
-        out = run_ai_pipeline("ai_cli", ws, dry_run=False)
+        out = run_ai_pipeline("ai_cli", ws, dry_run=False, terminal_progress=True)
         print(json.dumps({"stages": out["report"]["stages"],
                           "artefacts": out["artefacts"]}, ensure_ascii=False, indent=2))
         return 0

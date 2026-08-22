@@ -3,7 +3,7 @@
 from __future__ import annotations
 import json, shutil
 from pathlib import Path
-from app.core.logger import app_logger
+from app.core.logger import TerminalStageProgress, app_logger
 from app.ai.sequential_runner import SequentialAIRunner, AIStage
 from app.ai import prompts as P
 from app.ai import llm_service as LLM
@@ -194,7 +194,9 @@ def render_rvc_vocal(handle, input_wav: str, out_path: str, voice_name: str, pit
         return {"ok": False, "reason": f"RVC inference failed: {exc}"}
 
 
-def run_ai_pipeline(project_id, wizard_state=None, out_root=None, dry_run=False):
+def run_ai_pipeline(
+    project_id, wizard_state=None, out_root=None, dry_run=False, terminal_progress: bool = False
+):
     ws = dict(wizard_state or {})
     try:
         from config.settings import get_settings
@@ -630,7 +632,8 @@ def run_ai_pipeline(project_id, wizard_state=None, out_root=None, dry_run=False)
     ))
     runner.add(AIStage("cover",        "cover_art",        stage_cover,    optional=True))
     runner.add(AIStage("tag",          "audio_tagger",     stage_tag,      optional=True))
-    report = runner.run({"project_id": project_id, "wizard_state": ws})
+    progress = TerminalStageProgress(len(runner.stages)) if terminal_progress else None
+    report = runner.run({"project_id": project_id, "wizard_state": ws}, progress=progress)
     result = {"project_id": project_id, "god_mode": "4.0-AI", "wizard_state": ws,
               "report": report.to_dict(),
               "config": cfg.dump() if cfg is not None else None,
