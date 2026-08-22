@@ -754,3 +754,10 @@ Annotated `v39.9.0` and public release <https://github.com/ttklon/ZS-MUSIC-MAKER
 Исправлены confirmed POSIX literals in release-pack CLI example, video self-test and settings fixture through `tempfile`/pytest `tmp_path`. Audit item 0007 was stale: current cited AI-layer source has no `/tmp/unused.txt`, so no unrelated test was changed just to close an outdated line reference.
 
 Приёмка: focused 9 PASS; `pytest tests/ -q` = **242 PASS**, compileall/AST OK, data inventory 73/0/0.
+
+---
+## APP_L v40 — triage ШАГОВ 0009–0119: DEAD_IMPORT baseline
+
+Deep audit больше не трактует `from __future__ import annotations` как runtime dead import: это compiler directive. Regression сохраняет detection реального unused import. Remaining reexports/ordinary imports не удаляются механически и требуют semantic review.
+
+Приёмка: focused 3 PASS; `pytest tests/ -q` = **243 PASS**, compileall/AST OK, data inventory 73/0/0.

@@ -25,3 +25,19 @@ def test_security_audit_does_not_flag_attribute_exec_event_loop(tmp_path: Path, 
     monkeypatch.setattr(deep_audit_v40, "ROOT", tmp_path)
 
     assert "SECURITY_EVAL" not in _security_kinds(source)
+
+
+def test_deep_audit_ignores_future_directives_but_keeps_real_dead_imports(
+    tmp_path: Path, monkeypatch
+) -> None:
+    source = tmp_path / "imports.py"
+    source.write_text(
+        "from __future__ import annotations\nimport unused_module\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(deep_audit_v40, "ROOT", tmp_path)
+
+    issues = deep_audit_v40.audit_file(source)["issues"]
+
+    assert [issue["kind"] for issue in issues] == ["DEAD_IMPORT"]
+    assert "unused_module" in issues[0]["msg"]

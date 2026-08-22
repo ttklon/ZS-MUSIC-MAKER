@@ -81,6 +81,9 @@ def audit_file(p: Path) -> dict:
                 report["imports"].append({"name": n.name, "line": node.lineno, "kind": "import"})
         elif isinstance(node, ast.ImportFrom):
             mod = node.module or ""
+            # __future__ imports are compiler directives, not runtime names.
+            if mod == "__future__":
+                continue
             for n in node.names:
                 nm = n.asname or n.name
                 if nm == "*":
