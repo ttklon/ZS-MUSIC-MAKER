@@ -38,6 +38,8 @@ WEIGHTS = {
 
 INVENTORY_ROOTS = ("app", "agents", "modules", "tools", "ui", "updater")
 TEST_ROOT = "tests"
+PLAN_V39_PATH = ROOT / "docs" / "PLAN_v39_AI_MEGA.txt"
+EXECUTION_REPORT_PATH = ROOT / "docs" / "PLAN_v39_EXEC_REPORT.md"
 
 
 STATUS_WEIGHT = {
@@ -459,6 +461,81 @@ def write_license_report(path: Path = ROOT / "docs" / "LICENSES.md") -> Path:
     return path
 
 
+def planned_v39_steps(path: Path = PLAN_V39_PATH) -> list[dict[str, str]]:
+    """Read the ordered PLAN_v39 headings; the plan itself is the step source of truth."""
+    if not path.exists():
+        return []
+    headings = re.findall(r"(?m)^ШАГ\s+(\d{3})\s+—\s+(.+?)\s*$", path.read_text(encoding="utf-8"))
+    return [{"step": number, "title": title.strip()} for number, title in headings]
+
+
+def git_step_commits() -> dict[str, list[dict[str, str]]]:
+    """Map PLAN step markers to actual git commits; never infer work from files alone."""
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(ROOT), "log", "--format=%H%x1f%s"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except (OSError, subprocess.CalledProcessError):
+        return {}
+    found: dict[str, list[dict[str, str]]] = {}
+    for raw in result.stdout.splitlines():
+        commit, separator, subject = raw.partition("\x1f")
+        if not separator:
+            continue
+        markers = set(re.findall(r"ШАГ\s+(\d{3})", subject))
+        for start, end in re.findall(r"ШАГИ\s+(\d{3})\s*[-–]\s*(\d{3})", subject):
+            markers.update(f"{number:03d}" for number in range(int(start), int(end) + 1))
+        for marker in sorted(markers):
+            found.setdefault(marker, []).append({"commit": commit, "subject": subject})
+    return found
+
+
+def execution_report_rows() -> list[dict[str, Any]]:
+    commits = git_step_commits()
+    rows: list[dict[str, Any]] = []
+    for planned in planned_v39_steps():
+        evidence = commits.get(planned["step"], [])
+        rows.append({
+            **planned,
+            "status": "COMMITTED" if evidence else "PENDING",
+            "commits": evidence,
+        })
+    return rows
+
+
+def execution_report_markdown() -> str:
+    """Render a report whose statuses are solely derived from current git evidence."""
+    rows = execution_report_rows()
+    committed = sum(row["status"] == "COMMITTED" for row in rows)
+    lines = [
+        "# PLAN_v39 execution report",
+        "",
+        "Status is derived only from local `git log` subjects containing `ШАГ NNN`; `PENDING` does not assess code quality and `COMMITTED` is not a substitute for documented acceptance evidence.",
+        "",
+        f"Plan headings: **{len(rows)}**. Git-evidenced commits: **{committed}**. Pending headings: **{len(rows) - committed}**.",
+        "",
+        "| Step | Plan item | Git-evidence status | Commit evidence |",
+        "|---:|---|---|---|",
+    ]
+    for row in rows:
+        evidence = "<br>".join(
+            f"`{entry['commit'][:8]}` {entry['subject']}".replace("|", "\\|")
+            for entry in row["commits"]
+        ) or "—"
+        lines.append(f"| {row['step']} | {row['title'].replace('|', '\\|')} | {row['status']} | {evidence} |")
+    lines.append("")
+    return "\n".join(lines)
+
+
+def write_execution_report(path: Path = EXECUTION_REPORT_PATH) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(execution_report_markdown(), encoding="utf-8")
+    return path
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Compute factual ZS Music Maker readiness")
     parser.add_argument(
@@ -471,6 +548,11 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="generate docs/LICENSES.md from requirement manifests and installed metadata",
     )
+    parser.add_argument(
+        "--report",
+        action="store_true",
+        help="generate docs/PLAN_v39_EXEC_REPORT.md from git evidence",
+    )
     args = parser.parse_args(argv)
     if args.inventory_markdown:
         print(inventory_markdown())
@@ -478,6 +560,12 @@ def main(argv: list[str] | None = None) -> int:
     if args.licenses:
         report_path = write_license_report()
         print(f"license report: {report_path.relative_to(ROOT)} ({len(dependency_license_rows())} direct requirements)")
+        return 0
+    if args.report:
+        report_path = write_execution_report()
+        rows = execution_report_rows()
+        committed = sum(row["status"] == "COMMITTED" for row in rows)
+        print(f"execution report: {report_path.relative_to(ROOT)} ({committed}/{len(rows)} committed headings)")
         return 0
     pct, blocks = compute()
     print(json.dumps({"percent": pct, "blocks": blocks}, ensure_ascii=False, indent=2))

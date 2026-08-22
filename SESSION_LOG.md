@@ -629,3 +629,10 @@ User profile now stores validated non-PII genres/language/text style/default bea
 `readiness.py --licenses` now generates versioned `docs/LICENSES.md` from base and optional-AI manifests using `importlib.metadata`. The report inventories 46 direct dependencies, labels unavailable metadata UNKNOWN rather than guessing a license, and carries a GPL compatibility review checklist for unknown/transitive/model/content scope.
 
 Приёмка: license parser/metadata/report tests and real CLI PASS; полный `pytest tests/ -q` = **207 PASS**, compileall/AST OK, data inventory 73/0/0.
+
+---
+## PLAN_v39 — ШАГ 089: execution manifest report
+
+`readiness.py --report` generates versioned `PLAN_v39_EXEC_REPORT.md` from 100 plan headings and actual git subjects only, including explicit `ШАГИ NNN–MMM` ranges. It never converts files/tests/session claims into committed evidence; unmatched headings remain PENDING. Pre-commit report evidence was 85/100, correctly excluding the then-uncommitted ШАГ 089 itself.
+
+Приёмка: plan/range/committed-vs-pending/CLI regressions PASS; полный `pytest tests/ -q` = **211 PASS**, compileall/AST OK, data inventory 73/0/0.
