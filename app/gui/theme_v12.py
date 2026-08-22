@@ -244,12 +244,13 @@ QToolTip {{
 """
 
 
-def apply(app) -> None:
-    """Применить тему v12 к QApplication. Молча деградирует, если Qt нет."""
+def apply(app) -> dict[str, object]:
+    """Применить тему v12 и вернуть truthful status без блокировки UI startup."""
     try:
         app.setStyleSheet(qss())
-    except Exception:
-        pass
+        return {"ok": True, "status": "applied"}
+    except Exception as exc:
+        return {"ok": False, "status": "failed", "error": f"{type(exc).__name__}: {exc}"}
 
 
 # Простой self-test — QSS должен сгенерироваться без ошибок.

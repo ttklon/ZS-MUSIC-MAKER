@@ -1123,3 +1123,10 @@ CyberSynth master-bus provenance now distinguishes unavailable or failed optiona
 CyberSynth lead-effect provenance now distinguishes unavailable or failed optional Pedalboard processing from dry deterministic FM synthesis. The legacy waveform API remains intact; no effects success is fabricated.
 
 Приёмка: focused CyberSynth lead-effects suite 1 PASS; `pytest tests/ -q` = **312 PASS, 1 expected deprecation warning**, compileall/AST OK, data inventory 73/0/0. Fresh audit: SILENT_EXCEPT_PASS **89** (was 90), none in `modules/cyber_synth.py`; **880** total heuristic records across 248 files.
+
+---
+## APP_L v40 — GUI theme application observability
+
+GUI theme application now returns explicit applied or typed failed status while retaining nonblocking startup behavior. A stylesheet failure is not represented as successfully applied.
+
+Приёмка: focused theme suite 2 PASS; `pytest tests/ -q` = **314 PASS, 1 expected deprecation warning**, compileall/AST OK, data inventory 73/0/0. Fresh audit: SILENT_EXCEPT_PASS **88** (was 89), none in `app/gui/theme_v12.py`; **879** total heuristic records across 249 files.
