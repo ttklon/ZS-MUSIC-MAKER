@@ -36,6 +36,11 @@ class ChansonEngine:
 
     def __init__(self, sample_rate: int = 44100) -> None:
         self.sr = sample_rate
+        self._last_guitar_fx = {
+            "ok": False,
+            "engine": "numpy_guitar",
+            "status": "not_rendered",
+        }
 
     def generate_kick(self) -> np.ndarray:
         """Synthesizes a punchy acoustic/electronic kick drum."""
@@ -67,6 +72,29 @@ class ChansonEngine:
         audio = noise * carrier * np.exp(-t * (30.0 if not open_hat else 10.0))
         return np.clip(audio * 0.5, -1.0, 1.0)
 
+    def _apply_guitar_effects(self, chord_signal: np.ndarray) -> tuple[np.ndarray, dict]:
+        """Применяет optional guitar Pedalboard эффекты с честным fallback status."""
+        if not HAS_PEDALBOARD:
+            return chord_signal, {
+                "ok": False,
+                "engine": "numpy_guitar",
+                "status": "unavailable",
+            }
+        try:
+            board = Pedalboard([
+                Chorus(rate_hz=0.8, depth=0.3, mix=0.3),
+                Reverb(room_size=0.4, wet_level=0.25, dry_level=0.75),
+            ])
+            return board(chord_signal, self.sr), {"ok": True, "engine": "pedalboard"}
+        except Exception as exc:
+            _LOG.warning("Chanson guitar Pedalboard unavailable; retaining dry synthesis: %s", exc)
+            return chord_signal, {
+                "ok": False,
+                "engine": "numpy_guitar",
+                "status": "failed",
+                "error": f"{type(exc).__name__}: {exc}",
+            }
+
     def generate_guitar_chord(self, root_freqs: list, duration: float) -> np.ndarray:
         """Simulates an acoustic guitar arpeggio/strum for Chanson."""
         n = int(self.sr * duration)
@@ -89,16 +117,7 @@ class ChansonEngine:
             strum = wave * env * 0.3
             chord_signal[delay_samples:delay_samples + len(strum)] += strum
 
-        if HAS_PEDALBOARD:
-            try:
-                board = Pedalboard([
-                    Chorus(rate_hz=0.8, depth=0.3, mix=0.3),
-                    Reverb(room_size=0.4, wet_level=0.25, dry_level=0.75)
-                ])
-                chord_signal = board(chord_signal, self.sr)
-            except Exception:
-                pass
-
+        chord_signal, self._last_guitar_fx = self._apply_guitar_effects(chord_signal)
         return np.clip(chord_signal, -0.99, 0.99)
 
     def _apply_master_bus(self, stereo_mix: np.ndarray) -> tuple[np.ndarray, dict]:
@@ -206,5 +225,6 @@ class ChansonEngine:
             "duration": duration_sec,
             "bpm": bpm,
             "genre": "chanson",
+            "guitar_fx": self._last_guitar_fx,
             "master_bus": master_bus,
         }

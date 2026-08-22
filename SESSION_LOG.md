@@ -1046,3 +1046,10 @@ Artist Dossier now persists additive `audio_copy` transfer state. Direct intake 
 Chanson master-bus Pedalboard state is now explicit in the synthesis result: unavailable or failed optional processing retains a raw NumPy mix and reports diagnostics rather than claiming effects-chain success. The separate guitar-effects fallback at `modules/chanson_engine.py:99` remains open and is not claimed resolved.
 
 Приёмка: focused Chanson master-bus suite 2 PASS; `pytest tests/ -q` = **297 PASS, 1 expected deprecation warning**, compileall/AST OK, data inventory 73/0/0. Fresh audit: SILENT_EXCEPT_PASS **101** (was 102); selected master-bus record removed, one separate Chanson guitar-effects record remains; **880** total heuristic records across 238 files.
+
+---
+## APP_L v40 — Chanson guitar-effects observability
+
+Chanson guitar effects now expose per-render provenance. Missing or failed optional Pedalboard effects preserve only the dry NumPy synthesis and return typed diagnostics; they are not represented as processed guitar audio. The legacy waveform API remains unchanged.
+
+Приёмка: focused Chanson guitar-effects suite 2 PASS; `pytest tests/ -q` = **299 PASS, 1 expected deprecation warning**, compileall/AST OK, data inventory 73/0/0. Fresh audit: SILENT_EXCEPT_PASS **100** (was 101), none in `modules/chanson_engine.py`; **881** total heuristic records across 239 files.
