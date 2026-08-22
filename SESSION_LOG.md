@@ -725,3 +725,10 @@ Published packaging metadata now installs `main.py` and exposes `zs-music-maker`
 Добавлен read-only `tools/plan_integrity.py`: strict UTF-8, final newline, same primary heading grammar as execution report, exact ordered 001–100, byte/char/line metrics and SHA-256. Measured PLAN_v39: 3,595,003 bytes; 2,419,839 chars; 26,254 lines; SHA-256 `84c048cd1b223cd375ad2bcac01e8cef9d92bb09f934414d18d28c9e31775e87`.
 
 Приёмка: integrity tests 2 PASS; `pytest tests/ -q` = **237 PASS**, compileall/AST OK, data inventory 73/0/0.
+
+---
+## PLAN_v39 — ШАГ 100: финализация v39.9.0
+
+Canonical version stays **39.9.0** (not the stale conflicting v39.0.0 target): version metadata and CHANGELOG now identify the completed PLAN_v39 release. Final APP_G: **13 PASS, 2 BLOCKED, 0 FAIL**; BLOCKED is the documented absent heavy runtime/model path, not fake inference. Generated APP_G runtime backups were removed before inventory acceptance.
+
+Локальная приёмка: `pytest tests/ -q` = **237 PASS**, compileall OK, AST 0 dead imports, data inventory 73/0/0, strict plan integrity 001–100, `main.py --version` = 39.9.0 finalisation build. After this commit, execution report is regenerated from commit evidence to 100/100, then clean-head preflight and annotated v39.9.0 tag push provide final release evidence.

@@ -2,6 +2,14 @@
 
 > Актуальная версия: **v39.9.0** (2026-08-22). Подробный журнал выполнения — в `SESSION_LOG.md`; каноническое состояние — в `PROJECT_STATE.md`.
 
+## v39.9.0 — финализация всех 100 primary шагов PLAN_v39
+
+- **Приватность и offline-first:** KPI history сохраняет только allowlisted non-PII metrics; Freesound, GitHub-status и update URL calls требуют явного opt-in (`--online` или `network.online=true`).
+- **Проверяемые runtime paths:** `--legacy-off` печатает compatibility matrix без импорта патчей; `--ai` отображает 12 real stage updates (duration/VRAM/status); классический CPU pipeline возвращает валидный `master_path` без Torch.
+- **Поставка:** `python -m build` создаёт installable wheel с `zs-music-maker`; чистый venv выполняет установленный `--version`. Release preflight проверяет main, source-version mirror, console entrypoint и доступность source-implied tag.
+- **Evidence:** execution report извлекает commit evidence for all primary headings; plan integrity verifies strict UTF-8, exact 001–100 headings and SHA-256. Final local acceptance completed with 237 pytest tests, compileall, AST audit and managed-data audit.
+- **Ограничение:** MusicGen, SDXL, XTTS, RVC, Demucs, CLAP and LLM model runtime/weights are optional. Their absence is reported as BLOCKED/fallback; this release does not claim local heavy-model inference.
+
 
 ## v39.9 — PLAN_v39 ШАГИ 023–068 (AI pipeline, safety, release, docs)
 

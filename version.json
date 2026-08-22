@@ -1,6 +1,6 @@
 {
  "version": "39.9.0",
- "build": "v39.9-plan-steps-018-022-metadata-audio-quality-2026-08-22",
+ "build": "v39.9.0-plan-v39-finalisation-2026-08-22",
  "based_on": "v37-updater-verify-health-cleanup-2026-08-14",
- "changes": "v39.9 PLAN_v39 ШАГИ 018-022: общий quality-слой расширен schema-валидатором analysis_llm, metadata_llm и объективными audio metrics (readability, duration, sample rate, channels, peak, RMS). stage_metadata всегда сохраняет валидный metadata.json с детерминированным fallback при недоступной/битой LLM. stage_music валидирует output MusicGen и CyberSynth fallback до возврата ok=True. Добавлены тесты metadata contract, audio signal/silence gate и dry-run metadata fallback. Тяжёлые metadata_llm/MusicGen веса остаются честно BLOCKED до явной установки; generic pull и sequential unload уже реализованы. Проверка: pytest tests/test_ai_quality.py + tests/test_ai_layer.py = 22 passed, compileall OK."
+ "changes": "v39.9.0 завершает 100 primary шагов PLAN_v39: privacy-safe KPI telemetry, default-offline network policy, explicit legacy compatibility report, installable wheel, terminal AI stage progress, CPU classical master regression, release preflight, execution evidence and strict plan integrity. Heavy optional model runtimes/weights остаются environment-dependent и честно BLOCKED до явной установки; final release validates source version, 100-step git evidence, full tests and tag workflow."
 }
