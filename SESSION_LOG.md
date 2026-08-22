@@ -699,3 +699,10 @@ Published packaging metadata now installs `main.py` and exposes `zs-music-maker`
 Добавлен dependency-free console renderer real stage lifecycle: START/finish для 12 AI-стадий с measured duration, VRAM and explicit OK/FALLBACK/SKIPPED/FAILED status. CLI `--ai` и `--ai --dry-run` включают его явно; API default remains quiet. Callback errors do not interrupt rendering.
 
 Приёмка: live `--ai --dry-run` дал 12 START и 12 finish records; final `12/12 FALLBACK tag` честно отражает отсутствующий optional model/runtime. Runtime backup удалён. `pytest tests/ -q` = **232 PASS**, compileall/AST OK, data inventory 73/0/0.
+
+---
+## PLAN_v39 — ШАГ 099: CPU classical pipeline baseline
+
+`run_full_pipeline()` теперь возвращает public `master_path` for its streaming master. Added no-torch regression executes a non-dry local-DSP pipeline (instrumental mode), decodes the actual output WAV and verifies duration, sample rate, channels, finite data and non-silence. This is a CPU classical baseline, not a claim of absent heavy AI/TTS/RVC inference.
+
+Приёмка: `tests/test_classical_determinism.py` = **3 PASS**, including real CPU master; полный `pytest tests/ -q` = **233 PASS**, compileall/AST OK, data inventory 73/0/0.

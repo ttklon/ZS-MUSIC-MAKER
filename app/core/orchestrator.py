@@ -95,6 +95,7 @@ class PipelineResult:
     stages: list[dict[str, Any]] = field(default_factory=list)
     percent: int = 0
     warnings: list[str] = field(default_factory=list)
+    master_path: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -107,6 +108,7 @@ class PipelineResult:
             "stages": self.stages,
             "percent": self.percent,
             "warnings": self.warnings,
+            "master_path": self.master_path,
         }
 
 
@@ -2063,6 +2065,7 @@ def run_full_pipeline(
         stages=stages,
         percent=pct,
         warnings=warnings,
+        master_path=str(streaming_master) if streaming_master else None,
     )
     return result.to_dict()
 

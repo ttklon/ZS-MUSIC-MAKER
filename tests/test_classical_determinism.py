@@ -32,3 +32,39 @@ def test_seeded_cyber_synth_local_dsp_is_byte_identical(tmp_path, monkeypatch) -
     assert first["seed"] == second["seed"] == 91
     assert first["deterministic"] is True
     assert first["determinism_scope"] == "classical_local_dsp_only"
+
+
+def test_classical_pipeline_creates_valid_cpu_master_without_torch(tmp_path, monkeypatch) -> None:
+    import sys
+
+    import numpy as np
+    import soundfile as sf
+    from app.core.orchestrator import run_full_pipeline
+
+    # The classical reference must not accidentally acquire or require Torch.
+    monkeypatch.setitem(sys.modules, "torch", None)
+    result = run_full_pipeline(
+        "cpu_classical_regression",
+        {
+            "genre": "drift_phonk",
+            "theme": "CPU regression pulse",
+            "duration_sec": 4,
+            "voice_mode": "off",
+            "user_lyrics_lines": ["CPU baseline carries the night"],
+        },
+        dry_run=False,
+        out_root=tmp_path,
+    )
+    mastering = next(stage for stage in result["stages"] if stage["name"] == "_stage_mastering")
+    masters = mastering["output"]["masters"]
+    streaming = Path(masters["streaming"])
+    audio, sample_rate = sf.read(streaming, always_2d=True)
+
+    assert result["dry_run"] is False
+    assert result["master_path"] == str(streaming)
+    assert streaming.exists() and streaming.suffix == ".wav"
+    assert sample_rate >= 22_050
+    assert audio.shape[0] >= sample_rate * 3
+    assert audio.shape[1] in (1, 2)
+    assert np.isfinite(audio).all()
+    assert float(np.max(np.abs(audio))) > 0.001
