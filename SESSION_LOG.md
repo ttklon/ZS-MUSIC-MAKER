@@ -794,3 +794,10 @@ HARDCODED_POSIX_PATH now evaluates production sources only; deliberate test PII/
 ## APP_L v40 — initial remediation matrix
 
 Fresh clean-head audit scanned 210 Python files: **916** heuristic findings. SECURITY_EVAL/OS_SYSTEM/SHELL_TRUE and hardcoded Windows/POSIX path categories are now 0 detector records. This does not claim formal security proof: BARE_PRINT 326, docstrings 381 combined, SILENT_EXCEPT_PASS 121, complexity/long-function/sleep/global/XXX categories remain open for semantic per-item work.
+
+---
+## APP_L v40 — GLOBAL_STATEMENT: settings cache
+
+`config.settings` migrated from mutable `_settings`/`global` assignments to bounded `lru_cache(maxsize=1)`; `reset_settings()` now cache_clear() and preserves test contract. New regression verifies stable snapshot before reset and environment reload after reset.
+
+Приёмка: targeted 7 PASS; `pytest tests/ -q` = **248 PASS**, compileall/AST OK, data inventory 73/0/0.

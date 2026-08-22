@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 from typing import Optional
 
@@ -145,17 +146,12 @@ class Settings:
 
 
 # --- Singleton (ленивый; reset_settings для тестов) -------------------------
-_settings: Optional[Settings] = None
-
-
+@lru_cache(maxsize=1)
 def get_settings() -> Settings:
-    global _settings
-    if _settings is None:
-        _settings = Settings.load()
-    return _settings
+    """Return the process-local settings snapshot until explicitly reset."""
+    return Settings.load()
 
 
 def reset_settings() -> None:
     """Сбрасывает кэш настроек (используется тестами)."""
-    global _settings
-    _settings = None
+    get_settings.cache_clear()

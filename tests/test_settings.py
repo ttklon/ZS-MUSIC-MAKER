@@ -69,3 +69,15 @@ def test_invalid_values_fall_back_to_default(monkeypatch):
     monkeypatch.setenv("ZSMM_VRAM_GB", "not-a-number")
     s = S.Settings.load()
     assert s.vram_gb == 12.0
+
+
+def test_reset_settings_reloads_cached_environment(monkeypatch):
+    monkeypatch.setenv("ZSMM_VRAM_GB", "16")
+    first = S.get_settings()
+    monkeypatch.setenv("ZSMM_VRAM_GB", "24")
+
+    assert S.get_settings() is first
+    assert S.get_settings().vram_gb == 16.0
+
+    S.reset_settings()
+    assert S.get_settings().vram_gb == 24.0
