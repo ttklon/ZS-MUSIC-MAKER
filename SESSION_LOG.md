@@ -885,3 +885,10 @@ Runtime diagnostics now use module logging and report a broken optional sink as 
 `record_step` now accepts an optional stop event: cancellation wakes the timed capture, finalizes the recorder, preserves partial diagnostic metadata but marks the step cancelled/non-accepted. Progress totals only accepted, non-cancelled steps, so partial recordings cannot advance RVC readiness. Existing callers remain compatible.
 
 Приёмка: focused onboarding suite 2 PASS; `pytest tests/ -q` = **259 PASS**, compileall/AST OK, data inventory 73/0/0. Fresh audit: **7 BLOCKING_SLEEP** (was 8), none in `modules/voice_onboarding.py`; total **904** heuristic records across 218 files.
+
+---
+## APP_L v40 — BLOCKING_SLEEP semantic scope
+
+Deep audit now retains unannotated production waits while excluding only AST-proven `_self_test` ranges, pytest files and audit support files. Regression proves a runtime sleep remains flagged and all three non-production classes do not. This is scope correction, not a blanket safety claim for sleeps.
+
+Приёмка: focused deep-audit suite 8 PASS; `pytest tests/ -q` = **260 PASS**, compileall/AST OK, data inventory 73/0/0. Fresh audit: **0 BLOCKING_SLEEP**, HIGH_COMPLEXITY 35, LONG_FUNCTION 29, SILENT_EXCEPT_PASS 119, BARE_PRINT 325; **898** total heuristic records across 218 files.

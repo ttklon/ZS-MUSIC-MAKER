@@ -14,7 +14,7 @@ tools/deep_audit_v40.py — САМЫЙ ГЛУБОКИЙ АУДИТ (v40).
   • отсутствующие docstring'и у public API
   • сложность (упрощённо: количество if/for/while/try)
   • голые print (не через logger)
-  • голые time.sleep() без комментария
+  • голые production time.sleep() без комментария
   • assert в production-коде
   • риски безопасности: eval/exec/os.system/subprocess.shell=True
   • отсутствие явных таймаутов у HTTP-запросов
@@ -101,6 +101,14 @@ def audit_file(p: Path) -> dict:
                 report["imports"].append(
                     {"name": f"{mod}.{n.name}", "line": node.lineno, "kind": "from"}
                 )
+
+    self_test_lines = {
+        line_number
+        for node in ast.walk(tree)
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        and node.name.startswith("_self_test")
+        for line_number in range(node.lineno, getattr(node, "end_lineno", node.lineno) + 1)
+    }
 
     body_src = "\n".join(lines)
     for nm, ln in import_names:
@@ -264,7 +272,13 @@ def audit_file(p: Path) -> dict:
                 {"line": i, "kind": "BARE_PRINT",
                  "msg": "print() вместо logger"}
             )
-        if re.search(r"\btime\.sleep\(", line) and "#" not in line:
+        if (
+            re.search(r"\btime\.sleep\(", line)
+            and "#" not in line
+            and i not in self_test_lines
+            and not rel.startswith("tests/")
+            and rel not in audit_meta_files
+        ):
             report["issues"].append(
                 {"line": i, "kind": "BLOCKING_SLEEP",
                  "msg": "time.sleep(...) без пояснения"}

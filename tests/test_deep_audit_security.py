@@ -105,3 +105,28 @@ def test_marker_audit_requires_leading_actionable_comment_marker(
     issues = deep_audit_v40.audit_file(source)["issues"]
 
     assert [issue["kind"] for issue in issues] == ["MARKER_TODO"]
+
+
+def test_sleep_audit_keeps_runtime_waits_but_excludes_self_test_and_audit_support(
+    tmp_path: Path, monkeypatch
+) -> None:
+    production = tmp_path / "worker.py"
+    production.write_text(
+        "import time\n\ndef run():\n    time.sleep(1)\n\ndef _self_test():\n    time.sleep(1)\n",
+        encoding="utf-8",
+    )
+    tests_dir = tmp_path / "tests"
+    tests_dir.mkdir()
+    fixture = tests_dir / "test_wait.py"
+    fixture.write_text("import time\ntime.sleep(1)\n", encoding="utf-8")
+    tools_dir = tmp_path / "tools"
+    tools_dir.mkdir()
+    report = tools_dir / "deep_audit_v40_report.py"
+    report.write_text("import time\ntime.sleep(1)\n", encoding="utf-8")
+    monkeypatch.setattr(deep_audit_v40, "ROOT", tmp_path)
+
+    production_issues = deep_audit_v40.audit_file(production)["issues"]
+
+    assert [issue["kind"] for issue in production_issues] == ["BLOCKING_SLEEP"]
+    assert "BLOCKING_SLEEP" not in _security_kinds(fixture)
+    assert "BLOCKING_SLEEP" not in _security_kinds(report)
