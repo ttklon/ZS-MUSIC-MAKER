@@ -20,7 +20,11 @@ PRESET_REQUIRED = {
     "mood_tags": list,
     "vocal_style": str,
     "mastering_profile_default": str,
+    "prompt_cover": str,
+    "cover_instruments": str,
 }
+
+COVER_TEMPLATE_FIELDS = {"{genre}", "{mood}", "{key}", "{instruments}"}
 
 
 def validate_preset_assets(presets_dir: Path = PRESETS_DIR) -> list[str]:
@@ -38,6 +42,11 @@ def validate_preset_assets(presets_dir: Path = PRESETS_DIR) -> list[str]:
                 errors.append(f"{path.name}: missing {field}")
             elif not isinstance(payload[field], field_type) or not payload[field]:
                 errors.append(f"{path.name}: invalid {field}")
+        template = payload.get("prompt_cover", "")
+        if isinstance(template, str) and template:
+            missing_fields = sorted(field for field in COVER_TEMPLATE_FIELDS if field not in template)
+            if missing_fields:
+                errors.append(f"{path.name}: prompt_cover missing placeholders {missing_fields}")
         bpm = payload.get("bpm_range", [])
         if isinstance(bpm, list) and len(bpm) == 2:
             if not all(isinstance(value, (int, float)) for value in bpm) or not (20 <= bpm[0] <= bpm[1] <= 300):

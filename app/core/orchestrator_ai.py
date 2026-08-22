@@ -575,6 +575,7 @@ def run_ai_pipeline(project_id, wizard_state=None, out_root=None, dry_run=False)
             mood=ws["mood"],
             out_path=str(out_root / "cover.png"),
             handle=handle,
+            key=ws["key"],
         )
         if result.get("ok") and result.get("path"):
             quality = validate_cover_artifact(

@@ -657,3 +657,10 @@ BeatConstructor now uses isolated Python/NumPy RNGs when a seed is supplied; sam
 pyproject now mirrors base/AI/AMD requirement profiles through extras; torch-heavy packages remain outside default install. Contract tests verify package-name parity for all three manifests and explicitly ensure the heavy AI stack is optional.
 
 Приёмка: dependency profile tests PASS; полный `pytest tests/ -q` = **217 PASS**, compileall/AST OK, data inventory 73/0/0. Heavy packages не устанавливались.
+
+---
+## PLAN_v39 — ШАГ 093: genre cover prompts
+
+All 50 versioned genre presets now carry renderable `prompt_cover` and `cover_instruments` metadata. Validator enforces mood/key/instruments placeholders; cover_art_ai renders preset direction and stage_cover passes the actual key. SDXL remains optional/BLOCKED, while the prompt contract is fully tested.
+
+Приёмка: validator 50/50 assets and 119 runtime genres PASS; полный `pytest tests/ -q` = **220 PASS**, compileall/AST OK, data inventory 73/0/0.

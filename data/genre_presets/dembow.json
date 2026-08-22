@@ -28,5 +28,7 @@
   "mastering_profile_default": "streaming",
   "typical_length_sec": 120,
   "typical_hook_start_sec": 30,
-  "reference_examples": []
+  "reference_examples": [],
+  "prompt_cover": "Square album cover for {genre}: {mood} mood, {key} tonal palette, visual motifs of {instruments}; cinematic editorial lighting, original artwork, no logos, no watermark, no copied artist identity.",
+  "cover_instruments": "rhythmic drums, bass, melodic synths and atmospheric light"
 }

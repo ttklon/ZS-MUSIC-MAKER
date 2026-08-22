@@ -263,12 +263,19 @@ def build_music_prompt(
     return ", ".join(parts)
 
 
-def build_cover_prompt(title: str, artist: str, genre: str, mood: str) -> str:
+def build_cover_prompt(
+    title: str,
+    artist: str,
+    genre: str,
+    mood: str,
+    genre_direction: str | None = None,
+) -> str:
     # Load the role asset to keep the versioned template part of the active
     # catalog; the final SDXL-facing prompt remains concise English text.
     render_prompt_asset("cover_art_prompt.prompt.txt", title=title, genre=genre, mood_tags=mood, theme=mood)
+    direction = f" Creative direction: {genre_direction}." if genre_direction else ""
     return (
         f"Album cover for song '{title}' by {artist}. Genre: {genre}. "
-        f"Mood: {mood}. Cinematic, high contrast, bold typography, square 1400x1400, "
+        f"Mood: {mood}.{direction} Cinematic, high contrast, bold typography, square 1400x1400, "
         "no watermark, professional music release cover."
     )
