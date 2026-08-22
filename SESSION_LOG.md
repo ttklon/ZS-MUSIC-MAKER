@@ -594,3 +594,10 @@ Metadata validator теперь требует title 3–80, обе descriptions
 Добавлены genre-aware 16-step slots kick/snare/hat/bass/melody, deterministic 8-bar plan и MIDI exporter contract. Отдельный phonk bass pattern больше не дублирует kick. После обнаруженного golden RMS regression legacy constructor default сохранён отдельным `legacy` preset; новые genre-aware calls получают новые slots, а existing default fixture остаётся воспроизводимой. mido отсутствует — five-slot MIDI export честно BLOCKED, events доступны.
 
 Приёмка: 8 bars/stereo <5s, five slots по 128 steps, golden rerender зелёный. Полный `pytest tests/ -q` = **193 PASS**, compileall/AST OK, data inventory 73/0/0.
+
+---
+## PLAN_v39 — ШАГ 084: render queue priority and persistence
+
+RenderQueue now persists to `queue.json`, reads the legacy state file only for compatibility, supports numeric priority with FIFO ties, and persists `set_priority`. Pending cancellation remains terminal; restart returns only non-cancelled running work to pending and retains cancellation requests as cancelled.
+
+Приёмка: scenario of 3 tasks/cancelled middle/high-priority third/restart recovery PASS. Полный `pytest tests/ -q` = **194 PASS**, compileall/AST OK, data inventory 73/0/0.

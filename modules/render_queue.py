@@ -20,7 +20,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 QUEUE_DIR = ROOT / "output" / "queue"
-STATE_FILE = QUEUE_DIR / "queue_state.json"
+STATE_FILE = QUEUE_DIR / "queue.json"
+LEGACY_STATE_FILE = QUEUE_DIR / "queue_state.json"
 # v22: ленивое создание (не при импорте)
 
 
@@ -37,21 +38,26 @@ class QueueItem:
     started_at: float = 0.0
     finished_at: float = 0.0
     result_paths: dict = field(default_factory=dict)
+    priority: int = 0  # higher values run first; ties keep enqueue order
+    created_at: float = field(default_factory=time.time)
 
     def to_dict(self):
         return asdict(self)
 
 
 def _load_state() -> list[dict]:
-    if STATE_FILE.exists():
-        try:
-            return json.loads(STATE_FILE.read_text(encoding="utf-8"))
-        except Exception:
-            return []
+    for candidate in (STATE_FILE, LEGACY_STATE_FILE):
+        if candidate.exists():
+            try:
+                payload = json.loads(candidate.read_text(encoding="utf-8"))
+                return payload if isinstance(payload, list) else []
+            except Exception:
+                return []
     return []
 
 
 def _save_state(items: list[QueueItem]) -> None:
+    STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
     STATE_FILE.write_text(
         json.dumps([i.to_dict() for i in items], ensure_ascii=False, indent=2),
         encoding="utf-8",
@@ -75,9 +81,15 @@ class RenderQueue:
     # ------------------------------------------------------- persistence
     def _restore(self):
         for d in _load_state():
-            # Возвращаем running → pending при рестарте.
+            # Running work is safe to resume after restart unless cancellation was requested.
             if d.get("status") == "running":
-                d["status"] = "pending"
+                if d.get("cancel_requested"):
+                    d["status"] = "cancelled"
+                    d["error"] = "cancelled before restart"
+                else:
+                    d["status"] = "pending"
+                    d["stage"] = ""
+                    d["progress"] = 0.0
             item = QueueItem(
                 **{k: v for k, v in d.items() if k in QueueItem.__dataclass_fields__}
             )
@@ -87,15 +99,29 @@ class RenderQueue:
         _save_state(self.items)
 
     # ------------------------------------------------------- API
-    def enqueue(self, recipe: dict) -> str:
-        item = QueueItem(id=uuid.uuid4().hex[:10], recipe=recipe)
+    def enqueue(self, recipe: dict, priority: int | None = None) -> str:
+        requested_priority = recipe.get("priority", 0) if priority is None else priority
+        try:
+            normalized_priority = int(requested_priority)
+        except (TypeError, ValueError):
+            normalized_priority = 0
+        item = QueueItem(id=uuid.uuid4().hex[:10], recipe=dict(recipe), priority=normalized_priority)
         self.items.append(item)
         self._persist()
         self.log(f"[queue] enqueued {item.id} ({recipe.get('theme', '?')})")
         return item.id
 
     def enqueue_batch(self, recipes: list[dict]) -> list[str]:
-        return [self.enqueue(r) for r in recipes]
+        return [self.enqueue(recipe) for recipe in recipes]
+
+    def set_priority(self, item_id: str, priority: int) -> bool:
+        """Change a pending item's priority and persist the revised scheduling order."""
+        for item in self.items:
+            if item.id == item_id and item.status == "pending":
+                item.priority = int(priority)
+                self._persist()
+                return True
+        return False
 
     def status_summary(self) -> dict:
         c = {"pending": 0, "running": 0, "done": 0, "error": 0, "cancelled": 0}
@@ -146,10 +172,11 @@ class RenderQueue:
             self._process(next_item)
 
     def _pick_next(self) -> QueueItem | None:
-        for it in self.items:
-            if it.status == "pending":
-                return it
-        return None
+        pending = [(index, item) for index, item in enumerate(self.items) if item.status == "pending"]
+        if not pending:
+            return None
+        # Higher priority wins; list index preserves FIFO for equal priorities.
+        return min(pending, key=lambda pair: (-pair[1].priority, pair[0]))[1]
 
     # ------------------------------------------------------- run one
     def _process(self, item: QueueItem):
