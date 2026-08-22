@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import threading
 import time
 import uuid
@@ -10,6 +11,7 @@ from typing import Any
 from app.core.orchestrator import run_full_pipeline
 
 ROOT = Path(__file__).resolve().parents[1]
+LOGGER = logging.getLogger(__name__)
 
 
 @dataclass
@@ -78,14 +80,15 @@ class RuntimeOrchestrator:
         self._worker: threading.Thread | None = None
         self._ensure_worker()
 
-    def _log(self, msg: str):
+    def _log(self, msg: str) -> None:
+        """Send runtime diagnostics without allowing an optional sink to hide failures."""
         try:
             if self.log is not None and hasattr(self.log, "info"):
                 self.log.info(msg)
             else:
-                print(msg)
-        except Exception:
-            pass
+                LOGGER.info(msg)
+        except Exception as error:
+            LOGGER.warning("runtime diagnostic sink failed: %s", error)
 
     def _ensure_worker(self):
         if self._worker and self._worker.is_alive():

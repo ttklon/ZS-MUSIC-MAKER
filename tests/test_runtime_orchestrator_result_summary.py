@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from app.runtime_orchestrator import _summarize_pipeline_result
+import logging
+
+from app.runtime_orchestrator import RuntimeOrchestrator, _summarize_pipeline_result
 
 
 def test_pipeline_result_summary_preserves_desktop_job_contract() -> None:
@@ -37,3 +39,18 @@ def test_pipeline_result_summary_preserves_desktop_job_contract() -> None:
         "flags": ["first warning", "second warning"],
         "advice": ["tighten hook", "check intro"],
     }
+
+
+class _BrokenDiagnosticSink:
+    def info(self, _message: str) -> None:
+        raise RuntimeError("sink offline")
+
+
+def test_runtime_log_reports_broken_optional_sink(caplog) -> None:
+    runtime = RuntimeOrchestrator(log=_BrokenDiagnosticSink())
+    try:
+        with caplog.at_level(logging.WARNING, logger="app.runtime_orchestrator"):
+            runtime._log("pipeline diagnostic")
+        assert "runtime diagnostic sink failed: sink offline" in caplog.text
+    finally:
+        runtime.stop(join_timeout=0.5)

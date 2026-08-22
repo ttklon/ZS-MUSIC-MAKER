@@ -871,3 +871,10 @@ Malformed/unreadable persisted onboarding manifests retain the compatible empty-
 `RuntimeOrchestrator._process` now keeps lifecycle/error handling only; pure `_summarize_pipeline_result` owns stage traversal and the existing desktop result contract. Regression checks polish/master precedence, release data and sanitized hit/warning fields without starting a full pipeline.
 
 Приёмка: focused 1 PASS; `pytest tests/ -q` = **257 PASS**, compileall/AST OK, data inventory 73/0/0. Fresh audit: **35 HIGH_COMPLEXITY** (was 36), no high-complexity finding in `app/runtime_orchestrator.py`; total **907** heuristic records across 217 files.
+
+---
+## APP_L v40 — RuntimeOrchestrator diagnostic observability
+
+Runtime diagnostics now use module logging and report a broken optional sink as a warning instead of silently swallowing it; normal diagnostics stay non-fatal. Regression injects an `info()` failure, asserts the warning and cleanly stops the worker.
+
+Приёмка: focused Runtime suite 2 PASS; `pytest tests/ -q` = **258 PASS**, compileall/AST OK, data inventory 73/0/0. Fresh audit: **325 BARE_PRINT** (was 326), **119 SILENT_EXCEPT_PASS** (was 120), neither selected record remains in `app/runtime_orchestrator.py`; total **905** heuristic records across 217 files.
