@@ -206,6 +206,7 @@ class RVCTrainer:
         self._thread: threading.Thread | None = None
         self._listeners: list[Callable[[TrainingJob], None]] = []
         self.listener_errors: list[str] = []
+        self.dataset_copy_errors: list[str] = []
 
     def on_progress(self, cb: Callable[[TrainingJob], None]) -> None:
         self._listeners.append(cb)
@@ -225,14 +226,15 @@ class RVCTrainer:
         ds = MODELS_DIR / voice_name / "dataset"
         ds.mkdir(parents=True, exist_ok=True)
         n = 0
+        self.dataset_copy_errors = []
         for e in idx:
             src = e.get("path")
             if src and Path(src).exists():
                 try:
                     shutil.copy(src, ds / Path(src).name)
                     n += 1
-                except Exception:
-                    pass
+                except Exception as exc:
+                    self.dataset_copy_errors.append(f"{type(exc).__name__}: {exc}")
         return ds
 
     def train(

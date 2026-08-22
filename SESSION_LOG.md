@@ -1095,3 +1095,10 @@ Malformed onboarding state now emits a typed operational warning while retaining
 RVC progress listener failures are now retained as typed `listener_errors` while healthy listeners continue receiving the real training job. This changes no backend/training success claim; backend probes, dataset-copy and parser fallbacks remain separate open items.
 
 Приёмка: focused RVC listener suite 1 PASS; `pytest tests/ -q` = **308 PASS, 1 expected deprecation warning**, compileall/AST OK, data inventory 73/0/0. Fresh audit: SILENT_EXCEPT_PASS **93** (was 94); selected listener record removed, separate RVC records remain; **882** total heuristic records across 244 files.
+
+---
+## APP_L v40 — RVC dataset-copy observability
+
+RVC dataset preparation now records typed failed-copy evidence and does not count failed transfers as collected clips. This preserves the dataset path contract without claiming a backend run, valid dataset or training success. Backend probes and progress-parser recovery remain separate open items.
+
+Приёмка: focused RVC dataset-copy suite 1 PASS; `pytest tests/ -q` = **309 PASS, 1 expected deprecation warning**, compileall/AST OK, data inventory 73/0/0. Fresh audit: SILENT_EXCEPT_PASS **92** (was 93); selected dataset-copy record removed, separate RVC records remain; **882** total heuristic records across 245 files.
