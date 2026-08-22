@@ -42,35 +42,37 @@ VAULT_DIR = Path("voice_vault")
 COVERAGE_FILE = VAULT_DIR / "phoneme_coverage.json"
 
 
-def _collect_transcripts() -> list[str]:
-    """
-    Собирает все транскрипты из Voice Vault.
-    """
-    texts = []
-    for p in VAULT_DIR.rglob("*.txt"):
+def _collect_transcripts_with_errors() -> tuple[list[str], list[str]]:
+    """Collect Voice Vault transcripts and retain non-fatal read diagnostics."""
+    texts: list[str] = []
+    errors: list[str] = []
+    for path in VAULT_DIR.rglob("*.txt"):
         try:
-            texts.append(p.read_text(encoding="utf-8"))
-        except Exception:
-            pass
-    for p in VAULT_DIR.rglob("*.json"):
+            texts.append(path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeDecodeError) as error:
+            errors.append(f"{path.name}: {type(error).__name__}: {error}")
+    for path in VAULT_DIR.rglob("*.json"):
         try:
-            data = json.loads(p.read_text(encoding="utf-8"))
+            data = json.loads(path.read_text(encoding="utf-8"))
             if isinstance(data, dict) and "transcript" in data:
                 texts.append(str(data["transcript"]))
             elif isinstance(data, list):
-                for item in data:
-                    if isinstance(item, dict) and "transcript" in item:
-                        texts.append(str(item["transcript"]))
-        except Exception:
-            pass
-    return texts
+                texts.extend(str(item["transcript"]) for item in data if isinstance(item, dict) and "transcript" in item)
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
+            errors.append(f"{path.name}: {type(error).__name__}: {error}")
+    return texts, errors
+
+
+def _collect_transcripts() -> list[str]:
+    """Return transcripts with the historical list-only private helper contract."""
+    return _collect_transcripts_with_errors()[0]
 
 
 def compute_coverage() -> dict[str, Any]:
     """
     Пересчитывает покрытие. Возвращает и сохраняет в JSON.
     """
-    texts = _collect_transcripts()
+    texts, transcript_read_errors = _collect_transcripts_with_errors()
     joined = " ".join(texts).lower()
 
     ru_c = Counter(ch for ch in joined if ch in RU_PHONEMES)
@@ -99,6 +101,7 @@ def compute_coverage() -> dict[str, Any]:
         "total_en_chars": total_en,
         "suggested_phrases": suggestions,
         "transcript_count": len(texts),
+        "transcript_read_errors": transcript_read_errors,
     }
 
     VAULT_DIR.mkdir(parents=True, exist_ok=True)

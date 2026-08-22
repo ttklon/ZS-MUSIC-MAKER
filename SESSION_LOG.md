@@ -976,3 +976,10 @@ Lyrics v8 now delegates optional trend/style fetch, v7 compatible generation, bi
 Arrangement planning now separates genre drum preferences, variant energy, transition FX, section rendering and TikTok hook selection. A seeded phonk regression proves stable plan/timing/pattern and hook contracts without audio or model execution.
 
 Приёмка: focused arrangement suite 1 PASS; `pytest tests/ -q` = **279 PASS, 1 expected deprecation warning**, compileall/AST OK, data inventory 73/0/0. Fresh audit: HIGH_COMPLEXITY **25** (was 26), none in `modules/arrangement_engine.py`; LONG_FUNCTION **24** (was 25); **878** total heuristic records across 228 files.
+
+---
+## APP_L v40 — phoneme coverage recovery observability
+
+Voice Vault phoneme scanning now preserves valid transcripts while reporting unreadable text/JSON inputs through persisted typed diagnostics. A temporary-vault regression proves malformed JSON is non-fatal and observable; no repository vault data or model backend is used.
+
+Приёмка: focused phoneme-coverage suite 1 PASS; `pytest tests/ -q` = **280 PASS, 1 expected deprecation warning**, compileall/AST OK, data inventory 73/0/0. Fresh audit: SILENT_EXCEPT_PASS **112** (was 114), none in `modules/phoneme_coverage.py`; **877** total heuristic records across 229 files.
