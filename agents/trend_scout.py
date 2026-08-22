@@ -18,11 +18,8 @@ CACHE_FILE = os.path.join(
 os.makedirs(os.path.dirname(CACHE_FILE), exist_ok=True)
 
 
-def scout_trends(query: str, max_results: int = 10) -> list:
-    """
-    Ищет актуальные тренды и сленг по теме.
-    Возвращает список выражений/фраз.
-    """
+def scout_trends_with_diagnostics(query: str, max_results: int = 10) -> dict:
+    """Ищет тренды и раскрывает источник либо причину fallback без live-claims."""
     cache = _load_cache()
     cache_key = query.lower().strip()
 
@@ -30,27 +27,34 @@ def scout_trends(query: str, max_results: int = 10) -> list:
     if cache_key in cache:
         entry = cache[cache_key]
         if time.time() - entry.get("ts", 0) < 86400:
-            return entry.get("trends", [])
+            return {
+                "trends": entry.get("trends", [])[:max_results],
+                "source": "cache",
+                "diagnostics": [],
+            }
 
     trends = []
+    diagnostics = []
 
     # 1. DuckDuckGo (простой HTML-парсинг)
     try:
         trends.extend(_duckduckgo_search(f"{query} тренд сленг 2026"))
-    except Exception:
-        pass
+    except Exception as exc:
+        diagnostics.append({"source": "duckduckgo", "ok": False, "error": f"{type(exc).__name__}: {exc}"})
 
     # 2. Дополняем локальным словарём
     try:
         from modules.lyrics_gen import load_slang_dictionary
 
         trends.extend(load_slang_dictionary()[:10])
-    except Exception:
-        pass
+    except Exception as exc:
+        diagnostics.append({"source": "local_slang", "ok": False, "error": f"{type(exc).__name__}: {exc}"})
 
     # 3. Стандартные хайповые фразы (fallback)
+    source = "live_or_local"
     if not trends:
         trends = _fallback_trends(query)
+        source = "built_in_fallback"
 
     # Дедупликация
     trends = list(dict.fromkeys(trends))[:max_results]
@@ -58,8 +62,12 @@ def scout_trends(query: str, max_results: int = 10) -> list:
     # Кэшируем
     cache[cache_key] = {"trends": trends, "ts": time.time()}
     _save_cache(cache)
+    return {"trends": trends, "source": source, "diagnostics": diagnostics}
 
-    return trends
+
+def scout_trends(query: str, max_results: int = 10) -> list:
+    """Совместимый list API для трендов без изменения существующих callers."""
+    return scout_trends_with_diagnostics(query, max_results)["trends"]
 
 
 def _duckduckgo_search(query: str) -> list:

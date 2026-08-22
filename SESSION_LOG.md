@@ -1067,3 +1067,10 @@ Legacy lyrics author-reference fallback is now explicit: generated metadata dist
 Sample Hunter now exposes license-filter provenance and fails closed for online sources if commercial-use validation is unavailable or errors. Local samples remain visible; unvalidated online sources are not represented as cleared.
 
 Приёмка: focused sample-license suite 2 PASS; `pytest tests/ -q` = **303 PASS, 1 expected deprecation warning**, compileall/AST OK, data inventory 73/0/0. Fresh audit: SILENT_EXCEPT_PASS **98** (was 99), none in `agents/sample_hunter.py`; **883** total heuristic records across 241 files.
+
+---
+## APP_L v40 — TrendScout source observability
+
+TrendScout now distinguishes cached trends, live/local contributions and built-in fallback, retaining typed failed-source diagnostics without claiming live trend retrieval. The separate `get_hot_topics()` online fallback at `agents/trend_scout.py:155` remains open and is not claimed resolved.
+
+Приёмка: focused TrendScout suite 2 PASS; `pytest tests/ -q` = **305 PASS, 1 expected deprecation warning**, compileall/AST OK, data inventory 73/0/0. Fresh audit: SILENT_EXCEPT_PASS **96** (was 98); two scout-trends source paths resolved, one separate hot-topics record remains; **883** total heuristic records across 242 files.
