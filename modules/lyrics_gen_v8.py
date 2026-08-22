@@ -19,6 +19,7 @@ API:
 from __future__ import annotations
 
 import random
+from contextvars import ContextVar
 import re
 import warnings
 
@@ -90,25 +91,47 @@ def _fetch_slang(theme: str) -> list[str]:
         return []
 
 
-def _author_style_prompt(
+_AUTHOR_STYLE_DIAGNOSTIC: ContextVar[dict | None] = ContextVar(
+    "lyrics_v8_author_style_diagnostic", default=None
+)
+
+
+def _author_style_prompt_with_diagnostics(
     author: str | None, theme: str, user_words: list[str], slang: list[str], bpm: int, target_lines: int
-) -> tuple[str, bool]:
-    """Build optional reference-author guidance without requiring remote ingestion success."""
+) -> tuple[str, bool, dict]:
+    """Build optional author guidance and disclose unavailable reference ingestion."""
     if not author:
-        return "", False
+        return "", False, {"ok": False, "status": "not_requested", "author": ""}
     try:
         profile = author_ref_lyrics.get_style_profile(author)
         if not profile:
             author_ref_lyrics.fetch_and_ingest_author(author, max_tracks=5)
             profile = author_ref_lyrics.get_style_profile(author)
         if profile:
-            return author_ref_lyrics.build_style_prompt(
+            prompt = author_ref_lyrics.build_style_prompt(
                 author=author, theme=theme, user_words=user_words + slang[:6],
                 bpm=bpm, target_lines=target_lines,
-            ), True
-    except Exception:
-        pass
-    return "", False
+            )
+            return prompt, True, {"ok": True, "status": "available", "author": author}
+        return "", False, {"ok": False, "status": "profile_unavailable", "author": author}
+    except Exception as exc:
+        return "", False, {
+            "ok": False,
+            "status": "failed",
+            "author": author,
+            "error": f"{type(exc).__name__}: {exc}",
+        }
+
+
+def _author_style_prompt(
+    author: str | None, theme: str, user_words: list[str], slang: list[str], bpm: int, target_lines: int
+) -> tuple[str, bool]:
+    """Совместимый prompt-only API для optional author reference guidance."""
+    prompt, used, diagnostics = _author_style_prompt_with_diagnostics(
+        author, theme, user_words, slang, bpm, target_lines
+    )
+    _AUTHOR_STYLE_DIAGNOSTIC.set(diagnostics)
+    return prompt, used
 
 
 def _generate_raw_lyrics(seed: str, user_words: list[str], bpm: int, style_prompt: str, target_lines: int, slang: list[str]) -> str:
@@ -172,9 +195,15 @@ def generate_lyrics_v8(
     """
     user_words = [word.strip() for word in (user_words or []) if word and word.strip()]
     slang = _fetch_slang(theme)
+    _AUTHOR_STYLE_DIAGNOSTIC.set(None)
     style_prompt, author_style_used = _author_style_prompt(
         author, theme, user_words, slang, bpm, target_lines
     )
+    author_style = _AUTHOR_STYLE_DIAGNOSTIC.get() or {
+        "ok": author_style_used,
+        "status": "available" if author_style_used else ("not_requested" if not author else "profile_unavailable"),
+        "author": author or "",
+    }
     seed = theme
     if user_words:
         seed += " — " + ", ".join(user_words)
@@ -190,6 +219,7 @@ def generate_lyrics_v8(
         "chorus_lines": blocks["chorus"] or [],
         "used_slang": slang,
         "author_style_used": author_style_used,
+        "author_style": author_style,
         "want_female_backing": want_female_backing,
         "author": author or "",
     }

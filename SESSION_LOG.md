@@ -1053,3 +1053,10 @@ Chanson master-bus Pedalboard state is now explicit in the synthesis result: una
 Chanson guitar effects now expose per-render provenance. Missing or failed optional Pedalboard effects preserve only the dry NumPy synthesis and return typed diagnostics; they are not represented as processed guitar audio. The legacy waveform API remains unchanged.
 
 Приёмка: focused Chanson guitar-effects suite 2 PASS; `pytest tests/ -q` = **299 PASS, 1 expected deprecation warning**, compileall/AST OK, data inventory 73/0/0. Fresh audit: SILENT_EXCEPT_PASS **100** (was 101), none in `modules/chanson_engine.py`; **881** total heuristic records across 239 files.
+
+---
+## APP_L v40 — legacy lyrics author-style observability
+
+Legacy lyrics author-reference fallback is now explicit: generated metadata distinguishes unrequested, unavailable and failed reference-style capability while preserving the established prompt/boolean helper contract. The diagnostic handoff is context-local; no global state or remote ingestion success is claimed.
+
+Приёмка: focused observability + established orchestration suites **3 PASS, 1 expected deprecation warning**; `pytest tests/ -q` = **301 PASS, 1 expected deprecation warning**, compileall/AST OK, data inventory 73/0/0. Fresh audit: SILENT_EXCEPT_PASS **99** (was 100), none in `modules/lyrics_gen_v8.py`, no GLOBAL_STATEMENT category; **882** total heuristic records across 240 files.
