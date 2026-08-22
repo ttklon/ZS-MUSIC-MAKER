@@ -48,6 +48,20 @@ class CyberSynth:
         bass = sub * amp_env
         return np.clip(bass, -1.0, 1.0)
 
+    def _apply_master_bus(self, stereo_mix: np.ndarray) -> tuple[np.ndarray, dict]:
+        """Применяет optional master effects и раскрывает fallback provenance."""
+        if not HAS_PEDALBOARD:
+            return stereo_mix, {"ok": False, "engine": "numpy_raw_mix", "status": "unavailable"}
+        try:
+            master_board = Pedalboard([
+                HighpassFilter(cutoff_frequency_hz=25),
+                Compressor(threshold_db=-14.0, ratio=3.0, attack_ms=10.0, release_ms=100.0),
+                Limiter(threshold_db=-0.5, release_ms=50.0),
+            ])
+            return master_board(stereo_mix, self.sr), {"ok": True, "engine": "pedalboard"}
+        except Exception as exc:
+            return stereo_mix, {"ok": False, "engine": "numpy_raw_mix", "status": "failed", "error": f"{type(exc).__name__}: {exc}"}
+
     def generate_cyber_lead(self, freq: float, duration: float) -> np.ndarray:
         """Generates a rich FM lead sound for cyberpunk melodies."""
         num_samples = int(self.sr * duration)
@@ -114,18 +128,7 @@ class CyberSynth:
             if current_sample >= total_samples:
                 break
                 
-        # Apply master pedalboard processing if available
-        if HAS_PEDALBOARD:
-            try:
-                master_board = Pedalboard([
-                    HighpassFilter(cutoff_frequency_hz=25),
-                    Compressor(threshold_db=-14.0, ratio=3.0, attack_ms=10.0, release_ms=100.0),
-                    Limiter(threshold_db=-0.5, release_ms=50.0)
-                ])
-                stereo_mix = master_board(stereo_mix, self.sr)
-            except Exception:
-                pass
-                
+        stereo_mix, master_bus = self._apply_master_bus(stereo_mix)
         stereo_mix = np.clip(stereo_mix, -0.99, 0.99)
         sf.write(out_path, stereo_mix, self.sr, format="WAV", subtype="PCM_16")
         
@@ -137,6 +140,7 @@ class CyberSynth:
             "seed": self.seed,
             "deterministic": True,
             "determinism_scope": "classical_local_dsp_only",
+            "master_bus": master_bus,
         }
 
     def sub_bass_pattern(self, root_freq: float, duration: float) -> np.ndarray:

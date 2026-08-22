@@ -1109,3 +1109,10 @@ RVC dataset preparation now records typed failed-copy evidence and does not coun
 RVC now records malformed subprocess epoch output without advancing real job progress or claiming backend training progress. The remaining RVC audit records are optional CUDA/DirectML/ROCm capability probes.
 
 Приёмка: focused RVC parser suite 1 PASS; `pytest tests/ -q` = **310 PASS, 1 expected deprecation warning**, compileall/AST OK, data inventory 73/0/0. Fresh audit: SILENT_EXCEPT_PASS **91** (was 92); selected parser record removed, three optional RVC probe records remain; **882** total heuristic records across 246 files.
+
+---
+## APP_L v40 — CyberSynth master-bus observability
+
+CyberSynth master-bus provenance now distinguishes unavailable or failed optional Pedalboard effects from raw deterministic NumPy synthesis. The separate lead-effects fallback remains open and is not claimed resolved.
+
+Приёмка: focused CyberSynth effects suite 1 PASS; `pytest tests/ -q` = **311 PASS, 1 expected deprecation warning**, compileall/AST OK, data inventory 73/0/0. Fresh audit: SILENT_EXCEPT_PASS **90** (was 91); selected master-bus record removed, separate lead-effects record remains; **881** total heuristic records across 247 files.
