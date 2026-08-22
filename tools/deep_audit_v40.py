@@ -228,13 +228,16 @@ def audit_file(p: Path) -> dict:
     for i, line in enumerate(lines, 1):
         low = line.strip()
         if not low or low.startswith("#"):
-            for marker in ("TODO", "FIXME", "HACK", "XXX", "BUG"):
-                if marker in low.upper():
-                    report["issues"].append(
-                        {"line": i, "kind": f"MARKER_{marker}", "msg": low[:160]}
-                    )
-                    report["risk_score"] += 1
-                    break
+            # Markers are actionable only when they label the comment itself
+            # (for example ``# TODO:``), not when a domain format happens to
+            # contain the letters, such as ISRC ``XX-XXX-00-00000``.
+            marker_match = re.match(r"#\s*(TODO|FIXME|HACK|XXX|BUG)\b(?:\s|:|-|$)", low, re.I)
+            if marker_match:
+                marker = marker_match.group(1).upper()
+                report["issues"].append(
+                    {"line": i, "kind": f"MARKER_{marker}", "msg": low[:160]}
+                )
+                report["risk_score"] += 1
             continue
         m = re.search(r'["\']([A-Za-z]:\\\\[^"\']+)["\']', line)
         if m:

@@ -89,3 +89,19 @@ def test_path_audit_excludes_audit_generator_pattern_text(tmp_path: Path, monkey
     kinds = [issue["kind"] for issue in deep_audit_v40.audit_file(source)["issues"]]
 
     assert "HARDCODED_POSIX_PATH" not in kinds
+
+
+def test_marker_audit_requires_leading_actionable_comment_marker(
+    tmp_path: Path, monkeypatch
+) -> None:
+    source = tmp_path / "markers.py"
+    source.write_text(
+        "# TODO: replace demo value\n"
+        "# ISRC placeholder XX-XXX-00-00000 is rejected\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(deep_audit_v40, "ROOT", tmp_path)
+
+    issues = deep_audit_v40.audit_file(source)["issues"]
+
+    assert [issue["kind"] for issue in issues] == ["MARKER_TODO"]

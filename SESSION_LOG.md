@@ -801,3 +801,10 @@ Fresh clean-head audit scanned 210 Python files: **916** heuristic findings. SEC
 `config.settings` migrated from mutable `_settings`/`global` assignments to bounded `lru_cache(maxsize=1)`; `reset_settings()` now cache_clear() and preserves test contract. New regression verifies stable snapshot before reset and environment reload after reset.
 
 Приёмка: targeted 7 PASS; `pytest tests/ -q` = **248 PASS**, compileall/AST OK, data inventory 73/0/0.
+
+---
+## APP_L v40 — actionable marker classification
+
+Deep audit marker detection now matches only leading actionable comment labels (`# TODO:`, `# FIXME -`, etc.). ISRC schema prose `XX-XXX-00-00000` is no longer false MARKER_XXX; explicit TODO remains detected. Fresh audit: 0 marker findings, 2 GLOBAL_STATEMENT, 913 total heuristic findings / 210 files.
+
+Приёмка: focused 7 PASS; `pytest tests/ -q` = **249 PASS**, compileall/AST OK, data inventory 73/0/0.
