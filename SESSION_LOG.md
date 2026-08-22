@@ -899,3 +899,10 @@ Deep audit now retains unannotated production waits while excluding only AST-pro
 Real-time recorder callback, metrics and stream-shutdown failures remain non-fatal but now set inspectable `last_error` instead of being silently swallowed. Focused regressions force metrics and shutdown errors while preserving compatible fallback results; no microphone/device claim was made.
 
 Приёмка: focused recorder suite 3 PASS; `pytest tests/ -q` = **262 PASS**, compileall/AST OK, data inventory 73/0/0. Fresh audit: **116 SILENT_EXCEPT_PASS** (was 119); two unrelated I/O fallbacks remain in `modules/voice_recording.py`; total **895** heuristic records across 219 files.
+
+---
+## APP_L v40 — voice-recording I/O observability
+
+Take-manifest write failure now emits a warning while preserving generated takes. Device discovery failure is explicit as `device_query_error` and still reports zero usable inputs/false recording capability. Focused tests force both failures; no microphone capability or inference is claimed.
+
+Приёмка: focused recorder suite 5 PASS; `pytest tests/ -q` = **264 PASS**, compileall/AST OK, data inventory 73/0/0. Fresh audit: **114 SILENT_EXCEPT_PASS** (was 116), **0** in `modules/voice_recording.py`; total **894** heuristic records across 219 files.

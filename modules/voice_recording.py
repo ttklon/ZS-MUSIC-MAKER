@@ -19,6 +19,7 @@ audio) — модуль работает в РЕЖИМЕ ПРИЁМА WAV с ч�
 from __future__ import annotations
 
 import json
+import logging
 import math
 import time
 import uuid
@@ -30,6 +31,7 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 VAULT_DIR = ROOT / "voice_vault"
+LOGGER = logging.getLogger(__name__)
 # v22: ленивое создание (не при импорте)
 
 try:
@@ -405,13 +407,14 @@ def split_wav_into_takes(
             json.dumps([take.as_dict() for take in takes], ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
-    except Exception:
-        pass
+    except Exception as error:
+        LOGGER.warning("voice take manifest was not written: %s", error)
     return takes
 
 
 def capability_report() -> dict[str, Any]:
     devices = []
+    device_query_error = None
     if SD_OK:
         try:
             devs = _sd.query_devices()
@@ -420,13 +423,14 @@ def capability_report() -> dict[str, Any]:
                 for d in devs
                 if d.get("max_input_channels", 0) > 0
             ]
-        except Exception:
-            pass
+        except Exception as error:
+            device_query_error = f"{type(error).__name__}: {error}"
     return {
         "sounddevice_available": SD_OK,
         "numpy_available": _np is not None,
         "input_devices_found": len(devices),
         "devices": devices[:10],
+        "device_query_error": device_query_error,
         "real_recording_possible": SD_OK and _np is not None and len(devices) > 0,
     }
 
