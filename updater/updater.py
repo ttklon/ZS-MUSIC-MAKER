@@ -394,8 +394,15 @@ def install_from_zip(
                 "rolled_back": rb.get("ok", False),
                 "backup": str(bak),
             }
-        except Exception:
-            pass
+        except Exception as exc:
+            rb = rollback_last()
+            return {
+                "ok": False,
+                "stage": "smoke_test",
+                "error": f"smoke launch failed: {type(exc).__name__}: {exc}",
+                "rolled_back": rb.get("ok", False),
+                "backup": str(bak),
+            }
 
     ver_p = prog / "version.json"
     ver = "unknown"

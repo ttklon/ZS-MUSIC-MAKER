@@ -1165,3 +1165,10 @@ Legacy local Ollama probing now distinguishes response, empty response, HTTP err
 LRC parsing now exposes malformed timestamp candidates, unterminated tags and source-read failures through an additive diagnostics helper while preserving the established sorted cue-list API. No MoviePy render, media encoding or generated subtitle artifact is claimed.
 
 Приёмка: focused LRC suite 2 PASS; `pytest tests/ -q` = **323 PASS, 1 expected deprecation warning**, compileall/AST OK, data inventory 73/0/0, `git diff --check` OK. Fresh audit: SILENT_EXCEPT_PASS **83** (was 84), **878** total heuristic records across 254 files.
+
+---
+## APP_L v40 — updater smoke-process launch failure
+
+`install_from_zip()` now fails and attempts rollback when the post-install smoke process cannot be launched. A launch exception no longer returns a false successful install result; the caller receives `stage=smoke_test`, typed error text, backup path and rollback status. No release was installed or smoke process run outside the mocked regression.
+
+Приёмка: focused updater suite 2 PASS; `pytest tests/ -q` = **324 PASS, 1 expected deprecation warning**, compileall/AST OK, data inventory 73/0/0, `git diff --check` OK. Fresh audit: SILENT_EXCEPT_PASS **82** (was 83), **878** total heuristic records across 254 files; LONG_FUNCTION **25** because the explicit return adds valid contract code.
