@@ -233,6 +233,15 @@ LEGACY_PATCH_MODULES = (
 )
 
 
+def _print_legacy_report(enabled: bool) -> list[dict[str, object]]:
+    """Print a deterministic compatibility report without importing patch code."""
+    from app.core.orchestrator import legacy_compatibility_report
+
+    report = legacy_compatibility_report(enabled)
+    _safe_print(json.dumps({"legacy_enabled": enabled, "capabilities": report}, ensure_ascii=False, indent=2))
+    return report
+
+
 def _register_patches(enabled: bool = True) -> dict[str, object]:
     """Загрузить изолированный legacy-слой v8–v12 только по умолчанию.
 
@@ -460,6 +469,11 @@ def main() -> int:
         action="store_true",
         help="Skip legacy v8-v12 patch registration for runtime pipelines",
     )
+    parser.add_argument(
+        "--legacy-report",
+        action="store_true",
+        help="Print the v8-v12 compatibility capability matrix and exit",
+    )
     parser.add_argument("--ai", action="store_true", help="Launch AI GOD MODE 4.0 (sequential AI stack)")
     parser.add_argument("--ai-status", action="store_true", help="Show AI model registry & availability")
     parser.add_argument("--ai-pull", type=str, default="", help="Pull one AI model role (or 'all')")
@@ -473,6 +487,14 @@ def main() -> int:
 
     if args.version:
         return _cli_version()
+
+    # Report before early CLI exits such as --smoke.  This records exactly what
+    # compatibility behavior is intentionally unavailable without loading it.
+    if args.legacy_off:
+        _print_legacy_report(enabled=False)
+    if args.legacy_report:
+        _print_legacy_report(enabled=not args.legacy_off)
+        return 0
     
     if args.list_genres:
         from modules.genre_engine import StyleRegistry

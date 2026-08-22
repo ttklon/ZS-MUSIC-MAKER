@@ -34,6 +34,35 @@ except Exception:
 ROOT = Path(__file__).resolve().parents[2]
 LEGACY_STAGE_MARKER = "LEGACY"
 
+# This list describes compatibility entrypoints, not a claim that the modern core
+# cannot make a track without them.  It lets --legacy-off explain exactly which
+# v8–v12 behavior has intentionally not been registered in this process.
+LEGACY_CAPABILITY_MANIFEST = (
+    ("orchestrator_v8_patch", "lyrics_v8", "author-reference lyrics, chorus backing and auto-QA rebuild loop"),
+    ("orchestrator_v9_patch", "pipeline_v9", "reference arrangement and legacy sample-hunter wrapper"),
+    ("orchestrator_v10_patch", "apply_v10_patch", "legacy analyser/mastering/cover module attachments"),
+    ("orchestrator_v11_patch", "run_full_pipeline_v11", "v11 KPI-oriented compatibility pipeline"),
+    ("orchestrator_v12_patch", "run_full_pipeline_v12", "v12 Hit Locked Pro compatibility pipeline and wrapper dashboard"),
+)
+
+
+def legacy_compatibility_report(enabled: bool) -> list[dict[str, str | bool]]:
+    """Return a deterministic report of versioned features not registered.
+
+    The function has no imports from patch modules; reporting with legacy off
+    therefore cannot itself load the code it is describing.
+    """
+    return [
+        {
+            "module": module,
+            "entrypoint": entrypoint,
+            "capability": capability,
+            "available": enabled,
+            "reason": "legacy patches disabled" if not enabled else "legacy patches enabled",
+        }
+        for module, entrypoint, capability in LEGACY_CAPABILITY_MANIFEST
+    ]
+
 
 def _mark_legacy_result(result: Any, stage_name: str) -> dict[str, Any]:
     """Отметить успешный вызов versioned legacy-стадии в данных пайплайна."""

@@ -678,3 +678,10 @@ KPI history now stores only a schema-v1 allowlist: stage duration, VRAM, score, 
 Freesound search/download и GitHub/release update checks теперь deny-by-default: удалённые вызовы запускаются только через `--online`/`allow_online=True` либо пользовательское `network.online=true`. `--ai --dry-run` выполнен офлайн; model deps/weights отсутствуют и честно прошли fallback, без заявлений об inference. Созданный runtime backup удалён после проверки.
 
 Приёмка: mocked network regression PASS; `pytest tests/ -q` = **226 PASS**, compileall/AST OK, data inventory 73/0/0.
+
+---
+## PLAN_v39 — ШАГ 096: legacy-off compatibility report
+
+Core now declares a factual v8–v12 compatibility manifest. `--legacy-off` prints the disabled entrypoints before dispatch (including `--smoke`) without importing patch modules; `--legacy-report` displays the same matrix independently. The report distinguishes omitted legacy compatibility behavior from the modern core's CPU path.
+
+Приёмка: `python3 main.py --legacy-off --smoke` printed five disabled entries and produced **8 PASS / 0 FAIL**; mido/torch/TTS absences stayed honest BLOCKED/fallback. `pytest tests/ -q` = **229 PASS**, compileall/AST OK, data inventory 73/0/0.
