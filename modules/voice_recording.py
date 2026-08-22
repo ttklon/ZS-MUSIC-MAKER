@@ -96,14 +96,19 @@ class RealMicRecorder:
         self._silence_frames: int = 0
         self._speech_frames: int = 0
         self._backend: str = "sounddevice" if SD_OK else "unavailable"
+        self.last_error: str | None = None
+
+    def _record_error(self, context: str, error: Exception) -> None:
+        """Retain non-fatal real-time recorder failures for caller inspection."""
+        self.last_error = f"{context}: {type(error).__name__}: {error}"
 
     def _callback(self, indata, frames, time_info, status):
         try:
             chunk = indata.copy() if hasattr(indata, "copy") else indata
             self._buf.append(chunk)
             self._emit_metrics(chunk)
-        except Exception:
-            pass
+        except Exception as error:
+            self._record_error("audio callback", error)
 
     def _emit_metrics(self, chunk) -> None:
         if _np is None or self.on_metrics is None:
@@ -136,8 +141,8 @@ class RealMicRecorder:
                     is_speaking=self._vad_state,
                 )
             )
-        except Exception:
-            pass
+        except Exception as error:
+            self._record_error("metrics callback", error)
 
     def start(self) -> dict[str, Any]:
         self._buf = []
@@ -178,8 +183,8 @@ class RealMicRecorder:
         try:
             self._stream.stop()
             self._stream.close()
-        except Exception:
-            pass
+        except Exception as error:
+            self._record_error("stream shutdown", error)
         self._active = False
 
         if not self._buf or _np is None:

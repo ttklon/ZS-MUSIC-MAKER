@@ -892,3 +892,10 @@ Runtime diagnostics now use module logging and report a broken optional sink as 
 Deep audit now retains unannotated production waits while excluding only AST-proven `_self_test` ranges, pytest files and audit support files. Regression proves a runtime sleep remains flagged and all three non-production classes do not. This is scope correction, not a blanket safety claim for sleeps.
 
 Приёмка: focused deep-audit suite 8 PASS; `pytest tests/ -q` = **260 PASS**, compileall/AST OK, data inventory 73/0/0. Fresh audit: **0 BLOCKING_SLEEP**, HIGH_COMPLEXITY 35, LONG_FUNCTION 29, SILENT_EXCEPT_PASS 119, BARE_PRINT 325; **898** total heuristic records across 218 files.
+
+---
+## APP_L v40 — voice-recording failure observability
+
+Real-time recorder callback, metrics and stream-shutdown failures remain non-fatal but now set inspectable `last_error` instead of being silently swallowed. Focused regressions force metrics and shutdown errors while preserving compatible fallback results; no microphone/device claim was made.
+
+Приёмка: focused recorder suite 3 PASS; `pytest tests/ -q` = **262 PASS**, compileall/AST OK, data inventory 73/0/0. Fresh audit: **116 SILENT_EXCEPT_PASS** (was 119); two unrelated I/O fallbacks remain in `modules/voice_recording.py`; total **895** heuristic records across 219 files.
