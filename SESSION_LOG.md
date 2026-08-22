@@ -1130,3 +1130,10 @@ CyberSynth lead-effect provenance now distinguishes unavailable or failed option
 GUI theme application now returns explicit applied or typed failed status while retaining nonblocking startup behavior. A stylesheet failure is not represented as successfully applied.
 
 Приёмка: focused theme suite 2 PASS; `pytest tests/ -q` = **314 PASS, 1 expected deprecation warning**, compileall/AST OK, data inventory 73/0/0. Fresh audit: SILENT_EXCEPT_PASS **88** (was 89), none in `app/gui/theme_v12.py`; **879** total heuristic records across 249 files.
+
+---
+## APP_L v40 — KPI AI-detector observability
+
+KPI detector score coercion now retains typed malformed-value diagnostics while preserving the existing scalar score API. Invalid values do not fabricate a score; valid nested percentages remain compatible.
+
+Приёмка: focused KPI detector suite 2 PASS; `pytest tests/ -q` = **316 PASS, 1 expected deprecation warning**, compileall/AST OK, data inventory 73/0/0. Fresh audit: SILENT_EXCEPT_PASS **87** (was 88), none in `modules/hit_kpi_monitor_v11.py`; **878** total heuristic records across 250 files.

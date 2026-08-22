@@ -203,9 +203,11 @@ def check_release_completeness(release_dir, hw_mode="full_hw"):
     return {"present": present, "missing": missing, "release_dir": release_dir}
 
 
-def check_ai_detector(report):
+def check_ai_detector_with_diagnostics(report):
+    """Нормализует AI-detector score, возвращая skipped malformed values."""
+    diagnostics = []
     if not report:
-        return -1.0
+        return {"score": -1.0, "diagnostics": diagnostics}
     for key in (
         "neuronoshnost_percent",
         "ai_percent",
@@ -215,19 +217,25 @@ def check_ai_detector(report):
     ):
         if key in report:
             try:
-                v = float(report[key])
-                if v > 1.0 and v <= 100.0:
-                    return v
-                if v <= 1.0:
-                    return v * 100.0
-            except Exception:
-                pass
-    for k in ("summary", "verdict", "final"):
-        if isinstance(report.get(k), dict):
-            v = check_ai_detector(report[k])
-            if v >= 0:
-                return v
-    return -1.0
+                value = float(report[key])
+                if value > 1.0 and value <= 100.0:
+                    return {"score": value, "diagnostics": diagnostics}
+                if value <= 1.0:
+                    return {"score": value * 100.0, "diagnostics": diagnostics}
+            except (TypeError, ValueError) as exc:
+                diagnostics.append({"key": key, "error": f"{type(exc).__name__}: {exc}"})
+    for key in ("summary", "verdict", "final"):
+        if isinstance(report.get(key), dict):
+            nested = check_ai_detector_with_diagnostics(report[key])
+            diagnostics.extend(nested["diagnostics"])
+            if nested["score"] >= 0:
+                return {"score": nested["score"], "diagnostics": diagnostics}
+    return {"score": -1.0, "diagnostics": diagnostics}
+
+
+def check_ai_detector(report):
+    """Совместимый scalar API для existing KPI callers."""
+    return check_ai_detector_with_diagnostics(report)["score"]
 
 
 def finalize_session(
