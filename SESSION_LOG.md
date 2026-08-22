@@ -829,3 +829,10 @@ Runtime and render idle loops now use stop-aware `Event.wait(timeout)` rather th
 Process-local i18n `_current_language` scalar replaced with private `_LanguageState` under the existing RLock. Public set/get/translation behavior preserved; audit now reports **0 GLOBAL_STATEMENT** findings. Targeted i18n tests recovered after fixing one legacy accessor reference.
 
 Приёмка: targeted 4 PASS; `pytest tests/ -q` = **251 PASS**, compileall/AST OK, data inventory 73/0/0.
+
+---
+## APP_L v40 — nonblocking Gradio expert launch
+
+Wizard Gradio warm-up no longer blocks Qt UI with `time.sleep(2)`: browser launch is scheduled by daemon-compatible `threading.Timer`. Full acceptance initially caught obsolete Wizard `time` import; removed it, then full suite passed. Focused AST test proves Timer/no-sleep contract without GUI/server startup.
+
+Приёмка: focused 1 PASS; `pytest tests/ -q` = **252 PASS**, compileall/AST OK, data inventory 73/0/0.

@@ -18,7 +18,6 @@ from __future__ import annotations
 import os
 import sys
 import threading
-import time
 import webbrowser
 from pathlib import Path
 
@@ -1104,5 +1103,5 @@ class Wizard(QMainWindow):
                 self.log.exception(f"Gradio expert failed: {e}")
 
         threading.Thread(target=_run, daemon=True).start()
-        time.sleep(2)
-        webbrowser.open("http://127.0.0.1:7860")
+        # Keep the server warm-up delay without blocking the Qt UI thread.
+        threading.Timer(2.0, webbrowser.open, args=("http://127.0.0.1:7860",)).start()
