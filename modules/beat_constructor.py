@@ -83,10 +83,14 @@ class BeatConstructor:
         groove: dict = None,
         samples: list = None,
         genre: str = "legacy",
+        seed: int | None = None,
     ):
         self.bpm = bpm
         self.key = key
         self.genre = genre
+        self.seed = None if seed is None else int(seed)
+        self._py_rng = random if self.seed is None else random.Random(self.seed)
+        self._np_rng = None if self.seed is None else np.random.default_rng(self.seed)
         self.groove = groove or {}
         self.slot_patterns = (
             {slot: list(values) for slot, values in LEGACY_SLOT_PRESET.items()}
@@ -107,6 +111,18 @@ class BeatConstructor:
         self.melody_samples = []
         self.fx_samples = []
         self._classify_samples()
+
+    def _random(self) -> float:
+        return self._py_rng.random()
+
+    def _choice(self, values):
+        return self._py_rng.choice(values)
+
+    def _uniform(self, low: float, high: float) -> float:
+        return self._py_rng.uniform(low, high)
+
+    def _noise(self, size: int) -> np.ndarray:
+        return np.random.randn(size) if self._np_rng is None else self._np_rng.standard_normal(size)
 
     def build_slot_plan(self, bars: int = 8) -> dict[str, list[int]]:
         """Expose the exact five 16-step slots used for a fixed number of bars."""
@@ -192,7 +208,7 @@ class BeatConstructor:
 
         # Если есть реальный сэмпл кика — используем его
         if self.kick_samples:
-            kick_path = random.choice(self.kick_samples)
+            kick_path = self._choice(self.kick_samples)
             return self._load_audio(kick_path) * velocity
 
         # Иначе синтезируем простой кик
@@ -210,22 +226,22 @@ class BeatConstructor:
         # Ghost notes (призрачные ноты) для живости
         is_ghost = False
         if snare_pattern[step % 16] == 0:
-            if step % 16 in [3, 6, 11, 14] and random.random() < 0.2:
+            if step % 16 in [3, 6, 11, 14] and self._random() < 0.2:
                 is_ghost = True
             else:
                 return np.zeros(1, dtype=np.float32)
 
-        velocity = 0.3 if is_ghost else (0.9 + random.random() * 0.15)
+        velocity = 0.3 if is_ghost else (0.9 + self._random() * 0.15)
 
         if self.snare_samples:
-            snare_path = random.choice(self.snare_samples)
+            snare_path = self._choice(self.snare_samples)
             return self._load_audio(snare_path) * velocity
 
         # Синтез снейра: шум + тон
         dur = 0.12
         t = np.linspace(0, dur, int(self.sr * dur), endpoint=False)
         env = np.exp(-t * 25)
-        noise = np.random.randn(len(t)) * 0.5
+        noise = self._noise(len(t)) * 0.5
         tone = 0.3 * np.sin(2 * np.pi * 200 * t)
         snare = 0.6 * env * (noise + tone)
         return snare
@@ -238,26 +254,26 @@ class BeatConstructor:
         # Legacy default preserves its historical density-only hat behavior;
         # genre presets use explicit steps plus only a small density variation.
         if self.genre == "legacy":
-            play = random.random() < density
+            play = self._random() < density
         else:
             play = bool(self.slot_patterns["hat"][step % 16])
             if not play:
-                play = random.random() < density * 0.12
-        if step % 2 == 1 and random.random() < swing * 0.5:
+                play = self._random() < density * 0.12
+        if step % 2 == 1 and self._random() < swing * 0.5:
             play = True  # свинг добавляет доп. удары
 
         if not play:
             return np.zeros(1, dtype=np.float32)
 
         if self.hihat_samples:
-            hh_path = random.choice(self.hihat_samples)
+            hh_path = self._choice(self.hihat_samples)
             return self._load_audio(hh_path) * 0.5  # хэт тише
 
         # Синтез хэта: высокочастотный шум
         dur = 0.05
         t = np.linspace(0, dur, int(self.sr * dur), endpoint=False)
         env = np.exp(-t * 80)
-        noise = np.random.randn(len(t))
+        noise = self._noise(len(t))
         # High-pass (простая реализация: вычитаем скользящее среднее)
         if len(noise) > 10:
             noise = noise - np.convolve(noise, np.ones(10) / 10, mode="same")
@@ -267,7 +283,7 @@ class BeatConstructor:
     def _generate_bass_line(self, bar: int, bar_samples: int) -> np.ndarray:
         """Генерирует басовую линию для такта."""
         if self.bass_samples:
-            bass_path = random.choice(self.bass_samples)
+            bass_path = self._choice(self.bass_samples)
             bass = self._load_audio(bass_path)
             if len(bass) < bar_samples:
                 bass = np.pad(bass, (0, bar_samples - len(bass)))
@@ -313,14 +329,14 @@ class BeatConstructor:
         """Генерирует мелодический слой для такта."""
         # В брейках/интро мелодия плотнее, в дропе — реже
         if section in ("intro", "breakdown", "outro") and self.melody_samples:
-            mel_path = random.choice(self.melody_samples)
+            mel_path = self._choice(self.melody_samples)
             mel = self._load_audio(mel_path)
             if len(mel) < bar_samples:
                 mel = np.pad(mel, (0, bar_samples - len(mel)))
             return mel[:bar_samples] * 0.4
 
         if section == "verse" and self.melody_samples and bar % 2 == 0:
-            mel_path = random.choice(self.melody_samples)
+            mel_path = self._choice(self.melody_samples)
             mel = self._load_audio(mel_path) * 0.25
             if len(mel) < bar_samples:
                 mel = np.pad(mel, (0, bar_samples - len(mel)))
@@ -332,7 +348,7 @@ class BeatConstructor:
         """Генерирует FX (райзеры, импакты) в переходах."""
         # Райзер перед дропом
         if section == "pre_chorus" and self.fx_samples:
-            fx_path = random.choice(self.fx_samples)
+            fx_path = self._choice(self.fx_samples)
             fx = self._load_audio(fx_path)
             if len(fx) < bar_samples:
                 fx = np.pad(fx, (0, bar_samples - len(fx)))
@@ -392,7 +408,7 @@ class BeatConstructor:
                     snare = self._generate_snare(step, bar)
                     snare_end = min(step_start + len(snare), bar_samples)
                     bar_audio[step_start:snare_end] += self._pan_audio(
-                        snare[: snare_end - step_start], random.uniform(-0.05, 0.05)
+                        snare[: snare_end - step_start], self._uniform(-0.05, 0.05)
                     )
 
                     # Хэты панорамируем (шире для стерео-поля)
@@ -405,11 +421,11 @@ class BeatConstructor:
 
             # Мелодия (шире)
             mel = self._generate_melody(bar, section, bar_samples)
-            bar_audio += self._pan_audio(mel, random.uniform(-0.6, 0.6))
+            bar_audio += self._pan_audio(mel, self._uniform(-0.6, 0.6))
 
             # FX (очень широко)
             fx = self._generate_fx(bar, section, bar_samples)
-            bar_audio += self._pan_audio(fx, random.uniform(-0.85, 0.85))
+            bar_audio += self._pan_audio(fx, self._uniform(-0.85, 0.85))
 
             # Микро-мутации: во второй половине секции меняем хэт
             if bar >= n_bars // 2 and section in ("verse", "hook"):
@@ -662,6 +678,8 @@ class BeatConstructor:
             "duration_sec": round(len(full_track) / self.sr, 2),
             "bpm": self.bpm,
             "key": self.key,
+            "seed": self.seed,
+            "deterministic": self.seed is not None,
             "sections": section_info,
             "slot_plan": self.build_slot_plan(max(1, sum(s["bars"] for s in section_info))),
             "total_bars": sum(s["bars"] for s in section_info),
@@ -700,6 +718,7 @@ def construct_beat(
         groove=groove,
         samples=samples,
         genre=str(style_vector.get("genre") or style_vector.get("style") or "phonk"),
+        seed=style_vector.get("seed"),
     )
     return bc.build_track(
         duration_sec=duration_sec,

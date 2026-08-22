@@ -643,3 +643,10 @@ User profile now stores validated non-PII genres/language/text style/default bea
 Versioned deterministic local-DSP fixtures now cover beat 15s, vocal 10s and master 10s. Vocal baseline is generated from inspectable synthesis, and duration/RMS/peak/centroid regression checks enforce <=5% drift where applicable. Matchering optional runtime remains BLOCKED and is not presented as golden inference.
 
 Приёмка: targeted goldens 14 PASS; полный `pytest tests/ -q` = **213 PASS**, compileall/AST OK, data inventory 73/0/0.
+
+---
+## PLAN_v39 — ШАГ 091: classical seed determinism
+
+BeatConstructor now uses isolated Python/NumPy RNGs when a seed is supplied; same seed produces byte-identical classic WAVs while a different seed differs. CyberSynth exposes only `classical_local_dsp_only` determinism metadata; AI stages are not claimed deterministic. Legacy unseeded golden behavior remains preserved.
+
+Приёмка: same-seed beat/CyberSynth bytes equal, changed beat seed differs, golden stays green; полный `pytest tests/ -q` = **215 PASS**, compileall/AST OK, data inventory 73/0/0.

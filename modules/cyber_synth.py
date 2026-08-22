@@ -28,8 +28,9 @@ except ImportError:
 class CyberSynth:
     """Professional synthesizer and sound design engine for Cyberpunk and Phonk."""
 
-    def __init__(self, sample_rate: int = 44100) -> None:
+    def __init__(self, sample_rate: int = 44100, seed: int | None = None) -> None:
         self.sr = sample_rate
+        self.seed = None if seed is None else int(seed)
 
     def generate_sub_bass(self, freq: float, duration: float, decay: float = 4.0) -> np.ndarray:
         """Generates a heavy 808 sub-bass with saturating envelope."""
@@ -73,8 +74,21 @@ class CyberSynth:
                 
         return np.clip(lead, -0.99, 0.99)
 
-    def synthesize_track(self, bpm: int = 135, duration_sec: int = 60, out_path: str = "cyber_track.wav") -> Dict[str, Any]:
-        """Synthesizes a full professional cyberpunk track layout."""
+    def synthesize_track(
+        self,
+        bpm: int = 135,
+        duration_sec: int = 60,
+        out_path: str = "cyber_track.wav",
+        seed: int | None = None,
+    ) -> Dict[str, Any]:
+        """Synthesizes a deterministic local-DSP cyberpunk track layout.
+
+        The current signal graph has no random operator. ``seed`` is retained in
+        artifact metadata for a uniform classical-pipeline contract; it does not
+        imply determinism for any separate AI generation stage.
+        """
+        if seed is not None:
+            self.seed = int(seed)
         total_samples = int(self.sr * duration_sec)
         stereo_mix = np.zeros((total_samples, 2), dtype=np.float32)
         
@@ -119,7 +133,10 @@ class CyberSynth:
             "ok": True,
             "path": out_path,
             "duration": duration_sec,
-            "bpm": bpm
+            "bpm": bpm,
+            "seed": self.seed,
+            "deterministic": True,
+            "determinism_scope": "classical_local_dsp_only",
         }
 
     def sub_bass_pattern(self, root_freq: float, duration: float) -> np.ndarray:
