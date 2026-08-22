@@ -77,3 +77,15 @@ def test_path_audit_excludes_test_fixtures_but_keeps_production_literals(
 
     assert "HARDCODED_POSIX_PATH" in production_kinds
     assert "HARDCODED_POSIX_PATH" not in fixture_kinds
+
+
+def test_path_audit_excludes_audit_generator_pattern_text(tmp_path: Path, monkeypatch) -> None:
+    tools_dir = tmp_path / "tools"
+    tools_dir.mkdir()
+    source = tools_dir / "deep_audit_v40_expand.py"
+    source.write_text('pattern = "/home/|/Users/|/tmp/"\n', encoding="utf-8")
+    monkeypatch.setattr(deep_audit_v40, "ROOT", tmp_path)
+
+    kinds = [issue["kind"] for issue in deep_audit_v40.audit_file(source)["issues"]]
+
+    assert "HARDCODED_POSIX_PATH" not in kinds

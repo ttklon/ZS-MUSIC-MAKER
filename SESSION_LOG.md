@@ -782,3 +782,10 @@ Deep audit aligned with established AST semantics: ignores `__future__` directiv
 HARDCODED_POSIX_PATH now evaluates production sources only; deliberate test PII/path fixtures and the detector’s own regex are no longer HIGH deployment findings. Production scanning remains enabled. Regenerated audit: **917** findings / 210 files, with **1** remaining production POSIX path explicitly not closed here.
 
 Приёмка: focused 5 PASS; `pytest tests/ -q` = **246 PASS**, compileall/AST OK, data inventory 73/0/0.
+
+---
+## APP_L v40 — zero production POSIX paths
+
+Последний HARDCODED_POSIX_PATH был self-descriptive pattern in `deep_audit_v40_expand.py`, not runtime filesystem target. Audit meta-tools joined excluded test fixtures only for this source-pattern category; ordinary production/tools scanning stays enabled. Fresh audit: **0** HARDCODED_POSIX_PATH, **916** total findings / 210 files.
+
+Приёмка: focused 6 PASS; `pytest tests/ -q` = **247 PASS**, compileall/AST OK, data inventory 73/0/0.

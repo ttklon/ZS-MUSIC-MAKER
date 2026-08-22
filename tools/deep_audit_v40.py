@@ -246,7 +246,12 @@ def audit_file(p: Path) -> dict:
         # Test fixtures intentionally model sensitive/foreign paths, and this
         # detector naturally contains its own path regex. Neither is a shipped
         # production portability defect.
-        if m and not rel.startswith("tests/") and rel != "tools/deep_audit_v40.py":
+        audit_meta_files = {
+            "tools/deep_audit_v40.py",
+            "tools/deep_audit_v40_expand.py",
+            "tools/deep_audit_v40_report.py",
+        }
+        if m and not rel.startswith("tests/") and rel not in audit_meta_files:
             report["issues"].append(
                 {"line": i, "kind": "HARDCODED_POSIX_PATH", "msg": m.group(1)[:120]}
             )
