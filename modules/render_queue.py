@@ -167,7 +167,9 @@ class RenderQueue:
         while not self._stop.is_set():
             next_item = self._pick_next()
             if not next_item:
-                time.sleep(3)
+                # Wake as soon as stop() sets the event; do not keep a worker
+                # alive for the full idle poll interval during shutdown.
+                self._stop.wait(3)
                 continue
             self._process(next_item)
 

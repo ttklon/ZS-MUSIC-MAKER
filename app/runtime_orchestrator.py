@@ -52,6 +52,13 @@ class RuntimeOrchestrator:
         self._worker = threading.Thread(target=self._run_loop, daemon=True)
         self._worker.start()
 
+    def stop(self, join_timeout: float = 1.0) -> None:
+        """Request worker shutdown and wait briefly when it is idle."""
+        self._stop.set()
+        worker = self._worker
+        if worker and worker is not threading.current_thread():
+            worker.join(timeout=max(0.0, float(join_timeout)))
+
     def enqueue(self, recipe: dict[str, Any]) -> str:
         tid = uuid.uuid4().hex[:10]
         out_dir = ROOT / "output" / "desktop_runs" / tid
@@ -73,7 +80,9 @@ class RuntimeOrchestrator:
                 if self._queue:
                     tid = self._queue.pop(0)
             if not tid:
-                time.sleep(0.2)
+                # Event.wait preserves the poll interval but wakes immediately
+                # when shutdown is requested instead of blocking on sleep.
+                self._stop.wait(0.2)
                 continue
             job = self.jobs.get(tid)
             if job:

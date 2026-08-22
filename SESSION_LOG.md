@@ -808,3 +808,10 @@ Fresh clean-head audit scanned 210 Python files: **916** heuristic findings. SEC
 Deep audit marker detection now matches only leading actionable comment labels (`# TODO:`, `# FIXME -`, etc.). ISRC schema prose `XX-XXX-00-00000` is no longer false MARKER_XXX; explicit TODO remains detected. Fresh audit: 0 marker findings, 2 GLOBAL_STATEMENT, 913 total heuristic findings / 210 files.
 
 Приёмка: focused 7 PASS; `pytest tests/ -q` = **249 PASS**, compileall/AST OK, data inventory 73/0/0.
+
+---
+## APP_L v40 — interruptible worker waits
+
+Runtime and render idle loops now use stop-aware `Event.wait(timeout)` rather than uninterruptible sleeps. `RuntimeOrchestrator.stop(join_timeout)` added for bounded public shutdown. Idle-worker regression starts both workers and proves clean stop/join in <0.5s without starting an audio pipeline.
+
+Приёмка: targeted 4 PASS; `pytest tests/ -q` = **250 PASS**, compileall/AST OK, data inventory 73/0/0.
