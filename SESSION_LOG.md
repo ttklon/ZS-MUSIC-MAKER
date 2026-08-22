@@ -878,3 +878,10 @@ Malformed/unreadable persisted onboarding manifests retain the compatible empty-
 Runtime diagnostics now use module logging and report a broken optional sink as a warning instead of silently swallowing it; normal diagnostics stay non-fatal. Regression injects an `info()` failure, asserts the warning and cleanly stops the worker.
 
 Приёмка: focused Runtime suite 2 PASS; `pytest tests/ -q` = **258 PASS**, compileall/AST OK, data inventory 73/0/0. Fresh audit: **325 BARE_PRINT** (was 326), **119 SILENT_EXCEPT_PASS** (was 120), neither selected record remains in `app/runtime_orchestrator.py`; total **905** heuristic records across 217 files.
+
+---
+## APP_L v40 — cancellable voice-onboarding recording
+
+`record_step` now accepts an optional stop event: cancellation wakes the timed capture, finalizes the recorder, preserves partial diagnostic metadata but marks the step cancelled/non-accepted. Progress totals only accepted, non-cancelled steps, so partial recordings cannot advance RVC readiness. Existing callers remain compatible.
+
+Приёмка: focused onboarding suite 2 PASS; `pytest tests/ -q` = **259 PASS**, compileall/AST OK, data inventory 73/0/0. Fresh audit: **7 BLOCKING_SLEEP** (was 8), none in `modules/voice_onboarding.py`; total **904** heuristic records across 218 files.

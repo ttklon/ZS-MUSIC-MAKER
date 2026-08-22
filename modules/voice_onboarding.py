@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import json
 import logging
+import threading
 import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -92,6 +93,7 @@ class OnboardingStep:
     snr_db: float = 0.0
     covered_phonemes: list[str] = field(default_factory=list)
     ok: bool = False
+    cancelled: bool = False
 
     def as_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -182,7 +184,12 @@ def _save_manifest(m: dict[str, Any]) -> None:
     MANIFEST.write_text(json.dumps(m, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
-def record_step(step: OnboardingStep, mode: str = "auto") -> OnboardingStep:
+def record_step(
+    step: OnboardingStep,
+    mode: str = "auto",
+    stop_event: threading.Event | None = None,
+) -> OnboardingStep:
+    """Capture one step, allowing callers to stop timed recording without accepting it."""
     try:
         from modules import voice_recording as vr
     except Exception:
@@ -194,7 +201,14 @@ def record_step(step: OnboardingStep, mode: str = "auto") -> OnboardingStep:
         rec = vr.RealMicRecorder(sample_rate=48000, style=step.kind)
         info = rec.start()
         if info.get("ok"):
-            time.sleep(step.target_sec)
+            cancellation = stop_event or threading.Event()
+            if cancellation.wait(step.target_sec):
+                out = rec.stop()
+                if out.get("ok"):
+                    step.recorded_path = out["path"]
+                    step.duration_sec = float(out["duration_sec"])
+                step.cancelled = True
+                return step
             out = rec.stop()
             if out.get("ok"):
                 step.recorded_path = out["path"]
@@ -204,7 +218,7 @@ def record_step(step: OnboardingStep, mode: str = "auto") -> OnboardingStep:
 
 
 def compute_progress(steps: list[OnboardingStep]) -> OnboardingProgress:
-    total_rec = sum(s.duration_sec for s in steps)
+    total_rec = sum(s.duration_sec for s in steps if s.ok and not s.cancelled)
     styles_done = sum(
         1 for s in steps if s.kind == "style" and s.ok and s.duration_sec >= 10
     )
