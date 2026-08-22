@@ -9,6 +9,10 @@ import soundfile as sf
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from modules.pro_audio_dsp import ProAudioDSP  # pylint: disable=wrong-import-position
+from tools.audio_golden_metrics import audio_signature  # pylint: disable=wrong-import-position
+from tools.generate_audio_goldens import golden_vocal_signal  # pylint: disable=wrong-import-position
+
+FIXTURE_DIR = Path(__file__).parent / "fixtures" / "audio"
 
 
 def test_stereo_phase_alignment() -> None:
@@ -22,6 +26,30 @@ def test_stereo_phase_alignment() -> None:
     aligned = ProAudioDSP.align_stereo_phases(stereo)
     assert aligned.shape == stereo.shape
     assert not np.isnan(aligned).any()
+
+
+def test_golden_vocal_fixture_signature_is_stable() -> None:
+    signature = audio_signature(FIXTURE_DIR / "golden_vocal_10s.wav")
+
+    assert signature["sample_rate"] == 44_100
+    assert signature["channels"] == 1
+    assert signature["duration_sec"] == 10.0
+    assert 0.15 <= signature["peak"] <= 0.18
+    assert 0.058 <= signature["rms"] <= 0.066
+    assert 800 <= signature["spectral_centroid_hz"] <= 890
+
+
+def test_deterministic_vocal_rerender_matches_golden_features(tmp_path: Path) -> None:
+    rerender_path = tmp_path / "vocal.wav"
+    sf.write(rerender_path, golden_vocal_signal(), 44_100, subtype="PCM_24")
+
+    golden = audio_signature(FIXTURE_DIR / "golden_vocal_10s.wav")
+    rerender = audio_signature(rerender_path)
+
+    assert rerender["duration_sec"] == golden["duration_sec"]
+    assert abs(rerender["rms"] - golden["rms"]) / golden["rms"] <= 0.05
+    assert abs(rerender["peak"] - golden["peak"]) <= 0.01
+    assert abs(rerender["spectral_centroid_hz"] - golden["spectral_centroid_hz"]) / golden["spectral_centroid_hz"] <= 0.05
 
 
 def test_mastering_chain(tmp_path: Path) -> None:

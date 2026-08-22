@@ -20,6 +20,22 @@ from modules.pro_audio_dsp import ProAudioDSP
 FIXTURE_DIR = ROOT / "tests" / "fixtures" / "audio"
 
 
+def golden_vocal_signal(sample_rate: int = 44_100, duration_sec: int = 10) -> np.ndarray:
+    """Return a deterministic voiced synthetic vocal surrogate for spectral regression."""
+    time = np.arange(sample_rate * duration_sec, dtype=np.float64) / sample_rate
+    phrase = ((time % 2.5) < 1.65).astype(np.float64)
+    attack = np.minimum(1.0, (time % 2.5) / 0.045)
+    release = np.minimum(1.0, np.maximum(0.0, (1.65 - (time % 2.5)) / 0.12))
+    envelope = phrase * np.minimum(attack, release)
+    carrier = (
+        0.10 * np.sin(2 * np.pi * 185 * time)
+        + 0.045 * np.sin(2 * np.pi * 740 * time)
+        + 0.020 * np.sin(2 * np.pi * 2200 * time)
+        + 0.008 * np.sin(2 * np.pi * 6200 * time)
+    )
+    return (carrier * envelope).astype("float32")
+
+
 def generate_goldens() -> dict[str, Path]:
     """Generate stable local DSP fixtures; Matchering remains an optional runtime."""
     FIXTURE_DIR.mkdir(parents=True, exist_ok=True)
@@ -60,7 +76,10 @@ def generate_goldens() -> dict[str, Path]:
         if not result.get("ok"):
             raise RuntimeError(f"Golden mastering failed: {result}")
 
-    return {"beat": beat_path, "master": master_path}
+    vocal_path = FIXTURE_DIR / "golden_vocal_10s.wav"
+    sf.write(vocal_path, golden_vocal_signal(), sr, subtype="PCM_24")
+
+    return {"beat": beat_path, "vocal": vocal_path, "master": master_path}
 
 
 def main() -> int:
