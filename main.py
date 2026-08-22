@@ -195,8 +195,8 @@ def _try_launch_gui_pyside() -> bool:
     app = QApplication.instance() or QApplication(sys.argv)
     try:
         theme_v12.apply(app)
-    except Exception:
-        pass
+    except Exception as exc:
+        _safe_print(f"[main] GUI theme fallback after apply failure: {exc}")
     try:
         log = setup_logger("zsmm")
         hw = probe()
