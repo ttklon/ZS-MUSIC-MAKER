@@ -913,3 +913,10 @@ Take-manifest write failure now emits a warning while preserving generated takes
 Unreadable persistent Voice Vault index now yields the same compatible empty-index fallback with a narrow JSON/I/O warning, instead of silently hiding likely user-data corruption. Whisper optional-backend fallbacks remain untouched/explicitly unavailable when absent. Regression uses malformed temporary JSON only.
 
 Приёмка: focused Voice Vault suite 3 PASS; `pytest tests/ -q` = **265 PASS**, compileall/AST OK, data inventory 73/0/0. Fresh audit remains **114 SILENT_EXCEPT_PASS** and **894** total heuristic records across 220 files: the former return-fallback did not match `except: pass`, so this is an observability improvement, not a count claim.
+
+---
+## APP_L v40 — voice-synth honesty and decomposition
+
+Voice draft synthesis now centralizes verified-output checks and ordered candidate attempts, uses structured logging for backend failure, and returns an honest empty result when no engine writes a valid file. Tests use fakes only: verified primary output, XTTS→Silero fallback and total failure; no TTS backend/model/network claim is made.
+
+Приёмка: focused voice-synth suite 3 PASS; `pytest tests/ -q` = **268 PASS**, compileall/AST OK, data inventory 73/0/0. Fresh audit: HIGH_COMPLEXITY **34** (was 35), BARE_PRINT **317** (was 325), SILENT_EXCEPT_PASS **113** (was 114); **886** total heuristic records across 221 files. One remaining voice_synth print is explicit `__main__` CLI output.

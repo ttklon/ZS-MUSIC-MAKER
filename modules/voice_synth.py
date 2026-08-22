@@ -10,11 +10,13 @@
 Все движки graceful: если один не установлен — идём к следующему.
 """
 
+import logging
 import os
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT_DIR = ROOT / "output" / "voice_draft"
+LOGGER = logging.getLogger(__name__)
 # v22: ленивое создание (не при импорте)
 
 
@@ -37,7 +39,7 @@ def _synth_silero(text: str, out_path: str, speaker: str = "aidar") -> bool:
         torchaudio.save(out_path, audio.unsqueeze(0), 48000)
         return True
     except Exception as e:
-        print(f"[voice_synth.silero] {e}")
+        LOGGER.warning("Silero draft synthesis unavailable: %s", e)
         return False
 
 
@@ -56,7 +58,7 @@ def _synth_xtts(
         tts.tts_to_file(**kwargs)
         return True
     except Exception as e:
-        print(f"[voice_synth.xtts] {e}")
+        LOGGER.warning("XTTS draft synthesis unavailable: %s", e)
         return False
 
 
@@ -72,7 +74,7 @@ def _synth_bark(
         sf.write(out_path, audio, SAMPLE_RATE)
         return True
     except Exception as e:
-        print(f"[voice_synth.bark] {e}")
+        LOGGER.warning("Bark draft synthesis unavailable: %s", e)
         return False
 
 
@@ -87,7 +89,7 @@ def _synth_pyttsx3(text: str, out_path: str) -> bool:
         if os.path.exists(out_path) and os.path.getsize(out_path) > 100:
             return True
     except Exception as e:
-        print(f"[voice_synth.pyttsx3] {e}")
+        LOGGER.warning("pyttsx3 draft synthesis unavailable: %s", e)
     return False
 
 
@@ -100,8 +102,25 @@ def _synth_gtts(text: str, out_path: str) -> bool:
         tts.save(out_path)
         return os.path.exists(out_path) and os.path.getsize(out_path) > 100
     except Exception as e:
-        print(f"[voice_synth.gtts] {e}")
+        LOGGER.warning("gTTS draft synthesis unavailable: %s", e)
         return False
+
+
+def _produced(out_path: str) -> bool:
+    """Return whether a synthesizer produced a non-empty output file."""
+    try:
+        return os.path.exists(out_path) and os.path.getsize(out_path) > 100
+    except OSError:
+        return False
+
+
+def _run_candidates(candidates: tuple[str, ...], engines: dict[str, object], out_path: str) -> bool:
+    """Run candidate backends in order, accepting only verified output files."""
+    for candidate in candidates:
+        synthesize = engines[candidate]
+        if synthesize() and _produced(out_path):
+            return True
+    return False
 
 
 def synth(
@@ -111,32 +130,23 @@ def synth(
     speaker_wav: str | None = None,
     gender: str = "male",
 ) -> str:
-    """
-    Синтезируем draft-вокал. Возвращаем путь к WAV.
-    engine: silero | xtts | bark | pyttsx3 | auto
-    speaker_wav — путь к записи пользователя для XTTS-клонирования (опционально).
-    gender: male | female — v34 FIX (P3.21): выбор голоса для Silero
-      (male=aidar, female=kseniya). Раньше был жёстко зашит aidar,
-      женский вокал получить было невозможно.
-    """
-    # v34: gender → silero speaker (остальные движки игнорируют gender —
-    # xtts клонирует speaker_wav, bark/pyttsx3 имеют свои голоса)
-    silero_speaker = "kseniya" if str(gender).lower() in ("female", "f", "ж", "жен") else "aidar"
+    """Return a verified draft-vocal file path or an honest empty string."""
     if not text or not text.strip():
         return ""
-    # v22: ленивое создание каталога — только при реальном вызове
     try:
         OUT_DIR.mkdir(parents=True, exist_ok=True)
-    except Exception:
-        pass
-    # v33 FIX (P0, SESSION_LOG v32.4): дефолтное имя draft.wav молча
-    # перезаписывалось при каждом вызове — параллельные/повторные синтезы
-    # затирали друг друга. Теперь дефолт уникализируется timestamp'ом.
-    if not out_name:
-        import time as _t
-        out_name = f"draft_{int(_t.time() * 1000)}.wav"
-    out_path = str(OUT_DIR / out_name)
+    except OSError as error:
+        LOGGER.warning("voice draft output directory unavailable: %s", error)
+        return ""
 
+    silero_speaker = (
+        "kseniya" if str(gender).lower() in ("female", "f", "ж", "жен") else "aidar"
+    )
+    if not out_name:
+        import time as _time
+
+        out_name = f"draft_{int(_time.time() * 1000)}.wav"
+    out_path = str(OUT_DIR / out_name)
     engines = {
         "silero": lambda: _synth_silero(text, out_path, speaker=silero_speaker),
         "xtts": lambda: _synth_xtts(text, out_path, speaker_wav=speaker_wav),
@@ -146,43 +156,22 @@ def synth(
         "gtts": lambda: _synth_gtts(text, out_path),
     }
 
-    # v30 FIX (P0-честность): раньше synth() ВСЕГДА возвращал out_path,
-    # даже если НИ ОДИН движок не отработал и файл не создан. Оркестраторы
-    # проверяли os.path.exists() и молча теряли вокал, а вызывающий код,
-    # доверяющий возвращаемому пути, получал несуществующий файл.
-    # Теперь: возвращаем путь ТОЛЬКО если файл реально записан (>100 байт),
-    # иначе честный "" — вызывающий код обязан обработать пустой результат.
-
-    def _produced() -> bool:
-        try:
-            return os.path.exists(out_path) and os.path.getsize(out_path) > 100
-        except Exception:
-            return False
-
     if engine == "auto":
-        # Пробуем от быстрого к качественному
-        for e in ("silero", "xtts", "bark", "pyttsx3", "gtts"):
-            if engines[e]() and _produced():
-                return out_path
-        print("[voice_synth] ALL engines failed/unavailable — honest empty return")
+        if _run_candidates(("silero", "xtts", "bark", "pyttsx3", "gtts"), engines, out_path):
+            return out_path
+        LOGGER.warning("all draft voice engines failed or are unavailable; returning empty result")
         return ""
 
-    fn = engines.get(engine)
-    if not fn:
-        print(f"[voice_synth] unknown engine={engine}, fallback silero")
-        fn = engines["silero"]
-
-    ok = fn()
-    if ok and _produced():
+    selected = engine if engine in engines else "silero"
+    if selected != engine:
+        LOGGER.warning("unknown draft voice engine %s; falling back to silero", engine)
+    if _run_candidates((selected,), engines, out_path):
         return out_path
 
-    # цепочка fallback
-    for backup in ("silero", "pyttsx3", "gtts"):
-        if backup != engine:
-            if engines[backup]() and _produced():
-                return out_path
-
-    print("[voice_synth] no engine produced a file — honest empty return")
+    fallbacks = tuple(name for name in ("silero", "pyttsx3", "gtts") if name != engine)
+    if _run_candidates(fallbacks, engines, out_path):
+        return out_path
+    LOGGER.warning("no draft voice engine produced a verified file; returning empty result")
     return ""
 
 
