@@ -42,14 +42,15 @@ def test_env_override(monkeypatch):
 
 def test_dotenv_file_override(tmp_path, monkeypatch):
     env_file = tmp_path / ".env"
+    beats_dir = tmp_path / "custom_beats"
     env_file.write_text(
-        "# test\nZSMM_VRAM_GB=20\nZSMM_BEAT_OUTPUT_DIR=/tmp/custom_beats\n",
+        f"# test\nZSMM_VRAM_GB=20\nZSMM_BEAT_OUTPUT_DIR={beats_dir}\n",
         encoding="utf-8",
     )
     monkeypatch.delenv("ZSMM_VRAM_GB", raising=False)
     s = S.Settings.load(env_path=env_file)
     assert s.vram_gb == 20.0
-    assert str(s.beats_dir) == "/tmp/custom_beats"
+    assert s.beats_dir == beats_dir
 
 
 def test_os_environ_beats_dotenv(monkeypatch, tmp_path):

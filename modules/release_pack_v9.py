@@ -157,6 +157,13 @@ def build_release_v9(
     }
 
 
+def _example_missing_master_path() -> str:
+    """Return a portable nonexistent WAV path for the manual CLI example."""
+    import tempfile
+
+    return str(Path(tempfile.gettempdir()) / "zsmm_release_pack_missing_master.wav")
+
+
 if __name__ == "__main__":
     import sys
 
@@ -175,6 +182,6 @@ if __name__ == "__main__":
             "mood": "moody",
             "duration_s": 150,
         },
-        master_wav="/tmp/none.wav",
+        master_wav=_example_missing_master_path(),
     )
     print(json.dumps(r, indent=2))

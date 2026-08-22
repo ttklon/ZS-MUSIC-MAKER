@@ -450,10 +450,14 @@ def build_release_edits(
 
 
 def _self_test() -> bool:
-    tmp = "/tmp/_v11_lrc_test.lrc"
-    with open(tmp, "w", encoding="utf-8") as f:
-        f.write("[00:01.00]hello\n[00:02.50]world\n[bad]skip\n")
-    parsed = _parse_lrc(tmp)
+    """Run the parser check with an OS-portable, automatically removed fixture."""
+    import tempfile
+    from pathlib import Path
+
+    with tempfile.TemporaryDirectory(prefix="zsmm_v11_lrc_") as directory:
+        tmp = Path(directory) / "lrc_test.lrc"
+        tmp.write_text("[00:01.00]hello\n[00:02.50]world\n[bad]skip\n", encoding="utf-8")
+        parsed = _parse_lrc(str(tmp))
     ok = len(parsed) == 2 and parsed[0][1] == "hello"
     rms = _rms_windows([0.0] * 44100 + [0.5] * 44100, 44100, 1.0)
     ok &= len(rms) == 2 and rms[1] > rms[0]

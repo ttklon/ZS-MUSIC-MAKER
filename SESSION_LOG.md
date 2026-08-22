@@ -747,3 +747,10 @@ Annotated `v39.9.0` and public release <https://github.com/ttklon/ZS-MUSIC-MAKER
 Проверены все 4 CRITICAL findings: `QDialog.exec()`/`QApplication.exec()` — Qt event loops, не Python builtin dynamic execution. Исправлен source false positive in `deep_audit_v40`: SECURITY_EVAL теперь только direct AST Name calls `eval`/`exec`; regression keeps real builtins flagged and Qt attribute calls excluded.
 
 Приёмка: focused 2 PASS; `pytest tests/ -q` = **239 PASS**, compileall/AST OK, data inventory 73/0/0.
+
+---
+## APP_L v40 — ШАГИ 0005–0008: portable paths
+
+Исправлены confirmed POSIX literals in release-pack CLI example, video self-test and settings fixture through `tempfile`/pytest `tmp_path`. Audit item 0007 was stale: current cited AI-layer source has no `/tmp/unused.txt`, so no unrelated test was changed just to close an outdated line reference.
+
+Приёмка: focused 9 PASS; `pytest tests/ -q` = **242 PASS**, compileall/AST OK, data inventory 73/0/0.
