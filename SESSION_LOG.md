@@ -706,3 +706,10 @@ Published packaging metadata now installs `main.py` and exposes `zs-music-maker`
 `run_full_pipeline()` теперь возвращает public `master_path` for its streaming master. Added no-torch regression executes a non-dry local-DSP pipeline (instrumental mode), decodes the actual output WAV and verifies duration, sample rate, channels, finite data and non-silence. This is a CPU classical baseline, not a claim of absent heavy AI/TTS/RVC inference.
 
 Приёмка: `tests/test_classical_determinism.py` = **3 PASS**, including real CPU master; полный `pytest tests/ -q` = **233 PASS**, compileall/AST OK, data inventory 73/0/0.
+
+---
+## PLAN_v39 — ШАГ 072: release preflight и честная стратегия тега
+
+Добавлен read-only `tools/release_preflight.py`: branch/main, clean tree, `version.json`↔`VERSION`, packaging console entrypoint и локальная/remote availability source-implied tag. Canonical version уже 39.9.0, поэтому финальный кандидат — `v39.9.0`; противоречивый старый target `v39.0.0` не применяется как downgrade. Clean-head preflight/tag проверяется на финальном шаге.
+
+Приёмка: targeted 2 PASS; `pytest tests/ -q` = **235 PASS**, compileall/AST OK, data inventory 73/0/0.
