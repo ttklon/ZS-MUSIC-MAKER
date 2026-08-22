@@ -1032,3 +1032,10 @@ The hit scorer now carries loudness provenance: `pyloudnorm` success remains dis
 Voice Vault now persists `transcription` provenance alongside the existing transcript. Each failed optional backend is explicitly captured with a typed error and warning; missing text is no longer indistinguishable from a successful transcription. No backend/model result is fabricated.
 
 Приёмка: focused Voice Vault transcription suite 2 PASS; `pytest tests/ -q` = **293 PASS, 1 expected deprecation warning**, compileall/AST OK, data inventory 73/0/0. Fresh audit: SILENT_EXCEPT_PASS **103** (was 105), none in `modules/voice_vault_v9.py`; **878** total heuristic records across 236 files.
+
+---
+## APP_L v40 — Artist Dossier audio-copy observability
+
+Artist Dossier now persists additive `audio_copy` transfer state. Direct intake creates its archive directory, successful copies name their artifact, and a failed copy retains only the original source with typed diagnostics rather than implying an archived local file exists.
+
+Приёмка: focused Artist Dossier audio-copy suite 2 PASS; `pytest tests/ -q` = **295 PASS, 1 expected deprecation warning**, compileall/AST OK, data inventory 73/0/0. Fresh audit: SILENT_EXCEPT_PASS **102** (was 103), none in `modules/artist_dossier/manager.py`; **879** total heuristic records across 237 files.

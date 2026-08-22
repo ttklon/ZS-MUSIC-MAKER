@@ -161,6 +161,7 @@ class TrackEntry:
     audio_path: Optional[str] = None
     external_url: Optional[str] = None
     lyrics: Optional[str] = None
+    audio_copy: Dict[str, Any] = field(default_factory=dict)
     features: Dict[str, Any] = field(default_factory=dict)
     dossier: Dict[str, Any] = field(default_factory=dict)
     status: str = "pending"
@@ -210,13 +211,28 @@ class DossierManager:
         entry = TrackEntry(track_id=tid, title=title, artist=artist,
                            audio_path=audio_path, external_url=external_url,
                            lyrics=lyrics, added_at=time.time())
-        if audio_path and Path(audio_path).exists():
-            dst = self.root / slug / "audio" / f"{tid}{Path(audio_path).suffix.lower()}"
-            try:
-                shutil.copy2(audio_path, dst)
-                entry.audio_path = str(dst)
-            except Exception:
-                pass
+        if audio_path:
+            source = Path(audio_path)
+            if not source.exists():
+                entry.audio_copy = {
+                    "ok": False,
+                    "source": str(source),
+                    "status": "source_missing",
+                }
+            else:
+                dst = self.root / slug / "audio" / f"{tid}{source.suffix.lower()}"
+                try:
+                    dst.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(source, dst)
+                    entry.audio_path = str(dst)
+                    entry.audio_copy = {"ok": True, "source": str(source), "path": str(dst)}
+                except Exception as exc:
+                    entry.audio_copy = {
+                        "ok": False,
+                        "source": str(source),
+                        "path": str(dst),
+                        "error": f"{type(exc).__name__}: {exc}",
+                    }
         if lyrics:
             (self.root / slug / "lyrics" / f"{tid}.txt").write_text(lyrics, encoding="utf-8")
         self._save_track(slug, entry)
