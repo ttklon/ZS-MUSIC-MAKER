@@ -90,8 +90,7 @@ class KaraokeSession:
         # count-in
         for i in range(self.count_in_beats):
             self._fire("on_beat", {"beat": i + 1, "is_count_in": True})
-            time.sleep(self.beat_ms / 1000.0)
-            if self._stop.is_set():
+            if self._stop.wait(self.beat_ms / 1000.0):
                 return
         self.state = "recording"
         # main loop
@@ -118,7 +117,8 @@ class KaraokeSession:
                     self._fire("on_word", {"index": idx, "word": w, "t_ms": t_ms})
                     last_word_idx = idx
                     break
-            time.sleep(0.02)
+            if self._stop.wait(0.02):
+                return
         self.state = "finished"
         self._fire("on_end", {"duration_ms": self.elapsed_ms()})
 

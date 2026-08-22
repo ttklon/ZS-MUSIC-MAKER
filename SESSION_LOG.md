@@ -836,3 +836,10 @@ Process-local i18n `_current_language` scalar replaced with private `_LanguageSt
 Wizard Gradio warm-up no longer blocks Qt UI with `time.sleep(2)`: browser launch is scheduled by daemon-compatible `threading.Timer`. Full acceptance initially caught obsolete Wizard `time` import; removed it, then full suite passed. Focused AST test proves Timer/no-sleep contract without GUI/server startup.
 
 Приёмка: focused 1 PASS; `pytest tests/ -q` = **252 PASS**, compileall/AST OK, data inventory 73/0/0.
+
+---
+## APP_L v40 — karaoke stop responsiveness
+
+Karaoke count-in and poll waits now use session Event.wait, preserving normal timing while immediate stop exits worker and retains `stopped` rather than overwriting it with `finished`. Regression stops a one-minute count-in after first beat and proves join in <0.5s without audio/microphone.
+
+Приёмка: focused 1 PASS; `pytest tests/ -q` = **253 PASS**, compileall/AST OK, data inventory 73/0/0.
