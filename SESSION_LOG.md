@@ -736,3 +736,7 @@ Canonical version stays **39.9.0** (not the stale conflicting v39.0.0 target): v
 ### Final execution-evidence refresh
 
 После commit `6d8b3a75` повторный `tools/readiness.py --report` подтвердил **100/100 COMMITTED, 0 PENDING**. Таблица связывает ШАГ 073 с `1fb08065`, ШАГ 074 с `c42e4c2d` и ШАГ 100 с `6d8b3a75`; статус выводится только из git subject evidence.
+
+### Tag and GitHub release verification
+
+Annotated `v39.9.0` and public release <https://github.com/ttklon/ZS-MUSIC-MAKER/releases/tag/v39.9.0> were verified at `864c486aa5d7a16f5f5cbb2f8acbf0fc42064dae` / origin/main. The tag workflow run `32561256890` failed before `build-windows` got a runner or executed a step; publish-release was skipped and release assets are empty. The source release was published manually with this disclosed; no CI-built Windows EXE is claimed.
