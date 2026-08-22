@@ -822,3 +822,10 @@ Runtime and render idle loops now use stop-aware `Event.wait(timeout)` rather th
 `process_mastering()` no longer mutates global optional-DSP import flags after a single runtime failure. Per-run pedalboard/loudnorm flags select the current fallback only; `normalize_master_loudness()` mirrors local capability scope. Regression injects failing AudioFile, validates numpy fallback output and proves HAS_PEDALBOARD stays true.
 
 Приёмка: focused 1 PASS; `pytest tests/ -q` = **251 PASS**, compileall/AST OK, data inventory 73/0/0.
+
+---
+## APP_L v40 — i18n state encapsulation
+
+Process-local i18n `_current_language` scalar replaced with private `_LanguageState` under the existing RLock. Public set/get/translation behavior preserved; audit now reports **0 GLOBAL_STATEMENT** findings. Targeted i18n tests recovered after fixing one legacy accessor reference.
+
+Приёмка: targeted 4 PASS; `pytest tests/ -q` = **251 PASS**, compileall/AST OK, data inventory 73/0/0.

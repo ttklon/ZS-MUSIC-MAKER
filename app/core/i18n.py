@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from threading import RLock
 from typing import Any
 
@@ -48,8 +49,13 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
     },
 }
 
+@dataclass
+class _LanguageState:
+    active: str = "ru"
+
+
 _lock = RLock()
-_current_language = "ru"
+_language_state = _LanguageState()
 
 
 def available_languages() -> tuple[str, ...]:
@@ -61,15 +67,14 @@ def set_language(language: str) -> str:
     normalized = str(language or "").lower().split("-", 1)[0]
     if normalized not in _TRANSLATIONS:
         raise ValueError(f"unsupported language: {language}")
-    global _current_language
     with _lock:
-        _current_language = normalized
-        return _current_language
+        _language_state.active = normalized
+        return _language_state.active
 
 
 def get_language() -> str:
     with _lock:
-        return _current_language
+        return _language_state.active
 
 
 def configure_language(language: str | None) -> str:
@@ -82,7 +87,7 @@ def configure_language(language: str | None) -> str:
 def t(key: str, /, **values: Any) -> str:
     """Translate an allowlisted dotted key; Russian is fallback for missing EN text."""
     with _lock:
-        language = _current_language
+        language = _language_state.active
     template = _TRANSLATIONS.get(language, {}).get(key) or _TRANSLATIONS["ru"].get(key) or key
     try:
         return template.format(**values)
