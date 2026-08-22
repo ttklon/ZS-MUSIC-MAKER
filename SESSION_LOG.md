@@ -1186,3 +1186,10 @@ The release-pack chain now returns additive `fallback_attempts` for failed/inval
 Template lyrics now retain additive `fallback_attempts` when `LLMRouter` raises or returns unusable text, while the existing successful template fallback contract remains intact. Focused tests use router doubles only; no local or remote LLM inference, model loading or generated lyric artifact is claimed.
 
 Приёмка: focused lyrics-router suite 2 PASS; `pytest tests/ -q` = **328 PASS, 1 expected deprecation warning**, compileall/AST OK, data inventory 73/0/0, `git diff --check` OK. Fresh audit: SILENT_EXCEPT_PASS **79** (was 80), **881** total heuristic records across 256 files; the test doubles account for MISSING_DOCSTRING 321 and MISSING_CLASS_DOCSTRING 115.
+
+---
+## APP_L v40 — orchestrator voice-synthesis fallback provenance
+
+Voice fallback now retains additive `fallback_attempts` for unavailable `voice_synth`, failed primary/secondary calls and unusable outputs before the existing pyttsx3/scaffold recovery. No test invoked TTS, model inference, synthetic scaffold or audio generation; the focused module and fallback helper were mocked.
+
+Приёмка: focused voice suite 1 PASS; after repairing a test-double package binding, final `pytest tests/ -q` = **329 PASS, 1 expected deprecation warning**, compileall/AST OK, data inventory 73/0/0, `git diff --check` OK. Fresh audit: SILENT_EXCEPT_PASS **78** (was 79), **881** total heuristic records across 257 files.

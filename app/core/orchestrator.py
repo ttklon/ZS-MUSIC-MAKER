@@ -961,27 +961,61 @@ def _stage_voice_synth(lyrics_text: str, out_dir: Path) -> dict[str, Any]:
             "reason": "empty lyrics",
             "notice": "voice synth requires lyrics text",
         }
+    fallback_attempts: list[dict[str, str]] = []
+
+    def use_fallback() -> dict[str, Any]:
+        result = dict(_pyttsx3_speak(lyrics_text, out_wav))
+        if fallback_attempts:
+            result["fallback_attempts"] = fallback_attempts
+        return result
+
     try:
         from modules import voice_synth
+    except Exception as exc:
+        fallback_attempts.append({
+            "engine": "voice_synth",
+            "status": "unavailable",
+            "error": f"{type(exc).__name__}: {exc}",
+        })
+        return use_fallback()
 
-        if hasattr(voice_synth, "synth"):
-            try:
-                path = voice_synth.synth(
-                    lyrics_text, engine="auto", out_name=Path(out_wav).name
-                )
-                if path and Path(path).exists() and Path(path).stat().st_size > 1000:
-                    return {"ok": True, "path": path, "engine": "voice_synth.synth"}
-            except Exception:
-                pass
-        if hasattr(voice_synth, "synthesize"):
-            r = voice_synth.synthesize(lyrics_text, out_wav)
-            if isinstance(r, dict):
-                return r
-            if isinstance(r, str) and Path(r).exists():
-                return {"ok": True, "path": r, "engine": "voice_synth"}
-        return _pyttsx3_speak(lyrics_text, out_wav)
-    except Exception:
-        return _pyttsx3_speak(lyrics_text, out_wav)
+    if hasattr(voice_synth, "synth"):
+        try:
+            path = voice_synth.synth(
+                lyrics_text, engine="auto", out_name=Path(out_wav).name
+            )
+            if path and Path(path).exists() and Path(path).stat().st_size > 1000:
+                return {"ok": True, "path": path, "engine": "voice_synth.synth"}
+            fallback_attempts.append({
+                "engine": "voice_synth.synth",
+                "status": "invalid_output",
+                "error": "no usable audio path returned",
+            })
+        except Exception as exc:
+            fallback_attempts.append({
+                "engine": "voice_synth.synth",
+                "status": "failed",
+                "error": f"{type(exc).__name__}: {exc}",
+            })
+    if hasattr(voice_synth, "synthesize"):
+        try:
+            result = voice_synth.synthesize(lyrics_text, out_wav)
+            if isinstance(result, dict):
+                return result
+            if isinstance(result, str) and Path(result).exists():
+                return {"ok": True, "path": result, "engine": "voice_synth"}
+            fallback_attempts.append({
+                "engine": "voice_synth.synthesize",
+                "status": "invalid_output",
+                "error": f"expected result dict or existing path, got {type(result).__name__}",
+            })
+        except Exception as exc:
+            fallback_attempts.append({
+                "engine": "voice_synth.synthesize",
+                "status": "failed",
+                "error": f"{type(exc).__name__}: {exc}",
+            })
+    return use_fallback()
 
 
 def _pyttsx3_speak(text: str, out_wav: str) -> dict[str, Any]:
