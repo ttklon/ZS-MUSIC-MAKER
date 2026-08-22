@@ -30,3 +30,6 @@ def test_release_export_writes_fingerprinted_manifest_and_zip(tmp_path, monkeypa
     assert "master.wav" in manifest["artifacts_sha256"]
     assert len(manifest["artifacts_sha256"]["master.wav"]) == 64
     assert metadata["isrc"]
+    assert {"lyrics.txt", "recipe.json", "metadata.csv", "release_notes.txt"} <= set(result["files"])
+    assert "Test Artist" in (release_dir / "release_notes.txt").read_text(encoding="utf-8")
+    assert (release_dir / "metadata.csv").is_file()

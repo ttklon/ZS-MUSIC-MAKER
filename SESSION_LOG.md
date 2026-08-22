@@ -941,3 +941,10 @@ MIDI drum genre selection now lives in pure `_drum_events`; the export path only
 Self-diagnostic action planning now delegates layout, health, KPI and smoke guidance to dedicated helpers while preserving ordering, messages, five-item health and three-item KPI advice caps, plus the all-clear fallback. Focused tests cover combined severities/limits and unknown empty reports without running external reports or services.
 
 Приёмка: focused self-diagnostic suite 2 PASS; `pytest tests/ -q` = **274 PASS**, compileall/AST OK, data inventory 73/0/0. Fresh audit: HIGH_COMPLEXITY **31** (was 32), none in `modules/self_diag_v13.py`; **884** total heuristic records across 224 files.
+
+---
+## APP_L v40 — release-export decomposition
+
+Release packaging now delegates artist fallback, media variants, listening stands, release documents and archive finalization to focused helpers. Existing public export regression validates ZIP, SHA-256 manifest, ISRC, metadata CSV and release notes from a temporary WAV; no distribution upload, model inference or unavailable encoder success is claimed.
+
+Приёмка: focused release-export suite 1 PASS; `pytest tests/ -q` = **274 PASS**, compileall/AST OK, data inventory 73/0/0. Fresh audit: HIGH_COMPLEXITY **30** (was 31), none in `modules/release_export.py`; LONG_FUNCTION **28** (was 29); **882** total heuristic records across 224 files.
