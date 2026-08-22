@@ -843,3 +843,10 @@ Wizard Gradio warm-up no longer blocks Qt UI with `time.sleep(2)`: browser launc
 Karaoke count-in and poll waits now use session Event.wait, preserving normal timing while immediate stop exits worker and retains `stopped` rather than overwriting it with `finished`. Regression stops a one-minute count-in after first beat and proves join in <0.5s without audio/microphone.
 
 Приёмка: focused 1 PASS; `pytest tests/ -q` = **253 PASS**, compileall/AST OK, data inventory 73/0/0.
+
+---
+## APP_L v40 — voice-recording split decomposition
+
+`split_wav_into_takes` was decomposed from 117 LOC into WAV load, frame-analysis and take-persistence helpers while retaining the 20 ms, threshold, take and manifest contracts. Real temporary-WAV regression verifies two voiced regions, persisted take files and matching JSON manifest without microphone access.
+
+Приёмка: focused 1 PASS; `pytest tests/ -q` = **254 PASS**, compileall/AST OK, data inventory 73/0/0. Fresh audit: **29 LONG_FUNCTION** (was 30); `modules/voice_recording.py` no longer has a long-function finding; total 909 heuristic records across 215 files.

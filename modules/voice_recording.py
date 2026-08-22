@@ -250,123 +250,158 @@ class RealMicRecorder:
         )
 
 
+def _read_mono_wav(wav_path: str) -> tuple[Any, int] | None:
+    try:
+        import soundfile as sf
+
+        samples, sample_rate = sf.read(wav_path)
+        if samples.ndim > 1:
+            samples = samples[:, 0]
+        return samples, sample_rate
+    except Exception:
+        return None
+
+
+def _frame_rms_db(samples: Any, window_size: int) -> Any:
+    import numpy as np
+
+    frame_count = len(samples) // window_size
+    rms = np.array(
+        [
+            float(
+                np.sqrt(
+                    np.mean(samples[index * window_size : (index + 1) * window_size] ** 2)
+                )
+                + 1e-9
+            )
+            for index in range(frame_count)
+        ]
+    )
+    return 20 * np.log10(rms + 1e-9)
+
+
+def _write_take(
+    source_path: Path,
+    samples: Any,
+    sample_rate: int,
+    start_win: int,
+    end_win: int,
+    min_take_ms: int,
+    take_number: int,
+    style: str,
+) -> TakeInfo | None:
+    import numpy as np
+    import soundfile as sf
+
+    start_ms = start_win * 20
+    end_ms = end_win * 20
+    duration_ms = end_ms - start_ms
+    if duration_ms < min_take_ms:
+        return None
+    start_sample = int(start_ms / 1000 * sample_rate)
+    end_sample = int(end_ms / 1000 * sample_rate)
+    segment = samples[start_sample:end_sample]
+    segment_rms = float(np.sqrt(np.mean(segment**2)) + 1e-9)
+    segment_peak = float(np.max(np.abs(segment)) + 1e-9)
+    segment_clipping = float(np.mean(np.abs(segment) > 0.98))
+    rms_db = 20 * math.log10(segment_rms)
+    peak_db = 20 * math.log10(segment_peak)
+
+    if segment_clipping > 0.03:
+        quality = "clipping"
+    elif rms_db < -35:
+        quality = "too_quiet"
+    elif rms_db > -6:
+        quality = "too_loud"
+    else:
+        quality = "good"
+
+    take_dir = source_path.parent / "takes"
+    take_dir.mkdir(exist_ok=True)
+    take_id = uuid.uuid4().hex[:8]
+    take_path = take_dir / f"{source_path.stem}_take{take_number:02d}_{take_id}.wav"
+    try:
+        sf.write(str(take_path), segment, sample_rate)
+    except Exception:
+        return None
+
+    return TakeInfo(
+        take_id=take_id,
+        path=str(take_path),
+        start_sec=start_ms / 1000,
+        end_sec=end_ms / 1000,
+        duration_sec=duration_ms / 1000,
+        rms_db=rms_db,
+        peak_db=peak_db,
+        clipping_pct=segment_clipping * 100,
+        quality=quality,
+        style=style,
+    )
+
+
 def split_wav_into_takes(
     wav_path: str,
     min_silence_ms: int = 600,
     min_take_ms: int = 800,
     style: str = "conversational",
 ) -> list[TakeInfo]:
+    """Split a WAV into voiced takes and persist each valid take with a manifest."""
     try:
         import numpy as np
-        import soundfile as sf
     except Exception:
         return []
 
-    p = Path(wav_path)
-    if not p.exists():
+    source_path = Path(wav_path)
+    if not source_path.exists():
         return []
-    try:
-        y, sr = sf.read(str(p))
-        if y.ndim > 1:
-            y = y[:, 0]
-    except Exception:
+    loaded = _read_mono_wav(str(source_path))
+    if loaded is None:
         return []
+    samples, sample_rate = loaded
 
-    win = int(sr * 0.02)
-    if win < 1:
+    window_size = int(sample_rate * 0.02)
+    if window_size < 1:
         return []
-    n_wins = len(y) // win
-    rms = np.array(
-        [
-            float(np.sqrt(np.mean(y[i * win : (i + 1) * win] ** 2)) + 1e-9)
-            for i in range(n_wins)
-        ]
-    )
-    rms_db = 20 * np.log10(rms + 1e-9)
-
-    silence = rms_db < -40.0
+    silence = _frame_rms_db(samples, window_size) < -40.0
     silence_wins = int(min_silence_ms / 20)
 
     takes: list[TakeInfo] = []
     in_speech = False
     start_win = 0
-    sil_count = 0
-
-    def _finalize(a: int, b: int) -> TakeInfo | None:
-        s_ms = a * 20
-        e_ms = b * 20
-        dur_ms = e_ms - s_ms
-        if dur_ms < min_take_ms:
-            return None
-        s_sam = int(s_ms / 1000 * sr)
-        e_sam = int(e_ms / 1000 * sr)
-        seg = y[s_sam:e_sam]
-        seg_rms = float(np.sqrt(np.mean(seg**2)) + 1e-9)
-        seg_peak = float(np.max(np.abs(seg)) + 1e-9)
-        seg_clip = float(np.mean(np.abs(seg) > 0.98))
-        rms_db = 20 * math.log10(seg_rms)
-        peak_db = 20 * math.log10(seg_peak)
-
-        if seg_clip > 0.03:
-            q = "clipping"
-        elif rms_db < -35:
-            q = "too_quiet"
-        elif rms_db > -6:
-            q = "too_loud"
-        else:
-            q = "good"
-
-        take_dir = p.parent / "takes"
-        take_dir.mkdir(exist_ok=True)
-        tid = uuid.uuid4().hex[:8]
-        tpath = take_dir / f"{p.stem}_take{len(takes)+1:02d}_{tid}.wav"
-        try:
-            sf.write(str(tpath), seg, sr)
-        except Exception:
-            return None
-
-        return TakeInfo(
-            take_id=tid,
-            path=str(tpath),
-            start_sec=s_ms / 1000,
-            end_sec=e_ms / 1000,
-            duration_sec=dur_ms / 1000,
-            rms_db=rms_db,
-            peak_db=peak_db,
-            clipping_pct=seg_clip * 100,
-            quality=q,
-            style=style,
-        )
-
-    for i, s in enumerate(silence):
-        if not s:
+    silence_count = 0
+    for index, is_silent in enumerate(silence):
+        if not is_silent:
             if not in_speech:
-                start_win = i
+                start_win = index
                 in_speech = True
-            sil_count = 0
-        else:
-            if in_speech:
-                sil_count += 1
-                if sil_count >= silence_wins:
-                    ti = _finalize(start_win, i - sil_count)
-                    if ti:
-                        takes.append(ti)
-                    in_speech = False
-                    sil_count = 0
+            silence_count = 0
+        elif in_speech:
+            silence_count += 1
+            if silence_count >= silence_wins:
+                take = _write_take(
+                    source_path, samples, sample_rate, start_win,
+                    index - silence_count, min_take_ms, len(takes) + 1, style,
+                )
+                if take:
+                    takes.append(take)
+                in_speech = False
+                silence_count = 0
     if in_speech:
-        ti = _finalize(start_win, len(silence))
-        if ti:
-            takes.append(ti)
+        take = _write_take(
+            source_path, samples, sample_rate, start_win,
+            len(silence), min_take_ms, len(takes) + 1, style,
+        )
+        if take:
+            takes.append(take)
 
-    manifest = p.parent / f"{p.stem}_takes.json"
+    manifest = source_path.parent / f"{source_path.stem}_takes.json"
     try:
         manifest.write_text(
-            json.dumps([t.as_dict() for t in takes], ensure_ascii=False, indent=2),
+            json.dumps([take.as_dict() for take in takes], ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
     except Exception:
         pass
-
     return takes
 
 
