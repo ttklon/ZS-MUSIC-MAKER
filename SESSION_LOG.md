@@ -962,3 +962,10 @@ KPI readiness now separates filesystem evidence, health-driven import downgrades
 Groove extraction now separates frequency envelopes, 16th-step aggregation, swing, triplet, pattern-change and drop metrics while retaining the public output contract. Focused tests use pure arrays only; no audio ingestion, librosa runtime or reference inference is claimed.
 
 Приёмка: focused groove metric suite 2 PASS; `pytest tests/ -q` = **277 PASS**, compileall/AST OK, data inventory 73/0/0. Fresh audit: HIGH_COMPLEXITY **28** (was 29), none in `modules/groove_extractor.py`; LONG_FUNCTION **26** (was 27); **880** total heuristic records across 226 files.
+
+---
+## APP_L v40 — lyrics-v8 orchestration and marker decomposition
+
+Lyrics v8 now delegates optional trend/style fetch, v7 compatible generation, bilingual hook and final section assembly; ordered marker classification replaces the six-branch parser. Deterministic fakes verify seed/metadata/output without author ingestion, trend services, LLMs or models. Deprecation compatibility remains covered.
+
+Приёмка: focused lyrics-v8 + legacy suite **5 PASS, 1 expected deprecation warning**; `pytest tests/ -q` = **278 PASS, 1 expected warning**, compileall/AST OK, data inventory 73/0/0. Fresh audit: HIGH_COMPLEXITY **26** (was 28), none in `modules/lyrics_gen_v8.py`; **879** total heuristic records across 227 files.

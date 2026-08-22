@@ -34,35 +34,34 @@ from modules import (
 )
 
 
+_SECTION_MARKERS = (
+    ("intro", ("интро", "intro")),
+    ("chorus", ("припев", "chorus", "hook")),
+    ("verse1", ("куплет 1", "verse 1")),
+    ("verse2", ("куплет 2", "verse 2")),
+    ("bridge", ("бридж", "bridge")),
+    ("outro", ("аутро", "outro")),
+)
+
+
+def _section_for_marker(marker: str) -> str | None:
+    """Classify a bracketed Russian/English section marker in stable priority order."""
+    for section, tokens in _SECTION_MARKERS:
+        if any(token in marker for token in tokens):
+            return section
+    return None
+
+
 def _split_blocks(text: str) -> dict[str, list[str]]:
-    """Парсим блоки [Куплет 1] / [Припев] / [Куплет 2] / [Аутро]."""
-    blocks = {
-        "intro": [],
-        "verse1": [],
-        "chorus": [],
-        "verse2": [],
-        "bridge": [],
-        "outro": [],
-    }
+    """Parse recognized bracketed section markers into stable verse/chorus blocks."""
+    blocks = {key: [] for key in ("intro", "verse1", "chorus", "verse2", "bridge", "outro")}
     current = "verse1"
     for raw_line in text.splitlines():
         line = raw_line.strip()
         if not line:
             continue
-        low = line.lower()
-        if low.startswith("[") and low.endswith("]"):
-            if "интро" in low or "intro" in low:
-                current = "intro"
-            elif "припев" in low or "chorus" in low or "hook" in low:
-                current = "chorus"
-            elif "куплет 1" in low or "verse 1" in low:
-                current = "verse1"
-            elif "куплет 2" in low or "verse 2" in low:
-                current = "verse2"
-            elif "бридж" in low or "bridge" in low:
-                current = "bridge"
-            elif "аутро" in low or "outro" in low:
-                current = "outro"
+        if line.startswith("[") and line.endswith("]"):
+            current = _section_for_marker(line.lower()) or current
             continue
         blocks[current].append(line)
     return blocks
@@ -81,6 +80,84 @@ def _validate_rhythm(
     return kept or lines
 
 
+def _fetch_slang(theme: str) -> list[str]:
+    """Return optional trend slang or an honest empty fallback."""
+    try:
+        from agents.trend_scout_v3 import actual_slang_for_prompt
+
+        return actual_slang_for_prompt(theme, n_words=15)
+    except Exception:
+        return []
+
+
+def _author_style_prompt(
+    author: str | None, theme: str, user_words: list[str], slang: list[str], bpm: int, target_lines: int
+) -> tuple[str, bool]:
+    """Build optional reference-author guidance without requiring remote ingestion success."""
+    if not author:
+        return "", False
+    try:
+        profile = author_ref_lyrics.get_style_profile(author)
+        if not profile:
+            author_ref_lyrics.fetch_and_ingest_author(author, max_tracks=5)
+            profile = author_ref_lyrics.get_style_profile(author)
+        if profile:
+            return author_ref_lyrics.build_style_prompt(
+                author=author, theme=theme, user_words=user_words + slang[:6],
+                bpm=bpm, target_lines=target_lines,
+            ), True
+    except Exception:
+        pass
+    return "", False
+
+
+def _generate_raw_lyrics(seed: str, user_words: list[str], bpm: int, style_prompt: str, target_lines: int, slang: list[str]) -> str:
+    """Call v7 generation with its supported-argument and empty-text fallbacks."""
+    try:
+        return lyrics_gen.generate_lyrics(
+            theme=seed, bpm=bpm, user_lyrics_lines=user_words,
+            style_prompt=style_prompt or None, target_lines=target_lines,
+        )
+    except TypeError:
+        try:
+            return lyrics_gen.generate_lyrics(theme=seed, bpm=bpm)
+        except Exception:
+            return f"[Куплет 1]\n{seed}\n[Припев]\n{random.choice(slang) if slang else 'yeah'}\n"
+    except Exception as error:
+        return f"[Куплет 1]\n{seed}\n[Припев]\n(fallback: {error})\n"
+
+
+def _ensure_bilingual_chorus(blocks: dict[str, list[str]], theme: str, lang_mix: str) -> None:
+    """Append a safe English hook only when bilingual chorus markup requires one."""
+    if lang_mix != "ru+en":
+        return
+    chorus_text = " ".join(blocks["chorus"]).lower()
+    if any(re.search(r"[a-z]{3,}", word) for word in chorus_text.split()):
+        return
+    try:
+        from agents.trend_scout_v3 import scout
+
+        blocks["chorus"].append(random.choice(scout(theme)["hooks_en"]))
+    except Exception:
+        blocks["chorus"].append("night ride, we don't stop")
+
+
+def _assemble_lyrics_text(blocks: dict[str, list[str]]) -> str:
+    """Render normalized section blocks into the established v8 song order."""
+    parts = []
+    if blocks["intro"]:
+        parts.append("[Интро]\n" + "\n".join(blocks["intro"]))
+    parts.append("[Куплет 1]\n" + "\n".join(blocks["verse1"] or ["город спит, а мотор рычит"]))
+    parts.append("[Припев]\n" + "\n".join(blocks["chorus"] or ["night ride, we don't stop"]))
+    parts.append("[Куплет 2]\n" + "\n".join(blocks["verse2"] or blocks["verse1"] or []))
+    parts.append("[Припев]\n" + "\n".join(blocks["chorus"] or []))
+    if blocks["bridge"]:
+        parts.append("[Бридж]\n" + "\n".join(blocks["bridge"]))
+    if blocks["outro"]:
+        parts.append("[Аутро]\n" + "\n".join(blocks["outro"]))
+    return "\n\n".join(parts)
+
+
 def generate_lyrics_v8(
     theme: str,
     user_words: list[str] | None = None,
@@ -93,109 +170,24 @@ def generate_lyrics_v8(
     """
     Главная точка входа v8. Возвращает готовый текст + мета.
     """
-    user_words = [w.strip() for w in (user_words or []) if w and w.strip()]
-    # 1) актуальный сленг на сегодня
-    try:
-        from agents.trend_scout_v3 import actual_slang_for_prompt
-
-        slang = actual_slang_for_prompt(theme, n_words=15)
-    except Exception:
-        slang = []
-
-    # 2) стилевой промт по автору (если задан)
-    author_style_used = False
-    style_prompt = ""
-    if author:
-        try:
-            # если автора нет в корпусе — попробуем подтянуть онлайн
-            profile = author_ref_lyrics.get_style_profile(author)
-            if not profile:
-                author_ref_lyrics.fetch_and_ingest_author(author, max_tracks=5)
-                profile = author_ref_lyrics.get_style_profile(author)
-            if profile:
-                style_prompt = author_ref_lyrics.build_style_prompt(
-                    author=author,
-                    theme=theme,
-                    user_words=user_words + slang[:6],
-                    bpm=bpm,
-                    target_lines=target_lines,
-                )
-                author_style_used = True
-        except Exception:
-            style_prompt = ""
-
-    # 3) базовая генерация через v7
+    user_words = [word.strip() for word in (user_words or []) if word and word.strip()]
+    slang = _fetch_slang(theme)
+    style_prompt, author_style_used = _author_style_prompt(
+        author, theme, user_words, slang, bpm, target_lines
+    )
     seed = theme
     if user_words:
         seed += " — " + ", ".join(user_words)
     if slang:
         seed += " · слэнг: " + ", ".join(slang[:8])
-    seed_user_lyrics = user_words  # v7 гарантирует их появление
-
-    try:
-        raw = lyrics_gen.generate_lyrics(
-            theme=seed,
-            bpm=bpm,
-            user_lyrics_lines=seed_user_lyrics,
-            style_prompt=style_prompt or None,
-            target_lines=target_lines,
-        )
-    except TypeError:
-        # v7 может не поддерживать все kwargs — деградируем к базовому вызову
-        try:
-            raw = lyrics_gen.generate_lyrics(theme=seed, bpm=bpm)
-        except Exception:
-            raw = f"[Куплет 1]\n{seed}\n[Припев]\n{random.choice(slang) if slang else 'yeah'}\n"
-    except Exception as e:
-        raw = f"[Куплет 1]\n{seed}\n[Припев]\n(fallback: {e})\n"
-
-    # 4) парсим, валидируем ритм
+    raw = _generate_raw_lyrics(seed, user_words, bpm, style_prompt, target_lines, slang)
     blocks = _split_blocks(raw if isinstance(raw, str) else str(raw))
     for key in ("verse1", "verse2", "chorus"):
         blocks[key] = _validate_rhythm(blocks[key])
-
-    # 5) обеспечиваем bilingual разметку
-    if lang_mix == "ru+en":
-        # Ищем в припеве английские хуки; если их нет — подмешиваем из trend_scout_v3
-        chorus_txt = " ".join(blocks["chorus"]).lower()
-        has_en = any(re.search(r"[a-z]{3,}", w) for w in chorus_txt.split())
-        if not has_en:
-            try:
-                from agents.trend_scout_v3 import scout
-
-                hook_en = random.choice(scout(theme)["hooks_en"])
-                blocks["chorus"].append(hook_en)
-            except Exception:
-                blocks["chorus"].append("night ride, we don't stop")
-
-    # 6) собираем финальный текст
-    parts = []
-    if blocks["intro"]:
-        parts.append("[Интро]\n" + "\n".join(blocks["intro"]))
-    parts.append(
-        "[Куплет 1]\n" + "\n".join(blocks["verse1"] or ["город спит, а мотор рычит"])
-    )
-    parts.append(
-        "[Припев]\n" + "\n".join(blocks["chorus"] or ["night ride, we don't stop"])
-    )
-    parts.append("[Куплет 2]\n" + "\n".join(blocks["verse2"] or blocks["verse1"] or []))
-    parts.append("[Припев]\n" + "\n".join(blocks["chorus"] or []))
-    if blocks["bridge"]:
-        parts.append("[Бридж]\n" + "\n".join(blocks["bridge"]))
-    if blocks["outro"]:
-        parts.append("[Аутро]\n" + "\n".join(blocks["outro"]))
-
-    final_text = "\n\n".join(parts)
-
-    # 7) вариант припева для женского бэка
-    chorus_lines = blocks["chorus"] or []
-    if want_female_backing and chorus_lines:
-        # Помечаем — orchestrator подхватит и сгенерирует backing.
-        pass
-
+    _ensure_bilingual_chorus(blocks, theme, lang_mix)
     return {
-        "text": final_text,
-        "chorus_lines": chorus_lines,
+        "text": _assemble_lyrics_text(blocks),
+        "chorus_lines": blocks["chorus"] or [],
         "used_slang": slang,
         "author_style_used": author_style_used,
         "want_female_backing": want_female_backing,
