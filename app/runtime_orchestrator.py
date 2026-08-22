@@ -26,6 +26,48 @@ class Job:
     result: dict[str, Any] = field(default_factory=dict)
 
 
+def _summarize_pipeline_result(result: dict[str, Any]) -> dict[str, Any]:
+    """Extract desktop job fields from the stable full-pipeline result contract."""
+    release_dir = None
+    master_path = None
+    hit: dict[str, Any] = {}
+    for stage in result.get("stages") or []:
+        name = stage.get("name")
+        output = stage.get("output") or {}
+        if name == "_stage_release_pack":
+            release_dir = output.get("path") or release_dir
+        elif name == "_stage_polish":
+            master_path = output.get("path") or output.get("out_wav") or master_path
+        elif name == "_stage_mastering" and not master_path:
+            master_path = (output.get("stands", {}) or {}).get("streaming", {}).get("out_wav")
+        elif name == "_stage_hit_score":
+            hit = output
+
+    advice = [
+        value.strip()
+        for value in (hit.get("actions") or [])[:4]
+        if isinstance(value, str) and value.strip()
+    ]
+    flags = [
+        value.strip()
+        for value in (result.get("warnings") or [])[:4]
+        if isinstance(value, str) and value.strip()
+    ]
+    return {
+        "pipeline": result,
+        "master": master_path,
+        "master_path": master_path,
+        "release": {"release_dir": release_dir},
+        "ai_detector": {
+            "ok": bool(hit),
+            "verdict": hit.get("verdict"),
+            "score": hit.get("hit_score"),
+            "flags": flags,
+            "advice": advice,
+        },
+    }
+
+
 class RuntimeOrchestrator:
     def __init__(self, log=None):
         self.log = log
@@ -96,63 +138,20 @@ class RuntimeOrchestrator:
         job.progress = 0.1
         job.started_at = time.time()
         try:
-            res = run_full_pipeline(
+            result = run_full_pipeline(
                 job.track_id, job.recipe, dry_run=False, out_root=out_dir
             )
             job.progress = 0.92
-            stages = res.get("stages") or []
-            release_dir = None
-            master_path = None
-            hit = {}
-            for st in stages:
-                name = st.get("name")
-                out = st.get("output") or {}
-                if name == "_stage_release_pack":
-                    release_dir = out.get("path") or release_dir
-                elif name == "_stage_polish":
-                    master_path = out.get("path") or out.get("out_wav") or master_path
-                elif name == "_stage_mastering" and not master_path:
-                    master_path = (
-                        (out.get("stands", {}) or {})
-                        .get("streaming", {})
-                        .get("out_wav")
-                    )
-                elif name == "_stage_hit_score":
-                    hit = out
-
-            advice = [
-                a.strip()
-                for a in (hit.get("actions") or [])[:4]
-                if isinstance(a, str) and a.strip()
-            ]
-            flags = [
-                w.strip()
-                for w in (res.get("warnings") or [])[:4]
-                if isinstance(w, str) and w.strip()
-            ]
-
-            job.result = {
-                "pipeline": res,
-                "master": master_path,
-                "master_path": master_path,
-                "release": {"release_dir": release_dir},
-                "ai_detector": {
-                    "ok": bool(hit),
-                    "verdict": hit.get("verdict"),
-                    "score": hit.get("hit_score"),
-                    "flags": flags,
-                    "advice": advice,
-                },
-            }
-            job.status = "done" if res.get("verdict") not in ("FAILED",) else "error"
-            job.stage = str(res.get("verdict") or "done").lower()
+            job.result = _summarize_pipeline_result(result)
+            job.status = "done" if result.get("verdict") not in ("FAILED",) else "error"
+            job.stage = str(result.get("verdict") or "done").lower()
             job.progress = 1.0 if job.status == "done" else 0.0
             if job.status == "error":
-                job.error = str(res.get("warnings") or ["pipeline failed"])
-        except Exception as e:
+                job.error = str(result.get("warnings") or ["pipeline failed"])
+        except Exception as error:
             job.status = "error"
             job.stage = "failed"
-            job.error = f"{type(e).__name__}: {e}"[:500]
+            job.error = f"{type(error).__name__}: {error}"[:500]
             job.progress = 0.0
         finally:
             job.finished_at = time.time()

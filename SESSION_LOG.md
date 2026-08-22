@@ -864,3 +864,10 @@ Non-dry RVC requests no longer advance fake epochs after import detection and re
 Malformed/unreadable persisted onboarding manifests retain the compatible empty-plan fallback but now emit a narrow JSON/I/O warning rather than being silently swallowed. Missing first-run manifest remains quiet. Regression verifies fallback shape and warning in a temporary file.
 
 Приёмка: focused 1 PASS; `pytest tests/ -q` = **256 PASS**, compileall/AST OK, data inventory 73/0/0. Fresh audit: **120 SILENT_EXCEPT_PASS** (was 121), none in `modules/voice_onboarding.py`; total **907** heuristic records across 216 files.
+
+---
+## APP_L v40 — RuntimeOrchestrator result decomposition
+
+`RuntimeOrchestrator._process` now keeps lifecycle/error handling only; pure `_summarize_pipeline_result` owns stage traversal and the existing desktop result contract. Regression checks polish/master precedence, release data and sanitized hit/warning fields without starting a full pipeline.
+
+Приёмка: focused 1 PASS; `pytest tests/ -q` = **257 PASS**, compileall/AST OK, data inventory 73/0/0. Fresh audit: **35 HIGH_COMPLEXITY** (was 36), no high-complexity finding in `app/runtime_orchestrator.py`; total **907** heuristic records across 217 files.
