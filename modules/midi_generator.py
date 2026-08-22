@@ -20,6 +20,7 @@ v29 FIX (P0):
   * Добавлена get_status() для честного отчёта о доступности.
 """
 
+import logging
 import os
 import random
 
@@ -38,6 +39,7 @@ except Exception:  # pragma: no cover
 
 
 SLOT_NOTES = {"kick": 36, "snare": 38, "hat": 42, "bass": 36, "melody": 60}
+LOGGER = logging.getLogger(__name__)
 
 
 def slot_events_for_genre(genre: str, bars: int = 8) -> dict[str, list[int]]:
@@ -114,6 +116,30 @@ class MIDIGenerator:
     # ------------------------------------------------------------------ #
     #  DRUM PATTERN
     # ------------------------------------------------------------------ #
+    @staticmethod
+    def _drum_events(genre: str) -> list[tuple[int, int]]:
+        """Return the 16-step note/velocity pattern for a supported drum genre."""
+        normalized = (genre or "").lower()
+        if "techno" in normalized or "house" in normalized:
+            return [(36, 110) if index % 4 == 0 else (42, 78) for index in range(16)]
+        if "phonk" in normalized or "drift" in normalized:
+            return [
+                (36, 118) if index in (0, 6, 10) else (38, 100) if index in (4, 12)
+                else (56, 90) if index == 8 else (42, 70)
+                for index in range(16)
+            ]
+        if "trap" in normalized or "hiphop" in normalized or "hip-hop" in normalized:
+            return [
+                (36, 115) if index in (0, 10) else (38, 105) if index in (4, 12)
+                else (42, random.randint(55, 95))
+                for index in range(16)
+            ]
+        return [
+            (36, 108) if index in (0, 8) else (38, 102) if index in (4, 12)
+            else (42, random.randint(70, 90))
+            for index in range(16)
+        ]
+
     def generate_drum_pattern(self, genre: str, bpm: int) -> str:
         """Генерирует MIDI барабанный паттерн в зависимости от жанра.
 
@@ -133,61 +159,19 @@ class MIDIGenerator:
             track.append(mido.MetaMessage('set_tempo', tempo=tempo))
 
             ticks_per_16th = max(1, mid.ticks_per_beat // 4)
-            g = (genre or "").lower()
+            for note, velocity in self._drum_events(genre):
+                track.append(Message('note_on', note=note, velocity=velocity, time=0))
+                track.append(
+                    Message('note_off', note=note, velocity=velocity, time=ticks_per_16th)
+                )
 
-            if "techno" in g or "house" in g:
-                # 4-on-the-floor kick + off-beat hats
-                for i in range(16):
-                    if i % 4 == 0:
-                        track.append(Message('note_on', note=36, velocity=110, time=0))
-                        track.append(Message('note_off', note=36, velocity=110, time=ticks_per_16th))
-                    else:
-                        track.append(Message('note_on', note=42, velocity=78, time=0))
-                        track.append(Message('note_off', note=42, velocity=78, time=ticks_per_16th))
-            elif "phonk" in g or "drift" in g:
-                # Cowbell + syncopated kick — classic drift-phonk
-                for i in range(16):
-                    if i in (0, 6, 10):
-                        note, vel = 36, 118
-                    elif i in (4, 12):
-                        note, vel = 38, 100
-                    elif i == 8:
-                        note, vel = 56, 90  # cowbell
-                    else:
-                        note, vel = 42, 70
-                    track.append(Message('note_on', note=note, velocity=vel, time=0))
-                    track.append(Message('note_off', note=note, velocity=vel, time=ticks_per_16th))
-            elif "trap" in g or "hiphop" in g or "hip-hop" in g:
-                # Trap: kick/snare + rolling hats
-                for i in range(16):
-                    if i == 0 or i == 10:
-                        note, vel = 36, 115
-                    elif i in (4, 12):
-                        note, vel = 38, 105
-                    else:
-                        # rolling hats with velocity variation
-                        note = 42
-                        vel = random.randint(55, 95)
-                    track.append(Message('note_on', note=note, velocity=vel, time=0))
-                    track.append(Message('note_off', note=note, velocity=vel, time=ticks_per_16th))
-            else:
-                # Default: pop-rock 4/4
-                for i in range(16):
-                    if i in (0, 8):
-                        note, vel = 36, 108
-                    elif i in (4, 12):
-                        note, vel = 38, 102
-                    else:
-                        note, vel = 42, random.randint(70, 90)
-                    track.append(Message('note_on', note=note, velocity=vel, time=0))
-                    track.append(Message('note_off', note=note, velocity=vel, time=ticks_per_16th))
-
-            safe_genre = "".join(c for c in g if c.isalnum() or c in ("_", "-")) or "gen"
+            normalized = (genre or "").lower()
+            safe_genre = "".join(c for c in normalized if c.isalnum() or c in ("_", "-")) or "gen"
             out_path = os.path.join(self.output_dir, f"{safe_genre}_drums.mid")
             mid.save(out_path)
             return out_path
-        except Exception as e:
-            print(f"[midi_generator] drum error: {e}")
+        except Exception as error:
+            LOGGER.warning("MIDI drum export failed: %s", error)
             return ""
 
     # ------------------------------------------------------------------ #

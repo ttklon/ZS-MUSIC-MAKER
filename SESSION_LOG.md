@@ -927,3 +927,10 @@ Voice draft synthesis now centralizes verified-output checks and ordered candida
 Health `collect()` now delegates dependency probing, readiness scoring, advice and report persistence to dedicated helpers while preserving GUI/core scoring, verdict thresholds and output shape. Deterministic fake-probe regression validates 62-point YELLOW scoring, advice and JSON persistence without optional-model loading.
 
 Приёмка: focused health test 1 PASS; `pytest tests/ -q` = **269 PASS**, compileall/AST OK, data inventory 73/0/0. Fresh audit: **33 HIGH_COMPLEXITY** (was 34), none in `modules/health_v12.py`; total **886** heuristic records across 222 files.
+
+---
+## APP_L v40 — MIDI drum-pattern decomposition
+
+MIDI drum genre selection now lives in pure `_drum_events`; the export path only serializes its 16-step pattern and logs export errors. Techno/phonk/default placement regressions run without mido. The module still honestly returns empty when mido is absent; no export availability is claimed.
+
+Приёмка: focused MIDI suite 3 PASS; `pytest tests/ -q` = **272 PASS**, compileall/AST OK, data inventory 73/0/0. Fresh audit: HIGH_COMPLEXITY **32** (was 33), BARE_PRINT **316** (was 317); **884** total heuristic records across 223 files. Remaining MIDI prints are explicit CLI/self-test output.
