@@ -920,3 +920,10 @@ Unreadable persistent Voice Vault index now yields the same compatible empty-ind
 Voice draft synthesis now centralizes verified-output checks and ordered candidate attempts, uses structured logging for backend failure, and returns an honest empty result when no engine writes a valid file. Tests use fakes only: verified primary output, XTTS→Silero fallback and total failure; no TTS backend/model/network claim is made.
 
 Приёмка: focused voice-synth suite 3 PASS; `pytest tests/ -q` = **268 PASS**, compileall/AST OK, data inventory 73/0/0. Fresh audit: HIGH_COMPLEXITY **34** (was 35), BARE_PRINT **317** (was 325), SILENT_EXCEPT_PASS **113** (was 114); **886** total heuristic records across 221 files. One remaining voice_synth print is explicit `__main__` CLI output.
+
+---
+## APP_L v40 — health-report collection decomposition
+
+Health `collect()` now delegates dependency probing, readiness scoring, advice and report persistence to dedicated helpers while preserving GUI/core scoring, verdict thresholds and output shape. Deterministic fake-probe regression validates 62-point YELLOW scoring, advice and JSON persistence without optional-model loading.
+
+Приёмка: focused health test 1 PASS; `pytest tests/ -q` = **269 PASS**, compileall/AST OK, data inventory 73/0/0. Fresh audit: **33 HIGH_COMPLEXITY** (was 34), none in `modules/health_v12.py`; total **886** heuristic records across 222 files.

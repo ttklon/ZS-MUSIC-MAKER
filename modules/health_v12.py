@@ -218,103 +218,92 @@ def _advice_for(probe: ProbeResult) -> str | None:
     return hint.get(probe.key)
 
 
-def collect(save_to: Path | None = None) -> HealthReport:
-    """Собрать полный health-report."""
-    rep = HealthReport()
-    rep.generated_at_human = time.strftime(
-        "%Y-%m-%d %H:%M:%S UTC", time.gmtime(rep.generated_at)
-    )
-    rep.platform = platform.platform()
-    rep.python = sys.version.split()[0]
-    rep.hw_profile = _hw_probe()
-
-    # 4.1 внешние зависимости
+def _collect_external_checks(report: HealthReport) -> bool:
+    """Probe external dependencies and return whether a GUI backend is usable."""
     gui_group_ok = False
     for entry in CHECKS:
-        r = _probe(entry["mod"], entry["name"], entry["req"])
-        rep.externals.append(r.as_dict())
-        if entry.get("group") == "gui" and r.ok:
+        probe = _probe(entry["mod"], entry["name"], entry["req"])
+        report.externals.append(probe.as_dict())
+        if entry.get("group") == "gui" and probe.ok:
             gui_group_ok = True
+    return gui_group_ok
 
-    # 4.2 внутренние
-    for mp in INTERNAL_MODULES:
-        r = _probe(mp, mp, "internal")
-        rep.internals.append(r.as_dict())
 
-    # 4.3 сводка
-    core_missing = [
-        e for e in rep.externals if e["requirement"] == "core" and not e["ok"]
-    ]
-    quality_missing = [
-        e for e in rep.externals if e["requirement"] == "quality" and not e["ok"]
-    ]
-    optional_ok = [
-        e for e in rep.externals if e["requirement"] == "optional" and e["ok"]
-    ]
-    optional_all = [e for e in rep.externals if e["requirement"] == "optional"]
+def _collect_internal_checks(report: HealthReport) -> None:
+    """Probe internal project modules into the supplied report."""
+    for module_path in INTERNAL_MODULES:
+        report.internals.append(_probe(module_path, module_path, "internal").as_dict())
 
-    rep.core_ok = (not core_missing) and gui_group_ok
-    rep.quality_ok = not quality_missing
-    rep.optional_ok_count = len(optional_ok)
-    rep.optional_total = len(optional_all)
 
-    internal_ok = sum(1 for e in rep.internals if e["ok"])
-    internal_total = max(1, len(rep.internals))
+def _calculate_readiness(report: HealthReport, gui_group_ok: bool) -> None:
+    """Apply the stable health-report weighting and verdict rules."""
+    core_missing = [entry for entry in report.externals if entry["requirement"] == "core" and not entry["ok"]]
+    quality_missing = [entry for entry in report.externals if entry["requirement"] == "quality" and not entry["ok"]]
+    optional_all = [entry for entry in report.externals if entry["requirement"] == "optional"]
+    optional_ok = [entry for entry in optional_all if entry["ok"]]
+    quality_total = max(1, len([entry for entry in report.externals if entry["requirement"] == "quality"]))
+    internal_total = max(1, len(report.internals))
+    internal_ok = sum(1 for entry in report.internals if entry["ok"])
 
-    # Взвешенный процент готовности
-    core_w = 40  # ядро
-    qual_w = 30  # качество
-    opt_w = 15  # тяжёлые модели
-    int_w = 15  # внутренние модули проекта
-
-    core_score = core_w if rep.core_ok else 0
-    qual_score = int(
-        qual_w
-        * (
-            1
-            - len(quality_missing)
-            / max(1, len([e for e in rep.externals if e["requirement"] == "quality"]))
-        )
+    report.core_ok = not core_missing and gui_group_ok
+    report.quality_ok = not quality_missing
+    report.optional_ok_count = len(optional_ok)
+    report.optional_total = len(optional_all)
+    core_score = 40 if report.core_ok else 0
+    quality_score = int(30 * (1 - len(quality_missing) / quality_total))
+    optional_score = int(15 * report.optional_ok_count / max(1, report.optional_total))
+    internal_score = int(15 * internal_ok / internal_total)
+    report.percent_ready = core_score + quality_score + optional_score + internal_score
+    report.verdict = "RED" if not report.core_ok else (
+        "YELLOW" if not report.quality_ok or report.percent_ready < 70 else "GREEN"
     )
-    opt_score = int(opt_w * rep.optional_ok_count / max(1, rep.optional_total))
-    int_score = int(int_w * internal_ok / internal_total)
 
-    rep.percent_ready = core_score + qual_score + opt_score + int_score
 
-    if not rep.core_ok:
-        rep.verdict = "RED"
-    elif not rep.quality_ok or rep.percent_ready < 70:
-        rep.verdict = "YELLOW"
-    else:
-        rep.verdict = "GREEN"
-
-    # 4.4 советы
-    for e in rep.externals:
-        if not e["ok"]:
-            # Быстро сконструируем псевдо-ProbeResult для _advice_for
-            r = ProbeResult(
-                e["key"], e["name"], e["requirement"], False, None, e.get("error")
+def _append_advice(report: HealthReport) -> None:
+    """Append actionable advice for unavailable external and internal components."""
+    for entry in report.externals:
+        if not entry["ok"]:
+            advice = _advice_for(
+                ProbeResult(
+                    entry["key"], entry["name"], entry["requirement"], False,
+                    None, entry.get("error"),
+                )
             )
-            adv = _advice_for(r)
-            if adv:
-                rep.advice.append(f"[{e['requirement'].upper()}] {e['name']}: {adv}")
-    for e in rep.internals:
-        if not e["ok"]:
-            rep.advice.append(
-                f"[INTERNAL] {e['name']} не импортируется: {e.get('error')}"
+            if advice:
+                report.advice.append(f"[{entry['requirement'].upper()}] {entry['name']}: {advice}")
+    for entry in report.internals:
+        if not entry["ok"]:
+            report.advice.append(
+                f"[INTERNAL] {entry['name']} не импортируется: {entry.get('error')}"
             )
 
-    if save_to is None:
-        save_to = ROOT / "data" / "health_v12.json"
+
+def _write_report(report: HealthReport, save_to: Path) -> None:
+    """Persist the report while preserving the existing non-fatal write policy."""
     try:
         save_to.parent.mkdir(parents=True, exist_ok=True)
         save_to.write_text(
-            json.dumps(rep.as_dict(), ensure_ascii=False, indent=2), encoding="utf-8"
+            json.dumps(report.as_dict(), ensure_ascii=False, indent=2), encoding="utf-8"
         )
     except Exception:  # noqa: BLE001
         traceback.print_exc()
 
-    return rep
+
+def collect(save_to: Path | None = None) -> HealthReport:
+    """Collect dependency status, readiness scoring, advice and a persisted report."""
+    report = HealthReport()
+    report.generated_at_human = time.strftime(
+        "%Y-%m-%d %H:%M:%S UTC", time.gmtime(report.generated_at)
+    )
+    report.platform = platform.platform()
+    report.python = sys.version.split()[0]
+    report.hw_profile = _hw_probe()
+    gui_group_ok = _collect_external_checks(report)
+    _collect_internal_checks(report)
+    _calculate_readiness(report, gui_group_ok)
+    _append_advice(report)
+    _write_report(report, save_to or ROOT / "data" / "health_v12.json")
+    return report
 
 
 # ---------------------------------------------------------------------------
