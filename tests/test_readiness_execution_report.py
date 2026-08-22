@@ -38,9 +38,12 @@ def test_execution_report_marks_only_git_evidenced_steps(monkeypatch, tmp_path) 
     assert target.read_text(encoding="utf-8") == report
 
 
-def test_report_cli_writes_versioned_execution_report(capsys) -> None:
+def test_report_cli_writes_execution_report(capsys, monkeypatch, tmp_path) -> None:
+    target = tmp_path / "PLAN_v39_EXEC_REPORT.md"
+    monkeypatch.setattr(readiness, "EXECUTION_REPORT_PATH", target)
+
     assert readiness.main(["--report"]) == 0
     output = capsys.readouterr().out
 
-    assert "execution report: docs/PLAN_v39_EXEC_REPORT.md" in output
-    assert readiness.EXECUTION_REPORT_PATH.exists()
+    assert "execution report:" in output
+    assert target.exists()

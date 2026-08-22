@@ -530,10 +530,11 @@ def execution_report_markdown() -> str:
     return "\n".join(lines)
 
 
-def write_execution_report(path: Path = EXECUTION_REPORT_PATH) -> Path:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(execution_report_markdown(), encoding="utf-8")
-    return path
+def write_execution_report(path: Path | None = None) -> Path:
+    target = path or EXECUTION_REPORT_PATH
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(execution_report_markdown(), encoding="utf-8")
+    return target
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -565,7 +566,8 @@ def main(argv: list[str] | None = None) -> int:
         report_path = write_execution_report()
         rows = execution_report_rows()
         committed = sum(row["status"] == "COMMITTED" for row in rows)
-        print(f"execution report: {report_path.relative_to(ROOT)} ({committed}/{len(rows)} committed headings)")
+        display_path = report_path.relative_to(ROOT) if report_path.is_relative_to(ROOT) else report_path
+        print(f"execution report: {display_path} ({committed}/{len(rows)} committed headings)")
         return 0
     pct, blocks = compute()
     print(json.dumps({"percent": pct, "blocks": blocks}, ensure_ascii=False, indent=2))
