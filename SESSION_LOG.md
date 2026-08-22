@@ -1018,3 +1018,10 @@ Legacy clean_vocal fallback copies now report either the compatible output path 
 The optional `pyloudnorm` meter now exposes provenance: a failed reading logs a warning and returns typed `dbfs_estimate` diagnostics; missing support is labelled unavailable. The canonical NumPy DSP master remains valid, but is no longer represented as a true LUFS measurement when only the fallback estimate exists.
 
 Приёмка: focused mastering LUFS suite 2 PASS; `pytest tests/ -q` = **289 PASS, 1 expected deprecation warning**, compileall/AST OK, data inventory 73/0/0. Fresh audit: SILENT_EXCEPT_PASS **106** (was 107), none in `modules/mastering.py`; **878** total heuristic records across 234 files.
+
+---
+## APP_L v40 — hit-score LUFS observability
+
+The hit scorer now carries loudness provenance: `pyloudnorm` success remains distinct from missing or failed optional analysis, which returns an explicit RMS estimate with diagnostics. The existing score/raw metric tuple contract is preserved; an estimate is not represented as a measured LUFS capability.
+
+Приёмка: focused hit-score LUFS suite 2 PASS; `pytest tests/ -q` = **291 PASS, 1 expected deprecation warning**, compileall/AST OK, data inventory 73/0/0. Fresh audit: SILENT_EXCEPT_PASS **105** (was 106), none in `modules/hit_scorer.py`; **878** total heuristic records across 235 files.

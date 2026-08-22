@@ -36,6 +36,7 @@ Graceful fallback при отсутствии librosa: только LUFS-под�
 from __future__ import annotations
 
 import json
+import logging
 import math
 import time
 from functools import lru_cache
@@ -263,15 +264,27 @@ def _bpm_dance_fitness(y, sr) -> tuple[float, float]:
         return 60.0, 0.0
 
 
-def _loudness_lufs(y, sr) -> tuple[float, float]:
-    """Интегральная громкость. Использует pyloudnorm (BS.1770) если есть, иначе RMS-fallback.
-    
-    v26 FIX (P1): librosa грузит mono-downmix (L+R)/2 — теряет ~3 dB RMS
-    относительно стерео dBFS. Sweet-spot сдвинут на -3 dB.
-    """
+def _loudness_rms_estimate(y) -> tuple[float, float]:
+    """Возвращает существующую RMS-based pseudo-LUFS оценку."""
+    rms = _rms(y)
+    dbfs = _db(rms)
+    if -14.0 <= dbfs <= -10.0:
+        score = 95.0
+    elif -17.0 <= dbfs < -14.0:
+        score = 75.0
+    elif -10.0 < dbfs <= -7.0:
+        score = 80.0
+    elif -7.0 < dbfs <= -4.0:
+        score = 60.0
+    else:
+        score = 40.0
+    return score, dbfs
+
+
+def _loudness_lufs_status(y, sr) -> tuple[tuple[float, float], dict[str, str]]:
+    """Возвращает loudness score и provenance optional pyloudnorm метрики."""
     if np is None:
-        return 60.0, -14.0
-        
+        return (60.0, -14.0), {"engine": "default_estimate", "status": "unavailable"}
     if HAS_PYLOUDNORM:
         try:
             # y is mono from _load_audio
@@ -286,24 +299,21 @@ def _loudness_lufs(y, sr) -> tuple[float, float]:
                 score = 85.0
             else:
                 score = 50.0
-            return score, lufs
-        except Exception:
-            pass
+            return (score, lufs), {"engine": "pyloudnorm"}
+        except Exception as exc:
+            _LOG.warning("pyloudnorm analysis failed; using RMS estimate: %s", exc)
+            estimate = _loudness_rms_estimate(y)
+            return estimate, {
+                "engine": "rms_estimate",
+                "status": "failed",
+                "error": f"{type(exc).__name__}: {exc}",
+            }
+    return _loudness_rms_estimate(y), {"engine": "rms_estimate", "status": "unavailable"}
 
-    # Fallback to RMS-based pseudo-LUFS
-    rms = _rms(y)
-    dbfs = _db(rms)
-    if -14.0 <= dbfs <= -10.0:
-        score = 95.0
-    elif -17.0 <= dbfs < -14.0:
-        score = 75.0
-    elif -10.0 < dbfs <= -7.0:
-        score = 80.0
-    elif -7.0 < dbfs <= -4.0:
-        score = 60.0
-    else:
-        score = 40.0
-    return score, dbfs
+
+def _loudness_lufs(y, sr) -> tuple[float, float]:
+    """Совместимый loudness API без изменения score/raw tuple контракта."""
+    return _loudness_lufs_status(y, sr)[0]
 
 
 def _stereo_width(path: str) -> tuple[float, float]:
@@ -411,6 +421,8 @@ def _novelty(y, sr) -> tuple[float, float]:
 
 
 # ============================================================ verdict
+_LOG = logging.getLogger(__name__)
+
 WEIGHTS = {
     "hook_energy": 1.5,
     "hook_repeatability": 1.3,
@@ -545,9 +557,11 @@ def score_track(master_wav: str, out_json: str | None = None, sr: int = 22050) -
         "instant-hook 25 sec slice for TikTok",
     )
     _add("bpm_dance_fitness", _bpm_dance_fitness(y, s), "BPM in dance/trap sweet spot")
+    loudness_result, loudness_provenance = _loudness_lufs_status(y, s)
     _add(
-        "loudness_lufs", _loudness_lufs(y, s), "integrated dBFS ≈ LUFS streaming target"
+        "loudness_lufs", loudness_result, "integrated dBFS ≈ LUFS streaming target"
     )
+    metrics["loudness_lufs"]["provenance"] = loudness_provenance
     _add("stereo_width", _stereo_width(str(p)), "channel correlation 0.6-0.85")
     _add("low_end_power", _low_end_power(y, s), "20-80 Hz vs 200-2000 Hz ratio")
     _add("vocal_presence", _vocal_presence(y, s), "2-5 kHz vocal readability")
