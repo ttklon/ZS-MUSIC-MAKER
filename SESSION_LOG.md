@@ -1137,3 +1137,10 @@ GUI theme application now returns explicit applied or typed failed status while 
 KPI detector score coercion now retains typed malformed-value diagnostics while preserving the existing scalar score API. Invalid values do not fabricate a score; valid nested percentages remain compatible.
 
 Приёмка: focused KPI detector suite 2 PASS; `pytest tests/ -q` = **316 PASS, 1 expected deprecation warning**, compileall/AST OK, data inventory 73/0/0. Fresh audit: SILENT_EXCEPT_PASS **87** (was 88), none in `modules/hit_kpi_monitor_v11.py`; **878** total heuristic records across 250 files.
+
+---
+## APP_L v40 — Analyzer Essentia observability
+
+Single-track analysis now distinguishes successful optional Essentia descriptors from unavailable or failed descriptor extraction while retaining core metrics and never fabricating danceability output.
+
+Приёмка: focused Analyzer Essentia suite 1 PASS; `pytest tests/ -q` = **317 PASS, 1 expected deprecation warning**, compileall/AST OK, data inventory 73/0/0. Fresh audit: SILENT_EXCEPT_PASS **86** (was 87), none in `modules/analyzer.py`; **878** total heuristic records across 251 files.

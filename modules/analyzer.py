@@ -76,6 +76,7 @@ def analyze_single(path: str) -> dict:
 
     # Essentia-дескрипторы (опционально)
     essentia_desc = {}
+    essentia_status = {"ok": False, "status": "unavailable_or_failed"}
     try:
         import essentia.standard as estd
 
@@ -83,8 +84,9 @@ def analyze_single(path: str) -> dict:
         audio = loader()
         danceability = estd.Danceability()(audio)
         essentia_desc["danceability"] = round(float(danceability[0]), 3)
-    except Exception:
-        pass
+        essentia_status = {"ok": True, "status": "applied"}
+    except Exception as exc:
+        essentia_status = {"ok": False, "status": "failed", "error": f"{type(exc).__name__}: {exc}"}
 
     return {
         "path": path,
@@ -104,6 +106,7 @@ def analyze_single(path: str) -> dict:
         "drop_section": drop_section,
         "vibe_tags": _infer_vibe(bpm_val, centroid, bass_energy, mode),
         "essentia": essentia_desc,
+        "essentia_status": essentia_status,
     }
 
 
