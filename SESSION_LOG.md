@@ -601,3 +601,10 @@ Metadata validator теперь требует title 3–80, обе descriptions
 RenderQueue now persists to `queue.json`, reads the legacy state file only for compatibility, supports numeric priority with FIFO ties, and persists `set_priority`. Pending cancellation remains terminal; restart returns only non-cancelled running work to pending and retains cancellation requests as cancelled.
 
 Приёмка: scenario of 3 tasks/cancelled middle/high-priority third/restart recovery PASS. Полный `pytest tests/ -q` = **194 PASS**, compileall/AST OK, data inventory 73/0/0.
+
+---
+## PLAN_v39 — ШАГ 085: user creative preferences
+
+User profile now stores validated non-PII genres/language/text style/default beat; a narrow prompt projection excludes artist name and history. Lyrics, metadata and music prompt builders honor this projection. An initial full suite exposed an unwanted default-prompt write of `data/user_profile.json`; corrected prompt defaults are now read-only and the artifact was removed.
+
+Приёмка: preference persistence/PII exclusion regressions PASS; полный `pytest tests/ -q` = **197 PASS**, compileall/AST OK, data inventory 73/0/0.

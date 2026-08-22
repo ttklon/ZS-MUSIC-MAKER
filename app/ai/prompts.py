@@ -123,6 +123,32 @@ def _render_role_assets(role: str, **context: Any) -> str:
     return "\n\n".join(render_prompt_asset(name, **context) for name in prompt_assets_for_role(role))
 
 
+def prompt_profile_context(profile: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Return only validated non-PII creative preferences for prompt composition."""
+    from modules.user_profile import prompt_preferences
+
+    preferences = prompt_preferences(profile)
+    return {
+        "preferred_genres": ", ".join(preferences["genres"]),
+        "language": preferences["language"],
+        "text_style": preferences["text_style"],
+        "default_bpm": preferences["default_beat"]["bpm"],
+        "default_key": preferences["default_beat"]["key"],
+        "default_mood": preferences["default_beat"]["mood"],
+    }
+
+
+def _profile_instruction(profile: dict[str, Any] | None) -> str:
+    context = prompt_profile_context(profile)
+    return (
+        "Творческие предпочтения пользователя (не биографические данные):\n"
+        f"  любимые жанры: {context['preferred_genres']}\n"
+        f"  язык: {context['language']}\n"
+        f"  стиль текста: {context['text_style']}\n"
+        f"  default beat: {context['default_bpm']} BPM, {context['default_key']}, {context['default_mood']}"
+    )
+
+
 def build_lyrics_prompt(
     theme: str,
     genre: str,
@@ -132,12 +158,14 @@ def build_lyrics_prompt(
     user_lines: list[str] | None = None,
     artist_dossier: dict[str, Any] | None = None,
     track_reference: dict[str, Any] | None = None,
+    user_profile: dict[str, Any] | None = None,
 ) -> str:
+    preference_context = prompt_profile_context(user_profile)
     context = {
         "theme": theme,
         "genre": genre,
         "bpm": bpm,
-        "language": "ru",
+        "language": preference_context["language"],
         "user_lines": "\n".join(user_lines or []) or _DEFAULT_CONTEXT["user_lines"],
     }
     parts = [SYSTEM_LYRICS, _render_role_assets("lyrics", **context)]
@@ -148,6 +176,7 @@ def build_lyrics_prompt(
             f"BPM: {bpm}",
             f"Куплетов: {n_verses}",
             f"Билингвал (RU куплеты + EN хук): {'да' if bilingual else 'нет'}",
+            _profile_instruction(user_profile),
         ]
     )
     if user_lines:
@@ -189,13 +218,16 @@ def build_track_dossier_prompt(title: str, lyrics: str, features: dict[str, Any]
     )
 
 
-def build_metadata_prompt(theme: str, style: str, snippet: str) -> str:
-    context = {"theme": theme, "genre": style, "title": "Untitled", "artist": "Independent artist"}
+def build_metadata_prompt(
+    theme: str, style: str, snippet: str, user_profile: dict[str, Any] | None = None
+) -> str:
+    preferences = prompt_profile_context(user_profile)
+    context = {"theme": theme, "genre": style, "title": "Untitled", "artist": "Independent artist", "language": preferences["language"]}
     return "\n\n".join(
         (
             SYSTEM_METADATA,
             _render_role_assets("metadata", **context),
-            f"Тема: {theme}\nСтиль: {style}\n\nКусок лирики:\n{snippet[:1200]}\n\nВыдай JSON {{title, spotify_desc, youtube_desc, tags_tiktok, tags_instagram}}.",
+            f"Тема: {theme}\nСтиль: {style}\n{_profile_instruction(user_profile)}\n\nКусок лирики:\n{snippet[:1200]}\n\nВыдай JSON {{title, spotify_desc, youtube_desc, tags_tiktok, tags_instagram}}.",
         )
     )
 
@@ -207,8 +239,17 @@ def build_music_prompt(
     mood: str,
     reference_artist: str | None = None,
     reference_track_features: dict[str, Any] | None = None,
+    user_profile: dict[str, Any] | None = None,
 ) -> str:
-    parts = [f"{genre}", f"{bpm} BPM", f"{key} key", f"mood: {mood}"]
+    preferences = prompt_profile_context(user_profile)
+    parts = [
+        f"{genre}",
+        f"{bpm} BPM",
+        f"{key} key",
+        f"mood: {mood}",
+        f"preferred genres: {preferences['preferred_genres']}",
+        f"default beat preference: {preferences['default_bpm']} BPM, {preferences['default_key']}, {preferences['default_mood']}",
+    ]
     if reference_artist:
         parts.append(f"in the style of {reference_artist}")
     if reference_track_features:
