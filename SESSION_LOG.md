@@ -983,3 +983,10 @@ Arrangement planning now separates genre drum preferences, variant energy, trans
 Voice Vault phoneme scanning now preserves valid transcripts while reporting unreadable text/JSON inputs through persisted typed diagnostics. A temporary-vault regression proves malformed JSON is non-fatal and observable; no repository vault data or model backend is used.
 
 Приёмка: focused phoneme-coverage suite 1 PASS; `pytest tests/ -q` = **280 PASS, 1 expected deprecation warning**, compileall/AST OK, data inventory 73/0/0. Fresh audit: SILENT_EXCEPT_PASS **112** (was 114), none in `modules/phoneme_coverage.py`; **877** total heuristic records across 229 files.
+
+---
+## APP_L v40 — vocal-FX failure observability
+
+Vocal FX now returns an explicit failure when a post-throw fallback copy cannot be written and exposes non-fatal temporary-cleanup failures through `cleanup_warnings`. Fake-DSP regressions prove both contracts; no neural voice processing is claimed.
+
+Приёмка: focused vocal-FX suite 2 PASS; `pytest tests/ -q` = **282 PASS, 1 expected deprecation warning**, compileall/AST OK, data inventory 73/0/0. Fresh audit: SILENT_EXCEPT_PASS **110** (was 112), none in `modules/vocal_fx.py`; **877** total heuristic records across 230 files.

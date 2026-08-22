@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import json
 import math
+import shutil
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -342,12 +343,15 @@ def process_vocal(
         else:
             # throw не критичен — остаёмся на double
             try:
-                import shutil
-
                 shutil.copy(cur, out_wav)
                 cur = out_wav
-            except Exception:
-                pass
+            except (OSError, shutil.Error) as error:
+                return {
+                    "ok": False,
+                    "engine": "none",
+                    "reason": f"throw failed and fallback copy could not be written: {error}",
+                    "cleaner": cleaner,
+                }
 
     if not stages:
         # оба не сработали — честно сообщаем, не делаем скрытый copy
@@ -355,21 +359,25 @@ def process_vocal(
 
     if stages == ["clean"]:
         try:
-            import shutil
-
             shutil.copy(cur, out_wav)
             cur = out_wav
-        except Exception:
-            return {"ok": False, "engine": "none", "reason": "clean vocal could not be finalized"}
+        except (OSError, shutil.Error) as error:
+            return {
+                "ok": False,
+                "engine": "none",
+                "reason": f"clean vocal could not be finalized: {error}",
+                "cleaner": cleaner,
+            }
 
     # подчистить временные файлы, не удаляя текущий итог
+    cleanup_warnings: list[str] = []
     for temporary in (tmp_clean, tmp_double):
+        path = Path(temporary)
         try:
-            path = Path(temporary)
             if path.exists() and str(path) != str(cur):
                 path.unlink()
-        except Exception:
-            pass
+        except OSError as error:
+            cleanup_warnings.append(f"{path.name}: {type(error).__name__}: {error}")
 
     return {
         "ok": True,
@@ -382,6 +390,7 @@ def process_vocal(
         "throw_used": "throw" in stages,
         "clean_used": "clean" in stages,
         "cleaner": cleaner,
+        "cleanup_warnings": cleanup_warnings,
     }
 
 
