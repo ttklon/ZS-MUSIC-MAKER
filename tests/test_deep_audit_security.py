@@ -59,3 +59,21 @@ def test_deep_audit_honors_noqa_and_relative_reexport_imports(
 
     assert [issue["kind"] for issue in issues] == ["DEAD_IMPORT"]
     assert "actually_unused" in issues[0]["msg"]
+
+
+def test_path_audit_excludes_test_fixtures_but_keeps_production_literals(
+    tmp_path: Path, monkeypatch
+) -> None:
+    production = tmp_path / "module.py"
+    tests_dir = tmp_path / "tests"
+    tests_dir.mkdir()
+    fixture = tests_dir / "test_privacy.py"
+    production.write_text('path = "/tmp/real-output.wav"\n', encoding="utf-8")
+    fixture.write_text('secret_path = "/home/alice/private.txt"\n', encoding="utf-8")
+    monkeypatch.setattr(deep_audit_v40, "ROOT", tmp_path)
+
+    production_kinds = [issue["kind"] for issue in deep_audit_v40.audit_file(production)["issues"]]
+    fixture_kinds = [issue["kind"] for issue in deep_audit_v40.audit_file(fixture)["issues"]]
+
+    assert "HARDCODED_POSIX_PATH" in production_kinds
+    assert "HARDCODED_POSIX_PATH" not in fixture_kinds

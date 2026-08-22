@@ -775,3 +775,10 @@ Deep audit aligned with established AST semantics: ignores `__future__` directiv
 `main._try_launch_gui_pyside()` больше не молча подавляет сбой `theme_v12.apply(app)`: Wizard startup retains non-fatal fallback but emits `_safe_print` with exception reason. Focused fake-GUI test verifies diagnostic and normal event-loop exit; other structured fallback handlers remain out of this scoped semantic change.
 
 Приёмка: focused 1 PASS; `pytest tests/ -q` = **245 PASS**, compileall/AST OK, data inventory 73/0/0.
+
+---
+## APP_L v40 — path audit scope
+
+HARDCODED_POSIX_PATH now evaluates production sources only; deliberate test PII/path fixtures and the detector’s own regex are no longer HIGH deployment findings. Production scanning remains enabled. Regenerated audit: **917** findings / 210 files, with **1** remaining production POSIX path explicitly not closed here.
+
+Приёмка: focused 5 PASS; `pytest tests/ -q` = **246 PASS**, compileall/AST OK, data inventory 73/0/0.

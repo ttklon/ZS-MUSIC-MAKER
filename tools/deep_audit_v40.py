@@ -243,7 +243,10 @@ def audit_file(p: Path) -> dict:
             )
             report["risk_score"] += 3
         m = re.search(r'["\'](/(?:home|Users|tmp|var/tmp|opt/homebrew)/[^"\']+)["\']', line)
-        if m:
+        # Test fixtures intentionally model sensitive/foreign paths, and this
+        # detector naturally contains its own path regex. Neither is a shipped
+        # production portability defect.
+        if m and not rel.startswith("tests/") and rel != "tools/deep_audit_v40.py":
             report["issues"].append(
                 {"line": i, "kind": "HARDCODED_POSIX_PATH", "msg": m.group(1)[:120]}
             )
