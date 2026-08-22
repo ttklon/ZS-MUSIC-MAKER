@@ -1025,3 +1025,10 @@ The optional `pyloudnorm` meter now exposes provenance: a failed reading logs a 
 The hit scorer now carries loudness provenance: `pyloudnorm` success remains distinct from missing or failed optional analysis, which returns an explicit RMS estimate with diagnostics. The existing score/raw metric tuple contract is preserved; an estimate is not represented as a measured LUFS capability.
 
 Приёмка: focused hit-score LUFS suite 2 PASS; `pytest tests/ -q` = **291 PASS, 1 expected deprecation warning**, compileall/AST OK, data inventory 73/0/0. Fresh audit: SILENT_EXCEPT_PASS **105** (was 106), none in `modules/hit_scorer.py`; **878** total heuristic records across 235 files.
+
+---
+## APP_L v40 — Voice Vault transcription observability
+
+Voice Vault now persists `transcription` provenance alongside the existing transcript. Each failed optional backend is explicitly captured with a typed error and warning; missing text is no longer indistinguishable from a successful transcription. No backend/model result is fabricated.
+
+Приёмка: focused Voice Vault transcription suite 2 PASS; `pytest tests/ -q` = **293 PASS, 1 expected deprecation warning**, compileall/AST OK, data inventory 73/0/0. Fresh audit: SILENT_EXCEPT_PASS **103** (was 105), none in `modules/voice_vault_v9.py`; **878** total heuristic records across 236 files.

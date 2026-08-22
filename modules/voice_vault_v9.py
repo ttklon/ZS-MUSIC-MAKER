@@ -128,23 +128,36 @@ def _guess_style(features: dict, hint: str | None = None) -> str:
 
 
 # ============================================================ transcript
-def _transcribe(path: Path) -> str | None:
+def _transcribe_with_diagnostics(path: Path) -> tuple[str | None, dict]:
+    """Пробует доступные Whisper backends и сохраняет причину отсутствия текста."""
+    attempts: list[dict[str, str | bool]] = []
     try:
         from faster_whisper import WhisperModel
 
-        m = WhisperModel("tiny", device="cpu", compute_type="int8")
-        segs, _ = m.transcribe(str(path))
-        return " ".join(s.text.strip() for s in segs)[:500]
-    except Exception:
-        pass
+        model = WhisperModel("tiny", device="cpu", compute_type="int8")
+        segments, _ = model.transcribe(str(path))
+        text = " ".join(segment.text.strip() for segment in segments)[:500]
+        return text, {"ok": True, "engine": "faster_whisper", "attempts": attempts}
+    except Exception as exc:
+        error = f"{type(exc).__name__}: {exc}"
+        LOGGER.warning("faster_whisper transcription unavailable for %s: %s", path, error)
+        attempts.append({"engine": "faster_whisper", "ok": False, "error": error})
     try:
         import whisper
 
-        m = whisper.load_model("tiny")
-        return (m.transcribe(str(path)).get("text") or "")[:500]
-    except Exception:
-        pass
-    return None
+        model = whisper.load_model("tiny")
+        text = (model.transcribe(str(path)).get("text") or "")[:500]
+        return text, {"ok": True, "engine": "whisper", "attempts": attempts}
+    except Exception as exc:
+        error = f"{type(exc).__name__}: {exc}"
+        LOGGER.warning("whisper transcription unavailable for %s: %s", path, error)
+        attempts.append({"engine": "whisper", "ok": False, "error": error})
+    return None, {"ok": False, "engine": None, "attempts": attempts}
+
+
+def _transcribe(path: Path) -> str | None:
+    """Совместимый text-only API для транскрипции записи."""
+    return _transcribe_with_diagnostics(path)[0]
 
 
 def calculate_phoneme_coverage(text: str) -> dict:
@@ -197,7 +210,11 @@ def add_recording(
 
     feats = _snr_and_clipping(dst)
     style = _guess_style(feats, style_hint)
-    transcript = _transcribe(dst) if transcribe else None
+    if transcribe:
+        transcript, transcription = _transcribe_with_diagnostics(dst)
+    else:
+        transcript = None
+        transcription = {"ok": False, "engine": None, "status": "not_requested"}
 
     coverage = calculate_phoneme_coverage(transcript) if transcript else {}
 
@@ -209,6 +226,7 @@ def add_recording(
         "style": style,
         "features": feats,
         "transcript": transcript,
+        "transcription": transcription,
         "coverage": coverage,
         "added_at": time.time(),
         "used_in_rvc_rounds": [],
