@@ -718,3 +718,10 @@ Published packaging metadata now installs `main.py` and exposes `zs-music-maker`
 ## PLAN_v39 — ШАГ 073: execution report из git evidence
 
 `tools/readiness.py --report` regenerated `docs/PLAN_v39_EXEC_REPORT.md` directly from commit subjects. Snapshot at clean post-072 head: **100 headings, 97 COMMITTED, 3 PENDING** — only current 073, 074 and final 100. It does not count uncommitted work or assert code-quality from a commit subject. Final release will regenerate it after the remaining three commits.
+
+---
+## PLAN_v39 — ШАГ 074: plan integrity и память
+
+Добавлен read-only `tools/plan_integrity.py`: strict UTF-8, final newline, same primary heading grammar as execution report, exact ordered 001–100, byte/char/line metrics and SHA-256. Measured PLAN_v39: 3,595,003 bytes; 2,419,839 chars; 26,254 lines; SHA-256 `84c048cd1b223cd375ad2bcac01e8cef9d92bb09f934414d18d28c9e31775e87`.
+
+Приёмка: integrity tests 2 PASS; `pytest tests/ -q` = **237 PASS**, compileall/AST OK, data inventory 73/0/0.
