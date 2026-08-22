@@ -713,3 +713,8 @@ Published packaging metadata now installs `main.py` and exposes `zs-music-maker`
 Добавлен read-only `tools/release_preflight.py`: branch/main, clean tree, `version.json`↔`VERSION`, packaging console entrypoint и локальная/remote availability source-implied tag. Canonical version уже 39.9.0, поэтому финальный кандидат — `v39.9.0`; противоречивый старый target `v39.0.0` не применяется как downgrade. Clean-head preflight/tag проверяется на финальном шаге.
 
 Приёмка: targeted 2 PASS; `pytest tests/ -q` = **235 PASS**, compileall/AST OK, data inventory 73/0/0.
+
+---
+## PLAN_v39 — ШАГ 073: execution report из git evidence
+
+`tools/readiness.py --report` regenerated `docs/PLAN_v39_EXEC_REPORT.md` directly from commit subjects. Snapshot at clean post-072 head: **100 headings, 97 COMMITTED, 3 PENDING** — only current 073, 074 and final 100. It does not count uncommitted work or assert code-quality from a commit subject. Final release will regenerate it after the remaining three commits.

@@ -2,7 +2,7 @@
 
 Status is derived only from local `git log` subjects containing `ШАГ NNN`; `PENDING` does not assess code quality and `COMMITTED` is not a substitute for documented acceptance evidence.
 
-Plan headings: **100**. Git-evidenced commits: **85**. Pending headings: **15**.
+Plan headings: **100**. Git-evidenced commits: **97**. Pending headings: **3**.
 
 | Step | Plan item | Git-evidence status | Commit evidence |
 |---:|---|---|---|
@@ -77,7 +77,7 @@ Plan headings: **100**. Git-evidenced commits: **85**. Pending headings: **15**.
 | 069 | Roadmap и метрики проекта: PROJECT_STATE | COMMITTED | `65c57c9e` PLAN_v39 ШАГ 069: factual project state |
 | 070 | Регресс-сценарии: 15 сквозных прогонов | COMMITTED | `5d3b850f` PLAN_v39 ШАГ 070: app g regression matrix |
 | 071 | Golden-тесты звука: waveform-сравнение | COMMITTED | `278be241` PLAN_v39 ШАГ 071: audio golden regression |
-| 072 | Релиз v39: чеклист и тег | PENDING | — |
+| 072 | Релиз v39: чеклист и тег | COMMITTED | `47974a9c` PLAN_v39 ШАГ 072: add release preflight checklist |
 | 073 | Отчёт по исполнению плана | PENDING | — |
 | 074 | Память плана: замер и финализация | PENDING | — |
 | 075 | Ревизия tools/: единый CLI-стиль (argparse + exit-коды + логи) | COMMITTED | `d3df415d` PLAN_v39 ШАГ 075: unify tools cli contracts |
@@ -94,15 +94,15 @@ Plan headings: **100**. Git-evidenced commits: **85**. Pending headings: **15**.
 | 086 | i18n: двухъязычные локали (RU/EN) заново | COMMITTED | `36c203b0` PLAN_v39 ШАГ 086: restore RU EN i18n |
 | 087 | auto_backup: снапшот перед God Mode прогоном (заново) | COMMITTED | `ac977fe4` PLAN_v39 ШАГ 087: add AI preflight backups |
 | 088 | LICENSES.md: таблица лицензий зависимостей | COMMITTED | `efe116ac` PLAN_v39 ШАГ 088: generate dependency license report |
-| 089 | Манифест исполнения: автоотчёт по каждому шагу | PENDING | — |
-| 090 | DSP: спектральная приёмка и golden-файлы (pro_audio_dsp) | PENDING | — |
-| 091 | Детерминизм классического пайплайна (seed) | PENDING | — |
-| 092 | requirements-профили base/ai/amd + pyproject extras | PENDING | — |
-| 093 | Промпты обложек для всех 50 жанров | PENDING | — |
-| 094 | Телеметрия KPI без PII | PENDING | — |
-| 095 | Офлайн-режим: явные флаги для сетевых вызовов | PENDING | — |
-| 096 | LEGACY-отчёт: что держит патчи v8..v12 | PENDING | — |
-| 097 | Сборка колеса и проверка установки | PENDING | — |
-| 098 | Терминальный прогресс стадий AI (lazy, без GUI) | PENDING | — |
-| 099 | Регресс-база: классический пайплайн без torch | PENDING | — |
+| 089 | Манифест исполнения: автоотчёт по каждому шагу | COMMITTED | `b3a66012` PLAN_v39 ШАГ 089: isolate execution report tests<br>`2e0424fe` PLAN_v39 ШАГ 089: generate execution evidence report |
+| 090 | DSP: спектральная приёмка и golden-файлы (pro_audio_dsp) | COMMITTED | `b65c303b` PLAN_v39 ШАГ 090: add DSP spectral goldens |
+| 091 | Детерминизм классического пайплайна (seed) | COMMITTED | `d237ee33` PLAN_v39 ШАГ 091: make classical pipeline seeded |
+| 092 | requirements-профили base/ai/amd + pyproject extras | COMMITTED | `ab7e68e8` PLAN_v39 ШАГ 092: align dependency profiles |
+| 093 | Промпты обложек для всех 50 жанров | COMMITTED | `8d1e9ba5` PLAN_v39 ШАГ 093: add genre cover prompts |
+| 094 | Телеметрия KPI без PII | COMMITTED | `ab106bb9` PLAN_v39 ШАГ 094: add privacy-safe KPI telemetry |
+| 095 | Офлайн-режим: явные флаги для сетевых вызовов | COMMITTED | `a69c1692` PLAN_v39 ШАГ 095: require explicit network opt-in |
+| 096 | LEGACY-отчёт: что держит патчи v8..v12 | COMMITTED | `2614d6db` PLAN_v39 ШАГ 096: report legacy compatibility gaps |
+| 097 | Сборка колеса и проверка установки | COMMITTED | `7b89ab1c` PLAN_v39 ШАГ 097: build installable wheel |
+| 098 | Терминальный прогресс стадий AI (lazy, без GUI) | COMMITTED | `414bf1cd` PLAN_v39 ШАГ 098: show terminal AI stage progress |
+| 099 | Регресс-база: классический пайплайн без torch | COMMITTED | `265fa03c` PLAN_v39 ШАГ 099: regress CPU classical pipeline |
 | 100 | Финализация v39.0.0: версия, CHANGELOG, тег, EXEC_REPORT | PENDING | — |
