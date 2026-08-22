@@ -622,3 +622,10 @@ User profile now stores validated non-PII genres/language/text style/default bea
 Создан bounded `data/backups/<timestamp>` snapshot before explicit `--ai`/`--god` paths, с SHA-256 manifest, restore verification и retention 7 дней. Backup excludes runtime models/backups and copied source data is capped at 50 MB; failure is visible warning, not false success or silent render block.
 
 Приёмка: temporary snapshot/restore/checksum/size/retention and preflight reporting PASS; полный `pytest tests/ -q` = **204 PASS**, compileall/AST OK, data inventory 73/0/0.
+
+---
+## PLAN_v39 — ШАГ 088: dependency licenses
+
+`readiness.py --licenses` now generates versioned `docs/LICENSES.md` from base and optional-AI manifests using `importlib.metadata`. The report inventories 46 direct dependencies, labels unavailable metadata UNKNOWN rather than guessing a license, and carries a GPL compatibility review checklist for unknown/transitive/model/content scope.
+
+Приёмка: license parser/metadata/report tests and real CLI PASS; полный `pytest tests/ -q` = **207 PASS**, compileall/AST OK, data inventory 73/0/0.

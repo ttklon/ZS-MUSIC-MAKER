@@ -10,6 +10,8 @@ import argparse
 import ast
 import json
 import math
+import re
+from importlib import metadata
 import subprocess
 import sys
 from pathlib import Path
@@ -381,6 +383,82 @@ def compute() -> tuple[float, dict[str, Any]]:
     }
 
 
+def dependency_requirements() -> list[dict[str, str]]:
+    """Parse the project base/AI requirement manifests without resolving packages."""
+    groups = (("base", ROOT / "requirements.txt"), ("optional-ai", ROOT / "requirements_ai.txt"))
+    entries: dict[str, dict[str, str]] = {}
+    for group, path in groups:
+        for raw in path.read_text(encoding="utf-8").splitlines() if path.exists() else []:
+            line = raw.strip()
+            if not line or line.startswith("#"):
+                continue
+            if line.startswith("git+"):
+                name = "bark" if "suno-ai/bark" in line.lower() else line.rsplit("/", 1)[-1].removesuffix(".git")
+            else:
+                match = re.match(r"([A-Za-z0-9_.-]+)", line)
+                if not match:
+                    continue
+                name = match.group(1)
+            canonical = re.sub(r"[-_.]+", "-", name).lower()
+            record = entries.setdefault(canonical, {"package": name, "requirement": line, "groups": group})
+            if group not in record["groups"].split(", "):
+                record["groups"] += ", " + group
+    return [entries[key] for key in sorted(entries)]
+
+
+def _license_from_metadata(package: str) -> dict[str, str]:
+    """Extract declared package metadata; no guessed license labels are emitted."""
+    try:
+        info = metadata.metadata(package)
+        version = metadata.version(package)
+    except metadata.PackageNotFoundError:
+        return {"version": "not installed", "license": "UNKNOWN (distribution unavailable)", "source": "not installed"}
+    license_name = (info.get("License-Expression") or info.get("License") or "").strip()
+    if not license_name or license_name.upper() == "UNKNOWN":
+        classifiers = info.get_all("Classifier") or []
+        license_classifiers = [value.removeprefix("License :: ") for value in classifiers if value.startswith("License :: ")]
+        license_name = "; ".join(license_classifiers) if license_classifiers else "UNKNOWN (metadata missing)"
+    return {"version": version, "license": license_name, "source": "importlib.metadata"}
+
+
+def dependency_license_rows() -> list[dict[str, str]]:
+    return [{**entry, **_license_from_metadata(entry["package"])} for entry in dependency_requirements()]
+
+
+def licenses_markdown() -> str:
+    """Render a deterministic dependency-license table from manifests and installed metadata."""
+    lines = [
+        "# Dependency licenses",
+        "",
+        "This inventory is generated from `requirements.txt` and `requirements_ai.txt` using installed `importlib.metadata`. `UNKNOWN` or `not installed` is an evidence gap, not a license assertion; verify those packages and all transitive dependencies before redistribution.",
+        "",
+        "| Package | Requirement groups | Declared requirement | Installed version | License metadata | Evidence |",
+        "|---|---|---|---|---|---|",
+    ]
+    for row in dependency_license_rows():
+        fields = [row["package"], row["groups"], row["requirement"], row["version"], row["license"], row["source"]]
+        lines.append("| " + " | ".join(value.replace("|", "\\|") for value in fields) + " |")
+    lines.extend([
+        "",
+        "## GPL-compatibility checklist",
+        "",
+        "| Check | Status | Required action |",
+        "|---|---|---|",
+        "| Base dependency declarations inventoried | PASS | Re-run `python tools/readiness.py --licenses` after every requirements change. |",
+        "| Optional AI dependency declarations inventoried | PASS | Install optional packages in the release environment before relying on metadata. |",
+        "| Unknown/unavailable distribution metadata | REVIEW REQUIRED | Obtain the upstream license text and assess compatibility before shipping a combined distribution. |",
+        "| Transitive dependencies and bundled model/content licenses | REVIEW REQUIRED | This table intentionally does not claim coverage beyond direct Python requirements. |",
+        "",
+    ])
+    return "\n".join(lines)
+
+
+def write_license_report(path: Path = ROOT / "docs" / "LICENSES.md") -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(licenses_markdown(), encoding="utf-8")
+    return path
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Compute factual ZS Music Maker readiness")
     parser.add_argument(
@@ -388,9 +466,18 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="render the full tracked Python module matrix as Markdown",
     )
+    parser.add_argument(
+        "--licenses",
+        action="store_true",
+        help="generate docs/LICENSES.md from requirement manifests and installed metadata",
+    )
     args = parser.parse_args(argv)
     if args.inventory_markdown:
         print(inventory_markdown())
+        return 0
+    if args.licenses:
+        report_path = write_license_report()
+        print(f"license report: {report_path.relative_to(ROOT)} ({len(dependency_license_rows())} direct requirements)")
         return 0
     pct, blocks = compute()
     print(json.dumps({"percent": pct, "blocks": blocks}, ensure_ascii=False, indent=2))
