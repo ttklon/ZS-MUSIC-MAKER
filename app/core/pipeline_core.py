@@ -15,6 +15,8 @@ from pathlib import Path
 from typing import Dict, Any, List, Callable, Optional
 from dataclasses import dataclass, field
 
+from app.core.i18n import t
+
 # Настройка профессионального логирования
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("PipelineCore")
@@ -41,6 +43,7 @@ class PipelineStage:
 
     def execute(self, context: PipelineContext) -> StageResult:
         start_time = time.time()
+        logger.info(t("pipeline.stage", stage=self.name))
         logger.info(f"stage={self.name} event=start")
         try:
             result_data = self.func(context)
@@ -101,6 +104,7 @@ class ZSPipeline:
     CHECKPOINT_TTL_SEC = 24 * 3600
 
     def run(self, use_checkpoints: bool = True) -> Dict[str, Any]:
+        logger.info(t("pipeline.started"))
         logger.info(f"Launching pipeline for project: {self.context.project_id}")
 
         # v30: ZSMM_NO_CHECKPOINTS=1 полностью отключает чтение чекпоинтов
@@ -139,8 +143,12 @@ class ZSPipeline:
                 logger.error(f"Pipeline halted at stage {stage.name}")
                 break
         
+        status = "completed" if all(result.ok for result in self.context.results.values()) else "failed"
+        display_status = t("pipeline.completed") if status == "completed" else t("pipeline.failed", reason="stage failure")
+        logger.info(display_status)
         return {
             "project_id": self.context.project_id,
-            "status": "completed" if all(r.ok for r in self.context.results.values()) else "failed",
-            "results": self.context.results
+            "status": status,
+            "display_status": display_status,
+            "results": self.context.results,
         }

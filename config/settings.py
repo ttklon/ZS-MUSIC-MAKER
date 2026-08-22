@@ -83,6 +83,7 @@ class Settings:
     prefer_gpu: bool = True
     timeout_sec: int = 3600
     no_checkpoints: bool = False
+    language: str = "ru"
     config_path: Path = ROOT / ".env"
     loaded_from_env: bool = False
 
@@ -112,6 +113,7 @@ class Settings:
             prefer_gpu=_as_bool(get("ZSMM_PREFER_GPU"), True),
             timeout_sec=_as_int(get("ZSMM_TIMEOUT_SEC"), 3600),
             no_checkpoints=str(get("ZSMM_NO_CHECKPOINTS")) == "1",
+            language=str(get("ZSMM_LANGUAGE") or "ru").lower().split("-", 1)[0],
             config_path=env_path,
             loaded_from_env=bool(dot) or any(
                 k.startswith("ZSMM_") for k in os.environ
@@ -135,6 +137,7 @@ class Settings:
             "prefer_gpu": self.prefer_gpu,
             "timeout_sec": self.timeout_sec,
             "no_checkpoints": self.no_checkpoints,
+            "language": self.language,
             "config_path": str(self.config_path),
             "loaded_from_env": self.loaded_from_env,
         }

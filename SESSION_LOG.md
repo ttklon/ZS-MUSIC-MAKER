@@ -608,3 +608,10 @@ RenderQueue now persists to `queue.json`, reads the legacy state file only for c
 User profile now stores validated non-PII genres/language/text style/default beat; a narrow prompt projection excludes artist name and history. Lyrics, metadata and music prompt builders honor this projection. An initial full suite exposed an unwanted default-prompt write of `data/user_profile.json`; corrected prompt defaults are now read-only and the artifact was removed.
 
 Приёмка: preference persistence/PII exclusion regressions PASS; полный `pytest tests/ -q` = **197 PASS**, compileall/AST OK, data inventory 73/0/0.
+
+---
+## PLAN_v39 — ШАГ 086: RU/EN i18n
+
+Создан runtime i18n с RU/EN dictionaries, `t()` и переключением языка без рестарта. `ZSMM_LANGUAGE` читается из config; wizard nav/menu и pipeline lifecycle используют translated labels, сохраняя stable machine statuses.
+
+Приёмка: i18n/config/pipeline regressions PASS; полный `pytest tests/ -q` = **201 PASS**, compileall/AST OK, data inventory 73/0/0.

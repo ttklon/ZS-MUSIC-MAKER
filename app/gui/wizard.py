@@ -54,6 +54,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from app.core.i18n import t
+
 ROOT = Path(__file__).resolve().parents[2]
 DATA = ROOT / "data"
 
@@ -960,11 +962,11 @@ class Wizard(QMainWindow):
         # Bottom bar
         self.crumbs = QLabel(self._crumb_text())
         self.crumbs.setStyleSheet("color:#9a9aa4;")
-        self.btn_back = QPushButton("← Назад")
+        self.btn_back = QPushButton(t("nav.back"))
         self.btn_back.clicked.connect(self.back)
-        self.btn_next = QPushButton("Далее →")
+        self.btn_next = QPushButton(t("nav.next"))
         self.btn_next.clicked.connect(self.next)
-        self.btn_help = QPushButton("❓ Помощь (F1)")
+        self.btn_help = QPushButton(t("nav.help"))
         self.btn_help.clicked.connect(self.show_help)
 
         bar = QHBoxLayout()
@@ -985,15 +987,15 @@ class Wizard(QMainWindow):
 
         # Menu bar
         mb = self.menuBar()
-        help_menu = mb.addMenu("Помощь")
-        a_tour = QAction("Обучающий тур", self)
+        help_menu = mb.addMenu(t("menu.help"))
+        a_tour = QAction(t("menu.tour"), self)
         a_tour.triggered.connect(self._show_tour)
         help_menu.addAction(a_tour)
-        a_about = QAction("О программе", self)
+        a_about = QAction(t("menu.about"), self)
         a_about.triggered.connect(self._about)
         help_menu.addAction(a_about)
-        ai_menu = mb.addMenu("AI")
-        a_ai_status = QAction("Статус моделей", self)
+        ai_menu = mb.addMenu(t("menu.ai"))
+        a_ai_status = QAction(t("menu.model_status"), self)
         a_ai_status.triggered.connect(self.go_to_ai_status)
         ai_menu.addAction(a_ai_status)
 
