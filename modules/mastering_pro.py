@@ -71,7 +71,10 @@ def process_mastering(input_wav: str, output_wav: str, vocal_path: str = None, t
 
     v29: добавлен true-peak ceiling (-1 dBTP) и honest output-метрики.
     """
-    global HAS_PEDALBOARD, HAS_PYLOUDNORM
+    # Capability imports are process-wide, but an execution failure is local
+    # to this master. Do not permanently degrade later tracks on one error.
+    pedalboard_available = HAS_PEDALBOARD
+    loudnorm_available = HAS_PYLOUDNORM
     if not os.path.exists(input_wav):
         raise FileNotFoundError(f"Input wav not found: {input_wav}")
 
@@ -94,7 +97,7 @@ def process_mastering(input_wav: str, output_wav: str, vocal_path: str = None, t
     audio_to_norm = None
     engine = "unknown"
 
-    if HAS_PEDALBOARD:
+    if pedalboard_available:
         try:
             with AudioFile(input_wav) as f:
                 audio = f.read(f.frames)
@@ -112,9 +115,9 @@ def process_mastering(input_wav: str, output_wav: str, vocal_path: str = None, t
             engine = "pedalboard_pro_safe"
         except Exception as e:
             print(f"[mastering_pro] Pedalboard execution error: {e}, falling back to numpy/soundfile")
-            HAS_PEDALBOARD = False
+            pedalboard_available = False
 
-    if not HAS_PEDALBOARD:
+    if not pedalboard_available:
         audio_data, samplerate = sf.read(input_wav, always_2d=True)
         # audio_data is (frames, channels), convert to (channels, frames) for consistency
         mastered = audio_data.T
@@ -125,7 +128,7 @@ def process_mastering(input_wav: str, output_wav: str, vocal_path: str = None, t
 
     # Нормализация громкости
     input_lufs = -20.0
-    if HAS_PYLOUDNORM:
+    if loudnorm_available:
         try:
             meter = pyln.Meter(samplerate)
             input_lufs = meter.integrated_loudness(audio_to_norm)
@@ -137,9 +140,9 @@ def process_mastering(input_wav: str, output_wav: str, vocal_path: str = None, t
             mastered = mastered.T  # back to (channels, frames)
         except Exception as e:
             print(f"[mastering_pro] pyloudnorm error: {e}, using RMS fallback")
-            HAS_PYLOUDNORM = False
+            loudnorm_available = False
 
-    if not HAS_PYLOUDNORM:
+    if not loudnorm_available:
         # Простой RMS-фоллбек нормализации
         current_rms = np.sqrt(np.mean(mastered ** 2)) + 1e-12
         target_rms = 10.0 ** (target_lufs / 20.0)
@@ -170,7 +173,7 @@ def process_mastering(input_wav: str, output_wav: str, vocal_path: str = None, t
     # v29: honest output metrics
     output_peak_db = 20.0 * np.log10(float(np.max(np.abs(mastered))) + 1e-12)
     output_lufs = None
-    if HAS_PYLOUDNORM:
+    if loudnorm_available:
         try:
             meter = pyln.Meter(samplerate)
             output_lufs = float(meter.integrated_loudness(mastered))
@@ -203,12 +206,13 @@ def normalize_master_loudness(input_wav: str, output_wav: str | None = None,
     output_wav = output_wav or input_wav
     samples, sample_rate = sf.read(input_wav, always_2d=True)
     samples = _sanitize(np.asarray(samples, dtype=np.float64))
+    loudnorm_available = HAS_PYLOUDNORM
     if samples.size == 0:
         return {"ok": False, "reason": "master audio is empty"}
     loudness_mode = "rms_approximation"
     input_lufs = None
     normalized = samples
-    if HAS_PYLOUDNORM:
+    if loudnorm_available:
         try:
             meter = pyln.Meter(sample_rate)
             input_lufs = float(meter.integrated_loudness(samples))
@@ -229,7 +233,7 @@ def normalize_master_loudness(input_wav: str, output_wav: str | None = None,
     sf.write(output_wav, normalized.astype("float32"), sample_rate, format="WAV", subtype="PCM_16")
 
     output_lufs = None
-    if HAS_PYLOUDNORM:
+    if loudnorm_available:
         try:
             output_lufs = float(pyln.Meter(sample_rate).integrated_loudness(normalized))
         except Exception:

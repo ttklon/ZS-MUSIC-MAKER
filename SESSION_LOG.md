@@ -815,3 +815,10 @@ Deep audit marker detection now matches only leading actionable comment labels (
 Runtime and render idle loops now use stop-aware `Event.wait(timeout)` rather than uninterruptible sleeps. `RuntimeOrchestrator.stop(join_timeout)` added for bounded public shutdown. Idle-worker regression starts both workers and proves clean stop/join in <0.5s without starting an audio pipeline.
 
 Приёмка: targeted 4 PASS; `pytest tests/ -q` = **250 PASS**, compileall/AST OK, data inventory 73/0/0.
+
+---
+## APP_L v40 — mastering capability isolation
+
+`process_mastering()` no longer mutates global optional-DSP import flags after a single runtime failure. Per-run pedalboard/loudnorm flags select the current fallback only; `normalize_master_loudness()` mirrors local capability scope. Regression injects failing AudioFile, validates numpy fallback output and proves HAS_PEDALBOARD stays true.
+
+Приёмка: focused 1 PASS; `pytest tests/ -q` = **251 PASS**, compileall/AST OK, data inventory 73/0/0.
