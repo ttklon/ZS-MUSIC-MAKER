@@ -207,6 +207,7 @@ class RVCTrainer:
         self._listeners: list[Callable[[TrainingJob], None]] = []
         self.listener_errors: list[str] = []
         self.dataset_copy_errors: list[str] = []
+        self.progress_parse_errors: list[str] = []
 
     def on_progress(self, cb: Callable[[TrainingJob], None]) -> None:
         self._listeners.append(cb)
@@ -335,6 +336,7 @@ class RVCTrainer:
 
     def _run_with_progress(self, cmd: list[str], job: TrainingJob):
         """Запускаем subprocess и парсим stdout на предмет прогресса эпох."""
+        self.progress_parse_errors = []
         proc = subprocess.Popen(
             cmd,
             stdout=subprocess.PIPE,
@@ -360,8 +362,8 @@ class RVCTrainer:
                         job.progress = min(0.99, ep / max(1, job.epochs))
                         job.stage = f"epoch {ep}/{job.epochs}"
                         self._emit()
-                    except Exception:
-                        pass
+                    except Exception as exc:
+                        self.progress_parse_errors.append(f"{type(exc).__name__}: {exc}")
         ret = proc.wait()
         if ret != 0:
             raise RuntimeError(f"training subprocess exit={ret}")

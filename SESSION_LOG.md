@@ -1102,3 +1102,10 @@ RVC progress listener failures are now retained as typed `listener_errors` while
 RVC dataset preparation now records typed failed-copy evidence and does not count failed transfers as collected clips. This preserves the dataset path contract without claiming a backend run, valid dataset or training success. Backend probes and progress-parser recovery remain separate open items.
 
 Приёмка: focused RVC dataset-copy suite 1 PASS; `pytest tests/ -q` = **309 PASS, 1 expected deprecation warning**, compileall/AST OK, data inventory 73/0/0. Fresh audit: SILENT_EXCEPT_PASS **92** (was 93); selected dataset-copy record removed, separate RVC records remain; **882** total heuristic records across 245 files.
+
+---
+## APP_L v40 — RVC progress-parser observability
+
+RVC now records malformed subprocess epoch output without advancing real job progress or claiming backend training progress. The remaining RVC audit records are optional CUDA/DirectML/ROCm capability probes.
+
+Приёмка: focused RVC parser suite 1 PASS; `pytest tests/ -q` = **310 PASS, 1 expected deprecation warning**, compileall/AST OK, data inventory 73/0/0. Fresh audit: SILENT_EXCEPT_PASS **91** (was 92); selected parser record removed, three optional RVC probe records remain; **882** total heuristic records across 246 files.
