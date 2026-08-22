@@ -906,3 +906,10 @@ Real-time recorder callback, metrics and stream-shutdown failures remain non-fat
 Take-manifest write failure now emits a warning while preserving generated takes. Device discovery failure is explicit as `device_query_error` and still reports zero usable inputs/false recording capability. Focused tests force both failures; no microphone capability or inference is claimed.
 
 Приёмка: focused recorder suite 5 PASS; `pytest tests/ -q` = **264 PASS**, compileall/AST OK, data inventory 73/0/0. Fresh audit: **114 SILENT_EXCEPT_PASS** (was 116), **0** in `modules/voice_recording.py`; total **894** heuristic records across 219 files.
+
+---
+## APP_L v40 — Voice Vault index recovery observability
+
+Unreadable persistent Voice Vault index now yields the same compatible empty-index fallback with a narrow JSON/I/O warning, instead of silently hiding likely user-data corruption. Whisper optional-backend fallbacks remain untouched/explicitly unavailable when absent. Regression uses malformed temporary JSON only.
+
+Приёмка: focused Voice Vault suite 3 PASS; `pytest tests/ -q` = **265 PASS**, compileall/AST OK, data inventory 73/0/0. Fresh audit remains **114 SILENT_EXCEPT_PASS** and **894** total heuristic records across 220 files: the former return-fallback did not match `except: pass`, so this is an observability improvement, not a count claim.

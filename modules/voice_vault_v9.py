@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import math
 import shutil
 import time
@@ -48,6 +49,7 @@ ROOT = Path(__file__).resolve().parents[1]
 VAULT_DIR = ROOT / "voice_vault"
 INDEX_FILE = VAULT_DIR / "index.json"
 MANIFEST_FILE = VAULT_DIR / "voice_manifest.json"
+LOGGER = logging.getLogger(__name__)
 # v22: ленивое создание (не при импорте)
 
 STYLES = (
@@ -70,8 +72,8 @@ def _load_index() -> dict:
     if INDEX_FILE.exists():
         try:
             return json.loads(INDEX_FILE.read_text(encoding="utf-8"))
-        except Exception:
-            return {"items": {}}
+        except (OSError, json.JSONDecodeError) as error:
+            LOGGER.warning("voice vault index unreadable; using empty index: %s", error)
     return {"items": {}}
 
 
