@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import subprocess
 
+import pytest
+
 from updater.updater import check_git_update_status
 
 
@@ -64,3 +66,26 @@ def test_install_rolls_back_when_smoke_process_cannot_start(tmp_path, monkeypatc
     assert result["stage"] == "smoke_test"
     assert result["rolled_back"] is True
     assert result["error"] == "smoke launch failed: OSError: launcher unavailable"
+
+
+def test_stash_user_data_fails_closed_when_preserved_file_cannot_move(tmp_path, monkeypatch) -> None:
+    """A protected file must never be left for the destructive replacement loop."""
+    from updater import updater
+
+    program = tmp_path / "program"
+    staging = tmp_path / "staging"
+    program.mkdir()
+    staging.mkdir()
+    settings = program / "settings.json"
+    settings.write_text('{"theme": "dark"}', encoding="utf-8")
+    monkeypatch.setattr(updater, "USER_PRESERVED", ["settings.json"])
+
+    def fail_move(*_args, **_kwargs):
+        raise PermissionError("settings is locked")
+
+    monkeypatch.setattr(updater.shutil, "move", fail_move)
+
+    with pytest.raises(RuntimeError, match="user data preservation failed: settings.json: PermissionError: settings is locked"):
+        updater._stash_user_data(program, staging)
+
+    assert settings.read_text(encoding="utf-8") == '{"theme": "dark"}'

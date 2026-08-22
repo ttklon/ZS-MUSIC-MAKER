@@ -118,6 +118,7 @@ def _stash_user_data(prog: Path, stg: Path) -> dict[str, Path]:
     """
     stash_root = stg / ".user_stash"
     moved: dict[str, Path] = {}
+    failures: list[str] = []
     for rel in USER_PRESERVED:
         src = prog / rel
         if not src.exists():
@@ -127,9 +128,13 @@ def _stash_user_data(prog: Path, stg: Path) -> dict[str, Path]:
         try:
             shutil.move(str(src), str(dst))
             moved[rel] = dst
-        except Exception:
-            # не смогли переместить — оставляем на месте (не валим установку)
-            pass
+        except Exception as exc:
+            # Continuing would let the replacement loop delete a user path that
+            # was never safely moved.  The caller rolls back from its preinstall
+            # backup instead of reporting a successful update with data loss.
+            failures.append(f"{rel}: {type(exc).__name__}: {exc}")
+    if failures:
+        raise RuntimeError("user data preservation failed: " + "; ".join(failures))
     return moved
 
 

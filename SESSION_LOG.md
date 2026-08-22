@@ -1193,3 +1193,10 @@ Template lyrics now retain additive `fallback_attempts` when `LLMRouter` raises 
 Voice fallback now retains additive `fallback_attempts` for unavailable `voice_synth`, failed primary/secondary calls and unusable outputs before the existing pyttsx3/scaffold recovery. No test invoked TTS, model inference, synthetic scaffold or audio generation; the focused module and fallback helper were mocked.
 
 Приёмка: focused voice suite 1 PASS; after repairing a test-double package binding, final `pytest tests/ -q` = **329 PASS, 1 expected deprecation warning**, compileall/AST OK, data inventory 73/0/0, `git diff --check` OK. Fresh audit: SILENT_EXCEPT_PASS **78** (was 79), **881** total heuristic records across 257 files.
+
+---
+## APP_L v40 — updater failure-closed user-data preservation
+
+Updater stash now fails closed when any `USER_PRESERVED` path cannot be moved before directory replacement. The install path enters its existing replace-stage rollback rather than proceeding with a source that could be deleted unprotected. Focused regression forces a locked `settings.json` move and proves it remains intact; no real update, deletion or restoration was performed.
+
+Приёмка: focused updater suite 3 PASS; `pytest tests/ -q` = **330 PASS, 1 expected deprecation warning**, compileall/AST OK, data inventory 73/0/0, `git diff --check` OK. Fresh audit: SILENT_EXCEPT_PASS **77** (was 78), **880** total heuristic records across 257 files.
