@@ -2,7 +2,7 @@
 
 Status is derived only from local `git log` subjects containing `ШАГ NNN`; `PENDING` does not assess code quality and `COMMITTED` is not a substitute for documented acceptance evidence.
 
-Plan headings: **100**. Git-evidenced commits: **97**. Pending headings: **3**.
+Plan headings: **100**. Git-evidenced commits: **100**. Pending headings: **0**.
 
 | Step | Plan item | Git-evidence status | Commit evidence |
 |---:|---|---|---|
@@ -78,8 +78,8 @@ Plan headings: **100**. Git-evidenced commits: **97**. Pending headings: **3**.
 | 070 | Регресс-сценарии: 15 сквозных прогонов | COMMITTED | `5d3b850f` PLAN_v39 ШАГ 070: app g regression matrix |
 | 071 | Golden-тесты звука: waveform-сравнение | COMMITTED | `278be241` PLAN_v39 ШАГ 071: audio golden regression |
 | 072 | Релиз v39: чеклист и тег | COMMITTED | `47974a9c` PLAN_v39 ШАГ 072: add release preflight checklist |
-| 073 | Отчёт по исполнению плана | PENDING | — |
-| 074 | Память плана: замер и финализация | PENDING | — |
+| 073 | Отчёт по исполнению плана | COMMITTED | `1fb08065` PLAN_v39 ШАГ 073: regenerate execution report |
+| 074 | Память плана: замер и финализация | COMMITTED | `c42e4c2d` PLAN_v39 ШАГ 074: measure plan integrity |
 | 075 | Ревизия tools/: единый CLI-стиль (argparse + exit-коды + логи) | COMMITTED | `d3df415d` PLAN_v39 ШАГ 075: unify tools cli contracts |
 | 076 | Ревизия data/prompts: привязка к ролям | COMMITTED | `aa7e90a3` PLAN_v39 ШАГ 076: bind prompt assets to roles |
 | 077 | lyrics_gen_v8: deprecated-флаг, код оставить (wizard-совместимость) | COMMITTED | `529fc057` PLAN_v39 ШАГ 077: deprecate legacy lyrics adapter |
@@ -105,4 +105,4 @@ Plan headings: **100**. Git-evidenced commits: **97**. Pending headings: **3**.
 | 097 | Сборка колеса и проверка установки | COMMITTED | `7b89ab1c` PLAN_v39 ШАГ 097: build installable wheel |
 | 098 | Терминальный прогресс стадий AI (lazy, без GUI) | COMMITTED | `414bf1cd` PLAN_v39 ШАГ 098: show terminal AI stage progress |
 | 099 | Регресс-база: классический пайплайн без torch | COMMITTED | `265fa03c` PLAN_v39 ШАГ 099: regress CPU classical pipeline |
-| 100 | Финализация v39.0.0: версия, CHANGELOG, тег, EXEC_REPORT | PENDING | — |
+| 100 | Финализация v39.0.0: версия, CHANGELOG, тег, EXEC_REPORT | COMMITTED | `6d8b3a75` PLAN_v39 ШАГ 100: finalise v39.9.0 release |

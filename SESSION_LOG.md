@@ -732,3 +732,7 @@ Published packaging metadata now installs `main.py` and exposes `zs-music-maker`
 Canonical version stays **39.9.0** (not the stale conflicting v39.0.0 target): version metadata and CHANGELOG now identify the completed PLAN_v39 release. Final APP_G: **13 PASS, 2 BLOCKED, 0 FAIL**; BLOCKED is the documented absent heavy runtime/model path, not fake inference. Generated APP_G runtime backups were removed before inventory acceptance.
 
 Локальная приёмка: `pytest tests/ -q` = **237 PASS**, compileall OK, AST 0 dead imports, data inventory 73/0/0, strict plan integrity 001–100, `main.py --version` = 39.9.0 finalisation build. After this commit, execution report is regenerated from commit evidence to 100/100, then clean-head preflight and annotated v39.9.0 tag push provide final release evidence.
+
+### Final execution-evidence refresh
+
+После commit `6d8b3a75` повторный `tools/readiness.py --report` подтвердил **100/100 COMMITTED, 0 PENDING**. Таблица связывает ШАГ 073 с `1fb08065`, ШАГ 074 с `c42e4c2d` и ШАГ 100 с `6d8b3a75`; статус выводится только из git subject evidence.

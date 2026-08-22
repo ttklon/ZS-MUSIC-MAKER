@@ -13,4 +13,4 @@ Final local acceptance completed before the finalisation commit. APP_G reported 
 | Primary plan integrity | strict UTF-8; exact 001–100; SHA-256 unchanged |
 | `main.py --version` | 39.9.0 finalisation build |
 
-After this commit is pushed, `tools/readiness.py --report` is intentionally run again so its commit-only evidence can include step 100 itself. The resulting 100/100 report refresh, clean-head preflight, annotated `v39.9.0` tag and tag push are the final release evidence actions.
+After the finalisation commit was pushed, `tools/readiness.py --report` was rerun from commit evidence and returned **100/100 committed headings, 0 pending**. The refreshed report records the finalisation commit `6d8b3a75` for step 100. The remaining release actions are a clean-head preflight, annotated `v39.9.0` tag and tag push.
