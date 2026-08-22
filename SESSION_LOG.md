@@ -740,3 +740,10 @@ Canonical version stays **39.9.0** (not the stale conflicting v39.0.0 target): v
 ### Tag and GitHub release verification
 
 Annotated `v39.9.0` and public release <https://github.com/ttklon/ZS-MUSIC-MAKER/releases/tag/v39.9.0> were verified at `864c486aa5d7a16f5f5cbb2f8acbf0fc42064dae` / origin/main. The tag workflow run `32561256890` failed before `build-windows` got a runner or executed a step; publish-release was skipped and release assets are empty. The source release was published manually with this disclosed; no CI-built Windows EXE is claimed.
+
+---
+## APP_L v40 — triage ШАГОВ 0001–0004: SECURITY_EVAL
+
+Проверены все 4 CRITICAL findings: `QDialog.exec()`/`QApplication.exec()` — Qt event loops, не Python builtin dynamic execution. Исправлен source false positive in `deep_audit_v40`: SECURITY_EVAL теперь только direct AST Name calls `eval`/`exec`; regression keeps real builtins flagged and Qt attribute calls excluded.
+
+Приёмка: focused 2 PASS; `pytest tests/ -q` = **239 PASS**, compileall/AST OK, data inventory 73/0/0.

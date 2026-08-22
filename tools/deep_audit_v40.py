@@ -172,10 +172,13 @@ def audit_file(p: Path) -> dict:
                 fname = fn.id
             elif isinstance(fn, ast.Attribute):
                 fname = fn.attr
-            if fname in ("eval", "exec"):
+            # Only direct builtin calls can execute attacker-controlled source.
+            # Attribute methods such as Qt's QDialog.exec()/QApplication.exec()
+            # run an event loop and must not be misclassified as RCE.
+            if isinstance(fn, ast.Name) and fname in ("eval", "exec"):
                 report["issues"].append(
                     {"line": node.lineno, "kind": "SECURITY_EVAL",
-                     "msg": f"{fname}() — потенциально опасно"}
+                     "msg": f"builtin {fname}() — потенциально опасно"}
                 )
                 report["risk_score"] += 5
             if fname == "system":
