@@ -969,3 +969,10 @@ Groove extraction now separates frequency envelopes, 16th-step aggregation, swin
 Lyrics v8 now delegates optional trend/style fetch, v7 compatible generation, bilingual hook and final section assembly; ordered marker classification replaces the six-branch parser. Deterministic fakes verify seed/metadata/output without author ingestion, trend services, LLMs or models. Deprecation compatibility remains covered.
 
 Приёмка: focused lyrics-v8 + legacy suite **5 PASS, 1 expected deprecation warning**; `pytest tests/ -q` = **278 PASS, 1 expected warning**, compileall/AST OK, data inventory 73/0/0. Fresh audit: HIGH_COMPLEXITY **26** (was 28), none in `modules/lyrics_gen_v8.py`; **879** total heuristic records across 227 files.
+
+---
+## APP_L v40 — arrangement-engine plan decomposition
+
+Arrangement planning now separates genre drum preferences, variant energy, transition FX, section rendering and TikTok hook selection. A seeded phonk regression proves stable plan/timing/pattern and hook contracts without audio or model execution.
+
+Приёмка: focused arrangement suite 1 PASS; `pytest tests/ -q` = **279 PASS, 1 expected deprecation warning**, compileall/AST OK, data inventory 73/0/0. Fresh audit: HIGH_COMPLEXITY **25** (was 26), none in `modules/arrangement_engine.py`; LONG_FUNCTION **24** (was 25); **878** total heuristic records across 228 files.

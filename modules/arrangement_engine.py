@@ -133,6 +133,97 @@ def _clamp(x, lo, hi):
     return max(lo, min(hi, x))
 
 
+def _drum_patterns_for_genre(rng, genre: str):
+    """Select compatible kick, snare and hi-hat patterns for a genre family."""
+    if "phonk" in genre:
+        return (
+            _pick(rng, KICK_PATTERNS, ["phonk", "trap"]),
+            _pick(rng, SNARE_PATTERNS, ["backbeat", "clap"]),
+            _pick(rng, HIHAT_PATTERNS, ["phonk", "trap"]),
+        )
+    if "dance" in genre or "techno" in genre or "hard" in genre:
+        return (
+            _pick(rng, KICK_PATTERNS, ["four_floor", "hard"]),
+            _pick(rng, SNARE_PATTERNS, ["clap", "backbeat"]),
+            _pick(rng, HIHAT_PATTERNS, ["eighth", "sixteenth"]),
+        )
+    if "trap" in genre or "hip-hop" in genre:
+        return (
+            _pick(rng, KICK_PATTERNS, ["trap", "sparse"]),
+            _pick(rng, SNARE_PATTERNS, ["trap", "clap"]),
+            _pick(rng, HIHAT_PATTERNS, ["trap", "sixteenth"]),
+        )
+    if "pop" in genre or "r&b" in genre:
+        return (
+            _pick(rng, KICK_PATTERNS, ["sparse", "four_floor"]),
+            _pick(rng, SNARE_PATTERNS, ["backbeat", "clap"]),
+            _pick(rng, HIHAT_PATTERNS, ["eighth"]),
+        )
+    return (
+        _pick(rng, KICK_PATTERNS, ["trap"]),
+        _pick(rng, SNARE_PATTERNS, ["backbeat"]),
+        _pick(rng, HIHAT_PATTERNS, ["eighth"]),
+    )
+
+
+def _variant_energy(energy: float, name: str, variant: int, rng) -> float:
+    """Apply the established deterministic/seeded energy adjustments."""
+    if variant >= 1 and "chorus" in name:
+        energy = min(1.0, energy + 0.03)
+    if variant >= 2 and name in ("verse1", "verse2"):
+        energy = _clamp(energy + rng.uniform(-0.08, 0.08), 0.3, 0.85)
+    return energy
+
+
+def _transition_fx(name: str, previous_name: str | None) -> list[str]:
+    """Return transition effects implied by current and preceding section names."""
+    effects: list[str] = []
+    if name.startswith(("chorus", "drop")) and (previous_name or "").startswith(
+        ("prechorus", "build", "bridge", "verse")
+    ):
+        effects.extend(("riser", "silence_50ms_before_drop"))
+    if name.startswith(("outro", "break")):
+        effects.append("downlifter")
+    return effects
+
+
+def _arrangement_section(
+    index: int, name: str, bars: int, start_sec: float, duration_sec: float, energy: float,
+    vocal_role: str, genre: str, pattern_keys: tuple[str, str, str], previous_name: str | None,
+) -> dict:
+    """Render one planned arrangement section into the public schema."""
+    kick_key, snare_key, hihat_key = pattern_keys
+    return {
+        "index": index,
+        "name": name,
+        "bars": bars,
+        "start_sec": round(start_sec, 2),
+        "end_sec": round(start_sec + duration_sec, 2),
+        "duration_sec": round(duration_sec, 2),
+        "energy": round(float(energy), 3),
+        "vocal_role": vocal_role,
+        "kick_pattern": kick_key,
+        "snare_pattern": snare_key,
+        "hihat_pattern": hihat_key,
+        "hihat_density": round(1.0 if energy > 0.7 else (0.6 if energy > 0.4 else 0.3), 2),
+        "has_808": energy > 0.5 and any(token in genre for token in ("phonk", "trap", "hip-hop")),
+        "has_lead": energy > 0.5,
+        "has_pad": energy < 0.6,
+        "has_female_backing": "chorus3" in name or vocal_role.endswith("female"),
+        "fill_before": name.startswith(("chorus", "drop")),
+        "fx": _transition_fx(name, previous_name),
+    }
+
+
+def _tiktok_hook(sections: list[dict], total_seconds: float) -> tuple[float, float]:
+    """Choose the highest-energy chorus/drop segment, with a bounded 25-second window."""
+    candidates = [section for section in sections if section["name"].startswith(("chorus", "drop"))]
+    if not candidates:
+        return 0.0, min(25.0, total_seconds)
+    target = max(candidates, key=lambda section: section["energy"])
+    return target["start_sec"], min(total_seconds, target["start_sec"] + 25.0)
+
+
 # ============================================================ main API
 def build_arrangement(
     style_vector: dict,
@@ -162,100 +253,25 @@ def build_arrangement(
     default_seconds = sum(_bars_to_seconds(b, bpm) for _, b, _, _ in template)
     scale = _clamp(total_seconds / max(default_seconds, 1e-3), 0.5, 2.0)
 
-    # Выбор паттернов по жанру
-    if "phonk" in genre:
-        kick_key, kick = _pick(rng, KICK_PATTERNS, ["phonk", "trap"])
-        snare_key, snare = _pick(rng, SNARE_PATTERNS, ["backbeat", "clap"])
-        hh_key, hh = _pick(rng, HIHAT_PATTERNS, ["phonk", "trap"])
-    elif "dance" in genre or "techno" in genre or "hard" in genre:
-        kick_key, kick = _pick(rng, KICK_PATTERNS, ["four_floor", "hard"])
-        snare_key, snare = _pick(rng, SNARE_PATTERNS, ["clap", "backbeat"])
-        hh_key, hh = _pick(rng, HIHAT_PATTERNS, ["eighth", "sixteenth"])
-    elif "trap" in genre or "hip-hop" in genre:
-        kick_key, kick = _pick(rng, KICK_PATTERNS, ["trap", "sparse"])
-        snare_key, snare = _pick(rng, SNARE_PATTERNS, ["trap", "clap"])
-        hh_key, hh = _pick(rng, HIHAT_PATTERNS, ["trap", "sixteenth"])
-    elif "pop" in genre or "r&b" in genre:
-        kick_key, kick = _pick(rng, KICK_PATTERNS, ["sparse", "four_floor"])
-        snare_key, snare = _pick(rng, SNARE_PATTERNS, ["backbeat", "clap"])
-        hh_key, hh = _pick(rng, HIHAT_PATTERNS, ["eighth"])
-    else:
-        kick_key, kick = _pick(rng, KICK_PATTERNS, ["trap"])
-        snare_key, snare = _pick(rng, SNARE_PATTERNS, ["backbeat"])
-        hh_key, hh = _pick(rng, HIHAT_PATTERNS, ["eighth"])
+    (kick_key, kick), (snare_key, snare), (hh_key, hh) = _drum_patterns_for_genre(rng, genre)
 
     sections = []
     t_cursor = 0.0
-    for i, (name, bars_def, energy, vrole) in enumerate(template):
+    pattern_keys = (kick_key, snare_key, hh_key)
+    for index, (name, bars_def, energy, vocal_role) in enumerate(template):
         bars = max(2, int(round(bars_def * scale)))
-        dur = _bars_to_seconds(bars, bpm)
-
-        # Модификации по variant
-        if variant >= 1 and "chorus" in name:
-            energy = min(1.0, energy + 0.03)
-        if variant >= 2 and name in ("verse1", "verse2"):
-            energy = _clamp(energy + rng.uniform(-0.08, 0.08), 0.3, 0.85)
-
-        # Элементы: chorus3 — female backing on top
-        has_female = ("chorus3" in name) or (vrole.endswith("female"))
-        has_808 = energy > 0.5 and (
-            "phonk" in genre or "trap" in genre or "hip-hop" in genre
-        )
-        has_lead = energy > 0.5
-
-        # FX
-        fx = []
-        prev_name = sections[-1]["name"] if sections else None
-        if name.startswith(("chorus", "drop")) and (prev_name or "").startswith(
-            ("prechorus", "build", "bridge", "verse")
-        ):
-            fx.append("riser")
-            fx.append("silence_50ms_before_drop")
-        if name.startswith(("outro", "break")):
-            fx.append("downlifter")
-
-        # Fill перед chorus/drop
-        fill_before = name.startswith(("chorus", "drop"))
-
-        # Плотность hi-hat
-        hh_density_mul = 1.0 if energy > 0.7 else (0.6 if energy > 0.4 else 0.3)
-
+        duration = _bars_to_seconds(bars, bpm)
+        adjusted_energy = _variant_energy(energy, name, variant, rng)
+        previous_name = sections[-1]["name"] if sections else None
         sections.append(
-            {
-                "index": i,
-                "name": name,
-                "bars": bars,
-                "start_sec": round(t_cursor, 2),
-                "end_sec": round(t_cursor + dur, 2),
-                "duration_sec": round(dur, 2),
-                "energy": round(float(energy), 3),
-                "vocal_role": vrole,
-                "kick_pattern": kick_key,
-                "snare_pattern": snare_key,
-                "hihat_pattern": hh_key,
-                "hihat_density": round(hh_density_mul, 2),
-                "has_808": has_808,
-                "has_lead": has_lead,
-                "has_pad": energy < 0.6,
-                "has_female_backing": has_female,
-                "fill_before": fill_before,
-                "fx": fx,
-            }
+            _arrangement_section(
+                index, name, bars, t_cursor, duration, adjusted_energy, vocal_role,
+                genre, pattern_keys, previous_name,
+            )
         )
-        t_cursor += dur
+        t_cursor += duration
 
-    # TikTok hook = самая громкая chorus секция + 25 сек оттуда
-    hot_sections = sorted(
-        [s for s in sections if s["name"].startswith(("chorus", "drop"))],
-        key=lambda s: s["energy"],
-        reverse=True,
-    )
-    if hot_sections:
-        target = hot_sections[0]
-        tt_start = target["start_sec"]
-        tt_end = min(t_cursor, tt_start + 25.0)
-    else:
-        tt_start, tt_end = 0.0, min(25.0, t_cursor)
+    tt_start, tt_end = _tiktok_hook(sections, t_cursor)
 
     plan = {
         "ok": True,
