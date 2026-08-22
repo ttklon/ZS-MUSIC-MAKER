@@ -615,3 +615,10 @@ User profile now stores validated non-PII genres/language/text style/default bea
 Создан runtime i18n с RU/EN dictionaries, `t()` и переключением языка без рестарта. `ZSMM_LANGUAGE` читается из config; wizard nav/menu и pipeline lifecycle используют translated labels, сохраняя stable machine statuses.
 
 Приёмка: i18n/config/pipeline regressions PASS; полный `pytest tests/ -q` = **201 PASS**, compileall/AST OK, data inventory 73/0/0.
+
+---
+## PLAN_v39 — ШАГ 087: auto backup preflight
+
+Создан bounded `data/backups/<timestamp>` snapshot before explicit `--ai`/`--god` paths, с SHA-256 manifest, restore verification и retention 7 дней. Backup excludes runtime models/backups and copied source data is capped at 50 MB; failure is visible warning, not false success or silent render block.
+
+Приёмка: temporary snapshot/restore/checksum/size/retention and preflight reporting PASS; полный `pytest tests/ -q` = **204 PASS**, compileall/AST OK, data inventory 73/0/0.

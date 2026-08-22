@@ -135,6 +135,22 @@ def _header() -> None:
     _safe_print("=" * 64)
 
 
+def _preflight_backup(mode: str) -> dict:
+    """Create a bounded restore-capable snapshot before an explicit AI/God run."""
+    try:
+        from app.core.auto_backup import create_snapshot
+
+        report = create_snapshot(mode)
+        _safe_print(
+            f"[backup] files={report['files']} bytes={report['total_bytes']} path={report['path']}"
+        )
+        return report
+    except Exception as exc:
+        # Backups protect work but must not silently make a requested render impossible.
+        _safe_print(f"[backup] WARNING: preflight snapshot failed: {exc}")
+        return {"ok": False, "reason": str(exc)}
+
+
 def _health_snapshot() -> dict:
     try:
         from modules import health_v12
@@ -481,6 +497,7 @@ def main() -> int:
 
     if args.dry_run:
         if args.ai:
+            _preflight_backup("ai_dry_run")
             from app.core.orchestrator_ai import run_ai_pipeline
 
             ws = {
@@ -560,6 +577,7 @@ def main() -> int:
         return 0
 
     if args.ai:
+        _preflight_backup("ai")
         from app.core.orchestrator_ai import run_ai_pipeline
         ws = {"genre": args.genre, "theme": args.theme,
               "artist_slug": args.dossier_artist or None}
@@ -569,6 +587,7 @@ def main() -> int:
         return 0
 
     if args.god:
+        _preflight_backup("god")
         return _cli_god(args)
     
     if args.async_mode:
