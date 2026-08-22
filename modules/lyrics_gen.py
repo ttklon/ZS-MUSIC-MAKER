@@ -163,21 +163,27 @@ def _pick_punches(theme: str, count: int = 4) -> list[str]:
     return collected[:count]
 
 
-def _try_ollama(prompt: str, model: str = "llama3") -> str | None:
-    """Пробуем Ollama через локальный HTTP API."""
+def _try_ollama_with_diagnostics(prompt: str, model: str = "llama3") -> dict:
+    """Пробует local Ollama и раскрывает status without claiming generation."""
     try:
         import requests
 
-        r = requests.post(
+        response = requests.post(
             "http://127.0.0.1:11434/api/generate",
             json={"model": model, "prompt": prompt, "stream": False},
             timeout=60,
         )
-        if r.status_code == 200:
-            return r.json().get("response", "").strip()
-    except Exception:
-        pass
-    return None
+        if response.status_code == 200:
+            text = response.json().get("response", "").strip()
+            return {"text": text or None, "status": "responded" if text else "empty_response"}
+        return {"text": None, "status": "http_error", "http_status": response.status_code}
+    except Exception as exc:
+        return {"text": None, "status": "unavailable", "error": f"{type(exc).__name__}: {exc}"}
+
+
+def _try_ollama(prompt: str, model: str = "llama3") -> str | None:
+    """Совместимый local Ollama helper для existing lyrics callers."""
+    return _try_ollama_with_diagnostics(prompt, model)["text"]
 
 
 def _template_verse(

@@ -1151,3 +1151,10 @@ Single-track analysis now distinguishes successful optional Essentia descriptors
 KPI Dashboard now exposes saved or typed failed report-persistence state. A report-write failure is not represented as a published JSON/Markdown artifact; checklist and verdict computation remain unchanged.
 
 Приёмка: focused KPI Dashboard persistence suite 2 PASS; `pytest tests/ -q` = **319 PASS, 1 expected deprecation warning**, compileall/AST OK, data inventory 73/0/0. Fresh audit: SILENT_EXCEPT_PASS **85** (was 86), none in `modules/kpi_dashboard_v12.py`; **878** total heuristic records across 252 files.
+
+---
+## APP_L v40 — local Ollama observability
+
+Legacy local Ollama probing now distinguishes response, empty response, HTTP error and typed service unavailability while preserving the existing text-or-None helper. No unavailable local model is represented as lyric generation success.
+
+Приёмка: focused local Ollama suite 2 PASS; `pytest tests/ -q` = **321 PASS, 1 expected deprecation warning**, compileall/AST OK, data inventory 73/0/0. Fresh audit: SILENT_EXCEPT_PASS **84** (was 85), none in `modules/lyrics_gen.py`; **879** total heuristic records across 253 files.
