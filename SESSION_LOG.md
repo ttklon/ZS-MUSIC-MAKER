@@ -850,3 +850,10 @@ Karaoke count-in and poll waits now use session Event.wait, preserving normal ti
 `split_wav_into_takes` was decomposed from 117 LOC into WAV load, frame-analysis and take-persistence helpers while retaining the 20 ms, threshold, take and manifest contracts. Real temporary-WAV regression verifies two voiced regions, persisted take files and matching JSON manifest without microphone access.
 
 Приёмка: focused 1 PASS; `pytest tests/ -q` = **254 PASS**, compileall/AST OK, data inventory 73/0/0. Fresh audit: **29 LONG_FUNCTION** (was 30); `modules/voice_recording.py` no longer has a long-function finding; total 909 heuristic records across 215 files.
+
+---
+## APP_L v40 — RVC training honesty
+
+Non-dry RVC requests no longer advance fake epochs after import detection and report `done_unverified`. They terminate as `blocked_backend` with a persisted statement that no backend invocation/model output was claimed. The short dry path remains explicitly labeled CI/UI simulation and continues to report no model.
+
+Приёмка: focused RVC suite 2 PASS; `pytest tests/ -q` = **255 PASS**, compileall/AST OK, data inventory 73/0/0. Fresh audit: RVC has 0 `BLOCKING_SLEEP`; category is **8** (was 10), total **908** heuristic records across 215 files.

@@ -3,8 +3,8 @@
 
 НИЧЕГО не удаляет из v7 rvc_manager. Добавляет:
 
-  • retrain_incremental(manifest_path) — дообучает существующую модель на
-    новых записях из voice_vault_v9.export_manifest_for_rvc().
+  • retrain_incremental(manifest_path) — создаёт честный job-план для
+    дообучения на новых записях из voice_vault_v9.export_manifest_for_rvc().
   • schedule_night_run() — ставит длительное обучение в render_queue как
     отдельный job типа "rvc_train_night" (300+ эпох, batch=2).
   • progress-callback с ETA и per-epoch логом.
@@ -107,35 +107,31 @@ def _build_plan(manifest: dict, mode: str, target_model: str | None = None) -> d
 
 
 def _run_training_bg(job: dict, progress_cb: Callable[[dict], None] | None = None):
-    """Фоновый worker. При отсутствии rvc-python — эмулирует прогон (dry)."""
+    """Run explicit dry progress or block unverifiable non-dry backend execution."""
     dry = job.get("dry_run", False)
     total = job["plan"]["epochs"]
     started = _now()
 
-    # Реальный rvc-python вызов (если установлен)
     if not dry:
         try:
             import importlib
 
             rvc_py = importlib.import_module("rvc_python")
-            if hasattr(rvc_py, "train"):
-                for e in range(1, total + 1):
-                    time.sleep(0.05)
-                    job["progress"] = e / total
-                    job["current_epoch"] = e
-                    if progress_cb:
-                        progress_cb(job)
-                job["status"] = "done_unverified"
-                job["log"].append("trainer API returned without verified exported .pth")
-                _save_job(job)
-                return
-        except Exception as e:
-            job["log"].append(f"real trainer unavailable: {e}, falling back to dry")
-            dry = True
+            api_state = "train API detected" if callable(getattr(rvc_py, "train", None)) else "no callable train API"
+        except Exception as error:
+            api_state = f"rvc_python unavailable: {error}"
+        job["status"] = "blocked_backend"
+        job["finished_at"] = _now()
+        job["elapsed_sec"] = round(_now() - started, 2)
+        job["log"].append(
+            f"non-dry training blocked ({api_state}); no backend invocation or model output was claimed"
+        )
+        _save_job(job)
+        return
 
-    # DRY: симулируем прогон эпох с обновлением прогресса (для CI/UI)
+    # Explicit short CI/UI dry-run pacing; no model training occurs.
     for e in range(1, total + 1):
-        time.sleep(0.001)
+        time.sleep(0.001)  # Explicit simulated progress pacing, not backend work.
         job["progress"] = e / total
         job["current_epoch"] = e
         if e % max(1, total // 20) == 0:
@@ -161,7 +157,9 @@ def retrain_incremental(
     """
     Инкрементальный дотрейн модели RVC.
       mode: 'quick' (60 эпох) | 'night' (320 эпох)
-      dry_run: True — не запускает реальный rvc-python, только эмулирует
+      dry_run: True — только явно маркированная CI/UI-эмуляция без модели;
+      dry_run: False — честно возвращает blocked_backend, пока проверенный API
+          реального обучения не интегрирован (никогда не имитирует обучение).
     Возвращает job dict.
     """
     manifest = _load_manifest(manifest_path)
