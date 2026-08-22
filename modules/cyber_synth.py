@@ -31,6 +31,7 @@ class CyberSynth:
     def __init__(self, sample_rate: int = 44100, seed: int | None = None) -> None:
         self.sr = sample_rate
         self.seed = None if seed is None else int(seed)
+        self.last_lead_fx = {"ok": False, "engine": "numpy_fm_lead", "status": "not_rendered"}
 
     def generate_sub_bass(self, freq: float, duration: float, decay: float = 4.0) -> np.ndarray:
         """Generates a heavy 808 sub-bass with saturating envelope."""
@@ -62,6 +63,20 @@ class CyberSynth:
         except Exception as exc:
             return stereo_mix, {"ok": False, "engine": "numpy_raw_mix", "status": "failed", "error": f"{type(exc).__name__}: {exc}"}
 
+    def _apply_lead_effects(self, lead: np.ndarray) -> tuple[np.ndarray, dict]:
+        """Применяет optional lead effects и раскрывает fallback provenance."""
+        if not HAS_PEDALBOARD:
+            return lead, {"ok": False, "engine": "numpy_fm_lead", "status": "unavailable"}
+        try:
+            board = Pedalboard([
+                Chorus(rate_hz=1.2, depth=0.4, mix=0.5),
+                Distortion(drive_db=15.0),
+                Reverb(room_size=0.6, wet_level=0.3, dry_level=0.7),
+            ])
+            return board(lead, self.sr), {"ok": True, "engine": "pedalboard"}
+        except Exception as exc:
+            return lead, {"ok": False, "engine": "numpy_fm_lead", "status": "failed", "error": f"{type(exc).__name__}: {exc}"}
+
     def generate_cyber_lead(self, freq: float, duration: float) -> np.ndarray:
         """Generates a rich FM lead sound for cyberpunk melodies."""
         num_samples = int(self.sr * duration)
@@ -75,17 +90,7 @@ class CyberSynth:
         env = np.exp(-time_vec * 2.0)
         lead = carrier * env * 0.5
         
-        if HAS_PEDALBOARD:
-            try:
-                board = Pedalboard([
-                    Chorus(rate_hz=1.2, depth=0.4, mix=0.5),
-                    Distortion(drive_db=15.0),
-                    Reverb(room_size=0.6, wet_level=0.3, dry_level=0.7)
-                ])
-                lead = board(lead, self.sr)
-            except Exception:
-                pass
-                
+        lead, self.last_lead_fx = self._apply_lead_effects(lead)
         return np.clip(lead, -0.99, 0.99)
 
     def synthesize_track(
@@ -141,6 +146,7 @@ class CyberSynth:
             "deterministic": True,
             "determinism_scope": "classical_local_dsp_only",
             "master_bus": master_bus,
+            "lead_fx": self.last_lead_fx,
         }
 
     def sub_bass_pattern(self, root_freq: float, duration: float) -> np.ndarray:

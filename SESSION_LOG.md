@@ -1116,3 +1116,10 @@ RVC now records malformed subprocess epoch output without advancing real job pro
 CyberSynth master-bus provenance now distinguishes unavailable or failed optional Pedalboard effects from raw deterministic NumPy synthesis. The separate lead-effects fallback remains open and is not claimed resolved.
 
 Приёмка: focused CyberSynth effects suite 1 PASS; `pytest tests/ -q` = **311 PASS, 1 expected deprecation warning**, compileall/AST OK, data inventory 73/0/0. Fresh audit: SILENT_EXCEPT_PASS **90** (was 91); selected master-bus record removed, separate lead-effects record remains; **881** total heuristic records across 247 files.
+
+---
+## APP_L v40 — CyberSynth lead-effects observability
+
+CyberSynth lead-effect provenance now distinguishes unavailable or failed optional Pedalboard processing from dry deterministic FM synthesis. The legacy waveform API remains intact; no effects success is fabricated.
+
+Приёмка: focused CyberSynth lead-effects suite 1 PASS; `pytest tests/ -q` = **312 PASS, 1 expected deprecation warning**, compileall/AST OK, data inventory 73/0/0. Fresh audit: SILENT_EXCEPT_PASS **89** (was 90), none in `modules/cyber_synth.py`; **880** total heuristic records across 248 files.
