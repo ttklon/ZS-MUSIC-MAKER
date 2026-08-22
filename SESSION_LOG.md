@@ -1039,3 +1039,10 @@ Voice Vault now persists `transcription` provenance alongside the existing trans
 Artist Dossier now persists additive `audio_copy` transfer state. Direct intake creates its archive directory, successful copies name their artifact, and a failed copy retains only the original source with typed diagnostics rather than implying an archived local file exists.
 
 Приёмка: focused Artist Dossier audio-copy suite 2 PASS; `pytest tests/ -q` = **295 PASS, 1 expected deprecation warning**, compileall/AST OK, data inventory 73/0/0. Fresh audit: SILENT_EXCEPT_PASS **102** (was 103), none in `modules/artist_dossier/manager.py`; **879** total heuristic records across 237 files.
+
+---
+## APP_L v40 — Chanson master-bus observability
+
+Chanson master-bus Pedalboard state is now explicit in the synthesis result: unavailable or failed optional processing retains a raw NumPy mix and reports diagnostics rather than claiming effects-chain success. The separate guitar-effects fallback at `modules/chanson_engine.py:99` remains open and is not claimed resolved.
+
+Приёмка: focused Chanson master-bus suite 2 PASS; `pytest tests/ -q` = **297 PASS, 1 expected deprecation warning**, compileall/AST OK, data inventory 73/0/0. Fresh audit: SILENT_EXCEPT_PASS **101** (was 102); selected master-bus record removed, one separate Chanson guitar-effects record remains; **880** total heuristic records across 238 files.

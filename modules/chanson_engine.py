@@ -8,6 +8,7 @@ Replaces primitive monotone synth with authentic Chanson instrumentation:
 - Melodic Lead & Bass line
 """
 
+import logging
 import os
 from typing import Dict, Any
 import numpy as np
@@ -25,6 +26,9 @@ try:
     HAS_PEDALBOARD = True
 except ImportError:
     HAS_PEDALBOARD = False
+
+
+_LOG = logging.getLogger(__name__)
 
 
 class ChansonEngine:
@@ -96,6 +100,26 @@ class ChansonEngine:
                 pass
 
         return np.clip(chord_signal, -0.99, 0.99)
+
+    def _apply_master_bus(self, stereo_mix: np.ndarray) -> tuple[np.ndarray, dict]:
+        """Применяет optional Pedalboard master bus с явным fallback status."""
+        if not HAS_PEDALBOARD:
+            return stereo_mix, {"ok": False, "engine": "numpy_raw_mix", "status": "unavailable"}
+        try:
+            master_board = Pedalboard([
+                HighpassFilter(cutoff_frequency_hz=30),
+                Compressor(threshold_db=-12.0, ratio=2.5, attack_ms=15.0, release_ms=80.0),
+                Limiter(threshold_db=-0.5, release_ms=40.0),
+            ])
+            return master_board(stereo_mix, self.sr), {"ok": True, "engine": "pedalboard"}
+        except Exception as exc:
+            _LOG.warning("Chanson master-bus Pedalboard unavailable; retaining raw mix: %s", exc)
+            return stereo_mix, {
+                "ok": False,
+                "engine": "numpy_raw_mix",
+                "status": "failed",
+                "error": f"{type(exc).__name__}: {exc}",
+            }
 
     def synthesize_chanson_track(
         self, bpm: int = 96, duration_sec: int = 120, out_path: str = "chanson_track.wav"
@@ -170,18 +194,8 @@ class ChansonEngine:
             if current_sample >= total_samples:
                 break
 
-        # Master bus processing
-        if HAS_PEDALBOARD:
-            try:
-                master_board = Pedalboard([
-                    HighpassFilter(cutoff_frequency_hz=30),
-                    Compressor(threshold_db=-12.0, ratio=2.5, attack_ms=15.0, release_ms=80.0),
-                    Limiter(threshold_db=-0.5, release_ms=40.0)
-                ])
-                stereo_mix = master_board(stereo_mix, self.sr)
-            except Exception:
-                pass
-
+        # Master bus processing is optional; preserve and disclose raw-mix fallback.
+        stereo_mix, master_bus = self._apply_master_bus(stereo_mix)
         stereo_mix = np.clip(stereo_mix, -0.99, 0.99)
         os.makedirs(os.path.dirname(os.path.abspath(out_path)), exist_ok=True)
         sf.write(out_path, stereo_mix, self.sr, format="WAV", subtype="PCM_16")
@@ -191,5 +205,6 @@ class ChansonEngine:
             "path": out_path,
             "duration": duration_sec,
             "bpm": bpm,
-            "genre": "chanson"
+            "genre": "chanson",
+            "master_bus": master_bus,
         }
