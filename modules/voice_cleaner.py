@@ -163,6 +163,8 @@ def clean_vocal(input_wav: str, output_wav: str, prop_decrease: float = 1.0):
     try:
         os.makedirs(os.path.dirname(output_wav) or ".", exist_ok=True)
         shutil.copy(input_wav, output_wav)
-    except Exception:
-        pass
+        result["fallback_copy"] = {"ok": True, "path": output_wav}
+    except (OSError, shutil.Error) as error:
+        result["fallback_copy"] = {"ok": False, "error": f"{type(error).__name__}: {error}"}
+        result["reason"] = f"{result.get('reason', 'vocal clean chain failed')}; raw fallback copy failed: {error}"
     return result

@@ -997,3 +997,10 @@ Vocal FX now returns an explicit failure when a post-throw fallback copy cannot 
 Lyric Vault now retains valid JSONL entries while exposing malformed-line diagnostics through a new diagnostics accessor; the historical list API remains intact. Temporary-file regression proves recovery without touching the repository vault or invoking Ollama/trend/model paths.
 
 Приёмка: focused Lyric Vault suite 1 PASS; `pytest tests/ -q` = **283 PASS, 1 expected deprecation warning**, compileall/AST OK, data inventory 73/0/0. Fresh audit: SILENT_EXCEPT_PASS **109** (was 110); selected loader record removed, while the separate intentional local Ollama fallback remains unclaimed; **877** total heuristic records across 231 files.
+
+---
+## APP_L v40 — legacy voice-cleaner fallback observability
+
+Legacy clean_vocal fallback copies now report either the compatible output path or typed filesystem failure in the existing failed-chain result. Focused tests cover both paths without real DSP/model execution.
+
+Приёмка: focused legacy voice-cleaner suite 2 PASS; `pytest tests/ -q` = **285 PASS, 1 expected deprecation warning**, compileall/AST OK, data inventory 73/0/0. Fresh audit: SILENT_EXCEPT_PASS **108** (was 109), none in `modules/voice_cleaner.py`; **877** total heuristic records across 232 files.
