@@ -1179,3 +1179,10 @@ LRC parsing now exposes malformed timestamp candidates, unterminated tags and so
 The release-pack chain now returns additive `fallback_attempts` for failed/invalid full-pack and legacy-v13 attempts before the next fallback. Full-pack success remains unchanged; legacy and minimal results retain their established fields. Focused tests use mocked packers only and make no media or release-artifact claim.
 
 Приёмка: focused release-pack suite 2 PASS; `pytest tests/ -q` = **326 PASS, 1 expected deprecation warning**, compileall/AST OK, data inventory 73/0/0, `git diff --check` OK. Fresh audit: SILENT_EXCEPT_PASS **80** (was 82), **878** total heuristic records across 255 files; MISSING_DOCSTRING **319** due to two test-function heuristic records.
+
+---
+## APP_L v40 — orchestrator lyrics-router fallback provenance
+
+Template lyrics now retain additive `fallback_attempts` when `LLMRouter` raises or returns unusable text, while the existing successful template fallback contract remains intact. Focused tests use router doubles only; no local or remote LLM inference, model loading or generated lyric artifact is claimed.
+
+Приёмка: focused lyrics-router suite 2 PASS; `pytest tests/ -q` = **328 PASS, 1 expected deprecation warning**, compileall/AST OK, data inventory 73/0/0, `git diff --check` OK. Fresh audit: SILENT_EXCEPT_PASS **79** (was 80), **881** total heuristic records across 256 files; the test doubles account for MISSING_DOCSTRING 321 and MISSING_CLASS_DOCSTRING 115.

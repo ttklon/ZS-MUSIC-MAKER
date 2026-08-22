@@ -897,6 +897,7 @@ def _fallback_lyrics(theme: str, genre: str) -> dict[str, Any]:
 
 def _stage_lyrics(theme: str, genre: str) -> dict[str, Any]:
     """v17 FIX (P0): ВСЕГДА возвращаем И text, И lyrics-структуру."""
+    fallback_attempts: list[dict[str, str]] = []
     if LLMRouter is not None:
         try:
             router = LLMRouter(timeout=8.0)
@@ -904,26 +905,42 @@ def _stage_lyrics(theme: str, genre: str) -> dict[str, Any]:
                 f"Напиши текст в жанре {genre} про {theme}, "
                 f"16-24 строки, с verse и hook, на русском."
             )
-            r = router.complete(prompt, "", theme=theme, genre=genre, language="ru")
-            if r.get("ok") and r.get("text", "").strip():
-                lyrics_struct = _text_to_struct(r["text"], genre)
+            result = router.complete(prompt, "", theme=theme, genre=genre, language="ru")
+            if isinstance(result, dict) and result.get("ok") and result.get("text", "").strip():
+                lyrics_struct = _text_to_struct(result["text"], genre)
                 return {
                     "ok": True,
-                    "text": r["text"],
+                    "text": result["text"],
                     "lyrics": lyrics_struct,
-                    "provider": r.get("provider"),
-                    "fallback_used": r.get("fallback_used", False),
-                    "provider_chain": r.get("provider_chain"),
+                    "provider": result.get("provider"),
+                    "fallback_used": result.get("fallback_used", False),
+                    "provider_chain": result.get("provider_chain"),
                     "reason": (
-                        r.get("provider") + "_ok"
-                        if not r.get("fallback_used")
+                        result.get("provider") + "_ok"
+                        if not result.get("fallback_used")
                         else "llm_all_failed_template_fallback"
                     ),
                 }
-        except Exception:
-            pass
+            if isinstance(result, dict):
+                fallback_attempts.append({
+                    "engine": "LLMRouter",
+                    "status": "empty_or_failed_response",
+                    "error": str(result.get("reason") or result.get("error") or "no usable lyrics text"),
+                })
+            else:
+                fallback_attempts.append({
+                    "engine": "LLMRouter",
+                    "status": "invalid_result",
+                    "error": f"expected dict, got {type(result).__name__}",
+                })
+        except Exception as exc:
+            fallback_attempts.append({
+                "engine": "LLMRouter",
+                "status": "failed",
+                "error": f"{type(exc).__name__}: {exc}",
+            })
     fb = _fallback_lyrics(theme, genre)
-    return {
+    fallback = {
         "ok": True,
         "text": _struct_to_text(fb),
         "lyrics": fb,
@@ -931,6 +948,9 @@ def _stage_lyrics(theme: str, genre: str) -> dict[str, Any]:
         "provider": "local_template",
         "reason": "no LLM available; template used",
     }
+    if fallback_attempts:
+        fallback["fallback_attempts"] = fallback_attempts
+    return fallback
 
 
 def _stage_voice_synth(lyrics_text: str, out_dir: Path) -> dict[str, Any]:
