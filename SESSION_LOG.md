@@ -1172,3 +1172,10 @@ LRC parsing now exposes malformed timestamp candidates, unterminated tags and so
 `install_from_zip()` now fails and attempts rollback when the post-install smoke process cannot be launched. A launch exception no longer returns a false successful install result; the caller receives `stage=smoke_test`, typed error text, backup path and rollback status. No release was installed or smoke process run outside the mocked regression.
 
 Приёмка: focused updater suite 2 PASS; `pytest tests/ -q` = **324 PASS, 1 expected deprecation warning**, compileall/AST OK, data inventory 73/0/0, `git diff --check` OK. Fresh audit: SILENT_EXCEPT_PASS **82** (was 83), **878** total heuristic records across 254 files; LONG_FUNCTION **25** because the explicit return adds valid contract code.
+
+---
+## APP_L v40 — release-pack fallback provenance
+
+The release-pack chain now returns additive `fallback_attempts` for failed/invalid full-pack and legacy-v13 attempts before the next fallback. Full-pack success remains unchanged; legacy and minimal results retain their established fields. Focused tests use mocked packers only and make no media or release-artifact claim.
+
+Приёмка: focused release-pack suite 2 PASS; `pytest tests/ -q` = **326 PASS, 1 expected deprecation warning**, compileall/AST OK, data inventory 73/0/0, `git diff --check` OK. Fresh audit: SILENT_EXCEPT_PASS **80** (was 82), **878** total heuristic records across 255 files; MISSING_DOCSTRING **319** due to two test-function heuristic records.

@@ -1509,10 +1509,11 @@ def _stage_release_pack(
     hit_metrics=None,
 ) -> dict[str, Any]:
     out = out_dir / "release"
+    fallback_attempts: list[dict[str, str]] = []
     try:
         from modules.release_pack_full import build_pack as build_full
 
-        return build_full(
+        result = build_full(
             master_wav,
             str(out),
             meta,
@@ -1522,19 +1523,47 @@ def _stage_release_pack(
             stages=stages,
             hit_metrics=hit_metrics,
         )
-    except Exception:
-        pass
+        if isinstance(result, dict):
+            return result
+        fallback_attempts.append({
+            "engine": "release_pack_full",
+            "status": "invalid_result",
+            "error": f"expected dict, got {type(result).__name__}",
+        })
+    except Exception as exc:
+        fallback_attempts.append({
+            "engine": "release_pack_full",
+            "status": "failed",
+            "error": f"{type(exc).__name__}: {exc}",
+        })
     try:
         from modules import release_pack_v13 as rp
 
         out.mkdir(parents=True, exist_ok=True)
         if hasattr(rp, "build_pack"):
-            r = rp.build_pack(master_wav, str(out), meta)
-            if isinstance(r, dict):
-                return r
-    except Exception:
-        pass
-    return _minimal_release_pack(master_wav, meta, out)
+            result = rp.build_pack(master_wav, str(out), meta)
+            if isinstance(result, dict):
+                if fallback_attempts:
+                    result = dict(result)
+                    result["fallback_attempts"] = fallback_attempts
+                return result
+        else:
+            fallback_attempts.append({
+                "engine": "release_pack_v13",
+                "status": "unavailable",
+                "error": "build_pack is not defined",
+            })
+    except Exception as exc:
+        fallback_attempts.append({
+            "engine": "release_pack_v13",
+            "status": "failed",
+            "error": f"{type(exc).__name__}: {exc}",
+        })
+    result = _minimal_release_pack(master_wav, meta, out)
+    if fallback_attempts:
+        result = dict(result)
+        result["fallback_attempts"] = fallback_attempts
+    return result
 
 
 def _minimal_release_pack(
