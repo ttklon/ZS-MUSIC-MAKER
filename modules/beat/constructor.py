@@ -15,6 +15,7 @@ import random
 import numpy as np
 
 from modules.beat.arrangement import ArrangementMixin
+from modules.beat.drums import CAPABILITIES as DRUM_ENGINE
 from modules.beat.paths import output_dir
 from modules.beat.patterns import LEGACY_SLOT_PRESET, slot_preset_for_genre
 from modules.beat.samples import SampleBankMixin
@@ -54,7 +55,9 @@ class BeatConstructor(SampleBankMixin, VoicesMixin, ArrangementMixin):
         # Классифицируем сэмплы по типу
         self.kick_samples = []
         self.snare_samples = []
+        self.clap_samples = []
         self.hihat_samples = []
+        self.open_hat_samples = []
         self.bass_samples = []
         self.melody_samples = []
         self.fx_samples = []
@@ -302,12 +305,15 @@ class BeatConstructor(SampleBankMixin, VoicesMixin, ArrangementMixin):
             "seed": self.seed,
             "deterministic": self.seed is not None,
             "sections": section_info,
+            "drum_engine": DRUM_ENGINE,
             "slot_plan": self.build_slot_plan(max(1, sum(s["bars"] for s in section_info))),
             "total_bars": sum(s["bars"] for s in section_info),
             "samples_used": {
                 "kicks": len(self.kick_samples),
                 "snares": len(self.snare_samples),
+                "claps": len(self.clap_samples),
                 "hihats": len(self.hihat_samples),
+                "open_hihats": len(self.open_hat_samples),
                 "bass": len(self.bass_samples),
                 "melody": len(self.melody_samples),
                 "fx": len(self.fx_samples),

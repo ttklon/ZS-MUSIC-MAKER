@@ -20,7 +20,12 @@ class SampleBankMixin:
             name = os.path.basename(s).lower()
             if any(k in name for k in ["kick", "bd", "bass_drum", "808"]):
                 self.kick_samples.append(s)
-            elif any(k in name for k in ["snare", "sd", "clap", "rim"]):
+            elif "clap" in name:
+                # Клэп — отдельный слой, он играет поверх снейра на 2/4 доле.
+                self.clap_samples.append(s)
+            elif any(k in name for k in ["openhat", "open_hat", "open-hh", "oh_"]):
+                self.open_hat_samples.append(s)
+            elif any(k in name for k in ["snare", "sd", "rim"]):
                 self.snare_samples.append(s)
             elif any(
                 k in name for k in ["hihat", "hat", "hh", "cymbal", "ride", "crash"]

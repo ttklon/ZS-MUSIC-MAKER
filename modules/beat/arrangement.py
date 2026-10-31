@@ -11,6 +11,8 @@ from __future__ import annotations
 
 import numpy as np
 
+from modules.beat import humanize
+
 
 class ArrangementMixin:
     def _build_section(
@@ -33,32 +35,50 @@ class ArrangementMixin:
                 bass = self._generate_bass_line(bar, bar_samples)
                 bar_audio += self._pan_audio(bass, 0.0)
 
-            # Драм-паттерн
+            # Драм-паттерн. Каждый удар ставится со своим микротаймингом:
+            # ровно по сетке играет только метроном.
             if section not in ("intro_pad", "breakdown_silent"):
                 for step in range(16):
                     step_start = step * step_samples
 
                     # Кик всегда в центре
                     kick = self._generate_kick(step, bar)
-                    kick_end = min(step_start + len(kick), bar_samples)
-                    bar_audio[step_start:kick_end] += self._pan_audio(
-                        kick[: kick_end - step_start], 0.0
+                    kick_at = max(0, step_start + int(self._hit_offset_sec("kick", step, bar) * self.sr))
+                    kick_end = min(kick_at + len(kick), bar_samples)
+                    bar_audio[kick_at:kick_end] += self._pan_audio(
+                        kick[: kick_end - kick_at], 0.0
                     )
 
                     # Снейр/клэп почти в центре
                     snare = self._generate_snare(step, bar)
-                    snare_end = min(step_start + len(snare), bar_samples)
-                    bar_audio[step_start:snare_end] += self._pan_audio(
-                        snare[: snare_end - step_start], self._uniform(-0.05, 0.05)
+                    snare_at = max(
+                        0, step_start + int(self._hit_offset_sec("snare", step, bar) * self.sr)
+                    )
+                    snare_end = min(snare_at + len(snare), bar_samples)
+                    bar_audio[snare_at:snare_end] += self._pan_audio(
+                        snare[: snare_end - snare_at], self._uniform(-0.05, 0.05)
                     )
 
                     # Хэты панорамируем (шире для стерео-поля)
                     hh = self._generate_hihat(step, bar)
-                    hh_end = min(step_start + len(hh), bar_samples)
+                    hh_at = max(0, step_start + int(self._hit_offset_sec("hat", step, bar) * self.sr))
+                    hh_end = min(hh_at + len(hh), bar_samples)
                     hh_pan = 0.45 if step % 2 == 0 else -0.45
-                    bar_audio[step_start:hh_end] += self._pan_audio(
-                        hh[: hh_end - step_start], hh_pan
+                    bar_audio[hh_at:hh_end] += self._pan_audio(
+                        hh[: hh_end - hh_at], hh_pan
                     )
+
+                # Сбивка в конце фразы: 32-е на малом, тише и с нарастанием.
+                fill_steps = humanize.ghost_roll_steps(humanize.is_fill_bar(bar))
+                if fill_steps and section in ("verse", "pre_chorus", "hook", "chorus"):
+                    for index, roll_step in enumerate(fill_steps):
+                        roll_at = roll_step * step_samples
+                        roll = self._generate_snare(14, bar)
+                        crescendo = 0.35 + 0.2 * index
+                        roll_end = min(roll_at + len(roll), bar_samples)
+                        bar_audio[roll_at:roll_end] += self._pan_audio(
+                            roll[: roll_end - roll_at] * crescendo, self._uniform(-0.08, 0.08)
+                        )
 
             # Мелодия (шире)
             mel = self._generate_melody(bar, section, bar_samples)
