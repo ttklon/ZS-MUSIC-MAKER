@@ -62,7 +62,7 @@ python -m pytest tests/          # 287 тестов
 python tools/smoke_audio.py      # 6/6 (стерео, громкость, drop)
 python tools/smoke_god.py        # 8/8 (God Mode E2E → master 120 с)
 python tools/fallback_audit.py   # честность fallback-ветвей
-python tools/readiness.py
+python -m tools.readiness
 ```
 
 ## Лицензия

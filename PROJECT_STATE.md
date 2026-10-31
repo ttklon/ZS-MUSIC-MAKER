@@ -1,7 +1,7 @@
 # PROJECT_STATE
 
 > Состояние репозитория `ZS-MUSIC-MAKER` на 2026-10-31 (версия 41.0.0-alpha.3).
-> Сгенерировано `python tools/readiness.py --json`.
+> Сгенерировано `python -m tools.readiness --json`.
 
 ## Готовность: 65.0 %
 

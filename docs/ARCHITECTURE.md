@@ -103,4 +103,4 @@ TTS/RVC только fallback).
 | `python tools/smoke_god.py` | God Mode E2E, master 120 с, true-peak (8 проверок) |
 | `python tools/fallback_audit.py` | фейковые успехи и проглоченные ошибки |
 | `python tools/ast_dead_imports.py` | мёртвые импорты |
-| `python tools/readiness.py` | честный процент готовности + матрица модулей |
+| `python -m tools.readiness` | честный процент готовности + матрица модулей |

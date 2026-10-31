@@ -8,7 +8,7 @@ def test_tracked_python_modules_match_versioned_production_tree() -> None:
 
     assert paths == sorted(paths)
     assert "main.py" in paths
-    assert "tools/readiness.py" in paths
+    assert "tools/readiness/__init__.py" in paths
     assert all(path.endswith(".py") for path in paths)
     assert not [path for path in paths if path.startswith("tests/")]
     assert all(
@@ -31,7 +31,7 @@ def test_inventory_markdown_has_one_row_per_tracked_module() -> None:
 
     assert table.startswith("| Versioned module | Status |")
     assert table.count("\n") == len(readiness.tracked_python_modules()) + 1
-    assert "| tools/readiness.py |" in table
+    assert "| tools/readiness/__init__.py |" in table
 
 
 def test_readiness_includes_inventory_summary_without_changing_compute_shape() -> None:
