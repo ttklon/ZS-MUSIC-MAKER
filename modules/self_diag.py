@@ -73,7 +73,7 @@ EXPECTED_PATHS: list[tuple[str, str, str]] = [
     ("modules/release_pack_v9.py", "OK", "Release pack (ТЗ 3.12)"),
     ("modules/health.py", "OK", "Health-check v12"),
     ("modules/master_pipeline_v12.py", "OK", "Master pipeline v12"),
-    ("modules/kpi_dashboard.py", "OK", "KPI dashboard v12"),
+    ("modules/kpi_dashboard/__init__.py", "OK", "KPI dashboard v12"),
     ("app/core/orchestrator_v12_patch.py", "OK", "Orchestrator v12"),
     ("data/", "FLEX", "Локальная БД (создаётся)"),
     ("output/", "FLEX", "Артефакты (создаётся)"),

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import modules.kpi_dashboard as kpi
+from modules.kpi_dashboard import checklist as kpi
 
 
 def test_tz_percent_applies_health_constraints_to_filesystem_evidence(monkeypatch) -> None:
