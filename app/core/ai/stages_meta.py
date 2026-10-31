@@ -42,7 +42,7 @@ def stage_lyrics(handle, ctx):
     quality = {"ok": False, "reason": "lyrics_llm unavailable", "metrics": {}}
     if handle is not None:
         try:
-            from modules.lyrics_gen import generate_lyrics_ai
+            from modules.lyrics import generate_lyrics_ai
 
             ai_result = generate_lyrics_ai(
                 theme=ai.ws["theme"],
@@ -63,7 +63,7 @@ def stage_lyrics(handle, ctx):
             quality = {"ok": False, "reason": f"lyrics_ai failed: {exc}", "metrics": {}}
     if not quality["ok"]:
         try:
-            from modules import lyrics_gen
+            from modules import lyrics as lyrics_gen
 
             fallback = lyrics_gen.generate_lyrics(
                 theme=ai.ws["theme"],

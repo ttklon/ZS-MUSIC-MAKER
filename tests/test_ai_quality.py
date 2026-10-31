@@ -625,7 +625,7 @@ def test_song_lyrics_quality_rejects_missing_structure_or_ai_filler() -> None:
 
 
 def test_punch_library_fallback_meets_release_lyrics_contract(monkeypatch) -> None:
-    import modules.lyrics_gen as lyrics_gen
+    import modules.lyrics.generate as lyrics_gen
     from app.ai.quality import validate_song_lyrics
 
     monkeypatch.setattr(lyrics_gen, "_try_ollama", lambda _prompt: None)

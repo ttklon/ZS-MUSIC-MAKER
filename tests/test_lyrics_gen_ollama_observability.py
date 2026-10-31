@@ -1,6 +1,6 @@
 """Regression coverage for observable local Ollama lyric fallback."""
 
-from modules import lyrics_gen
+from modules.lyrics import generate as lyrics_gen
 
 
 def test_ollama_reports_unavailable_service(monkeypatch):

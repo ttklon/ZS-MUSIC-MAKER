@@ -84,7 +84,7 @@ INTERNAL_MODULES: list[str] = [
     "modules.voice_vault",
     "modules.rvc_manager",
     "modules.rvc_trainer",
-    "modules.lyrics_gen",
+    "modules.lyrics",
     "modules.author_ref_lyrics",
     "modules.mastering_v9",
     "modules.mastering",

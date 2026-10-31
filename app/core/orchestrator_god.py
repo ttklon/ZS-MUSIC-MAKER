@@ -151,7 +151,7 @@ def run_god_pipeline(
         else:
             # v26: Автоматически генерируем текст и озвучиваем его через gTTS для настоящего вокала в миксе!
             try:
-                from modules import lyrics_gen, voice_synth
+                from modules import lyrics as lyrics_gen, voice_synth
                 lyric_res = lyrics_gen.generate_lyrics(theme=state.get("theme", "Владимирский централ"), style_vector={"target_bpm": state.get("bpm_override", 96)})
                 text_content = lyric_res.get("lyrics", "Владимирский централ, ветер северный")
                 

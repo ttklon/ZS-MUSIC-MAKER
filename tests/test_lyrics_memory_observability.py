@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import modules.lyrics_gen as lyrics
+import modules.lyrics.memory as lyrics
 
 
 def test_lyric_memory_diagnostics_preserves_valid_jsonl_entries(tmp_path: Path, monkeypatch) -> None:
