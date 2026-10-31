@@ -1,8 +1,39 @@
 # CHANGELOG
 
-> Актуальная версия: **41.0.0-alpha.1** (2026-10-31). План рефакторинга —
+> Актуальная версия: **41.0.0-alpha.2** (2026-10-31). План рефакторинга —
 > `docs/PLAN_v41_MASTER.md`, состояние — `PROJECT_STATE.md`.
 > История до v40 сохранена ниже как архив: удалённый `SESSION_LOG.md` больше не поддерживается.
+
+## 41.0.0-alpha.2 — семантическое слияние дублей (2026-10-31)
+
+Этап 2 плана: «одна ответственность — один модуль». Удалены все оставшиеся
+дубли, каждая цепочка существует ровно в одном месте.
+
+- **Тексты:** `lyrics_gen_v8` и `lyrics_gen_ai` влиты в `modules/lyrics_gen.py`
+  (604 строки) — три входа (`generate_lyrics`, `generate_lyrics_ai`,
+  `generate_lyrics_v8`) с общим контрактом и обязательным сохранением строк
+  пользователя.
+- **Мастеринг (было 6 реализаций):**
+  `mastering.py` — мастеринг под 8 стендов (numpy-DSP, честные LUFS-метрики);
+  `mastering_chain.py` — pedalboard-чейн трека, ceiling −1 dBTP, RMS-фоллбек;
+  `mastering_reference.py` — единственный адаптер Matchering (+`master_ai`).
+  Удалены `mastering_pro`, `mastering_ai`, `matchering_master`.
+- **Вокал / трек:** `anti_ai_polish` влит в `anti_neuro`; затем модуль разделён
+  по ответственности — вокальная цепочка (`anti_neuro.py`) и «оживление»
+  микса (`anti_neuro_track.py`). `_stage_polish` пробует трековую цепочку,
+  затем вокальную, и лишь потом честно копирует мастер (`fallback_used`).
+- **Релиз:** `release_pack_full` + `release_export` + `distribution` → пакет
+  `modules/release/` (`assets`, `text`, `pack`, `export`, `channels`, `models`)
+  с ленивым публичным API. Мёртвая ветка `release_pack_v13` и её тест убраны:
+  стадия релиза = один движок + честный минимальный пакет.
+- **Микс:** удалён `modules/mixdown.py` (дубль канонической стадии микса
+  в оркестраторе).
+- **Имена:** тесты и фикстуры без версионных суффиксов
+  (`test_lyrics_gen_orchestration`, `test_health_collection`,
+  `test_theme_apply_observability`, `data/sample_manifests/*_test_samples.json`).
+- **Гейты:** 285 тестов, `smoke_audio` 6/6, `smoke_god` 8/8, AST dead imports
+  0, `compileall` 0 ошибок; устаревшие имена модулей вычищены из
+  `health`, `kpi_dashboard`, `readiness`.
 
 ## 41.0.0-alpha.1 — расчистка и дедупликация репозитория (2026-10-31)
 
