@@ -1,14 +1,14 @@
 # PROJECT_STATE
 
-> Состояние репозитория `ZS-MUSIC-MAKER` на 2026-10-31 (версия 41.0.0-alpha.2).
+> Состояние репозитория `ZS-MUSIC-MAKER` на 2026-10-31 (версия 41.0.0-alpha.3).
 > Сгенерировано `python tools/readiness.py --json`.
 
 ## Готовность: 65.0 %
 
 ## Модули
 
-- отслеживается: **118**
-- REAL_PASS: **116**, REAL_FAIL: **0**, PLANNED: **2**
+- отслеживается: **137**
+- REAL_PASS: **135**, REAL_FAIL: **0**, PLANNED: **2**
 
 ## Блоки
 
@@ -23,7 +23,7 @@
 
 ## Гейты
 
-- `pytest tests/` — 285 passed
+- `pytest tests/` — 301 passed
 - `tools/smoke_audio.py` — 6/6 PASS
 - `tools/smoke_god.py` — 8/8 PASS
 - `tools/ast_dead_imports.py` — CLEAN (0)

@@ -1,6 +1,6 @@
 # Архитектура ZS Music Maker
 
-> Версия: 41.0.0-alpha.1. Документ описывает **фактическое** устройство кода.
+> Версия: 41.0.0-alpha.3. Документ описывает **фактическое** устройство кода.
 > Если код и документ расходятся — прав код, документ правится в том же коммите.
 
 ## 1. Слои
@@ -10,9 +10,13 @@ main.py                     CLI-фасад: аргументы → команд�
 config/settings.py          конфиг: env > .env > дефолты (ZSMM_*)
 app/core/                   инфраструктура: логи, контракты, безопасность, бэкапы
 app/ai/                     AI-слой: реестр моделей, sequential runner, quality gates, prompts
-app/core/orchestrator.py    классический DSP-пайплайн (14 стадий)
+app/pipeline/               контракт стадии: StageStatus, StageResult, classify(), summarize()
+app/core/recipe.py          состояние визарда → нормализованный рецепт трека
+app/core/stages/            стадии классического пайплайна (prep/beat/texture/lyrics/vocal/mix/master/release)
+app/core/ai/                стадии AI-пайплайна (meta/music/vocal/final) + render-хелперы
+app/core/orchestrator.py    склейка классического DSP-пайплайна (15 стадий)
 app/core/orchestrator_god.py  God Mode (5 стадий, чекпоинты)
-app/core/orchestrator_ai.py   AI-пайплайн (12 стадий, manifest v1)
+app/core/orchestrator_ai.py   AI-пайплайн: только проводка стадий через SequentialAIRunner
 modules/                    аудио/текст/релиз/диагностика — прикладные модули
 agents/                     источники: сэмплы, тренды, сленг
 app/gui/                    PySide6: wizard (9 шагов), тема, онбординг
@@ -43,10 +47,18 @@ tests/                      pytest: unit / audio / e2e
 | 14 | `_stage_hit_score` | hit-score + рекомендации |
 | 15 | `_stage_release_pack` | релиз-пакет (~38 файлов) |
 
-Каждая стадия — `PipelineStage(name, ok, fallback_used, blocked, reason, output)`.
-Verdict: `PASS | PASS_WITH_FALLBACK | PASS_BLOCKED | BLOCKED_SIMULATION | PARTIAL`.
-`blocked` — честный отказ тяжёлого движка; он не топит verdict, а даёт половинный
-зачёт в `percent`.
+Каждая стадия возвращает `app.pipeline.StageResult` со статусом
+`OK | FALLBACK | BLOCKED | FAILED` (плюс `reason`, `attempts`, `duration_sec`).
+`OK` и `FALLBACK` — полноценный результат, `BLOCKED` — честный пропуск из-за
+отсутствующей тяжёлой зависимости (половинный зачёт в `percent`),
+`FAILED` — поломка (ноль). Итог считает только `app.pipeline.summarize()`:
+Verdict `PASS | PASS_WITH_FALLBACK | PASS_BLOCKED | BLOCKED_SIMULATION | PARTIAL`.
+Симуляция (синтетическая заглушка вне BLOCKED) ограничивает `percent` 60.
+
+Рецепт трека собирается один раз (`app/core/recipe.py`) из состояния визарда:
+пресет, BPM, жанр, агрессия, число куплетов, стенды, вокальный режим, свои
+строки и своя запись с микрофона (`own_vocal_wav` — основной вокальный путь,
+TTS/RVC только fallback).
 
 ## 3. AI-слой
 
