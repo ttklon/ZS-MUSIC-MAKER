@@ -12,22 +12,15 @@ import gc
 import json
 import os
 from pathlib import Path
-from typing import Dict, Any, List, Callable, Optional
+from typing import Dict, Any, List, Callable
 from dataclasses import dataclass, field
 
 from app.core.i18n import t
+from app.pipeline import StageResult, StageStatus, classify
 
 # Настройка профессионального логирования
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("PipelineCore")
-
-@dataclass
-class StageResult:
-    name: str
-    ok: bool
-    output: Any = None
-    duration_sec: float = 0.0
-    error: Optional[str] = None
 
 @dataclass
 class PipelineContext:
@@ -48,7 +41,7 @@ class PipelineStage:
         try:
             result_data = self.func(context)
             duration = time.time() - start_time
-            res = StageResult(name=self.name, ok=True, output=result_data, duration_sec=duration)
+            res = classify(result_data, duration_sec=duration, name=self.name)
             context.results[self.name] = res
             logger.info(f"stage={self.name} event=ok duration_ms={int(duration*1000)}")
             return res
@@ -56,7 +49,12 @@ class PipelineStage:
             duration = time.time() - start_time
             error_msg = f"stage={self.name} event=failed error={type(e).__name__}: {e}"
             logger.error(error_msg)
-            res = StageResult(name=self.name, ok=False, error=error_msg, duration_sec=duration)
+            res = StageResult(
+                name=self.name,
+                status=StageStatus.FAILED,
+                reason=error_msg,
+                duration_sec=round(duration, 3),
+            )
             context.results[self.name] = res
             return res
 
@@ -93,8 +91,9 @@ class ZSPipeline:
             with open(cp_path, "w", encoding="utf-8") as f:
                 json.dump({
                     "ok": result.ok,
+                    "status": result.status.value,
                     "output": result.output,
-                    "duration": result.duration_sec
+                    "duration": result.duration_sec,
                 }, f, ensure_ascii=False, default=str)
         except Exception as e:
             logger.warning(f"Failed to save checkpoint for {stage_name}: {e}")
@@ -126,7 +125,12 @@ class ZSPipeline:
                     try:
                         with open(cp_path, "r", encoding="utf-8") as f:
                             data = json.load(f)
-                        res = StageResult(name=stage.name, ok=data["ok"], output=data["output"], duration_sec=data["duration"])
+                        res = classify(
+                            data.get("output"),
+                            failed=not data.get("ok", False),
+                            duration_sec=float(data.get("duration") or 0.0),
+                            name=stage.name,
+                        )
                         self.context.results[stage.name] = res
                         if not res.ok: break
                         continue

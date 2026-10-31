@@ -3,6 +3,7 @@
 from types import SimpleNamespace
 
 from app.core import orchestrator
+from app.core.stages import release as release_stage
 
 
 def test_release_pack_failure_is_recorded_with_engine_and_error(monkeypatch, tmp_path):
@@ -15,7 +16,7 @@ def test_release_pack_failure_is_recorded_with_engine_and_error(monkeypatch, tmp
         SimpleNamespace(build_pack=fail_pack),
     )
     monkeypatch.setattr(
-        orchestrator,
+        release_stage,
         "_minimal_release_pack",
         lambda *_args: {"ok": True, "path": "minimal-release", "fallback_used": True},
     )
@@ -40,7 +41,7 @@ def test_release_pack_invalid_result_is_reported(monkeypatch, tmp_path):
         SimpleNamespace(build_pack=lambda *_a, **_k: "not-a-dict"),
     )
     monkeypatch.setattr(
-        orchestrator,
+        release_stage,
         "_minimal_release_pack",
         lambda *_args: {"ok": True, "path": "minimal-release", "fallback_used": True},
     )

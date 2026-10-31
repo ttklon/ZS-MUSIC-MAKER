@@ -1,4 +1,5 @@
 from app.core import orchestrator
+from app.core.stages import lyrics as lyrics_stage
 
 
 def test_lyrics_template_fallback_preserves_router_exception(monkeypatch):
@@ -9,7 +10,7 @@ def test_lyrics_template_fallback_preserves_router_exception(monkeypatch):
         def complete(self, *_args, **_kwargs):
             raise ConnectionError("local router offline")
 
-    monkeypatch.setattr(orchestrator, "LLMRouter", BrokenRouter)
+    monkeypatch.setattr(lyrics_stage, "LLMRouter", BrokenRouter)
 
     result = orchestrator._stage_lyrics("night drive", "phonk")
 
@@ -33,7 +34,7 @@ def test_lyrics_template_fallback_preserves_unusable_router_response(monkeypatch
         def complete(self, *_args, **_kwargs):
             return {"ok": True, "text": "", "reason": "empty completion"}
 
-    monkeypatch.setattr(orchestrator, "LLMRouter", EmptyRouter)
+    monkeypatch.setattr(lyrics_stage, "LLMRouter", EmptyRouter)
 
     result = orchestrator._stage_lyrics("night drive", "phonk")
 

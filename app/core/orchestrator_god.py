@@ -147,7 +147,7 @@ def run_god_pipeline(
             clean_vocal_wav = str(out_root / "vocal_cleaned.wav")
             voice_cleaner.clean_vocal(vocal_wav, clean_vocal_wav)
             ctx.shared_data["vocal_wav"] = clean_vocal_wav
-            return clean_vocal_wav
+            return {"ok": True, "path": clean_vocal_wav, "engine": "user_recording"}
         else:
             # v26: Автоматически генерируем текст и озвучиваем его через gTTS для настоящего вокала в миксе!
             try:
@@ -174,7 +174,8 @@ def run_god_pipeline(
                 if synth_path and os.path.exists(synth_path):
                     vocal_draft = synth_path
                     ctx.shared_data["vocal_wav"] = vocal_draft
-                    return vocal_draft
+                    return {"ok": True, "path": vocal_draft, "engine": "tts",
+                            "fallback_used": True}
                 ctx.shared_data["vocal_status"] = "BLOCKED"
                 ctx.shared_data["vocal_reason"] = "no_vocal_engine (silero/xtts/bark/pyttsx3/gtts недоступны)"
                 print("[orchestrator_god] vocal synth BLOCKED: no TTS engine available — pipeline продолжает без вокала")
@@ -183,7 +184,15 @@ def run_god_pipeline(
                 ctx.shared_data["vocal_status"] = "FAILED"
                 ctx.shared_data["vocal_reason"] = str(e)
 
-        return None
+        # Нет входа и нет TTS-движка: честный BLOCKED, пайплайн идёт дальше
+        # инструменталом. Это не провал стадии и не «успешный вокал».
+        return {
+            "ok": True,
+            "blocked": True,
+            "path": None,
+            "engine": "none",
+            "reason": ctx.shared_data.get("vocal_reason", "no vocal engine available"),
+        }
 
     pipe.add_stage("vocal_cleaning", stage_vocal)
 
