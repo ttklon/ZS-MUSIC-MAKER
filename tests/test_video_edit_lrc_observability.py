@@ -1,4 +1,4 @@
-from modules import video_edit
+from modules.video_edit import lrc as video_edit
 
 
 def test_lrc_diagnostics_preserve_valid_cues_and_report_bad_timestamp(tmp_path):
