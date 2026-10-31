@@ -1515,12 +1515,13 @@ def _stage_release_pack(
     stages=None,
     hit_metrics=None,
 ) -> dict[str, Any]:
+    """Полный релиз-пакет; при отказе движка — честный минимальный пакет."""
     out = out_dir / "release"
     fallback_attempts: list[dict[str, str]] = []
     try:
-        from modules.release_pack_full import build_pack as build_full
+        from modules.release import build_pack
 
-        result = build_full(
+        result = build_pack(
             master_wav,
             str(out),
             meta,
@@ -1533,36 +1534,13 @@ def _stage_release_pack(
         if isinstance(result, dict):
             return result
         fallback_attempts.append({
-            "engine": "release_pack_full",
+            "engine": "modules.release",
             "status": "invalid_result",
             "error": f"expected dict, got {type(result).__name__}",
         })
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - отчёт о сбое важен для диагностики
         fallback_attempts.append({
-            "engine": "release_pack_full",
-            "status": "failed",
-            "error": f"{type(exc).__name__}: {exc}",
-        })
-    try:
-        from modules import release_pack_v13 as rp
-
-        out.mkdir(parents=True, exist_ok=True)
-        if hasattr(rp, "build_pack"):
-            result = rp.build_pack(master_wav, str(out), meta)
-            if isinstance(result, dict):
-                if fallback_attempts:
-                    result = dict(result)
-                    result["fallback_attempts"] = fallback_attempts
-                return result
-        else:
-            fallback_attempts.append({
-                "engine": "release_pack_v13",
-                "status": "unavailable",
-                "error": "build_pack is not defined",
-            })
-    except Exception as exc:
-        fallback_attempts.append({
-            "engine": "release_pack_v13",
+            "engine": "modules.release",
             "status": "failed",
             "error": f"{type(exc).__name__}: {exc}",
         })
@@ -1623,7 +1601,7 @@ def _minimal_release_pack(
             "files": files,
             "path": str(out),
             "fallback_used": True,
-            "reason": "release_pack_full/v13 unavailable; minimal pack",
+            "reason": "modules.release unavailable; minimal pack",
         }
     except Exception as e:
         return {"ok": False, "reason": str(e)}

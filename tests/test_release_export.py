@@ -6,7 +6,7 @@ from pathlib import Path
 import numpy as np
 import soundfile as sf
 
-import modules.release_export as release_export
+from modules.release import export as release_export
 
 
 def test_release_export_writes_fingerprinted_manifest_and_zip(tmp_path, monkeypatch) -> None:

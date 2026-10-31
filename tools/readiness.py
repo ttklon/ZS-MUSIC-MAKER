@@ -285,13 +285,13 @@ def probe_voice_recording() -> dict[str, str]:
 def probe_release() -> dict[str, str]:
     p: dict[str, str] = {}
     p["release_export"] = (
-        "REAL_PASS" if _module_exists("modules.release_export") else "MISSING"
+        "REAL_PASS" if _module_exists("modules.release.export") else "MISSING"
     )
     p["release_pack"] = (
-        "REAL_PASS" if _module_exists("modules.release_pack_full") else "MISSING"
+        "REAL_PASS" if _module_exists("modules.release.pack") else "MISSING"
     )
     p["distribution"] = (
-        "REAL_PASS" if _module_exists("modules.distribution") else "MISSING"
+        "REAL_PASS" if _module_exists("modules.release.channels") else "MISSING"
     )
     p["cover_art"] = (
         "REAL_PASS" if _module_exists("modules.cover_art_gen") else "MISSING"

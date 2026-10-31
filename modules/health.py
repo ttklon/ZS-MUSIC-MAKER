@@ -94,7 +94,7 @@ INTERNAL_MODULES: list[str] = [
     "modules.tiktok_edit",
     "modules.kpi_monitor",
     "modules.video_edit",
-    "modules.distribution",
+    "modules.release",
     "modules.expert_mode",
     "app.core.hw_autodetect",
     "app.core.orchestrator",
