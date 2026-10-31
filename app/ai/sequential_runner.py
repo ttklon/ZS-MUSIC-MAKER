@@ -13,6 +13,7 @@ from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, Iterator, List, Optional
 
 from app.ai.registry import MODEL_REGISTRY, registry
+from app.pipeline import StageStatus
 
 logger = logging.getLogger("SequentialAIRunner")
 if not logger.handlers:
@@ -57,6 +58,16 @@ class StageReport:
     output_summary: str = ""
     error: Optional[str] = None
     skipped_reason: Optional[str] = None
+    status: StageStatus = StageStatus.OK
+
+    def __post_init__(self) -> None:
+        """Статус выводится из факта запуска: ошибка → FAILED, пропуск → BLOCKED."""
+        if self.error:
+            self.status = StageStatus.FAILED
+        elif self.skipped_reason:
+            self.status = StageStatus.BLOCKED
+        else:
+            self.status = StageStatus.OK
 
 
 @dataclass
@@ -71,6 +82,7 @@ class RunReport:
                 {
                     "name": stage.name,
                     "ok": stage.ok,
+                    "status": stage.status.value,
                     "used_model": stage.used_model,
                     "device": stage.device,
                     "duration_sec": round(stage.duration_sec, 2),
