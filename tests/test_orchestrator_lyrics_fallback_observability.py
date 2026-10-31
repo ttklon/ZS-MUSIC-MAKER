@@ -1,4 +1,3 @@
-from app.core import orchestrator
 from app.core.stages import lyrics as lyrics_stage
 
 
@@ -12,7 +11,7 @@ def test_lyrics_template_fallback_preserves_router_exception(monkeypatch):
 
     monkeypatch.setattr(lyrics_stage, "LLMRouter", BrokenRouter)
 
-    result = orchestrator._stage_lyrics("night drive", "phonk")
+    result = lyrics_stage._stage_lyrics("night drive", "phonk")
 
     assert result["ok"] is True
     assert result["provider"] == "local_template"
@@ -36,7 +35,7 @@ def test_lyrics_template_fallback_preserves_unusable_router_response(monkeypatch
 
     monkeypatch.setattr(lyrics_stage, "LLMRouter", EmptyRouter)
 
-    result = orchestrator._stage_lyrics("night drive", "phonk")
+    result = lyrics_stage._stage_lyrics("night drive", "phonk")
 
     assert result["provider"] == "local_template"
     assert result["fallback_attempts"] == [

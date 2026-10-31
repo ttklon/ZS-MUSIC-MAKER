@@ -1,7 +1,6 @@
 from types import SimpleNamespace
 
 import modules
-from app.core import orchestrator
 from app.core.stages import vocal as vocal_stage
 
 
@@ -17,7 +16,7 @@ def test_voice_fallback_preserves_primary_synth_failure_and_invalid_secondary_ou
         lambda *_args: {"ok": True, "engine": "pyttsx3", "fallback_used": True},
     )
 
-    result = orchestrator._stage_voice_synth("test lyrics", tmp_path)
+    result = vocal_stage._stage_voice_synth("test lyrics", tmp_path)
 
     assert result["ok"] is True
     assert result["engine"] == "pyttsx3"

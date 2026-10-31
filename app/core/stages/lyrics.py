@@ -7,6 +7,9 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.core.pipeline_runtime import _output, _timed
+from app.pipeline import StageResult, StageStatus
+
 try:  # локальный LLM-роутер опционален: без него работает шаблонный текст
     from modules.llm import LLMRouter
 except Exception:  # noqa: BLE001
@@ -230,3 +233,31 @@ def _stage_lyrics(theme: str, genre: str) -> dict[str, Any]:
     if fallback_attempts:
         fallback["fallback_attempts"] = fallback_attempts
     return fallback
+
+
+def _run_lyrics_stage(recipe: dict[str, Any]) -> tuple[StageResult, dict[str, Any], str]:
+    """Текст: свои строки пользователя приоритетнее любой генерации."""
+    user_lines = recipe["user_lyrics_lines"]
+    if user_lines:
+        own_text = "\n".join(user_lines)
+        struct = _text_to_struct(own_text, recipe["genre"])
+        return (
+            StageResult(
+                name="_stage_lyrics",
+                status=StageStatus.OK,
+                output={
+                    "ok": True,
+                    "text": own_text,
+                    "lyrics": struct,
+                    "provider": "user_lyrics",
+                    "reason": "user-provided lyrics from wizard",
+                },
+            ),
+            struct,
+            own_text,
+        )
+    stage = _timed("_stage_lyrics", lambda: _stage_lyrics(recipe["theme"], recipe["genre"]))
+    out = _output(stage)
+    struct = out.get("lyrics") or {}
+    text = out.get("text") or _struct_to_text(struct)
+    return stage, struct, text

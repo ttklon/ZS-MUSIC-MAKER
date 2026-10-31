@@ -15,7 +15,9 @@ app/pipeline/               контракт стадии: StageStatus, StageRes
 app/core/recipe.py          состояние визарда → нормализованный рецепт трека
 app/core/stages/            стадии классического пайплайна (prep/beat/texture/lyrics/vocal/mix/master/release)
 app/core/ai/                стадии AI-пайплайна (meta/music/vocal/final) + render-хелперы
-app/core/orchestrator.py    склейка классического DSP-пайплайна (15 стадий)
+app/core/orchestrator.py    склейка классического DSP-пайплайна (15 стадий, 339 строк)
+app/core/pipeline_runtime.py тайминг/статусы стадий, seed, --only/--resume
+app/core/stages/vocal_chain.py вокальная ветка: своя запись → TTS → RVC → FX
 app/core/orchestrator_god.py  God Mode (5 стадий, чекпоинты)
 app/core/orchestrator_ai.py   AI-пайплайн: только проводка стадий через SequentialAIRunner
 modules/                    аудио/текст/релиз/диагностика — прикладные модули

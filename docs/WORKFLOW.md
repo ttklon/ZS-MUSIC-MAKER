@@ -9,6 +9,7 @@ python -m pytest tests/ -q          # должно быть зелёно ДО и
 python tools/smoke_audio.py         # аудио-гейты
 python tools/fallback_audit.py      # честность fallback
 python tools/ast_dead_imports.py    # мёртвые импорты
+python main.py --run --seed 42 --only beat,lyrics   # воспроизводимый частичный прогон
 ```
 
 Коммит = одно логическое изменение + обновлённый `CHANGELOG.md`.
@@ -23,11 +24,12 @@ python tools/ast_dead_imports.py    # мёртвые импорты
 
 ## Добавить стадию в пайплайн
 
-1. Функция `_stage_<name>(...) -> dict` в `app/core/orchestrator.py` (или отдельный модуль,
-   если стадия тяжёлая).
+1. Функция `_stage_<name>(...) -> dict` в `app/core/stages/<тема>.py` (не в оркестраторе:
+   там только склейка).
 2. Возвращает `{ok, ...}`; при отказе — `{ok: False, reason: "...", blocked: True}`.
 3. Артефакт обязан пройти валидатор из `app/ai/quality.py`.
-4. Добавь стадию в `run_full_pipeline` и в таблицу `docs/ARCHITECTURE.md`.
+4. Добавь стадию в `run_full_pipeline` и, если у неё есть ключ для `--only`,
+   в `STAGE_KEYS` (`app/core/pipeline_runtime.py`); обнови `docs/ARCHITECTURE.md`.
 5. Тест: успешный путь + отказ + детерминизм по seed.
 
 ## Добавить AI-роль

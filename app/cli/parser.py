@@ -26,7 +26,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--version", "-V", action="store_true", help="Show version info")
     parser.add_argument("--gradio", action="store_true", help="Launch Web UI (Gradio)")
     parser.add_argument("--desktop", action="store_true", help="Launch Desktop UI (PySide6)")
+    parser.add_argument("--run", action="store_true", help="Run the full classic pipeline without GUI")
     parser.add_argument("--dry-run", action="store_true", help="Run pipeline in dry-run (no heavy deps)")
+    parser.add_argument("--seed", type=int, default=None, help="Deterministic seed (same seed => identical beat/artefacts)")
+    parser.add_argument("--resume", action="store_true", help="Reuse artefacts of a previous run in the same project dir")
+    parser.add_argument("--only", type=str, default="", help="Comma-separated stages to run (see --list-stages)")
     parser.add_argument("--dashboard", action="store_true", help="Show KPI dashboard")
     parser.add_argument("--e2e", action="store_true", help="Run real end-to-end test")
     parser.add_argument("--onboarding", action="store_true", help="Run voice onboarding CLI")
@@ -40,4 +44,5 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--dossier-build", action="store_true", help="Run full AI dossier build (heavy)")
     parser.add_argument("--score", type=str, default="", help="Score a mastered WAV and print hit-score breakdown")
     parser.add_argument("--update", action="store_true", help="Check Git update status without applying changes")
+    parser.add_argument("--list-stages", action="store_true", help="Show stage keys usable with --only")
     return parser

@@ -1,0 +1,141 @@
+# -*- coding: utf-8 -*-
+"""
+app/core/pipeline_runtime.py — рантайм стадий: тайминг, честные статусы,
+детерминизм и управление частичным прогоном.
+
+Здесь нет ни одной предметной стадии. Только правила, по которым пайплайн
+вызывает стадию и трактует её результат:
+
+* `_timed`  — исключение стадии становится статусом FAILED, а не падением;
+* `_blocked`— стадия не выполнялась по заведомой причине;
+* `STAGE_KEYS` / `--only` — явный список того, что можно запускать по частям;
+* `_resume_path` / `_resumed` — повторный прогон переиспользует артефакты;
+* `_apply_seed` — фиксирует ГПСЧ, без этого «детерминизм» — лозунг.
+"""
+
+from __future__ import annotations
+
+import time
+from collections.abc import Callable
+from pathlib import Path
+from typing import Any
+
+from app.pipeline import StageResult, StageStatus, classify
+
+
+# --------------------------------------------------------------------------- #
+#  Детерминизм, частичный прогон и возобновление
+# --------------------------------------------------------------------------- #
+# Ключи стадий для `--only` — ровно те шаги, которые пользователь различает.
+STAGE_KEYS = (
+    "analysis",
+    "groove",
+    "arrangement",
+    "beat",
+    "texture",
+    "lyrics",
+    "vocal",
+    "mix",
+    "master",
+    "polish",
+    "stems",
+    "hit_score",
+    "release",
+)
+
+# Артефакты, по которым `--resume` понимает, что стадия уже выполнена.
+_RESUME_ARTIFACTS = {
+    "beat": "beat.wav",
+    "texture": "texture_scaffold.wav",
+    "vocal": "voice_fx.wav",
+    "mix": "mix_ducked.wav",
+    "master": "full_master_streaming.wav",
+}
+
+
+def _apply_seed(seed: int | None) -> None:
+    """Зафиксировать глобальные ГПСЧ, чтобы прогон был воспроизводим."""
+    if seed is None:
+        return
+    import random
+
+    random.seed(int(seed))
+    try:
+        import numpy as np
+
+        np.random.seed(int(seed) % (2**32 - 1))
+    except Exception:  # noqa: BLE001 - numpy опционален
+        pass
+
+
+def _wanted(only: set[str] | None, key: str) -> bool:
+    return only is None or key in only
+
+
+def _resumed(name: str, output: dict[str, Any]) -> StageResult:
+    """Стадия не пересчитывалась: артефакт найден на диске от прошлого прогона."""
+    return StageResult(
+        name=name,
+        status=StageStatus.OK,
+        output={**output, "resumed": True, "reason": "artifact reused from previous run"},
+    )
+
+
+def _resume_path(out_root: Path, key: str) -> Path | None:
+    artifact = _RESUME_ARTIFACTS.get(key)
+    if not artifact:
+        return None
+    path = out_root / artifact
+    return path if path.exists() else None
+
+
+def _timed(name: str, fn: Callable[[], Any]) -> StageResult:
+    """Выполнить стадию, замерить время и классифицировать результат.
+
+    Исключение внутри стадии не роняет пайплайн: оно становится статусом
+    FAILED с текстом ошибки, чтобы отчёт показал, что именно сломалось.
+    """
+    started = time.time()
+    output: Any = None
+    failed = False
+    reason: str | None = None
+    try:
+        output = fn()
+    except Exception as exc:  # noqa: BLE001 - стадия обязана быть изолирована
+        failed = True
+        reason = f"{type(exc).__name__}: {exc}"
+    return classify(
+        output,
+        failed=failed,
+        reason=reason,
+        duration_sec=time.time() - started,
+        name=name,
+    )
+
+
+def _blocked(name: str, reason: str) -> StageResult:
+    """Честно пропущенная стадия (нет входа или выключена пользователем)."""
+    return StageResult(name=name, status=StageStatus.BLOCKED, reason=reason)
+
+
+def _normalize_path_map(data: Any, keys: list[str] | None = None) -> dict[str, str]:
+    """Оставить в словаре только реальные пути, отбросив пустые значения."""
+    out: dict[str, str] = {}
+    if not isinstance(data, dict):
+        return out
+    allow = set(keys or [])
+    for name, value in data.items():
+        if allow and name not in allow:
+            continue
+        path = None
+        if isinstance(value, (str, Path)):
+            path = str(value)
+        elif isinstance(value, dict):
+            path = value.get("out_wav") or value.get("path")
+        if path:
+            out[str(name)] = str(path)
+    return out
+
+
+def _output(stage: StageResult) -> dict[str, Any]:
+    return stage.output if isinstance(stage.output, dict) else {}

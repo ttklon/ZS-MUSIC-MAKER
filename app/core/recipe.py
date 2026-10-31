@@ -139,6 +139,10 @@ def resolve_style_vector(recipe: dict[str, Any], analysis: Any) -> dict[str, Any
         style["target_bpm"] = int(recipe["bpm_override"])
         if isinstance(analysis, dict):
             analysis["bpm"] = recipe["bpm_override"]
+    # Seed едет вместе со стилем: бит обязан быть воспроизводимым,
+    # иначе «детерминизм seed → одинаковый SHA-256» проверить невозможно.
+    if recipe.get("seed") is not None:
+        style["seed"] = int(recipe["seed"])
     return style
 
 

@@ -69,6 +69,66 @@ def run_dry_run() -> int:
         return 2
 
 
+def parse_only(raw: str) -> set[str] | None:
+    """`--only beat,lyrics` → {'beat', 'lyrics'}; пусто → None (все стадии)."""
+    keys = {part.strip() for part in (raw or "").split(",") if part.strip()}
+    return keys or None
+
+
+def run_list_stages() -> int:
+    from app.core.pipeline_runtime import STAGE_KEYS
+
+    safe_print("Stages usable with --only:")
+    for key in STAGE_KEYS:
+        safe_print(f"  - {key}")
+    return 0
+
+
+def run_pipeline(args) -> int:
+    """Полный классический прогон без GUI — с seed/resume/only."""
+    try:
+        from app.core.orchestrator import run_full_pipeline
+
+        only = parse_only(args.only)
+        wizard_state: dict = {"genre": args.genre, "theme": args.theme}
+        if args.dossier_artist:
+            wizard_state["artist"] = args.dossier_artist
+        if args.seed is not None:
+            wizard_state["seed"] = args.seed
+        project_id = f"cli_{args.genre}"
+        out = run_full_pipeline(
+            project_id,
+            wizard_state,
+            dry_run=args.dry_run,
+            only=only,
+            resume=args.resume,
+        )
+    except ValueError as exc:
+        safe_print(f"[main --run] {exc}")
+        return 2
+    except Exception as e:
+        safe_print(f"[main --run] failed: {e}")
+        return 2
+    safe_print(
+        json.dumps(
+            {
+                "verdict": out.get("verdict"),
+                "percent": out.get("percent"),
+                "master": out.get("master_path"),
+                "seed": out.get("seed"),
+                "only": out.get("only"),
+                "resume": out.get("resume"),
+                "duration_sec": out.get("duration_sec"),
+                "status_summary": out.get("status_summary"),
+                "warnings": out.get("warnings"),
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+    )
+    return 0 if str(out.get("verdict", "")).endswith("PASS") else 1
+
+
 def run_dashboard() -> int:
     try:
         from modules import kpi_dashboard

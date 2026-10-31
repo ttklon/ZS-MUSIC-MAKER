@@ -45,6 +45,8 @@ def main() -> int:
         return commands.run_version()
     if args.list_genres:
         return commands.run_list_genres()
+    if args.list_stages:
+        return commands.run_list_stages()
     if args.smoke:
         return commands.run_smoke()
     if args.self_diag:
@@ -76,15 +78,25 @@ def main() -> int:
     if args.dossier_build and args.dossier_artist:
         return commands.run_dossier_build(args.dossier_artist)
 
-    # 4) Пайплайны.
-    if args.dry_run:
-        return commands.run_ai_dry_run(args) if args.ai else commands.run_dry_run()
+    # 4) Пайплайны. `--seed/--resume/--only` относятся к классическому DAG.
+    classic = (args.run or args.dry_run or args.resume or args.only or args.seed is not None)
+    if classic and (args.ai or args.god or args.async_mode):
+        from app.cli.env import safe_print
+
+        safe_print(
+            "[main] --seed/--resume/--only apply to the classic pipeline (--run); "
+            "ignored for --ai/--god/--async-mode"
+        )
+    if args.ai and args.dry_run:
+        return commands.run_ai_dry_run(args)
     if args.ai:
         return commands.run_ai(args)
     if args.god:
         return commands.run_god(args)
     if args.async_mode:
         return commands.run_async(args)
+    if classic:
+        return commands.run_pipeline(args)
 
     # 5) Интерфейсы.
     if args.console:
