@@ -227,7 +227,7 @@ def _filesystem_tz_checks() -> dict[str, bool]:
         "auto_deps": has("install.py") and has("requirements.txt"),
         "smoke_tests": has("tools/smoke_audio.py") and has("tools/smoke_god.py"),
         "readme_context": has("README.md") and has("SESSION_LOG.md"),
-        "agents_free": has("agents/sample_hunter.py") or has("agents/sample_hunter.py"),
+        "agents_free": has("agents/sample_hunter/__init__.py") or has("agents/trend_scout.py"),
         "logging": (ROOT / "logs").exists(),
         "hw_autodetect": has("app/core/hw_autodetect.py"),
         "rvc_real": has("modules/rvc_manager.py") and has("modules/rvc_trainer.py"),
