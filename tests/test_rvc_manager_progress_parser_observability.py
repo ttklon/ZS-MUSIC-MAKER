@@ -13,7 +13,7 @@ def test_progress_parser_records_malformed_epoch_token(monkeypatch):
         def wait(self):
             return 0
 
-    monkeypatch.setattr("modules.rvc_manager.subprocess.Popen", lambda *args, **kwargs: _Proc())
+    monkeypatch.setattr("modules.rvc_manager.trainer.subprocess.Popen", lambda *args, **kwargs: _Proc())
 
     trainer._run_with_progress(["fake-train"], job)
 
