@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from modules.artist_dossier.manager import (
+from modules.artist_dossier import (
     ArtistEntry,
     DossierManager,
     artist_dossier_schema,
