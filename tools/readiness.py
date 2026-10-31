@@ -218,7 +218,7 @@ def probe_core_modules() -> dict[str, str]:
         ("groove_extractor", "modules.groove_extractor"),
         ("beat_constructor", "modules.beat_constructor"),
         ("arrangement", "modules.arrangement_engine"),
-        ("lyrics_gen", "modules.lyrics_gen"),
+        ("lyrics", "modules.lyrics"),
         ("sidechain", "modules.sidechain"),
         ("anti_neuro", "modules.anti_neuro"),
         ("hit_scorer", "modules.hit_scorer"),

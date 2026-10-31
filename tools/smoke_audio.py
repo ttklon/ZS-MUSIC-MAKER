@@ -155,7 +155,7 @@ def main():
 
     # 6
     try:
-        from modules import hit_scorer as hs
+        from modules.hit_scorer import hook_metrics as hs
 
         sr = 22050
         t = np.arange(sr * 5) / sr

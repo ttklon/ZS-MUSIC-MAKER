@@ -238,7 +238,7 @@ def _filesystem_tz_checks() -> dict[str, bool]:
         "license_provenance": has("modules/provenance.py") and has("app/core/license_manager.py"),
         "release_full": has("modules/release_pack_v9.py"),
         "distribution_5": has("modules/release/channels.py"),
-        "hit_scorer": has("modules/hit_scorer.py") and has("modules/ai_detector_pro.py"),
+        "hit_scorer": has("modules/hit_scorer/__init__.py") and has("modules/ai_detector_pro.py"),
         "queue_5": has("modules/render_queue.py"),
         "kpi_20_5": has("modules/kpi_monitor.py"),
     }
@@ -300,7 +300,7 @@ def _tz_percent(
     * license_provenance  — есть modules/provenance.py + app/core/license_manager.py.
     * release_full        — есть modules/release_pack_v9.py.
     * distribution_5      — есть modules/release/channels.py.
-    * hit_scorer          — есть modules/hit_scorer.py + ai_detector_pro.py.
+    * hit_scorer          — есть пакет modules/hit_scorer/ + ai_detector_pro.py.
     * queue_5             — есть modules/render_queue.py.
     * kpi_20_5            — есть modules/kpi_monitor.py.
     """
