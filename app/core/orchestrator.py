@@ -1335,52 +1335,51 @@ def _stage_mastering(
 
 
 def _stage_polish(input_wav: str, out_dir: Path) -> dict[str, Any]:
-    """Anti-neuro полировка мастера: anti_neuro → anti_ai_polish → honest copy."""
+    """Anti-neuro обработка мастера: трековая цепочка → вокальная → честная копия.
+
+    Каждый движок пробуется изолированно: сбой одного не отменяет следующий,
+    а полный отказ заканчивается явной копией с `fallback_used=True`.
+    """
     out_wav = str(out_dir / "polished.wav")
     attempts: list[str] = []
     try:
-        from modules import anti_neuro as an
+        from modules import anti_neuro, anti_neuro_track
 
-        for name in ("polish_vocal", "apply_polish"):
-            fn = getattr(an, name, None)
+        for label, owner, name in (
+            ("anti_neuro_track", anti_neuro_track, "polish_track"),
+            ("anti_neuro", anti_neuro, "apply_polish"),
+            ("anti_neuro", anti_neuro, "polish_vocal"),
+        ):
+            fn = getattr(owner, name, None)
             if not callable(fn):
                 continue
-            attempts.append(f"anti_neuro.{name}")
+            attempts.append(name)
+            result: Any = None
             try:
-                result = fn(input_wav, out_wav, intensity=0.5) if name == "apply_polish" else fn(
-                    input_wav, out_wav, preset="standard"
-                )
+                if name == "polish_track":
+                    result = fn(input_wav, out_wav, preset="standard")
+                elif name == "apply_polish":
+                    result = fn(input_wav, out_wav, intensity=0.5)
+                else:
+                    result = fn(input_wav, out_wav, preset="standard")
             except TypeError:
-                result = fn(input_wav, out_wav)
-            if isinstance(result, str) and Path(result).exists():
-                return {"ok": True, "path": result, "engine": f"anti_neuro.{name}"}
-            if isinstance(result, dict) and result.get("ok"):
-                payload = dict(result)
-                payload.setdefault("engine", f"anti_neuro.{name}")
-                return payload
-    except Exception as exc:  # noqa: BLE001 - fallback chain is intentional
-        attempts.append(f"anti_neuro.error:{type(exc).__name__}")
-
-    try:
-        from modules import anti_ai_polish as aap
-
-        for name in ("polish", "apply", "run", "process"):
-            fn = getattr(aap, name, None)
-            if not callable(fn):
-                continue
-            attempts.append(f"anti_ai_polish.{name}")
-            try:
-                result = fn(input_wav, out_wav)
-            except Exception:
+                try:
+                    result = fn(input_wav, out_wav)
+                except Exception as exc:  # noqa: BLE001 - пробуем следующий движок
+                    attempts.append(f"{name}:error:{type(exc).__name__}")
+                    continue
+            except Exception as exc:  # noqa: BLE001
+                attempts.append(f"{name}:error:{type(exc).__name__}")
                 continue
             if isinstance(result, str) and Path(result).exists():
-                return {"ok": True, "path": result, "engine": f"anti_ai_polish.{name}"}
+                return {"ok": True, "path": result, "engine": f"{label}.{name}"}
             if isinstance(result, dict) and result.get("ok"):
                 payload = dict(result)
-                payload.setdefault("engine", f"anti_ai_polish.{name}")
+                payload["path"] = payload.get("path") or payload.get("out_wav") or out_wav
+                payload.setdefault("engine", f"{label}.{name}")
                 return payload
-    except Exception as exc:  # noqa: BLE001
-        attempts.append(f"anti_ai_polish.error:{type(exc).__name__}")
+    except Exception as exc:  # noqa: BLE001 - импорт недоступен
+        attempts.append(f"import:error:{type(exc).__name__}")
 
     import shutil
 
@@ -1390,7 +1389,7 @@ def _stage_polish(input_wav: str, out_dir: Path) -> dict[str, Any]:
         "path": out_wav,
         "fallback_used": True,
         "attempts": attempts,
-        "reason": "no working anti-neuro engine; master copied as-is",
+        "reason": "anti-neuro engines unavailable; master copied as-is",
     }
 
 

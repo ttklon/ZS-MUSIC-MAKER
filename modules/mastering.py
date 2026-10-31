@@ -1,25 +1,12 @@
 # -*- coding: utf-8 -*-
 """
-ZS Music Maker — modules/mastering.py
-====================================================================
-Канонический вход мастеринга для оркестратора.
+modules/mastering.py — мастеринг под стенды (numpy-DSP, без тяжёлых зависимостей).
 
-v27 (P0): раньше orchestrator._stage_mastering делал
-`from modules import mastering` — но файла modules/mastering.py
-НЕ СУЩЕСТВОВАЛО (были только mastering_pro.py / mastering_stands.py).
-Стадия мастеринга ВСЕГДА падала → master_streaming.wav никогда не
-создавался → smoke_audio: master missing, hit_score stage missing.
-
-Этот модуль — честный DSP-мастеринг без тяжёлых зависимостей:
-  • per-stand EQ (bass/treble shelves, presence),
+  • per-stand EQ (однополюсные полки),
   • soft-knee tanh-limiter с итеративной dBFS-компенсацией,
-  • целевая громкость по стендам (streaming -13.5 dBFS и т.д.),
-  • сохранение СТЕРЕО (никакого mono-downmix),
-  • pyloudnorm ITU-BS.1770 LUFS, если установлен (опционально).
-
-Публичный API:
-  master_all_stands(mix_wav, out_dir, stands=None) -> dict
-  master_one(mix_wav, out_wav, stand="streaming") -> dict
+  • целевая громкость по стендам,
+  • pyloudnorm ITU-BS.1770, если установлен (иначе честная dBFS-оценка),
+  • master_one / master_all_stands — сохранение стерео, без mono-downmix.
 """
 
 from __future__ import annotations
@@ -136,7 +123,7 @@ def _tanh_limit(y: np.ndarray, drive: float = 1.0, ceiling: float = 0.98) -> np.
 def _try_numpy_dsp(y: np.ndarray, sr: int, stand: str) -> tuple[np.ndarray, dict]:
     """Основной DSP-путь мастеринга (честный, fallback_used=False):
     EQ → итеративная loudness-компенсация → tanh-limiter."""
-    info: dict[str, Any] = {"fallback_used": False, "engine": "numpy_dsp_v27"}
+    info: dict[str, Any] = {"fallback_used": False, "engine": "numpy_dsp"}
     y = _apply_stand_eq(y, sr, stand)
     target = STAND_TARGET_DBFS.get(stand, -13.5)
     # tanh-limiter поднимает RMS на ~+3.1dB после насыщения — компенсируем,
@@ -211,7 +198,7 @@ def master_all_stands(
             "fallback": fallback,
             "errors": errors,
         },
-        "engine": "modules/mastering.py v27 (numpy_dsp + optional pyloudnorm)",
+        "engine": "mastering (numpy_dsp + optional pyloudnorm)",
     }
 
 

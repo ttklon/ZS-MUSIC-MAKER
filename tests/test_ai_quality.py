@@ -439,7 +439,7 @@ def test_cover_quality_requires_readable_large_rgb_artifact(tmp_path) -> None:
 
 
 def test_matchering_handle_processes_reference_without_registry_reload(tmp_path) -> None:
-    from modules.mastering_ai import master_with_matchering
+    from modules.mastering_reference import master_with_matchering
 
     class FakeMatchering:
         def __init__(self):
@@ -472,7 +472,7 @@ def test_matchering_handle_processes_reference_without_registry_reload(tmp_path)
 
 
 def test_matchering_handle_rejects_missing_output(tmp_path) -> None:
-    from modules.mastering_ai import master_with_matchering
+    from modules.mastering_reference import master_with_matchering
 
     class SilentMatchering:
         def pcm16(self, path):

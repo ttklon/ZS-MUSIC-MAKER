@@ -3,7 +3,7 @@ from __future__ import annotations
 import numpy as np
 import soundfile as sf
 
-from modules import mastering_pro
+from modules import mastering_chain as mastering_pro
 
 
 def test_pedalboard_failure_does_not_disable_future_masters(tmp_path, monkeypatch) -> None:

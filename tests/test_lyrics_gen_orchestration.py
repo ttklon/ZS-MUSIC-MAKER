@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import modules.lyrics_gen_v8 as lyrics_v8
+import modules.lyrics_gen as lyrics_v8
 
 
 def test_generate_lyrics_v8_orchestrates_optional_helpers_without_network(monkeypatch) -> None:

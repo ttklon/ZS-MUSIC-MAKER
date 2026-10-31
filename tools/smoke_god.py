@@ -120,7 +120,7 @@ def test_god_mode_e2e() -> None:
 
 def test_mastering_pro_metrics() -> None:
     """mastering_pro возвращает честные output-метрики (v29)."""
-    from modules import mastering_pro
+    from modules import mastering_chain as mastering_pro
     # Синтетический вход
     sr = 44100
     t = np.linspace(0, 3.0, sr * 3, endpoint=False)

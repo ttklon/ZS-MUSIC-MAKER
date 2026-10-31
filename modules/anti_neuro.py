@@ -1,22 +1,16 @@
 """
-ZS Music Maker v10 — Anti-Neuro Polish (+v17 numpy fallback)
-================================================================
-Оригинальные стадии (требуют pydub):
-  1. Micro-timing jitter, 2. Breath insertion, 3. Formant micro-shift,
-  4. Consonant hardening, 5. Ghost harmony removal, 6. Ending naturalization,
-  7. Structural entropy, 8. Human error injection.
+modules/anti_neuro.py — вокальная цепочка «не-нейроношности».
 
-v17 additions:
-  • apply_polish(input, out, intensity) — обёртка для мастер-стадии
-    (orchestrator._stage_polish искал именно этот symbol).
-  • Честный numpy-fallback (soundfile+scipy) — polish работает даже
-    без pydub: breath / hi-shelf / low-pass ghost-remove / fade-out /
-    human-error / entropy.
+pydub-обработка вокала: micro-timing jitter, вставка дыханий, микро-сдвиг
+формант, уплотнение согласных, удаление ghost-гармоний, естественные
+окончания, структурная энтропия, инъекция человеческих ошибок. Без pydub —
+честный numpy-fallback с `fallback_used=True` и причиной.
+
+Трековая пост-обработка микса живёт в `modules.anti_neuro_track`.
+Все стадии детерминированы по `seed`.
 """
-
 from __future__ import annotations
 
-import json
 import logging
 import random
 from pathlib import Path
@@ -303,7 +297,7 @@ def _apply_stage(seg, name: str, rng: random.Random):
         try:
             import numpy as np
 
-            y = np.array(seg.get_array_of_samples(), dtype=np.float32)
+            y = _np.array(seg.get_array_of_samples(), dtype=_np.float32)
             # Ищем области с высокой активностью в ВЧ (согласные)
             from scipy.signal import butter, sosfilt
 
@@ -311,7 +305,7 @@ def _apply_stage(seg, name: str, rng: random.Random):
             hi = sosfilt(sos, y)
             # Усиливаем только там, где ВЧ и так есть
             y = y + hi * 0.5
-            y_int = np.clip(y, -32768, 32767).astype(np.int16)
+            y_int = _np.clip(y, -32768, 32767).astype(_np.int16)
             return AudioSegment(
                 y_int.tobytes(),
                 frame_rate=seg.frame_rate,
@@ -347,7 +341,7 @@ def _apply_stage(seg, name: str, rng: random.Random):
             import numpy as np
 
             # Конвертируем в numpy
-            y = np.array(seg.get_array_of_samples(), dtype=np.float32) / (2**15)
+            y = _np.array(seg.get_array_of_samples(), dtype=_np.float32) / (2**15)
             sr = seg.frame_rate
 
             # Формантный сдвиг через трюк "resample + pitch shift back"
@@ -370,10 +364,10 @@ def _apply_stage(seg, name: str, rng: random.Random):
             if len(y_final) > len(y):
                 y_final = y_final[: len(y)]
             else:
-                y_final = np.pad(y_final, (0, len(y) - len(y_final)))
+                y_final = _np.pad(y_final, (0, len(y) - len(y_final)))
 
             # Конвертируем обратно в AudioSegment
-            y_int = (y_final * (2**15)).astype(np.int16)
+            y_int = (y_final * (2**15)).astype(_np.int16)
             out = AudioSegment(
                 y_int.tobytes(), frame_rate=sr, sample_width=2, channels=seg.channels
             )
@@ -389,13 +383,15 @@ def _apply_stage(seg, name: str, rng: random.Random):
 
 
 def capability_report() -> dict[str, Any]:
+    """Честный отчёт о доступных цепочках (без «всё работает» по умолчанию)."""
+    from modules import anti_neuro_track
+
     return {
         "pydub_available": LIBS_OK,
         "numpy_fallback_available": NP_OK,
+        "vocal_chain": True,
+        "track_chain": anti_neuro_track.NP_OK,
         "polish_vocal": True,
         "apply_polish": True,
+        "polish_track": callable(getattr(anti_neuro_track, "polish_track", None)),
     }
-
-
-if __name__ == "__main__":
-    print(json.dumps(capability_report(), ensure_ascii=False, indent=2))

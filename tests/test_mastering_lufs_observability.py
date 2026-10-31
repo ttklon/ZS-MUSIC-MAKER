@@ -20,6 +20,7 @@ def test_lufs_measurement_reports_failed_optional_backend(monkeypatch, caplog):
     monkeypatch.setattr(mastering, "_HAS_PYLN", True)
     monkeypatch.setattr(mastering, "pyln", types.SimpleNamespace(Meter=_FailingMeter))
 
+    
     level, info = mastering._measure_lufs(samples, 48_000)
 
     assert level == mastering._loudness_dbfs(samples) - 3.0

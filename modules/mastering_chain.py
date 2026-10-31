@@ -1,19 +1,14 @@
+# -*- coding: utf-8 -*-
 """
-ZS Music Maker — mastering_pro.py (GOD MODE Safe Fallback)
-========================================================================
-Профессиональный мастеринг-движок с безопасными фоллбеками при
-отсутствии тяжелых библиотек (pyloudnorm, pedalboard).
+modules/mastering_chain.py — единый mastering-чейн трека.
 
-v29 FIX (P1/P2):
-  * true-peak ceiling: после LUFS-нормализации возможна перегрузка
-    (pyloudnorm warning "Possible clipped samples"). Добавлен
-    post-normalization ceiling limiter (-1 dBTP mode для streaming).
-  * защита от NaN/Inf в аудио (могло убить mastered.wav).
-  * возвращаем реальные output_lufs и output_peak для честного отчёта
-    (не только input_lufs).
-  * mono → stereo up-mix через дублирование канала (раньше могли
-    получить (frames,1) и sf.write писал моно WAV, сбивая God Mode).
+Pedalboard-путь (highpass → drive → компрессор → chorus → limiter −1 dBTP)
+с numpy/RMS-фоллбеком, true-peak ceiling, защитой от NaN/Inf и честными
+выходными метриками (LUFS / peak / channels). Плюс `normalize_master_loudness`
+для доводки уже готового мастера без новой DSP-окраски.
 """
+
+from __future__ import annotations
 
 import os
 from pathlib import Path
@@ -90,7 +85,7 @@ def process_mastering(input_wav: str, output_wav: str, vocal_path: str = None, t
             combined.export(temp_mix, format="wav")
             input_wav = temp_mix
         except Exception as e:
-            print(f"[mastering_pro] Mix failed: {e}")
+            print(f"[mastering] Mix failed: {e}")
 
     mastered = None
     samplerate = 44100
@@ -114,7 +109,7 @@ def process_mastering(input_wav: str, output_wav: str, vocal_path: str = None, t
             audio_to_norm = mastered.T
             engine = "pedalboard_pro_safe"
         except Exception as e:
-            print(f"[mastering_pro] Pedalboard execution error: {e}, falling back to numpy/soundfile")
+            print(f"[mastering] Pedalboard execution error: {e}, falling back to numpy/soundfile")
             pedalboard_available = False
 
     if not pedalboard_available:
@@ -139,7 +134,7 @@ def process_mastering(input_wav: str, output_wav: str, vocal_path: str = None, t
                 mastered = pyln.normalize.loudness(audio_to_norm, input_lufs, target_lufs)
             mastered = mastered.T  # back to (channels, frames)
         except Exception as e:
-            print(f"[mastering_pro] pyloudnorm error: {e}, using RMS fallback")
+            print(f"[mastering] pyloudnorm error: {e}, using RMS fallback")
             loudnorm_available = False
 
     if not loudnorm_available:

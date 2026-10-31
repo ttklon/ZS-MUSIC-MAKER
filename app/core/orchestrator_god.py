@@ -13,7 +13,7 @@ from typing import Any, Optional
 
 from app.core.pipeline_core import ZSPipeline, PipelineContext
 from modules import (
-    mastering_pro,
+    mastering_chain,
     voice_cleaner,
     beat_constructor,
     genre_engine,
@@ -194,7 +194,7 @@ def run_god_pipeline(
         master_wav = str(out_root / "masters" / "master_god.wav")
         os.makedirs(os.path.dirname(master_wav), exist_ok=True)
         # Вызываем профессиональный мастеринг
-        return mastering_pro.process_mastering(beat_wav, master_wav, vocal_path=vocal_wav, target_lufs=-12.0)
+        return mastering_chain.process_mastering(beat_wav, master_wav, vocal_path=vocal_wav, target_lufs=-12.0)
 
     pipe.add_stage("god_mastering_pro", stage_master)
 

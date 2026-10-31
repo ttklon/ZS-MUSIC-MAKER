@@ -247,7 +247,7 @@ def probe_audio_pipeline() -> dict[str, str]:
     p["musicgen_runtime"] = _dependency_status("audiocraft")
     p["demucs_runtime"] = _dependency_status("demucs")
     p["mastering_adapter"] = (
-        "REAL_PASS" if _module_exists("modules.mastering_ai") else "MISSING"
+        "REAL_PASS" if _module_exists("modules.mastering_reference") else "MISSING"
     )
     p["smoke_scripts"] = (
         "REAL_PASS"

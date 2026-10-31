@@ -1,6 +1,6 @@
 """Regression coverage for legacy lyrics author-style fallback diagnostics."""
 
-from modules import lyrics_gen_v8 as lyrics_v8
+from modules import lyrics_gen as lyrics_v8
 
 
 def test_author_style_diagnostics_report_failed_reference_ingestion(monkeypatch):

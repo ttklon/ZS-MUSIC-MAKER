@@ -242,7 +242,7 @@ def run_ai_pipeline(
         quality = {"ok": False, "reason": "lyrics_llm unavailable", "metrics": {}}
         if handle is not None:
             try:
-                from modules.lyrics_gen_ai import generate_lyrics_ai
+                from modules.lyrics_gen import generate_lyrics_ai
 
                 ai_result = generate_lyrics_ai(
                     theme=ws["theme"],
@@ -548,7 +548,7 @@ def run_ai_pipeline(
         if not mix:
             return {"skipped": "no mix"}
         out_master = str(out_root / "masters" / "master_ai.wav")
-        from modules.mastering_ai import master_ai
+        from modules.mastering_reference import master_ai
         result = master_ai(
             mix,
             out_master,

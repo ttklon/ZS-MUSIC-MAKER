@@ -308,7 +308,6 @@ def test_stage_polish_falls_back_to_copy_when_engines_missing(monkeypatch, tmp_p
     source = tmp_path / "in.wav"
     source.write_bytes(b"RIFF0000WAVE")
     monkeypatch.setitem(sys.modules, "modules.anti_neuro", None)
-    monkeypatch.setitem(sys.modules, "modules.anti_ai_polish", None)
 
     result = orchestrator._stage_polish(str(source), tmp_path)
 

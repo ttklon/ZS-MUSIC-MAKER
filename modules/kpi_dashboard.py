@@ -215,8 +215,8 @@ def _filesystem_tz_checks() -> dict[str, bool]:
 
     module_names = (
         "analyzer", "beat_constructor", "groove_extractor", "arrangement_engine",
-        "voice_synth", "voice_convert", "voice_vault", "rvc_manager", "mixdown",
-        "matchering_master", "release_pack_v9", "lyric_vault", "author_ref_lyrics",
+        "voice_synth", "voice_convert", "voice_vault", "rvc_manager", "mastering",
+        "mastering_reference", "release_pack_v9", "lyric_vault", "author_ref_lyrics",
     )
     return {
         "modules_12": all(has(f"modules/{name}.py") for name in module_names),
@@ -227,7 +227,7 @@ def _filesystem_tz_checks() -> dict[str, bool]:
         "auto_deps": has("install.py") and has("requirements.txt"),
         "smoke_tests": has("tools/smoke_audio.py") and has("tools/smoke_god.py"),
         "readme_context": has("README.md") and has("SESSION_LOG.md"),
-        "agents_free": has("agents/sample_hunter_v9.py") or has("agents/sample_hunter.py"),
+        "agents_free": has("agents/sample_hunter.py") or has("agents/sample_hunter.py"),
         "logging": (ROOT / "logs").exists(),
         "hw_autodetect": has("app/core/hw_autodetect.py"),
         "rvc_real": has("modules/rvc_manager.py") and has("modules/rvc_trainer.py"),
@@ -289,7 +289,7 @@ def _tz_percent(
     * auto_deps           — есть install.py + requirements.txt (windows_build.bat не существует).
     * smoke_tests         — tools/smoke_audio.py и tools/smoke_god.py (smoke_v12 давно удалён).
     * readme_context      — README.md + SESSION_LOG.md (CONTEXT.md не существует).
-    * agents_free         — есть agents/sample_hunter*/trend_scout*.
+    * agents_free         — есть agents/sample_hunter*trend_scout*.
     * logging             — есть logs/app.log.
     * hw_autodetect       — есть app/core/hw_autodetect.py.
     * rvc_real            — есть modules/rvc_manager.py + rvc_trainer.py.

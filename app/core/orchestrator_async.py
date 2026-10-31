@@ -57,7 +57,7 @@ class AsyncOrchestrator:
     async def run_pipeline(self, wizard_state: dict):
         t_start = time.time()
         
-        from modules import beat_constructor, phonk_engine, voice_cleaner, mastering_pro
+        from modules import beat_constructor, mastering_chain, phonk_engine, voice_cleaner
         
         bpm = int(wizard_state.get("bpm_override") or 130)
         genre = wizard_state.get("genre", "drift_phonk")
@@ -90,7 +90,7 @@ class AsyncOrchestrator:
             beat_path = beat_stage.output.get("beat_path")
             master_wav = str(self.out_root / "masters" / "master_async.wav")
             
-            master_stage = await run_stage_async("mastering", lambda: mastering_pro.process_mastering(
+            master_stage = await run_stage_async("mastering", lambda: mastering_chain.process_mastering(
                 beat_path, master_wav, target_lufs=-12.0
             ))
             self.stages.append(master_stage)

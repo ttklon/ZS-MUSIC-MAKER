@@ -1,23 +1,14 @@
+# -*- coding: utf-8 -*-
 """
-[v9] anti_ai_polish.py — устранение «нейроношности».
+modules/anti_neuro_track.py — «оживление» финального микса перед мастерингом.
 
-По ТЗ раздел 14: «RVC делает финальную персонализацию, убирая нейроношность»
-+ раздел 20 «Устранение ghost harmonies и формульных структур».
+Пост-обработка трека: микро-джиттер тайминга, дыхания из `voice_vault`,
+динамика по секциям, вычитание ghost-гармоник, разрушение формульного
+8-барного цикла, лента, несовершенный тюн, lofi-срез верхов.
 
-Модуль работает НА ФИНАЛЬНОМ mixdown WAV перед мастерингом. Применяет цепочку
-пост-эффектов, которые «оживляют» звук:
-
-  1. micro_timing_jitter        — сдвигаем короткие сегменты на ±3-8 мс
-  2. breath_insert              — вставляем реальные дыхания из voice_vault
-  3. section_dynamics_variation — меняем громкость по секциям arrangement_plan
-  4. ghost_harmonies_kill       — вычитаем регулярные обертоны в 3-6 kHz
-  5. formulaic_structure_bust   — вносим лёгкую случайность в 8-барный цикл
-  6. tape_saturation            — soft-clip + пыль/шум ленты (very subtle)
-  7. imperfect_tuning           — расстраиваем ноты в самых длинных нотах на ±5 центов
-  8. lofi_pass                  — вариативное срезание верхов по секциям
-
-Всё — post-processing, ничего не переписывает исходники. При отсутствии numpy —
-gracefully проходит через no-op с warning.
+Все эффекты детерминированы по `seed`. Без numpy/soundfile —
+`polish_track` возвращает `{"ok": False, "error": "soundfile unavailable"}`,
+а не молчаливый успех.
 """
 
 from __future__ import annotations
@@ -28,41 +19,46 @@ import time
 from pathlib import Path
 
 try:
-    import numpy as np
-except Exception:
-    np = None
+    import numpy as _np
+    import soundfile as _sf
 
-try:
-    import soundfile as sf
+    NP_OK = True
+except Exception:  # noqa: BLE001
+    _np = None
+    _sf = None
+    NP_OK = False
 
-    HAS_SF = True
-except Exception:
-    HAS_SF = False
 
+# --------------------------------------------------------------------------- #
+#  Трек-уровень: пост-обработка финального микса/мастера
+# --------------------------------------------------------------------------- #
+# Цепочка «оживления» перед мастерингом: микро-джиттер тайминга, дыхания из
+# voice_vault, динамика по секциям, вычитание ghost-гармоник, разрушение
+# формульного 8-барного цикла, лента, несовершенный тюн, lofi-срез верхов.
 
 # ============================================================ IO
-def _read(path: str):
-    if not HAS_SF:
+def _read_track(path: str):
+    if not NP_OK:
         return None, None
-    y, sr = sf.read(path, always_2d=True)
+    y, sr = _sf.read(path, always_2d=True)
     return y, sr
 
 
-def _write(path: str, y, sr):
+def _write_track(path: str, y, sr):
     Path(path).parent.mkdir(parents=True, exist_ok=True)
-    sf.write(path, y, sr)
+    _sf.write(path, y, sr)
 
 
 # ============================================================ effects
 def _micro_timing_jitter(y, sr, amount_ms: float = 5.0, seed: int | None = None):
     if np is None:
         return y
-    rng = np.random.default_rng(seed or int(time.time()))
+    rng = _np.random.default_rng(seed or int(time.time()))
     seg_len = int(sr * 0.5)  # 500 мс блоки
     max_shift = int(sr * amount_ms / 1000.0)
     if max_shift <= 0:
         return y
-    out = np.zeros_like(y)
+    out = _np.zeros_like(y)
     pos = 0
     while pos < len(y):
         seg = y[pos : pos + seg_len]
@@ -71,7 +67,7 @@ def _micro_timing_jitter(y, sr, amount_ms: float = 5.0, seed: int | None = None)
         end = min(len(out), start + len(seg))
         out[start:end] += seg[: end - start] * 0.98
         pos += seg_len
-    peak = float(np.max(np.abs(out))) or 1.0
+    peak = float(_np.max(_np.abs(out))) or 1.0
     if peak > 0.99:
         out = out * (0.99 / peak)
     return out
@@ -117,7 +113,7 @@ def _section_dynamics_variation(y, sr, sections: list, seed: int | None = None):
         gain_db = rng.uniform(-span_db, span_db)
         gain = 10 ** (gain_db / 20.0)
         out[s:e] = out[s:e] * gain
-    peak = float(np.max(np.abs(out))) or 1.0
+    peak = float(_np.max(_np.abs(out))) or 1.0
     if peak > 0.99:
         out = out * (0.99 / peak)
     return out
@@ -172,8 +168,8 @@ def _formulaic_structure_bust(y, sr, seed: int | None = None):
 def _tape_saturation(y, amount: float = 0.06):
     if np is None:
         return y
-    x = np.clip(y * (1 + amount), -1.0, 1.0)
-    return np.tanh(x * (1 + amount)) * (1 / (1 + amount))
+    x = _np.clip(y * (1 + amount), -1.0, 1.0)
+    return _np.tanh(x * (1 + amount)) * (1 / (1 + amount))
 
 
 def _imperfect_tuning(y, sr, cents: float = 4.0):
@@ -189,19 +185,19 @@ def _imperfect_tuning(y, sr, cents: float = 4.0):
 
     # LFO для сдвига фазы (времени)
     # 0.3 Hz - медленное плавание
-    t = np.arange(len(y)) / sr
+    t = _np.arange(len(y)) / sr
     # cents to frequency ratio: f_new = f_old * 2^(cents/1200)
     # Мы имитируем это через модуляцию времени
-    lfo = np.sin(2 * math.pi * 0.3 * t) * (cents / 1200.0)
+    lfo = _np.sin(2 * math.pi * 0.3 * t) * (cents / 1200.0)
 
     # Искажаем временную шкалу
-    time_indices = np.arange(len(y))
+    time_indices = _np.arange(len(y))
     # Интегрируем изменение частоты для получения изменения фазы/времени
     # Но для малых отклонений можно просто добавить LFO к индексам
     modulated_indices = time_indices + lfo * 10.0  # небольшой джиттер
 
     if y.ndim == 2:
-        out = np.zeros_like(y)
+        out = _np.zeros_like(y)
         for ch in range(y.shape[1]):
             f = interp1d(
                 time_indices, y[:, ch], kind="linear", fill_value="extrapolate"
@@ -244,9 +240,9 @@ def polish_track(
       • standard  — универсал (default)
       • aggressive — жёсткое разрушение формульности (для phonk / trap)
     """
-    if not HAS_SF:
+    if not NP_OK:
         return {"ok": False, "error": "soundfile unavailable"}
-    y, sr = _read(input_wav)
+    y, sr = _read_track(input_wav)
     if y is None:
         return {"ok": False, "error": f"cannot read {input_wav}"}
 
@@ -290,7 +286,7 @@ def polish_track(
     y = _lofi_pass(y, sr, cutoff=cutoff)
     stages_applied.append(f"lofi_pass({cutoff:.0f})")
 
-    _write(output_wav, y, sr)
+    _write_track(output_wav, y, sr)
     return {
         "ok": True,
         "input": input_wav,
@@ -299,19 +295,3 @@ def polish_track(
         "stages_applied": stages_applied,
         "sr": int(sr),
     }
-
-
-if __name__ == "__main__":
-    import sys
-
-    if len(sys.argv) < 3:
-        print("usage: python anti_ai_polish.py <in.wav> <out.wav> [preset]")
-        sys.exit(1)
-    r = polish_track(
-        sys.argv[1],
-        sys.argv[2],
-        preset=sys.argv[3] if len(sys.argv) > 3 else "standard",
-    )
-    import json
-
-    print(json.dumps(r, ensure_ascii=False, indent=2))
