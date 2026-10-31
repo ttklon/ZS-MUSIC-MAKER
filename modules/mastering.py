@@ -8,7 +8,7 @@ v27 (P0): раньше orchestrator._stage_mastering делал
 `from modules import mastering` — но файла modules/mastering.py
 НЕ СУЩЕСТВОВАЛО (были только mastering_pro.py / mastering_stands.py).
 Стадия мастеринга ВСЕГДА падала → master_streaming.wav никогда не
-создавался → smoke_v26: master missing, hit_score stage missing.
+создавался → smoke_audio: master missing, hit_score stage missing.
 
 Этот модуль — честный DSP-мастеринг без тяжёлых зависимостей:
   • per-stand EQ (bass/treble shelves, presence),

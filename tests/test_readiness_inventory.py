@@ -10,9 +10,9 @@ def test_tracked_python_modules_match_versioned_production_tree() -> None:
     assert "main.py" in paths
     assert "tools/readiness.py" in paths
     assert all(path.endswith(".py") for path in paths)
+    assert not [path for path in paths if path.startswith("tests/")]
     assert all(
-        path == "main.py"
-        or path.split("/", 1)[0] in readiness.INVENTORY_ROOTS
+        "/" not in path or path.split("/", 1)[0] in readiness.INVENTORY_ROOTS
         for path in paths
     )
 

@@ -449,7 +449,7 @@ def run_ai_pipeline(
         speaker_wav = ws.get("speaker_wav")
         if not speaker_wav:
             try:
-                from modules.voice_vault_v9 import select_speaker_wav
+                from modules.voice_vault import select_speaker_wav
                 speaker_wav = select_speaker_wav(ws.get("vocal_style"))
             except Exception:
                 speaker_wav = None

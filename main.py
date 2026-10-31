@@ -162,9 +162,9 @@ def _preflight_backup(mode: str) -> dict:
 
 def _health_snapshot() -> dict:
     try:
-        from modules import health_v12
+        from modules import health
 
-        rep = health_v12.collect()
+        rep = health.collect()
         _safe_print(
             f"[main] health: {rep.verdict}  "
             f"ready={rep.percent_ready}%  "
@@ -172,7 +172,7 @@ def _health_snapshot() -> dict:
         )
         return {"verdict": rep.verdict, "percent": rep.percent_ready}
     except Exception as e:
-        _safe_print(f"[main] health_v12 not available: {e}")
+        _safe_print(f"[main] health not available: {e}")
         return {"verdict": "UNKNOWN", "percent": 0}
 
 
@@ -183,7 +183,7 @@ def _try_launch_gui_pyside() -> bool:
         _safe_print(f"[ERROR] PySide6 не найден. Для работы GUI установите: pip install PySide6. Ошибка: {e}")
         return False
     try:
-        from app.gui import theme_v12
+        from app.gui import theme
         from app.gui.wizard import Wizard
         from app.hw_probe import probe
         from app.logger import setup_logger
@@ -194,7 +194,7 @@ def _try_launch_gui_pyside() -> bool:
         return False
     app = QApplication.instance() or QApplication(sys.argv)
     try:
-        theme_v12.apply(app)
+        theme.apply(app)
     except Exception as exc:
         _safe_print(f"[main] GUI theme fallback after apply failure: {exc}")
     try:
@@ -233,52 +233,6 @@ def _try_launch_gui_gradio() -> bool:
         return False
 
 
-LEGACY_PATCH_MODULES = (
-    "orchestrator_v12_patch",
-    "orchestrator_v11_patch",
-    "orchestrator_v10_patch",
-    "orchestrator_v9_patch",
-    "orchestrator_v8_patch",
-)
-
-
-def _print_legacy_report(enabled: bool) -> list[dict[str, object]]:
-    """Print a deterministic compatibility report without importing patch code."""
-    from app.core.orchestrator import legacy_compatibility_report
-
-    report = legacy_compatibility_report(enabled)
-    _safe_print(json.dumps({"legacy_enabled": enabled, "capabilities": report}, ensure_ascii=False, indent=2))
-    return report
-
-
-def _register_patches(enabled: bool = True) -> dict[str, object]:
-    """Загрузить изолированный legacy-слой v8–v12 только по умолчанию.
-
-    Новые пути должны опираться на единый core-оркестратор. Флаг
-    ``--legacy-off`` оставляет старые патчи в репозитории для совместимости с
-    Wizard, но не импортирует и не регистрирует их в текущем процессе.
-    """
-    report: dict[str, object] = {"enabled": enabled, "loaded": [], "skipped": []}
-    if not enabled:
-        report["skipped"] = list(LEGACY_PATCH_MODULES)
-        _safe_print("[main] LEGACY patches disabled (--legacy-off).")
-        return report
-
-    for module_name in LEGACY_PATCH_MODULES:
-        try:
-            module = __import__(f"app.core.{module_name}", fromlist=[module_name])
-            register = getattr(module, "register", None)
-            if callable(register):
-                register()
-                report["loaded"].append(module_name)
-            else:
-                report["skipped"].append(module_name)
-        except Exception as exc:
-            report["skipped"].append(module_name)
-            _safe_print(f"[main] LEGACY patch {module_name} unavailable: {exc}")
-    return report
-
-
 def _cli_smoke() -> int:
     """Runs the current smoke suite: v29 (God Mode E2E) → v26 (audio quality).
 
@@ -286,7 +240,7 @@ def _cli_smoke() -> int:
     перенесены в docs/legacy/ ещё в v29 и по этим путям НЕ импортируются.
     Каждый вызов --smoke бесполезно печатал 6 строк «failed: No module named».
     Оставлены ТОЛЬКО реально работающие v29 → v26."""
-    for name in ("tools.smoke_v29", "tools.smoke_v26"):
+    for name in ("tools.smoke_god", "tools.smoke_audio"):
         try:
             mod = __import__(name, fromlist=["main"])
             return int(mod.main() or 0)
@@ -313,9 +267,9 @@ def _cli_dry_run() -> int:
 
 def _cli_dashboard() -> int:
     try:
-        from modules import kpi_dashboard_v12
+        from modules import kpi_dashboard
 
-        return int(kpi_dashboard_v12.main() or 0)
+        return int(kpi_dashboard.main() or 0)
     except Exception as e:
         _safe_print(f"[main --dashboard] failed: {e}")
         return 2
@@ -323,9 +277,9 @@ def _cli_dashboard() -> int:
 
 def _cli_self_diag() -> int:
     try:
-        from modules import self_diag_v13
+        from modules import self_diag
 
-        return int(self_diag_v13.main_entry() or 0)
+        return int(self_diag.main_entry() or 0)
     except Exception as e:
         _safe_print(f"[main --self-diag] failed: {e}")
         return 2
@@ -333,11 +287,11 @@ def _cli_self_diag() -> int:
 
 def _cli_e2e() -> int:
     try:
-        from tools import real_e2e_v14
+        from tools import e2e
 
-        return int(real_e2e_v14.main() or 0)
+        return int(e2e.main() or 0)
     except Exception as e:
-        _safe_print(f"[main --e2e] tools/real_e2e_v14 failed: {e}")
+        _safe_print(f"[main --e2e] tools/e2e failed: {e}")
         return 2
 
 
@@ -473,16 +427,6 @@ def main() -> int:
     parser.add_argument("--onboarding", action="store_true", help="Run voice onboarding CLI")
     parser.add_argument("--readiness", action="store_true", help="Compute readiness percent")
     parser.add_argument("--console", action="store_true", help="Force console REPL mode (no GUI)")
-    parser.add_argument(
-        "--legacy-off",
-        action="store_true",
-        help="Skip legacy v8-v12 patch registration for runtime pipelines",
-    )
-    parser.add_argument(
-        "--legacy-report",
-        action="store_true",
-        help="Print the v8-v12 compatibility capability matrix and exit",
-    )
     parser.add_argument("--ai", action="store_true", help="Launch AI GOD MODE 4.0 (sequential AI stack)")
     parser.add_argument("--ai-status", action="store_true", help="Show AI model registry & availability")
     parser.add_argument("--ai-pull", type=str, default="", help="Pull one AI model role (or 'all')")
@@ -497,14 +441,6 @@ def main() -> int:
     if args.version:
         return _cli_version()
 
-    # Report before early CLI exits such as --smoke.  This records exactly what
-    # compatibility behavior is intentionally unavailable without loading it.
-    if args.legacy_off:
-        _print_legacy_report(enabled=False)
-    if args.legacy_report:
-        _print_legacy_report(enabled=not args.legacy_off)
-        return 0
-    
     if args.list_genres:
         from modules.genre_engine import StyleRegistry
         reg = StyleRegistry()
@@ -521,10 +457,6 @@ def main() -> int:
     
     if args.health:
         return _cli_health()
-
-    # Legacy v8..v12 сохранён для обратной совместимости, но его загрузка
-    # теперь управляется явно. Новый core-путь работает и без этих патчей.
-    _register_patches(enabled=not args.legacy_off)
 
     if args.dry_run:
         if args.ai:

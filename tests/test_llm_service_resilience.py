@@ -3,7 +3,7 @@ from __future__ import annotations
 import time
 
 from app.ai import llm_service
-from modules import llm_clients_v15
+from modules import llm
 
 
 class StaticChatHandle:
@@ -103,7 +103,7 @@ def test_v15_local_wrapper_matches_shared_service_text() -> None:
     llm_service.reset_circuit_breaker()
     direct = llm_service.complete(StaticChatHandle(), "system", "prompt", retries=0)
     llm_service.reset_circuit_breaker()
-    wrapped = llm_clients_v15.complete_local_handle(
+    wrapped = llm.complete_local_handle(
         StaticChatHandle(), "prompt", system="system", timeout_sec=1.0
     )
 

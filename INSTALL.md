@@ -1,6 +1,6 @@
-# 🛠 INSTALL — ZS Music Maker v39
+# 🛠 INSTALL — ZS Music Maker v41
 
-> Актуальная версия: **v39.9.0**. Единый источник правды о версии — `version.json`.
+> Актуальная версия: **41.0.0-alpha.1**. Единый источник правды — `version.json`.
 
 ## 1. Быстрый старт (Windows 11)
 
@@ -17,7 +17,7 @@
    Первый запуск: 10–40 минут (качаются зависимости; тяжёлые модели — опционально).
    Интернет нужен ТОЛЬКО на этапе установки.
 
-4. Запуск — двойной клик по run.bat (или: python main.py)
+4. Запуск — двойной клик по `scripts\run.cmd` (или: python main.py)
    Без аргументов откроется desktop-GUI (PySide6). Если PySide6 не установлен —
    автоматически откроется Gradio-веб-интерфейс или консольный режим.
 ```
@@ -73,13 +73,13 @@ winget install --id=Gyan.FFmpeg -e     # Windows
 ## 3. Проверка после установки
 
 ```
-verify.bat                 # Windows: pytest + smoke_v26 + smoke_v29
-run_all_smoke.bat          # Windows: прогон всех tools/smoke_v*.py
+scripts\verify.cmd         # Windows: pytest + smoke_audio + smoke_god + fallback_audit
+scripts\setup.cmd          # Windows: venv + зависимости одной командой
 
 # Или вручную (кросс-платформенно):
 python -m pytest tests/                    # полный unit/regression suite
-python tools/smoke_v26.py                  # аудио-качество
-python tools/smoke_v29.py                  # God Mode E2E
+python tools/smoke_audio.py                  # аудио-качество
+python tools/smoke_god.py                  # God Mode E2E
 python tools/fallback_audit.py             # аудит fallback-путей
 python main.py --health                    # общее здоровье системы
 ```
@@ -122,7 +122,7 @@ mastering — CPU-friendly. MusicGen на CPU — примерно 4–8× ме�
 ```powershell
 winget install --id=Gyan.FFmpeg -e    # или: choco install ffmpeg -y
 ```
-Перезапусти терминал (обновится PATH), затем снова `run.bat`.
+Перезапусти терминал (обновится PATH), затем снова `scripts\run.cmd`.
 
 ### TTS / вокал недоступен (vocal_status = BLOCKED)
 Вокальная стадия работает через цепочку движков: silero → xtts → bark →

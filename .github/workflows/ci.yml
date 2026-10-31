@@ -27,14 +27,11 @@ jobs:
       run: |
         python -m pytest tests/
 
-    # v33 FIX (P1, SESSION_LOG v32.10): раньше CI гонял ТОЛЬКО pytest (7 тестов
-    # из 4 файлов) — пуш, ломающий God Mode / аудио-качество / fallback-честность,
-    # проходил зелёным. Теперь CI прогоняет реальные регрессионные проверки.
-    - name: Smoke — audio quality (v26)
-      run: python tools/smoke_v26.py
+    - name: Smoke — audio quality
+      run: python tools/smoke_audio.py
 
-    - name: Smoke — God Mode E2E (v29)
-      run: python tools/smoke_v29.py
+    - name: Smoke — God Mode E2E
+      run: python tools/smoke_god.py
 
     - name: Fallback honesty audit
       run: python tools/fallback_audit.py

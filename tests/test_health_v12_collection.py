@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import modules.health_v12 as health
+import modules.health as health
 
 
 def test_collect_preserves_scoring_advice_and_persistence_with_stubbed_probes(

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from modules.self_diag_v13 import collect_action_plan
+from modules.self_diag import collect_action_plan
 
 
 def test_action_plan_preserves_severity_guidance_and_advice_limits() -> None:

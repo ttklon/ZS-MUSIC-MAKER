@@ -1,6 +1,6 @@
 """Regression coverage for observable theme application fallback."""
 
-from app.gui import theme_v12
+from app.gui import theme
 
 
 class _App:
@@ -17,14 +17,14 @@ class _App:
 def test_apply_returns_applied_status():
     app = _App()
 
-    result = theme_v12.apply(app)
+    result = theme.apply(app)
 
     assert result == {"ok": True, "status": "applied"}
-    assert app.stylesheet == theme_v12.qss()
+    assert app.stylesheet == theme.qss()
 
 
 def test_apply_reports_stylesheet_failure():
-    result = theme_v12.apply(_App(RuntimeError("Qt unavailable")))
+    result = theme.apply(_App(RuntimeError("Qt unavailable")))
 
     assert result == {
         "ok": False,

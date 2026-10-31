@@ -11,7 +11,7 @@ v17 fixes (P0, влияют на конечный WAV):
   • _stage_mix_and_sidechain: bus = beat + vocal (реальный микс), и уже
     потом bus дакается сайдчейном по кику. Раньше сайдчейн дакал сам
     бит собой, а вокал вообще игнорировался.
-  • _stage_polish: anti_neuro_v10 экспортирует polish_vocal; добавлен
+  • _stage_polish: anti_neuro экспортирует polish_vocal; добавлен
     apply_polish-обёртка. Оркестратор больше не сваливается в
     shutil.copy при живом anti-neuro-модуле.
 """
@@ -26,50 +26,12 @@ from pathlib import Path
 from typing import Any
 
 try:
-    from modules.llm_clients_v15 import LLMRouter
+    from modules.llm import LLMRouter
 except Exception:
     LLMRouter = None
 
 
 ROOT = Path(__file__).resolve().parents[2]
-LEGACY_STAGE_MARKER = "LEGACY"
-
-# This list describes compatibility entrypoints, not a claim that the modern core
-# cannot make a track without them.  It lets --legacy-off explain exactly which
-# v8–v12 behavior has intentionally not been registered in this process.
-LEGACY_CAPABILITY_MANIFEST = (
-    ("orchestrator_v8_patch", "lyrics_v8", "author-reference lyrics, chorus backing and auto-QA rebuild loop"),
-    ("orchestrator_v9_patch", "pipeline_v9", "reference arrangement and legacy sample-hunter wrapper"),
-    ("orchestrator_v10_patch", "apply_v10_patch", "legacy analyser/mastering/cover module attachments"),
-    ("orchestrator_v11_patch", "run_full_pipeline_v11", "v11 KPI-oriented compatibility pipeline"),
-    ("orchestrator_v12_patch", "run_full_pipeline_v12", "v12 Hit Locked Pro compatibility pipeline and wrapper dashboard"),
-)
-
-
-def legacy_compatibility_report(enabled: bool) -> list[dict[str, str | bool]]:
-    """Return a deterministic report of versioned features not registered.
-
-    The function has no imports from patch modules; reporting with legacy off
-    therefore cannot itself load the code it is describing.
-    """
-    return [
-        {
-            "module": module,
-            "entrypoint": entrypoint,
-            "capability": capability,
-            "available": enabled,
-            "reason": "legacy patches disabled" if not enabled else "legacy patches enabled",
-        }
-        for module, entrypoint, capability in LEGACY_CAPABILITY_MANIFEST
-    ]
-
-
-def _mark_legacy_result(result: Any, stage_name: str) -> dict[str, Any]:
-    """Отметить успешный вызов versioned legacy-стадии в данных пайплайна."""
-    marked = dict(result) if isinstance(result, dict) else {"ok": bool(result)}
-    marked["stage_marker"] = LEGACY_STAGE_MARKER
-    marked["legacy_stage"] = stage_name
-    return marked
 
 
 @dataclass
@@ -1373,71 +1335,63 @@ def _stage_mastering(
 
 
 def _stage_polish(input_wav: str, out_dir: Path) -> dict[str, Any]:
-    """Полировка вокала с явно отмеченной legacy-v10 веткой и новым fallback."""
+    """Anti-neuro полировка мастера: anti_neuro → anti_ai_polish → honest copy."""
+    out_wav = str(out_dir / "polished.wav")
+    attempts: list[str] = []
     try:
-        out_wav = str(out_dir / "polished.wav")
-        legacy_attempt = None
-        try:
-            # LEGACY: versioned v10-модуль оставлен ради совместимости старых
-            # сессий; новый core-путь продолжает работать через anti_ai_polish.
-            legacy_attempt = "anti_neuro_v10"
-            from modules import anti_neuro_v10 as an
+        from modules import anti_neuro as an
 
-            if hasattr(an, "polish_vocal"):
-                r = an.polish_vocal(input_wav, out_wav, preset="standard")
-                if isinstance(r, dict) and r.get("ok"):
-                    return _mark_legacy_result(r, legacy_attempt)
-            if hasattr(an, "apply_polish"):
-                r = an.apply_polish(input_wav, out_wav, intensity=0.5)
-                return _mark_legacy_result(
-                    r if isinstance(r, dict) else {"ok": True, "path": r},
-                    legacy_attempt,
+        for name in ("polish_vocal", "apply_polish"):
+            fn = getattr(an, name, None)
+            if not callable(fn):
+                continue
+            attempts.append(f"anti_neuro.{name}")
+            try:
+                result = fn(input_wav, out_wav, intensity=0.5) if name == "apply_polish" else fn(
+                    input_wav, out_wav, preset="standard"
                 )
-        except Exception:
-            # Для надежного fallback сохраняем имя attempted legacy-ветки,
-            # но не помечаем результат LEGACY, если её обработка не удалась.
-            pass
-        try:
-            from modules import anti_ai_polish as aap
+            except TypeError:
+                result = fn(input_wav, out_wav)
+            if isinstance(result, str) and Path(result).exists():
+                return {"ok": True, "path": result, "engine": f"anti_neuro.{name}"}
+            if isinstance(result, dict) and result.get("ok"):
+                payload = dict(result)
+                payload.setdefault("engine", f"anti_neuro.{name}")
+                return payload
+    except Exception as exc:  # noqa: BLE001 - fallback chain is intentional
+        attempts.append(f"anti_neuro.error:{type(exc).__name__}")
 
-            for cand in ("polish", "apply", "run", "process"):
-                fn = getattr(aap, cand, None)
-                if callable(fn):
-                    try:
-                        r = fn(input_wav, out_wav)
-                        if isinstance(r, dict) and r.get("ok"):
-                            r = dict(r)
-                            if legacy_attempt:
-                                r["legacy_attempt"] = legacy_attempt
-                            return r
-                        if isinstance(r, str) and Path(r).exists():
-                            result = {
-                                "ok": True,
-                                "path": r,
-                                "engine": "anti_ai_polish." + cand,
-                            }
-                            if legacy_attempt:
-                                result["legacy_attempt"] = legacy_attempt
-                            return result
-                    except Exception:
-                        continue
-        except Exception:
-            pass
-        import shutil
+    try:
+        from modules import anti_ai_polish as aap
 
-        shutil.copy(input_wav, out_wav)
-        result = {
-            "ok": True,
-            "path": out_wav,
-            "fallback_used": True,
-            "reason": "polish_vocal/apply_polish/anti_ai_polish "
-            "not available; copied master as-is",
-        }
-        if legacy_attempt:
-            result["legacy_attempt"] = legacy_attempt
-        return result
-    except Exception as e:
-        return {"ok": False, "reason": str(e)}
+        for name in ("polish", "apply", "run", "process"):
+            fn = getattr(aap, name, None)
+            if not callable(fn):
+                continue
+            attempts.append(f"anti_ai_polish.{name}")
+            try:
+                result = fn(input_wav, out_wav)
+            except Exception:
+                continue
+            if isinstance(result, str) and Path(result).exists():
+                return {"ok": True, "path": result, "engine": f"anti_ai_polish.{name}"}
+            if isinstance(result, dict) and result.get("ok"):
+                payload = dict(result)
+                payload.setdefault("engine", f"anti_ai_polish.{name}")
+                return payload
+    except Exception as exc:  # noqa: BLE001
+        attempts.append(f"anti_ai_polish.error:{type(exc).__name__}")
+
+    import shutil
+
+    shutil.copy(input_wav, out_wav)
+    return {
+        "ok": True,
+        "path": out_wav,
+        "fallback_used": True,
+        "attempts": attempts,
+        "reason": "no working anti-neuro engine; master copied as-is",
+    }
 
 
 def _stage_stems(master_wav: str, out_dir: Path) -> dict[str, Any]:

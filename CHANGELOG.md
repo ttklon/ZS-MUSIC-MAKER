@@ -1,6 +1,44 @@
 # CHANGELOG
 
-> Актуальная версия: **v39.9.0** (2026-08-22). Подробный журнал выполнения — в `SESSION_LOG.md`; каноническое состояние — в `PROJECT_STATE.md`.
+> Актуальная версия: **41.0.0-alpha.1** (2026-10-31). План рефакторинга —
+> `docs/PLAN_v41_MASTER.md`, состояние — `PROJECT_STATE.md`.
+> История до v40 сохранена ниже как архив: удалённый `SESSION_LOG.md` больше не поддерживается.
+
+## 41.0.0-alpha.1 — расчистка и дедупликация репозитория (2026-10-31)
+
+- **Репозиторий:** 1657 → 320 файлов; `docs/` 52 МБ → 3 документа + план.
+  Удалены сгенерированные дампы `docs/PLAN_v38_AI_MEGA.txt` (11 МБ),
+  `docs/PLAN_v39/**` (1017 файлов, 37 МБ), `STEP_STATUS` (144), `LICENSES`, `WIKI`,
+  `REGRESS_v39`, `PLAN_v39_EXEC_REPORT`, `SESSION_LOG.md`.
+- **P0 фикс:** `tools/readiness.py` переписан — устранён `SyntaxError` (f-string
+  с `\|`) на Python ≤ 3.11, который ломал `--readiness`, CI-шаг `compileall` и
+  три тест-модуля. Отчёт о лицензиях/плане убран: он жил только ради удалённых документов.
+- **Legacy вырезан:** удалены `app/core/orchestrator_v8..v12_patch.py` вместе с
+  `master_pipeline_v12`, `wizard_v12_integration`, `release_pack_v9`, `mastering_v9`
+  и CLI-флагами `--legacy-off/--legacy-report`. `_stage_polish` теперь одна
+  каноническая ветка: `anti_neuro` → `anti_ai_polish` → честная копия.
+- **Мёртвый код:** удалены 15 модулей без единой статической ссылки
+  (`training_texts`, `cover_gen`, `model_manager`, `wizard_v8_extensions`, `beat_gen`,
+  `phonk_engine_v2`, `musical_intelligence`, `genre_expansion_100`,
+  `global_audit_fixer`, `provenance`, `ui/tutorial`, `ab_compare`, `lazy_dirs_patch`,
+  `p0_truth_test`, `populate_cover_prompts`, `validate_final_track`, `plan_integrity`,
+  `regress_v39`, `release_preflight`, `deep_audit_v40*`).
+- **Имена без версий:** `*_vN.py` переименованы в канонические
+  (`anti_neuro`, `llm`, `lyric_vault`, `voice_vault`, `rvc_trainer`, `tiktok_edit`,
+  `video_edit`, `distribution`, `expert_mode`, `health`, `kpi_dashboard`, `kpi_monitor`,
+  `self_diag`, `onboarding`, `theme`, `tools/e2e`, `tools/smoke_audio`, `tools/smoke_god`).
+- **Данные и состояние:** пользовательское состояние убрано из git
+  (`lyric_vault/*`, `voice_vault/*`, `data/hw_profile.json`, `data/tutorial_settings.json`,
+  `training_texts/progress.json`, `data/kpi_history_seed`); `.gitignore` переписан на
+  allowlist вместо глоба `*.json`.
+- **Скрипты запуска:** 6 корневых bat/sh/ps1 сведены в `scripts/` (`setup.cmd`,
+  `run.cmd`, `verify.cmd`, `make_shortcut.ps1`, `run.sh`).
+- **Документация:** `README.md` переписан, добавлены `docs/ARCHITECTURE.md` и
+  `docs/WORKFLOW.md`, `PROJECT_STATE.md` генерируется из `tools/readiness.py`.
+- **Проверки:** `compileall` = 0 ошибок, `pytest tests/` = **287 passed**,
+  `smoke_audio` = 6/6, `smoke_god` = 8/8, `--readiness` = 65 % (ограничения честные:
+  нет `.pth` RVC, MusicGen/Demucs, микрофона в CI).
+
 
 ## v39.9.0 — финализация всех 100 primary шагов PLAN_v39
 
@@ -40,19 +78,19 @@
 ## v39.7 — PLAN_v39 ШАГ 012 (legacy isolation + God Mode checkpoints)
 
 - **ШАГ 012:** добавлен `--legacy-off`, отключающий импорт и регистрацию legacy-патчей v8–v12 для runtime-пайплайнов без удаления совместимого Wizard-слоя.
-- **Наблюдаемость legacy:** loader возвращает отчёт `enabled/loaded/skipped`; успешный вызов `anti_neuro_v10` в core-оркестраторе получает `stage_marker=LEGACY`, а fallback сохраняет `legacy_attempt`.
+- **Наблюдаемость legacy:** loader возвращает отчёт `enabled/loaded/skipped`; успешный вызов `anti_neuro` в core-оркестраторе получает `stage_marker=LEGACY`, а fallback сохраняет `legacy_attempt`.
 - **FIX P0 God Mode:** `ZSPipeline` поддерживает явный `checkpoint_dir`. `run_god_pipeline()` изолирует checkpoints в собственном `out_root` и не переиспользует их для smoke/изолированных запусков. Устранён false-completed результат с отсутствующим `master_god.wav` после очистки out_root.
 - **Покрытие:** добавлены четыре регрессионных теста — безимпортный legacy-off, CLI wiring, LEGACY marker и explicit checkpoint directory.
-- **Приёмка:** 53 pytest PASS, AST dead-imports = 0, smoke_v26 = 6/6, smoke_v29 = 8/8, `--legacy-off --smoke` = 8/8, fallback audit = 0 red flags.
+- **Приёмка:** 53 pytest PASS, AST dead-imports = 0, smoke_audio = 6/6, smoke_god = 8/8, `--legacy-off --smoke` = 8/8, fallback audit = 0 red flags.
 
 
 ## v39.6 — PLAN_v39 ШАГ 011 (import-cycle guard + audio regression)
 
 - **ШАГ 011:** `tests/test_ai_layer.py` теперь строит статический AST-граф прямых импортов `app.core`, `modules` и `agents`, запрещая циклы с полным путём диагностики. Lazy-imports внутри функций намеренно исключены.
 - **Регрессия детектора:** добавлен искусственный трёхузловой цикл, подтверждающий корректность обнаружения; фактический граф проекта — 104 модуля, 18 рёбер, 0 циклов.
-- **FIX P0 audio:** `modules/beat_constructor.py` заменяет односторонний Haas-mix на контролируемое mid/side-расширение. Исправлен реальный `smoke_v26` fail: beat correlation 0.842, проверка 6/6 PASS.
+- **FIX P0 audio:** `modules/beat_constructor.py` заменяет односторонний Haas-mix на контролируемое mid/side-расширение. Исправлен реальный `smoke_audio` fail: beat correlation 0.842, проверка 6/6 PASS.
 - **Покрытие:** добавлен детерминированный тест стереоширины конструктора бита; тест проверки `essentia` больше не зависит от случайного состава необязательных локальных пакетов.
-- **Приёмка:** 49 pytest PASS, AST dead-imports = 0, smoke_v26 = 6/6, smoke_v29 = 8/8, fallback audit = 0 red flags.
+- **Приёмка:** 49 pytest PASS, AST dead-imports = 0, smoke_audio = 6/6, smoke_god = 8/8, fallback audit = 0 red flags.
 
 
 ## v39.5 — PLAN_v39 ШАГИ 006-010 (deps, config, CI, version, AST)
@@ -66,7 +104,7 @@
 ## v36 — 2026-08-14 (session-docs-unification-silent-except-build-fixes)
 
 - **FIX P1 README/CHANGELOG unification** — вычищены протухшие блоки «Что нового в v14/v17/v18», ссылки на удалённые smoke_v14/v15/v17/v18/v21/v24/v25 (перенесены в `docs/legacy/` ещё в v29). Таблица статусов и раздел «Тесты» приведены к текущему v35+ ядру.
-- **FIX P1 `main.py --smoke`** — fallback-цепочка чистилась от мёртвых имён (`tools.smoke_v14/v15/v17/v21/v24/v25`). Оставлены только реально работающие `tools.smoke_v29` → `tools.smoke_v26`. Больше не спамит 6 строк «failed: No module named».
+- **FIX P1 `main.py --smoke`** — fallback-цепочка чистилась от мёртвых имён (`tools.smoke_v14/v15/v17/v21/v24/v25`). Оставлены только реально работающие `tools.smoke_god` → `tools.smoke_audio`. Больше не спамит 6 строк «failed: No module named».
 - **FIX P2 silent-except в критичных путях:**
   - `app/plugins/base.py:48` — `except: pass` внутри Sanitize-warning: теперь честно логирует в stderr, если `app_logger` недоступен.
   - `app/core/cover_gen.py:39` — `except: continue` в font-loop разделён на штатный `OSError` (шумовое отсутствие шрифта) и общий `Exception` с записью в stderr.
@@ -79,7 +117,7 @@
 - **REAL_PASS: `voice_synth` Silero TTS** — впервые подтверждён реальным прогоном на CPU (RU v3.1, female=kseniya, WAV 48kHz/6.7s живой сигнал). Статус снят с FALLBACK_ONLY.
 - **FIX P1: `musicgen_texture`** — добавлен honest `detect_availability()`/`get_status()` (проверка torch+audiocraft БЕЗ загрузки весов) вместо молчаливого падения в лог; лог причины BLOCKED на вызове.
 - **FIX P2: точечная честность silent except** — `master_pipeline_v12` (log-write/progress_cb/hit_scorer) и `release_pack_full` (ID3-обложка) больше не проглатывают ошибки молча — честно логируют в stderr/лог.
-- **Cleanup:** удалён мёртвый `safe_import.py` (0 продакт-импортов); из git-индекса убраны чужие снапшоты `data/health_v12.json`/`data/kpi_dashboard_v12.json`; `tutorial_settings.json` перенесён в `data/` (дубль после миграции v34).
+- **Cleanup:** удалён мёртвый `safe_import.py` (0 продакт-импортов); из git-индекса убраны чужие снапшоты `data/health.json`/`data/kpi_dashboard.json`; `tutorial_settings.json` перенесён в `data/` (дубль после миграции v34).
 - **FIX INSTALL.md:** зафиксирована согласованная пара `torch==2.5.1`+`torchaudio==2.5.1` с pytorch-индекса (реальный ABI-баг: PyPI-torchaudio несовместим с torch pytorch-индекса → `_torchaudio.abi3.so` не грузится) + проверенный Silero-путь (`omegaconf soundfile`).
 
 ## v34 — 2026-08-13 (session-backlog-fixes)
@@ -87,7 +125,7 @@
 - FIX P2: `app/core/model_manager` — lazy torch import (core-слой больше не падает без torch).
 - FIX P2: license-gate реально подключён к `sample_hunter_v9.search_online()` + нормализация URL-лицензий в `license_manager`.
 - FIX P3: `voice_onboarding.run_cli()` возвращает 0/1 по capability микрофона.
-- FIX P3: `tutorial_settings.json` — единый путь `data/tutorial_settings.json` для `onboarding_tour` и `ui/tutorial`.
+- FIX P3: `tutorial_settings.json` — единый путь `data/tutorial_settings.json` для `onboarding` и `ui/tutorial`.
 - FIX P3: `voice_synth.synth(gender=...)` (male=aidar / female=kseniya).
 - FIX P2: `_json_safe()` в `orchestrator_god.meta` (numpy-скаляры больше не превращаются в `np.float32(0.95)` строки).
 - FIX main.py: валидация `--genre` против StyleRegistry с difflib-подсказкой (rc=2 + suggest).
@@ -104,20 +142,20 @@
 - FIX P1: numpy пин `<2.0` снят (совместимость с 2.4.x подтверждена).
 - FIX P1: `install.py` — `shell=True` убран.
 - FIX P1: `async-mode` возвращает 1 при падении пайплайна.
-- FIX P1: CI прогоняет smoke_v26 + smoke_v29 + fallback_audit + CLI-sanity (раньше только 7 pytest).
+- FIX P1: CI прогоняет smoke_audio + smoke_god + fallback_audit + CLI-sanity (раньше только 7 pytest).
 - FIX P1: launcher cleanup (удалены дубли run_v8/v9/v11.bat и run_v14.sh в docs/legacy/).
 - NEW: `tools/fallback_audit.py` теперь ловит многострочные вызовы с маркером `ZSMM_NOT_RVC` (red_flags=0).
 
 ## v30–v32 — audit + restore + God Mode E2E
 
-- v30: восстановлены 5 ошибочно удалённых модулей (lyrics_gen_v8, mastering_v9, release_pack_v9, hit_kpi_monitor_v11, lyric_vault_v10); `voice_synth` honest-empty-return; создан `run.bat`; `verify.bat` переписан на реальные тесты.
+- v30: восстановлены 5 ошибочно удалённых модулей (lyrics_gen_v8, mastering_v9, release_pack_v9, kpi_monitor, lyric_vault); `voice_synth` honest-empty-return; создан `run.bat`; `verify.bat` переписан на реальные тесты.
 - v31/v32: два глубоких аудита без правок — 46 находок в SESSION_LOG (INSTALL.md битый, health-RED из-за опциональных heavy-deps, рассинхрон версий, ложные red-флаги, архитектурный распад оркестраторов).
 
 ## v29 — God Mode E2E + true-peak mastering
 
 - FIX P0: `midi_generator.generate_melody_pattern` guard без mido (honest BLOCKED).
 - FIX P1: `mastering_pro` true-peak -1 dBTP, NaN/Inf-guard, mono→stereo, honest output metrics.
-- NEW: `tools/smoke_v29.py` (God Mode E2E → master_god.wav) 8/8 PASS.
+- NEW: `tools/smoke_god.py` (God Mode E2E → master_god.wav) 8/8 PASS.
 - Cleanup: 11 устаревших smoke → docs/legacy/.
 
 ## v28 — cleanup + God Mode wizard fix + CI

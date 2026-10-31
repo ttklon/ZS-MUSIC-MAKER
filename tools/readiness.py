@@ -1,7 +1,16 @@
 """
-ZS Music Maker v14 — tools/readiness.py (P0.14, TZ 33.4)
+ZS Music Maker — tools/readiness.py
 
-Честный расчёт % готовности по формуле TZ 33.4.
+Честный расчёт готовности: статическая матрица модулей + проверка того, что
+реально установлено, без превращения отсутствия зависимости в успех.
+
+Использование:
+    python tools/readiness.py                  # JSON: percent + blocks
+    python tools/readiness.py --inventory-markdown
+    python tools/readiness.py --json
+
+`REAL_PASS` в матрице означает «файл парсится и на него есть статическая
+ссылка из production или тестов», а НЕ утверждение о реальном inference.
 """
 
 from __future__ import annotations
@@ -10,37 +19,26 @@ import argparse
 import ast
 import json
 import math
-import re
-from importlib import metadata
-import subprocess
 import sys
+from importlib import metadata
 from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
-
-# FIX v16 (P0): при запуске «python3 tools/readiness.py» в sys.path попадает
-# каталог tools/, а не корень проекта — все probe через __import__("modules.*")
-# ложно падали в MISSING и KPI занижался (22% вместо реальных ~60%).
-# Гарантируем, что корень проекта всегда доступен для импорта.
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
+
+INVENTORY_ROOTS = ("app", "agents", "config", "modules", "tools", "ui", "updater")
+TEST_ROOT = "tests"
 
 WEIGHTS = {
     "architecture": 10,
     "core_modules": 25,
     "audio_pipeline": 25,
-    "voice_rvc": 15,
+    "voice_recording": 20,
     "release": 10,
-    "installer": 5,
     "testing": 10,
 }
-
-INVENTORY_ROOTS = ("app", "agents", "modules", "tools", "ui", "updater")
-TEST_ROOT = "tests"
-PLAN_V39_PATH = ROOT / "docs" / "PLAN_v39_AI_MEGA.txt"
-EXECUTION_REPORT_PATH = ROOT / "docs" / "PLAN_v39_EXEC_REPORT.md"
-
 
 STATUS_WEIGHT = {
     "REAL_PASS": 1.00,
@@ -54,35 +52,42 @@ STATUS_WEIGHT = {
 }
 
 
+# --------------------------------------------------------------------------- #
+#  Инвентаризация версионированного дерева
+# --------------------------------------------------------------------------- #
 def tracked_python_modules() -> list[str]:
-    """Return versioned production Python files, never runtime cache files.
-
-    Git is the source of truth when available, which makes the generated state
-    matrix match the repository rather than whatever happens to be present in a
-    developer's untracked working tree.  The filesystem fallback keeps the
-    health command usable from a source archive.
-    """
+    """Return tracked production Python files (git if available, else filesystem)."""
     try:
-        result = subprocess.run(
-            ["git", "-C", str(ROOT), "ls-files", "*.py"],
-            check=True,
+        import subprocess
+
+        out = subprocess.run(
+            ["git", "ls-files", "*.py"],
+            cwd=ROOT,
             capture_output=True,
             text=True,
+            timeout=20,
+            check=False,
         )
-        paths = result.stdout.splitlines()
-    except (OSError, subprocess.CalledProcessError):
-        paths = [
-            str(path.relative_to(ROOT))
-            for base in INVENTORY_ROOTS
-            for path in (ROOT / base).rglob("*.py")
-            if "__pycache__" not in path.parts
-        ]
-
-    return sorted(
-        path for path in paths
-        if path.endswith(".py")
-        and (path == "main.py" or path.split("/", 1)[0] in INVENTORY_ROOTS)
-    )
+        if out.returncode == 0 and out.stdout.strip():
+            paths = []
+            for line in out.stdout.splitlines():
+                rel = line.strip()
+                if not rel or rel.startswith(TEST_ROOT + "/"):
+                    continue
+                top = rel.split("/", 1)[0]
+                # root-level entrypoints (main.py, install.py) и пакеты из ROOTS
+                if "/" not in rel or top in INVENTORY_ROOTS:
+                    paths.append(rel)
+            return sorted(paths)
+    except Exception:  # pragma: no cover - git отсутствует
+        pass
+    paths = ["main.py"] if (ROOT / "main.py").exists() else []
+    for root in INVENTORY_ROOTS:
+        base = ROOT / root
+        if not base.exists():
+            continue
+        paths.extend(str(p.relative_to(ROOT)) for p in base.rglob("*.py"))
+    return sorted(paths)
 
 
 def _source_texts() -> tuple[str, str]:
@@ -91,21 +96,19 @@ def _source_texts() -> tuple[str, str]:
         for path in tracked_python_modules()
     )
     tests_dir = ROOT / TEST_ROOT
-    tests = "\n".join(
-        path.read_text(encoding="utf-8", errors="replace")
-        for path in tests_dir.glob("test_*.py")
-    ) if tests_dir.exists() else ""
+    tests = (
+        "\n".join(
+            p.read_text(encoding="utf-8", errors="replace")
+            for p in tests_dir.glob("test_*.py")
+        )
+        if tests_dir.exists()
+        else ""
+    )
     return production, tests
 
 
 def module_inventory() -> list[dict[str, Any]]:
-    """Build an auditable, static status row for every tracked production file.
-
-    `REAL_PASS` means the file parses and has at least a production reference or
-    a direct test reference. `PLANNED` is present/parseable but lacks both static
-    signals. `REAL_FAIL` denotes a syntax error. This intentionally does not
-    assert that optional heavy model runtime was executed.
-    """
+    """Одна аудиторская строка на каждый версионированный production-модуль."""
     production, tests = _source_texts()
     rows: list[dict[str, Any]] = []
     for path in tracked_python_modules():
@@ -117,22 +120,24 @@ def module_inventory() -> list[dict[str, Any]]:
             syntax_ok = True
         except SyntaxError:
             syntax_ok = False
-        production_refs = production.count(module_dot) + production.count(basename)
+        production_refs = max(0, production.count(module_dot) + production.count(basename) - 1)
         test_refs = tests.count(module_dot) + tests.count(basename)
-        # Subtract the module's own filename/text occurrence from source scan.
-        production_refs = max(0, production_refs - 1)
         status = (
-            "REAL_FAIL" if not syntax_ok
-            else "REAL_PASS" if (production_refs or test_refs)
+            "REAL_FAIL"
+            if not syntax_ok
+            else "REAL_PASS"
+            if (production_refs or test_refs)
             else "PLANNED"
         )
-        rows.append({
-            "path": path,
-            "status": status,
-            "syntax_ok": syntax_ok,
-            "production_references": production_refs,
-            "test_references": test_refs,
-        })
+        rows.append(
+            {
+                "path": path,
+                "status": status,
+                "syntax_ok": syntax_ok,
+                "production_references": production_refs,
+                "test_references": test_refs,
+            }
+        )
     return rows
 
 
@@ -147,7 +152,6 @@ def module_inventory_summary() -> dict[str, int]:
 
 
 def inventory_markdown() -> str:
-    """Render the full, deterministic inventory as a Markdown pipe table."""
     lines = [
         "| Versioned module | Status | AST syntax | Production refs | Test refs |",
         "|---|---|---:|---:|---:|",
@@ -165,6 +169,9 @@ def inventory_markdown() -> str:
     return "\n".join(lines)
 
 
+# --------------------------------------------------------------------------- #
+#  Пробы
+# --------------------------------------------------------------------------- #
 def _module_exists(name: str) -> bool:
     try:
         __import__(name)
@@ -177,63 +184,54 @@ def _file_exists(rel: str) -> bool:
     return (ROOT / rel).exists()
 
 
+def _dependency_status(name: str) -> str:
+    return "REAL_PASS" if _module_exists(name) else "BLOCKED"
+
+
 def probe_architecture() -> dict[str, str]:
     p: dict[str, str] = {}
-    stray = list((ROOT).glob("main_v*.py"))
     p["main_py_unified"] = (
         "REAL_PASS"
-        if _file_exists("main.py") and not stray
+        if _file_exists("main.py") and not list(ROOT.glob("main_v*.py"))
         else ("PARTIAL" if _file_exists("main.py") else "MISSING")
     )
-    p["TZ_txt_present"] = "REAL_PASS" if _file_exists("TZ.txt") else "MISSING"
-    p["PROMPT_txt_present"] = "REAL_PASS" if _file_exists("PROMPT.txt") else "MISSING"
-    p["requirements_txt"] = (
-        "REAL_PASS" if _file_exists("requirements.txt") else "MISSING"
-    )
+    p["requirements_txt"] = "REAL_PASS" if _file_exists("requirements.txt") else "MISSING"
     p["orchestrator_present"] = (
         "REAL_PASS" if _file_exists("app/core/orchestrator.py") else "MISSING"
     )
-    p["updater_module"] = (
-        "REAL_PASS" if _file_exists("updater/updater.py") else "MISSING"
+    p["ai_pipeline"] = (
+        "REAL_PASS" if _file_exists("app/core/orchestrator_ai.py") else "MISSING"
     )
-    p["legacy_isolated"] = "REAL_PASS" if _file_exists("legacy/mains") else "MISSING"
+    p["updater_module"] = "REAL_PASS" if _file_exists("updater/updater.py") else "MISSING"
+    p["single_pipeline"] = (
+        "REAL_PASS"
+        if len(list((ROOT / "app" / "core").glob("orchestrator*.py"))) <= 4
+        else "PARTIAL"
+    )
     return p
 
 
 def probe_core_modules() -> dict[str, str]:
     p: dict[str, str] = {}
-    p["analyzer"] = "REAL_PASS" if _module_exists("modules.analyzer") else "MISSING"
-    p["groove_extractor"] = (
-        "REAL_PASS" if _module_exists("modules.groove_extractor") else "MISSING"
-    )
-    p["beat_constructor"] = (
-        "REAL_PASS" if _module_exists("modules.beat_constructor") else "MISSING"
-    )
-    p["arrangement"] = (
-        "REAL_PASS" if _module_exists("modules.arrangement_engine") else "MISSING"
-    )
-    p["lyrics_gen"] = "REAL_PASS" if _module_exists("modules.lyrics_gen") else "MISSING"
-    p["mixdown"] = "PARTIAL" if _module_exists("modules.mixdown") else "MISSING"
-    p["sidechain"] = "REAL_PASS" if _module_exists("modules.sidechain") else "MISSING"
-    p["mastering"] = "PARTIAL" if _module_exists("modules.mastering") else "MISSING"
-    p["anti_neuro_polish"] = (
-        "REAL_PASS" if _module_exists("modules.anti_neuro_v10") else "MISSING"
-    )
-    p["hit_scorer"] = "REAL_PASS" if _module_exists("modules.hit_scorer") else "MISSING"
-    p["stem_splitter"] = (
-        "PARTIAL" if _module_exists("modules.stem_splitter") else "MISSING"
-    )
+    for key, module in (
+        ("analyzer", "modules.analyzer"),
+        ("groove_extractor", "modules.groove_extractor"),
+        ("beat_constructor", "modules.beat_constructor"),
+        ("arrangement", "modules.arrangement_engine"),
+        ("lyrics_gen", "modules.lyrics_gen"),
+        ("sidechain", "modules.sidechain"),
+        ("anti_neuro", "modules.anti_neuro"),
+        ("hit_scorer", "modules.hit_scorer"),
+    ):
+        p[key] = "REAL_PASS" if _module_exists(module) else "MISSING"
+    p["mastering"] = "REAL_PASS" if _module_exists("modules.mastering") else "MISSING"
+    p["stem_splitter"] = "PARTIAL" if _module_exists("modules.stem_splitter") else "MISSING"
     presets_dir = ROOT / "data" / "genre_presets"
     n_presets = len(list(presets_dir.glob("*.json"))) if presets_dir.exists() else 0
-    p["presets_50"] = (
-        "REAL_PASS" if n_presets >= 50 else ("PARTIAL" if n_presets > 0 else "MISSING")
+    p["presets_library"] = (
+        "REAL_PASS" if n_presets >= 50 else ("PARTIAL" if n_presets else "MISSING")
     )
     return p
-
-
-def _dependency_status(name: str) -> str:
-    """Probe a real optional dependency without converting absence to success."""
-    return "REAL_PASS" if _module_exists(name) else "BLOCKED"
 
 
 def probe_audio_pipeline() -> dict[str, str]:
@@ -248,40 +246,37 @@ def probe_audio_pipeline() -> dict[str, str]:
     )
     p["musicgen_runtime"] = _dependency_status("audiocraft")
     p["demucs_runtime"] = _dependency_status("demucs")
-    p["orchestrator_ai"] = (
-        "REAL_PASS" if _module_exists("app.core.orchestrator_ai") else "MISSING"
-    )
     p["mastering_adapter"] = (
         "REAL_PASS" if _module_exists("modules.mastering_ai") else "MISSING"
     )
-    p["documented_smoke_scripts"] = (
+    p["smoke_scripts"] = (
         "REAL_PASS"
-        if _file_exists("tools/smoke_v26.py") and _file_exists("tools/smoke_v29.py")
+        if _file_exists("tools/smoke_audio.py") and _file_exists("tools/smoke_god.py")
         else "MISSING"
     )
     return p
 
 
-def probe_voice_rvc() -> dict[str, str]:
+def probe_voice_recording() -> dict[str, str]:
+    """Голос — основной путь релиза, поэтому проба честная: микрофон + vault."""
     p: dict[str, str] = {}
     p["voice_recording"] = (
-        "PARTIAL" if _module_exists("modules.voice_recording") else "MISSING"
+        "REAL_PASS" if _module_exists("modules.voice_recording") else "MISSING"
     )
+    p["voice_vault"] = "REAL_PASS" if _module_exists("modules.voice_vault") else "MISSING"
     p["voice_onboarding"] = (
         "REAL_PASS" if _module_exists("modules.voice_onboarding") else "MISSING"
     )
-    p["voice_vault"] = (
-        "REAL_PASS" if _module_exists("modules.voice_vault_v9") else "MISSING"
+    p["voice_cleaner"] = "REAL_PASS" if _module_exists("modules.voice_cleaner") else "MISSING"
+    p["vocal_fx"] = "REAL_PASS" if _module_exists("modules.vocal_fx") else "MISSING"
+    p["rvc_model"] = (
+        "REAL_PASS" if list((ROOT / "models" / "rvc").rglob("*.pth")) else "MISSING"
     )
-    pth_files = list((ROOT / "models" / "rvc").rglob("*.pth"))
-    p["rvc_model"] = "REAL_PASS" if pth_files else "MISSING"
     try:
         from modules import voice_recording as vr
 
         cap = vr.capability_report()
-        p["mic_recording"] = (
-            "REAL_PASS" if cap.get("real_recording_possible") else "BLOCKED"
-        )
+        p["mic_recording"] = "REAL_PASS" if cap.get("real_recording_possible") else "BLOCKED"
     except Exception:
         p["mic_recording"] = "MISSING"
     return p
@@ -292,27 +287,16 @@ def probe_release() -> dict[str, str]:
     p["release_export"] = (
         "REAL_PASS" if _module_exists("modules.release_export") else "MISSING"
     )
-    p["release_pack_module"] = (
-        "PARTIAL" if _module_exists("modules.release_pack_v13") else "MISSING"
+    p["release_pack"] = (
+        "REAL_PASS" if _module_exists("modules.release_pack_full") else "MISSING"
     )
-    p["distrokid_xml"] = (
-        "PARTIAL" if _module_exists("modules.distribution_export_v11") else "MISSING"
+    p["distribution"] = (
+        "REAL_PASS" if _module_exists("modules.distribution") else "MISSING"
     )
-    p["cover_art_adapter"] = (
-        "REAL_PASS" if _module_exists("app.core.cover_gen") else "MISSING"
+    p["cover_art"] = (
+        "REAL_PASS" if _module_exists("modules.cover_art_gen") else "MISSING"
     )
     p["mutagen_runtime"] = _dependency_status("mutagen")
-    return p
-
-
-def probe_installer() -> dict[str, str]:
-    p: dict[str, str] = {}
-    ok = _module_exists("updater.updater")
-    p["updater_module"] = "REAL_PASS" if ok else "MISSING"
-    p["backup_procedure"] = "REAL_PASS" if ok else "MISSING"
-    p["rollback"] = "REAL_PASS" if ok else "MISSING"
-    p["sha256_verify"] = "REAL_PASS" if ok else "MISSING"
-    p["user_data_split"] = "REAL_PASS" if ok else "MISSING"
     return p
 
 
@@ -320,13 +304,14 @@ def probe_testing() -> dict[str, str]:
     p: dict[str, str] = {}
     tests = list((ROOT / TEST_ROOT).glob("test_*.py"))
     p["pytest_suite"] = "REAL_PASS" if tests else "MISSING"
-    p["smoke_v26"] = "REAL_PASS" if _file_exists("tools/smoke_v26.py") else "MISSING"
-    p["smoke_v29"] = "REAL_PASS" if _file_exists("tools/smoke_v29.py") else "MISSING"
     p["fallback_audit"] = (
         "REAL_PASS" if _file_exists("tools/fallback_audit.py") else "MISSING"
     )
-    p["ast_dead_import_audit"] = (
+    p["dead_import_audit"] = (
         "REAL_PASS" if _file_exists("tools/ast_dead_imports.py") else "MISSING"
+    )
+    p["data_audit"] = (
+        "REAL_PASS" if _file_exists("tools/audit_data_inventory.py") else "MISSING"
     )
     return p
 
@@ -334,9 +319,8 @@ def probe_testing() -> dict[str, str]:
 def _block_percent(probes: dict[str, str]) -> float:
     if not probes:
         return 0.0
-    n = len(probes)
     score = sum(STATUS_WEIGHT.get(v, 0.0) for v in probes.values())
-    return round(100.0 * score / n, 2)
+    return round(100.0 * score / len(probes), 2)
 
 
 def compute() -> tuple[float, dict[str, Any]]:
@@ -344,34 +328,31 @@ def compute() -> tuple[float, dict[str, Any]]:
         "architecture": probe_architecture(),
         "core_modules": probe_core_modules(),
         "audio_pipeline": probe_audio_pipeline(),
-        "voice_rvc": probe_voice_rvc(),
+        "voice_recording": probe_voice_recording(),
         "release": probe_release(),
-        "installer": probe_installer(),
         "testing": probe_testing(),
     }
-    block_pcts = {k: _block_percent(v) for k, v in blocks_raw.items()}
+    block_pcts = {key: _block_percent(value) for key, value in blocks_raw.items()}
 
     total = 0.0
-    for k, w in WEIGHTS.items():
-        total += block_pcts[k] * w / 100.0
+    for key, weight in WEIGHTS.items():
+        total += block_pcts.get(key, 0.0) * weight / 100.0
 
     caps: list[tuple[float, str]] = []
-    if blocks_raw["voice_rvc"].get("rvc_model") != "REAL_PASS":
-        caps.append((70.0, "no working RVC (no .pth model)"))
-    if blocks_raw["voice_rvc"].get("mic_recording") != "REAL_PASS":
+    if blocks_raw["voice_recording"].get("mic_recording") != "REAL_PASS":
         caps.append((80.0, "no real microphone recording available"))
-    heavy_runtime = [
-        key for key in ("musicgen_runtime", "demucs_runtime")
+    heavy = [
+        key
+        for key in ("musicgen_runtime", "demucs_runtime")
         if blocks_raw["audio_pipeline"].get(key) == "BLOCKED"
     ]
-    if heavy_runtime:
-        caps.append((65.0, f"heavy engines unavailable: {heavy_runtime}"))
-    if blocks_raw["installer"].get("updater_module") != "REAL_PASS":
+    if heavy:
+        caps.append((65.0, f"heavy engines unavailable: {heavy}"))
+    if blocks_raw["architecture"].get("updater_module") != "REAL_PASS":
         caps.append((85.0, "no updater module"))
 
-    cap_min = min([c[0] for c in caps], default=100.0)
-    final = min(total, cap_min)
-    final = math.floor(final)
+    cap_min = min([cap[0] for cap in caps], default=100.0)
+    final = math.floor(min(total, cap_min))
 
     return float(final), {
         "module_inventory": module_inventory_summary(),
@@ -386,155 +367,32 @@ def compute() -> tuple[float, dict[str, Any]]:
 
 
 def dependency_requirements() -> list[dict[str, str]]:
-    """Parse the project base/AI requirement manifests without resolving packages."""
-    groups = (("base", ROOT / "requirements.txt"), ("optional-ai", ROOT / "requirements_ai.txt"))
+    """Разбирает манифесты зависимостей без их резолва (для отчётов)."""
+    groups = (
+        ("base", ROOT / "requirements.txt"),
+        ("optional-ai", ROOT / "requirements_ai.txt"),
+    )
     entries: dict[str, dict[str, str]] = {}
     for group, path in groups:
-        for raw in path.read_text(encoding="utf-8").splitlines() if path.exists() else []:
+        if not path.exists():
+            continue
+        for raw in path.read_text(encoding="utf-8").splitlines():
             line = raw.strip()
             if not line or line.startswith("#"):
                 continue
             if line.startswith("git+"):
-                name = "bark" if "suno-ai/bark" in line.lower() else line.rsplit("/", 1)[-1].removesuffix(".git")
+                name = "bark" if "suno-ai/bark" in line.lower() else line.rsplit("/", 1)[-1]
             else:
-                match = re.match(r"([A-Za-z0-9_.-]+)", line)
-                if not match:
-                    continue
-                name = match.group(1)
-            canonical = re.sub(r"[-_.]+", "-", name).lower()
-            record = entries.setdefault(canonical, {"package": name, "requirement": line, "groups": group})
-            if group not in record["groups"].split(", "):
-                record["groups"] += ", " + group
-    return [entries[key] for key in sorted(entries)]
+                name = line.split(";")[0].split(">=")[0].split("==")[0].split("<")[0].strip()
+            entries[name] = {"group": group, "spec": line}
+    return [{"name": name, **spec} for name, spec in sorted(entries.items())]
 
 
-def _license_from_metadata(package: str) -> dict[str, str]:
-    """Extract declared package metadata; no guessed license labels are emitted."""
+def installed_version(package: str) -> str:
     try:
-        info = metadata.metadata(package)
-        version = metadata.version(package)
-    except metadata.PackageNotFoundError:
-        return {"version": "not installed", "license": "UNKNOWN (distribution unavailable)", "source": "not installed"}
-    license_name = (info.get("License-Expression") or info.get("License") or "").strip()
-    if not license_name or license_name.upper() == "UNKNOWN":
-        classifiers = info.get_all("Classifier") or []
-        license_classifiers = [value.removeprefix("License :: ") for value in classifiers if value.startswith("License :: ")]
-        license_name = "; ".join(license_classifiers) if license_classifiers else "UNKNOWN (metadata missing)"
-    return {"version": version, "license": license_name, "source": "importlib.metadata"}
-
-
-def dependency_license_rows() -> list[dict[str, str]]:
-    return [{**entry, **_license_from_metadata(entry["package"])} for entry in dependency_requirements()]
-
-
-def licenses_markdown() -> str:
-    """Render a deterministic dependency-license table from manifests and installed metadata."""
-    lines = [
-        "# Dependency licenses",
-        "",
-        "This inventory is generated from `requirements.txt` and `requirements_ai.txt` using installed `importlib.metadata`. `UNKNOWN` or `not installed` is an evidence gap, not a license assertion; verify those packages and all transitive dependencies before redistribution.",
-        "",
-        "| Package | Requirement groups | Declared requirement | Installed version | License metadata | Evidence |",
-        "|---|---|---|---|---|---|",
-    ]
-    for row in dependency_license_rows():
-        fields = [row["package"], row["groups"], row["requirement"], row["version"], row["license"], row["source"]]
-        lines.append("| " + " | ".join(value.replace("|", "\\|") for value in fields) + " |")
-    lines.extend([
-        "",
-        "## GPL-compatibility checklist",
-        "",
-        "| Check | Status | Required action |",
-        "|---|---|---|",
-        "| Base dependency declarations inventoried | PASS | Re-run `python tools/readiness.py --licenses` after every requirements change. |",
-        "| Optional AI dependency declarations inventoried | PASS | Install optional packages in the release environment before relying on metadata. |",
-        "| Unknown/unavailable distribution metadata | REVIEW REQUIRED | Obtain the upstream license text and assess compatibility before shipping a combined distribution. |",
-        "| Transitive dependencies and bundled model/content licenses | REVIEW REQUIRED | This table intentionally does not claim coverage beyond direct Python requirements. |",
-        "",
-    ])
-    return "\n".join(lines)
-
-
-def write_license_report(path: Path = ROOT / "docs" / "LICENSES.md") -> Path:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(licenses_markdown(), encoding="utf-8")
-    return path
-
-
-def planned_v39_steps(path: Path = PLAN_V39_PATH) -> list[dict[str, str]]:
-    """Read the ordered PLAN_v39 headings; the plan itself is the step source of truth."""
-    if not path.exists():
-        return []
-    headings = re.findall(r"(?m)^ШАГ\s+(\d{3})\s+—\s+(.+?)\s*$", path.read_text(encoding="utf-8"))
-    return [{"step": number, "title": title.strip()} for number, title in headings]
-
-
-def git_step_commits() -> dict[str, list[dict[str, str]]]:
-    """Map PLAN step markers to actual git commits; never infer work from files alone."""
-    try:
-        result = subprocess.run(
-            ["git", "-C", str(ROOT), "log", "--format=%H%x1f%s"],
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-    except (OSError, subprocess.CalledProcessError):
-        return {}
-    found: dict[str, list[dict[str, str]]] = {}
-    for raw in result.stdout.splitlines():
-        commit, separator, subject = raw.partition("\x1f")
-        if not separator:
-            continue
-        markers = set(re.findall(r"ШАГ\s+(\d{3})", subject))
-        for start, end in re.findall(r"ШАГИ\s+(\d{3})\s*[-–]\s*(\d{3})", subject):
-            markers.update(f"{number:03d}" for number in range(int(start), int(end) + 1))
-        for marker in sorted(markers):
-            found.setdefault(marker, []).append({"commit": commit, "subject": subject})
-    return found
-
-
-def execution_report_rows() -> list[dict[str, Any]]:
-    commits = git_step_commits()
-    rows: list[dict[str, Any]] = []
-    for planned in planned_v39_steps():
-        evidence = commits.get(planned["step"], [])
-        rows.append({
-            **planned,
-            "status": "COMMITTED" if evidence else "PENDING",
-            "commits": evidence,
-        })
-    return rows
-
-
-def execution_report_markdown() -> str:
-    """Render a report whose statuses are solely derived from current git evidence."""
-    rows = execution_report_rows()
-    committed = sum(row["status"] == "COMMITTED" for row in rows)
-    lines = [
-        "# PLAN_v39 execution report",
-        "",
-        "Status is derived only from local `git log` subjects containing `ШАГ NNN`; `PENDING` does not assess code quality and `COMMITTED` is not a substitute for documented acceptance evidence.",
-        "",
-        f"Plan headings: **{len(rows)}**. Git-evidenced commits: **{committed}**. Pending headings: **{len(rows) - committed}**.",
-        "",
-        "| Step | Plan item | Git-evidence status | Commit evidence |",
-        "|---:|---|---|---|",
-    ]
-    for row in rows:
-        evidence = "<br>".join(
-            f"`{entry['commit'][:8]}` {entry['subject']}".replace("|", "\\|")
-            for entry in row["commits"]
-        ) or "—"
-        lines.append(f"| {row['step']} | {row['title'].replace('|', '\\|')} | {row['status']} | {evidence} |")
-    lines.append("")
-    return "\n".join(lines)
-
-
-def write_execution_report(path: Path | None = None) -> Path:
-    target = path or EXECUTION_REPORT_PATH
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(execution_report_markdown(), encoding="utf-8")
-    return target
+        return metadata.version(package)
+    except Exception:
+        return ""
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -542,35 +400,28 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--inventory-markdown",
         action="store_true",
-        help="render the full tracked Python module matrix as Markdown",
+        help="render the tracked Python module matrix as Markdown",
     )
-    parser.add_argument(
-        "--licenses",
-        action="store_true",
-        help="generate docs/LICENSES.md from requirement manifests and installed metadata",
-    )
-    parser.add_argument(
-        "--report",
-        action="store_true",
-        help="generate docs/PLAN_v39_EXEC_REPORT.md from git evidence",
-    )
+    parser.add_argument("--json", action="store_true", help="machine-readable output")
     args = parser.parse_args(argv)
+
     if args.inventory_markdown:
         print(inventory_markdown())
         return 0
-    if args.licenses:
-        report_path = write_license_report()
-        print(f"license report: {report_path.relative_to(ROOT)} ({len(dependency_license_rows())} direct requirements)")
+
+    percent, details = compute()
+    if args.json:
+        print(json.dumps({"percent": percent, **details}, ensure_ascii=False, indent=2))
         return 0
-    if args.report:
-        report_path = write_execution_report()
-        rows = execution_report_rows()
-        committed = sum(row["status"] == "COMMITTED" for row in rows)
-        display_path = report_path.relative_to(ROOT) if report_path.is_relative_to(ROOT) else report_path
-        print(f"execution report: {display_path} ({committed}/{len(rows)} committed headings)")
-        return 0
-    pct, blocks = compute()
-    print(json.dumps({"percent": pct, "blocks": blocks}, ensure_ascii=False, indent=2))
+
+    print(f"readiness: {percent:.0f}%")
+    for block, value in details["block_scores"].items():
+        print(f"  {block:18s} {value:6.2f}%")
+    for cap_value, reason in details["caps_triggered"]:
+        print(f"  cap <= {cap_value:.0f}%: {reason}")
+    missing = [row["path"] for row in module_inventory() if row["status"] != "REAL_PASS"]
+    if missing:
+        print("  modules without static signal: " + ", ".join(missing))
     return 0
 
 

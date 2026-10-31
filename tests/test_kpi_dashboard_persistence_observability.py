@@ -1,6 +1,6 @@
 """Regression coverage for observable KPI Dashboard persistence fallback."""
 
-from modules import kpi_dashboard_v12 as dashboard
+from modules import kpi_dashboard as dashboard
 
 
 def test_dashboard_reports_saved_report_paths(monkeypatch, tmp_path):
@@ -11,7 +11,7 @@ def test_dashboard_reports_saved_report_paths(monkeypatch, tmp_path):
     assert result.persistence["requested"] is True
     assert result.persistence["ok"] is True
     assert result.persistence["status"] == "saved"
-    assert (tmp_path / "data" / "kpi_dashboard_v12.json").exists()
+    assert (tmp_path / "data" / "kpi_dashboard.json").exists()
     assert (tmp_path / "docs" / "KPI_DASHBOARD_v12.md").exists()
 
 
@@ -34,4 +34,4 @@ def test_dashboard_reports_failed_report_write(monkeypatch, tmp_path):
         "status": "failed",
         "error": "OSError: disk full",
     }
-    assert not (tmp_path / "data" / "kpi_dashboard_v12.json").exists()
+    assert not (tmp_path / "data" / "kpi_dashboard.json").exists()

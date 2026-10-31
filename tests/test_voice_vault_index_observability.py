@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-import modules.voice_vault_v9 as vault
+import modules.voice_vault as vault
 
 
 def test_corrupt_voice_vault_index_falls_back_and_logs_warning(tmp_path: Path, monkeypatch, caplog) -> None:

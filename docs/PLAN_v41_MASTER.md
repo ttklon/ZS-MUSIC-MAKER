@@ -171,15 +171,15 @@ scripts/            run.cmd, install.cmd, verify.cmd (Windows),Makefile-анал
 | Оркестрация | `orchestrator.py`, `_god`, `_ai`, `_async`, `pipeline_core.py`, `master_pipeline_v12.py`, `runtime_orchestrator.py`, `orchestrator_v8..v12_patch.py` | `app/pipeline/runner.py` + `registry.py` + `stages/*` | 11 файлов, legacy — в опциональный адаптер |
 | Мастеринг | `mastering.py`, `mastering_v9.py`, `mastering_pro.py`, `mastering_ai.py`, `matchering_master.py` | `app/audio/master/mastering.py` + `matchering_adapter.py` | 4 |
 | Бит | `beat_constructor.py`, `beat_gen.py`, `beat_gen_ai.py`, `cyber_synth.py`, `phonk_engine.py`, `phonk_engine_v2.py`, `midi_generator.py`, `chanson_engine.py`, `arrangement_engine.py`, `groove_extractor.py` | `app/audio/beat/{patterns,synth,samples,arrangement,groove}.py` | 5–6 |
-| Вокал | `voice_synth.py`, `voice_synth_ai.py`, `voice_convert.py`, `voice_cleaner.py`, `voice_recording.py`, `voice_vault_v9.py`, `voice_onboarding.py`, `rvc_manager.py`, `rvc_trainer_v9.py`, `anti_neuro_v10.py`, `anti_ai_polish.py`, `vocal_fx.py`, `female_backing.py`, `phoneme_coverage.py` | `app/audio/vocal/{engines,vault,rvc,fx,cleaner,recorder}.py` | 8 |
-| Текст | `lyrics_gen.py`, `lyrics_gen_v8.py`, `lyrics_gen_ai.py`, `author_ref_lyrics.py`, `llm_clients_v15.py`, `lyric_vault_v10.py` | `app/text/{lyrics,memory,author_style,llm}.py` | 3 |
+| Вокал | `voice_synth.py`, `voice_synth_ai.py`, `voice_convert.py`, `voice_cleaner.py`, `voice_recording.py`, `voice_vault.py`, `voice_onboarding.py`, `rvc_manager.py`, `rvc_trainer.py`, `anti_neuro.py`, `anti_ai_polish.py`, `vocal_fx.py`, `female_backing.py`, `phoneme_coverage.py` | `app/audio/vocal/{engines,vault,rvc,fx,cleaner,recorder}.py` | 8 |
+| Текст | `lyrics_gen.py`, `lyrics_gen_v8.py`, `lyrics_gen_ai.py`, `author_ref_lyrics.py`, `llm.py`, `lyric_vault.py` | `app/text/{lyrics,memory,author_style,llm}.py` | 3 |
 | Источники | `sample_hunter.py`, `sample_hunter_v9.py`, `trend_scout.py`, `trend_scout_v3.py`, `freesound_client.py` | `app/sources/{samples,trends}.py` | 3 |
 | Железо | `app/core/hw_autodetect.py`, `modules/hw_directml.py`, `app/hw_probe.py` | `app/hw/detect.py`, `budget.py` | 2 |
 | Логирование | `app/logger.py` + `app/core/logger.py` | `app/core/logger.py` | 1 |
-| UI | `wizard.py`, `wizard_v8_extensions.py`, `theme.py`, `theme_v12.py`, `onboarding.py`, `modules/onboarding_tour.py`, `ui/tutorial.py`, `ui/karaoke_recorder.py`, `expert_mode_v11.py`, `wizard_v12_integration.py` | `app/ui/` (5 модулей) | 4 |
-| Релиз | `release_export.py`, `release_pack_v9.py`, `release_pack_full.py`, `distribution_export_v11.py`, `provenance.py`, `license_manager.py`, `isrc.py` | `app/release/` | 3 |
+| UI | `wizard.py`, `wizard_v8_extensions.py`, `theme.py`, `theme.py`, `onboarding.py`, `modules/onboarding.py`, `ui/tutorial.py`, `ui/karaoke_recorder.py`, `expert_mode.py`, `wizard_v12_integration.py` | `app/ui/` (5 модулей) | 4 |
+| Релиз | `release_export.py`, `release_pack_v9.py`, `release_pack_full.py`, `distribution.py`, `provenance.py`, `license_manager.py`, `isrc.py` | `app/release/` | 3 |
 | Жанры | `genre_engine.py`, `genre_expansion_100.py`, `config/genres_100.json` | `app/genres.py` + `data/genres/*.json` | 1 |
-| Диагностика | `health_v12.py`, `self_diag_v13.py`, `kpi_dashboard_v12.py`, `hit_kpi_monitor_v11.py`, `auto_qa.py`, `global_audit_fixer.py` | `app/diagnostics/` | 3 |
+| Диагностика | `health.py`, `self_diag.py`, `kpi_dashboard.py`, `kpi_monitor.py`, `auto_qa.py`, `global_audit_fixer.py` | `app/diagnostics/` | 3 |
 | Утилиты разработчика | 25 файлов в `tools/` | 4: `readiness.py`, `audit.py`, `smoke.py`, `genres.py` | 21 |
 
 | ID | Задача | Приёмка |
@@ -334,17 +334,17 @@ scripts/            run.cmd, install.cmd, verify.cmd (Windows),Makefile-анал
 
 **Без статических ссылок (26):** `agents/training_texts.py`, `app/core/cover_gen.py`,
 `app/core/model_manager.py`, `app/gui/wizard_v8_extensions.py`, `modules/beat_gen.py`,
-`modules/distribution_export_v11.py`, `modules/expert_mode_v11.py`,
+`modules/distribution.py`, `modules/expert_mode.py`,
 `modules/phonk_engine_v2.py`, `modules/wizard_v12_integration.py`, `tools/ab_compare.py`,
-`tools/cli_contract.py`, `tools/deep_audit_v40*.py` (3), `tools/lazy_dirs_patch.py`,
+`tools/cli.py`, `tools/deep_audit_v40*.py` (3), `tools/lazy_dirs_patch.py`,
 `tools/p0_truth_test.py`, `tools/populate_cover_prompts.py`, `tools/validate_final_track.py`,
 `ui/karaoke_recorder.py`, `ui/tutorial.py`, `app/gui/theme.py`, `modules/provenance.py`,
 `app/core/orchestrator_v9_patch.py`, `app/core/orchestrator_v10_patch.py` (+ 3 CLI-only:
-`tools/smoke_v26.py`, `tools/smoke_v29.py` остаются как CLI).
+`tools/smoke_audio.py`, `tools/smoke_god.py` остаются как CLI).
 
 **Только тестовые ссылки (16):** `agents/trend_scout.py`, `modules/genre_expansion_100.py`,
-`modules/global_audit_fixer.py`, `modules/hit_kpi_monitor_v11.py`, `modules/release_export.py`,
-`modules/remix.py`, `modules/video_edit_v11.py`, `tools/ast_dead_imports.py`,
+`modules/global_audit_fixer.py`, `modules/kpi_monitor.py`, `modules/release_export.py`,
+`modules/remix.py`, `modules/video_edit.py`, `tools/ast_dead_imports.py`,
 `tools/audio_golden_metrics.py`, `tools/audit_data_inventory.py`, `tools/deep_audit_v40.py`,
 `tools/generate_audio_goldens.py`, `tools/genre_validator.py`, `tools/plan_integrity.py`,
 `tools/regress_v39.py`, `tools/release_preflight.py` — каждый получает решение:

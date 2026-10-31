@@ -10,7 +10,7 @@ ZS Music Maker — app/core/isrc.py (v39.4, ШАГ 003)
   YY    — 2 цифры года (25 = 2025, 26 = 2026)
   NNNNN — 5-значный номер релиза
 
-Раньше в release_pack_full.py / release_export.py / distribution_export_v11.py
+Раньше в release_pack_full.py / release_export.py / distribution.py
 метаданные содержали заглушку XX-XXX-00-00000 — трек уходил бы к
 дистрибьютору с невалидным ISRC.
 

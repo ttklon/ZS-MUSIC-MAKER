@@ -83,7 +83,7 @@ def scan_file(path: Path) -> dict[str, list[dict[str, Any]]]:
             # часто стоит на ЗАКРЫВАЮЩЕЙ строке многострочного вызова
             # (`pitch_shift(\n mono, sr=sr, n_steps=...\n )  # noqa: ...`),
             # а детектор смотрел только первую строку совпадения — это давало
-            # ложные red_flags (female_backing.py:127, anti_neuro_v10.py:363).
+            # ложные red_flags (female_backing.py:127, anti_neuro.py:363).
             # Теперь ищем маркер в окне ±4 строк вокруг совпадения.
             lo = max(0, line_no - 5)
             hi = min(len(lines), line_no + 4)
@@ -168,7 +168,7 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    from cli_contract import help_or_error
+    from cli import help_or_error
 
     if help_or_error(__doc__ or "ZS Music Maker tool"):
         raise SystemExit(0)
