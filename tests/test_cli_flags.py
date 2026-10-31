@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from app.cli.commands import parse_only
+from app.cli.pipeline import parse_only
 from app.cli.parser import build_parser
 
 
@@ -37,7 +37,7 @@ def test_parser_defaults_keep_pipeline_off() -> None:
 
 
 def test_list_stages_covers_every_selectable_key(capsys) -> None:
-    from app.cli.commands import run_list_stages
+    from app.cli.pipeline import run_list_stages
     from app.core.pipeline_runtime import STAGE_KEYS
 
     assert run_list_stages() == 0

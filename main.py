@@ -26,6 +26,8 @@ ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 
 from app.cli import commands  # noqa: E402  (ROOT должен попасть в sys.path раньше)
+from app.cli import dossier as dossier_cmds  # noqa: E402
+from app.cli import pipeline as pipeline_cmds  # noqa: E402
 from app.cli.env import ctx, header, setup_console_encoding  # noqa: E402
 from app.cli.parser import build_parser  # noqa: E402
 
@@ -46,7 +48,7 @@ def main() -> int:
     if args.list_genres:
         return commands.run_list_genres()
     if args.list_stages:
-        return commands.run_list_stages()
+        return pipeline_cmds.run_list_stages()
     if args.smoke:
         return commands.run_smoke()
     if args.self_diag:
@@ -74,9 +76,9 @@ def main() -> int:
 
     # 3) Досье артиста.
     if args.dossier_add and args.dossier_artist:
-        return commands.run_dossier_add(args.dossier_artist, args.dossier_add)
+        return dossier_cmds.run_dossier_add(args.dossier_artist, args.dossier_add)
     if args.dossier_build and args.dossier_artist:
-        return commands.run_dossier_build(args.dossier_artist)
+        return dossier_cmds.run_dossier_build(args.dossier_artist)
 
     # 4) Пайплайны. `--seed/--resume/--only` относятся к классическому DAG.
     classic = (args.run or args.dry_run or args.resume or args.only or args.seed is not None)
@@ -88,15 +90,15 @@ def main() -> int:
             "ignored for --ai/--god/--async-mode"
         )
     if args.ai and args.dry_run:
-        return commands.run_ai_dry_run(args)
+        return pipeline_cmds.run_ai_dry_run(args)
     if args.ai:
-        return commands.run_ai(args)
+        return pipeline_cmds.run_ai(args)
     if args.god:
-        return commands.run_god(args)
+        return pipeline_cmds.run_god(args)
     if args.async_mode:
-        return commands.run_async(args)
+        return pipeline_cmds.run_async(args)
     if classic:
-        return commands.run_pipeline(args)
+        return pipeline_cmds.run_pipeline(args)
 
     # 5) Интерфейсы.
     if args.console:
