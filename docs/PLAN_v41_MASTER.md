@@ -337,7 +337,7 @@ scripts/            run.cmd, install.cmd, verify.cmd (Windows),Makefile-анал
 | 0. Гигиена репозитория | **готово** | 1657 → 320 файлов, `docs/` без дампов, `tools/readiness.py` переписан, версии синхронизированы (`41.0.0-alpha.1`) |
 | 1. Удаление мусора и legacy | **готово** | удалены `orchestrator_v8..v12_patch`, `master_pipeline_v12`, 15 мёртвых модулей, все `*_vN.py`; состояние пользователя убрано из git |
 | 2. Семантическое слияние дублей | **готово** | `lyrics_gen` (v7+v8+AI), мастеринг (6 → 3 модуля), `anti_neuro` + `anti_neuro_track`, пакет `modules/release/`, удалён `mixdown`; `app/pipeline/` с `StageStatus`/`StageResult`/`summarize`, `orchestrator.py` 2132 → 387, `orchestrator_ai.py` 668 → 129, стадии — `app/core/stages/*` и `app/core/ai/*` |
-| 3. Единый пайплайн и стадии | **в работе** | осталось: свести `orchestrator_god` (241) и `orchestrator_async` к адаптерам над общим DAG; 19 файлов ещё > 400 строк (`wizard.py` 1107, `beat_constructor` 741, `llm` 621, `hit_scorer` 610, `lyrics_gen` 604, `main.py` 592) |
+| 3. Единый пайплайн и стадии | **в работе** | сделано: `beat_constructor` → `modules/beat/`, `app/gui/wizard` → `app/gui/wizard/`, `llm` → `modules/llm/`, `lyrics_gen` → `modules/lyrics/`, `hit_scorer` → `modules/hit_scorer/`, `main.py` 592 → 111 (`app/cli/`); осталось: свести `orchestrator_god` (241) и `orchestrator_async` к адаптерам над общим DAG; 6 файлов ещё > 400 строк (`rvc_manager` 486, `video_edit` 477, `voice_recording` 439, `kpi_dashboard` 439, `vocal_fx` 406, `kpi_monitor` 397) |
 | 4. Аудио-качество (сэмплы, грув, драматургия) | не начато | — |
 | 5. Вокал: свой микрофон как основной путь | не начато | — |
 | 6. Мастер-гейты и слепое прослушивание | не начато | — |

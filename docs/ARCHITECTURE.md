@@ -6,7 +6,8 @@
 ## 1. Слои
 
 ```
-main.py                     CLI-фасад: аргументы → команда, без бизнес-логики
+main.py                     точка входа: маршрутизация флагов + запуск GUI (111 строк)
+app/cli/                    CLI-слой: env (версия/кодировка), parser, commands, gui, backup, probes
 config/settings.py          конфиг: env > .env > дефолты (ZSMM_*)
 app/core/                   инфраструктура: логи, контракты, безопасность, бэкапы
 app/ai/                     AI-слой: реестр моделей, sequential runner, quality gates, prompts
@@ -18,6 +19,7 @@ app/core/orchestrator.py    склейка классического DSP-пай
 app/core/orchestrator_god.py  God Mode (5 стадий, чекпоинты)
 app/core/orchestrator_ai.py   AI-пайплайн: только проводка стадий через SequentialAIRunner
 modules/                    аудио/текст/релиз/диагностика — прикладные модули
+  beat/ llm/ lyrics/ hit_scorer/ release/ artist_dossier/  — пакеты по ответственности
 agents/                     источники: сэмплы, тренды, сленг
 app/gui/                    PySide6: wizard (9 шагов), тема, онбординг
 tools/                      обслуживание: readiness, аудиты, smoke, e2e

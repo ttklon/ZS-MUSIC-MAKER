@@ -5,7 +5,7 @@ import types
 
 import pytest
 
-import main
+from app.cli import gui
 
 
 def test_gui_theme_failure_is_reported_without_blocking_startup(monkeypatch) -> None:
@@ -54,10 +54,10 @@ def test_gui_theme_failure_is_reported_without_blocking_startup(monkeypatch) -> 
     monkeypatch.setitem(sys.modules, "app.logger", logger)
     monkeypatch.setitem(sys.modules, "app.runtime_orchestrator", runtime)
     messages: list[str] = []
-    monkeypatch.setattr(main, "_safe_print", messages.append)
+    monkeypatch.setattr(gui, "safe_print", messages.append)
 
     with pytest.raises(SystemExit) as result:
-        main._try_launch_gui_pyside()
+        gui.try_launch_pyside()
 
     assert result.value.code == 0
     assert messages == ["[main] GUI theme fallback after apply failure: theme boom"]

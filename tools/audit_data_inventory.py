@@ -32,6 +32,9 @@ MANAGED_DIRECTORIES = {
 # Runtime weights и их integrity manifests создаются pull-инструментом, находятся
 # под .gitignore и не входят в инвентарь versioned data-assets.
 RUNTIME_DIRECTORIES = {"ai_models", "artist_dossier"}
+# Точные runtime-артефакты: их пишут прогоны (health-снимок, KPI, профиль), они
+# перечислены в .gitignore и по определению не являются versioned-данными.
+RUNTIME_FILES = {"health.json", "kpi_dashboard.json", "user_profile.json", "history.json"}
 
 MANAGED_FILES = {
     "README.md": "data catalog documentation",
@@ -91,6 +94,8 @@ def scan_data(data_dir: Path = DATA_DIR) -> dict[str, Any]:
     for path in sorted(item for item in data_dir.rglob("*") if item.is_file()):
         relative = path.relative_to(data_dir)
         if relative.parts and relative.parts[0] in RUNTIME_DIRECTORIES:
+            continue
+        if relative.name in RUNTIME_FILES:
             continue
         purpose = classify_data_file(path, data_dir)
         valid, error = validate_data_file(path)
