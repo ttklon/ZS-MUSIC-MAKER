@@ -218,11 +218,11 @@ def synth_sub_impact(sr: int, rng: Any = None, duration: float = 1.1) -> np.ndar
 # миксе кик и бас не должны «съедать» хэты и малый. Значения подобраны по
 # измерениям (RMS/центроид/крест) на 15-секундном рендере.
 INSTRUMENT_GAIN = {
-    "kick": 0.58,
-    "snare": 0.46,
-    "clap": 0.32,
-    "hat": 0.28,
-    "bass808": 0.34,
+    "kick": 0.54,
+    "snare": 0.44,
+    "clap": 0.30,
+    "hat": 0.26,
+    "bass808": 0.32,
     "impact": 0.38,
 }
 

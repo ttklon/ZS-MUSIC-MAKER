@@ -80,6 +80,12 @@ class ArrangementMixin:
                             roll[: roll_end - roll_at] * crescendo, self._uniform(-0.08, 0.08)
                         )
 
+            # Гармония: пэд + аккордовые стабы (основа «трека», не только ритм)
+            if section not in ("breakdown_silent",):
+                bar_audio += self._pan_audio(
+                    self._generate_harmony(bar, section, bar_samples), 0.0
+                )
+
             # Мелодия (шире)
             mel = self._generate_melody(bar, section, bar_samples)
             bar_audio += self._pan_audio(mel, self._uniform(-0.6, 0.6))
@@ -99,10 +105,14 @@ class ArrangementMixin:
                         extra_hh[: os_end - os_start], 0.2
                     )
 
-            # Нормализация такта
+            # Аварийная защита такта, а не нормализация.
+            # Раньше такт делился на пик при peak > 1.0 — это давало слышимую
+            # « pump»-качку уровня от такта к такту. Теперь гейн меняется только
+            # при реальном перегрузе, а общий уровень выставляет финальная
+            # нормализация трека.
             peak = np.max(np.abs(bar_audio)) + 1e-9
-            if peak > 1.0:
-                bar_audio = bar_audio / peak * 0.95
+            if peak > 1.25:
+                bar_audio = bar_audio / peak * 1.1
 
             section_audio[bar_start : bar_start + bar_samples] = bar_audio
 

@@ -16,13 +16,14 @@ import numpy as np
 
 from modules.beat.arrangement import ArrangementMixin
 from modules.beat.drums import CAPABILITIES as DRUM_ENGINE
+from modules.beat.harmony import HarmonyMixin
 from modules.beat.paths import output_dir
 from modules.beat.patterns import LEGACY_SLOT_PRESET, slot_preset_for_genre
 from modules.beat.samples import SampleBankMixin
 from modules.beat.voices import VoicesMixin
 
 
-class BeatConstructor(SampleBankMixin, VoicesMixin, ArrangementMixin):
+class BeatConstructor(SampleBankMixin, VoicesMixin, ArrangementMixin, HarmonyMixin):
     """Конструктор оригинального бита из сэмплов + groove template."""
 
     def __init__(
@@ -146,7 +147,7 @@ class BeatConstructor(SampleBankMixin, VoicesMixin, ArrangementMixin):
 
         full_track = np.concatenate(all_audio, axis=0)
 
-        # v26 FIX (P0): 200 мс глубокий фейд перед первым hook = drop
+        # 300 мс глубокий провал перед первым hook = drop
         try:
             _first_hook_sec = None
             for _info in section_info:
@@ -155,11 +156,13 @@ class BeatConstructor(SampleBankMixin, VoicesMixin, ArrangementMixin):
                     break
             if _first_hook_sec is not None:
                 _idx = int(_first_hook_sec * self.sr)
-                _fade = int(0.20 * self.sr)
+                _fade = int(0.30 * self.sr)
                 if _idx - _fade > 0:
-                    _env = np.linspace(1.0, 0.02, _fade).astype(np.float32)[
-                        :, np.newaxis
-                    ]
+                    # Степень 4, а не линейный спад: перед дропом должен быть
+                    # реальный провал тишины (~120 мс), иначе «drop» не читается.
+                    _env = ((1.0 - np.linspace(0.0, 1.0, _fade)) ** 4).astype(
+                        np.float32
+                    )[:, np.newaxis]
                     full_track[_idx - _fade : _idx] *= _env
         except Exception:
             pass
