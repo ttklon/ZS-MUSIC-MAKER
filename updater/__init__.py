@@ -2,6 +2,7 @@
 
 from .updater import (
     USER_PRESERVED,
+    check_git_update_status,
     check_updates,
     ensure_user_dirs,
     install_from_zip,
@@ -15,6 +16,7 @@ from .updater import (
 
 __all__ = [
     "USER_PRESERVED",
+    "check_git_update_status",
     "check_updates",
     "ensure_user_dirs",
     "install_from_zip",
