@@ -5,7 +5,7 @@ from pathlib import Path
 
 
 def test_gradio_expert_launch_schedules_browser_without_ui_sleep() -> None:
-    source_path = Path(__file__).resolve().parents[1] / "app/gui/wizard.py"
+    source_path = Path(__file__).resolve().parents[1] / "app/gui/wizard" / "window.py"
     tree = ast.parse(source_path.read_text(encoding="utf-8"))
     method = next(
         node

@@ -220,7 +220,7 @@ def _filesystem_tz_checks() -> dict[str, bool]:
     )
     return {
         "modules_12": all(has(f"modules/{name}.py") for name in module_names),
-        "gui_wizard": has("app/gui/wizard.py"),
+        "gui_wizard": has("app/gui/wizard/window.py"),
         "karaoke": has("modules/karaoke_engine.py") and has("ui/karaoke_recorder.py"),
         "onboarding": has("modules/onboarding.py") or has("app/gui/onboarding.py"),
         "utf8_cp866": True,
