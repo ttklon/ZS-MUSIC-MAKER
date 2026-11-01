@@ -75,6 +75,10 @@ class VoicesMixin:
 
         velocity = self._velocity("kick", step, bar)
 
+        bank_kick = self._bank_audio("kick", velocity)
+        if bank_kick is not None:
+            return bank_kick * velocity * drums.INSTRUMENT_GAIN["kick"]
+
         if self.kick_samples:
             kick_path = self.kick_samples[
                 humanize.variant_index(self._random, len(self.kick_samples))
@@ -101,6 +105,10 @@ class VoicesMixin:
         # На 2 и 4 доле бита — клэп поверх снейра (типично для phonk/trap).
         wants_clap = bool(self.clap_samples) and position in (4, 12) and bar % 2 == 1
         velocity = self._velocity("snare", step, bar, ghost=is_ghost)
+
+        bank_snare = self._bank_audio("clap" if wants_clap else "snare", velocity)
+        if bank_snare is not None:
+            return bank_snare * velocity * drums.INSTRUMENT_GAIN["snare"]
 
         if self.snare_samples:
             snare_path = self.snare_samples[
@@ -143,6 +151,10 @@ class VoicesMixin:
         velocity = self._velocity("hat", step, bar)
         # Открытый хэт — на последней шестнадцатой такта, как в живом груве.
         open_hat = (step % 16 == 15) and bar % 2 == 1
+
+        bank_hat = self._bank_audio("open_hat" if open_hat else "hat", velocity)
+        if bank_hat is not None:
+            return bank_hat * velocity * drums.INSTRUMENT_GAIN["hat"]
 
         if self.hihat_samples:
             if open_hat and self.open_hat_samples:
@@ -194,6 +206,10 @@ class VoicesMixin:
             if len(bass) < bar_samples:
                 bass = np.pad(bass, (0, bar_samples - len(bass)))
             return bass[:bar_samples] * 0.8
+
+        bank_808 = self._bank_audio("808", 0.9)
+        if bank_808 is not None and len(bank_808) >= bar_samples:
+            return bank_808[:bar_samples] * drums.INSTRUMENT_GAIN["bass808"]
 
         bass_pattern = self.slot_patterns["bass"]
         bass = np.zeros(bar_samples, dtype=np.float32)

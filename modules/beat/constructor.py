@@ -65,6 +65,31 @@ class BeatConstructor(SampleBankMixin, VoicesMixin, ArrangementMixin, HarmonyMix
         self._classify_samples()
 
 
+    def _drum_engine_report(self) -> dict:
+        """REAL_PASS, если инструменты берутся из банка, иначе FALLBACK с деталями."""
+        report = dict(DRUM_ENGINE)
+        try:
+            from app.audio.samples import capability
+
+            bank = capability(self._bank())
+        except Exception:
+            return report
+        covered = [name for name in bank.get("instruments_with_samples", []) if name in
+                   ("kick", "snare", "clap", "hat", "open_hat", "808")]
+        report["sample_bank"] = {
+            "instruments_with_samples": covered,
+            "total_samples": bank.get("total_samples", 0),
+        }
+        if len(covered) >= 4:
+            report["status"] = "REAL_PASS"
+            report["reason"] = "drums come from the licensed sample bank"
+        else:
+            report["reason"] = (
+                "sample bank covers "
+                f"{len(covered)} of 6 drum instruments; the rest is synthesised"
+            )
+        return report
+
     def _random(self) -> float:
         return self._py_rng.random()
 
@@ -308,7 +333,7 @@ class BeatConstructor(SampleBankMixin, VoicesMixin, ArrangementMixin, HarmonyMix
             "seed": self.seed,
             "deterministic": self.seed is not None,
             "sections": section_info,
-            "drum_engine": DRUM_ENGINE,
+            "drum_engine": self._drum_engine_report(),
             "slot_plan": self.build_slot_plan(max(1, sum(s["bars"] for s in section_info))),
             "total_bars": sum(s["bars"] for s in section_info),
             "samples_used": {

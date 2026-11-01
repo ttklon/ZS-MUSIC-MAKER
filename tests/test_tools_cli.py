@@ -16,6 +16,7 @@ TOOLS = (
     "genre_validator.py",
     "gitignore_guard.py",
     "pull_ai_models.py",
+    "samples_audit.py",
     "e2e.py",
     "smoke_audio.py",
     "smoke_god.py",

@@ -1,6 +1,6 @@
 {
-  "version": "41.0.0-alpha.4",
-  "build": "v41.0.0-alpha.1-refactor-cleanup-2026-10-31",
+  "version": "41.0.0-alpha.5",
+  "build": "v41.0.0-alpha.5-sample-bank-2026-11-01",
   "based_on": "39.9.0",
-  "changes": "v41 alpha: репозиторий очищен (1657 -> 320 tracked files, docs 52MB -> ~40KB), удалены все legacy-патчи v8-v12 и дублирующие модули, файлы *_vN переименованы в канонические имена, tools/readiness.py переписан (фикс SyntaxError на Python 3.11), CI/данные/состояние пользователя разведены. Следующие этапы — семантическое слияние семейств (mastering/release/lyrics/sources), пайплайн-ядро, качество звука и Windows-упаковка. План: docs/PLAN_v41_MASTER.md"
+  "changes": "alpha.5: сэмпловый банк (app/audio/samples.py + data/samples/manifest.json + tools/samples_audit.py), восстановлен пакет modules/release (экспорт с SHA-256/ZIP, площадки Spotify/Яндекс-VK/TikTok/YouTube/Shazam), починен .gitignore (release/ -> /release/) и добавлен tools/gitignore_guard.py, барабаны берут сэмплы банка первыми и честно падают в FALLBACK-синтез, harmony/drums/humanize для бита, health/self_diag/KPI указывают на реальные модули."
 }

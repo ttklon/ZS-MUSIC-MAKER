@@ -1,0 +1,16 @@
+{
+  "schema": "zsmm.sample-bank.v1",
+  "note": "Пустой банк — это честный FALLBACK: бит синтезируется modules/beat/drums.py и помечается drum_engine.status=FALLBACK. Любой добавленный сэмпл обязан иметь license (CC0/CC-BY/public domain), source и sha256; см. README.md рядом.",
+  "instruments": {
+    "kick": [],
+    "snare": [],
+    "clap": [],
+    "hat": [],
+    "open_hat": [],
+    "808": [],
+    "bass": [],
+    "melody": [],
+    "fx": [],
+    "foley": []
+  }
+}

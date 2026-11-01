@@ -28,6 +28,7 @@ MANAGED_DIRECTORIES = {
     "prompts": "prompt catalog",
     "reference_cache": "reference-analysis cache fixture",
     "sample_manifests": "sample manifest fixture",
+    "samples": "licensed sample bank (manifest + one-shots)",
 }
 # Runtime weights и их integrity manifests создаются pull-инструментом, находятся
 # под .gitignore и не входят в инвентарь versioned data-assets.
