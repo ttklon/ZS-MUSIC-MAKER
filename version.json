@@ -1,6 +1,6 @@
 {
-  "version": "41.0.0-alpha.6",
-  "build": "v41.0.0-alpha.6-groove-families-2026-11-01",
+  "version": "41.0.0-alpha.7",
+  "build": "v41.0.0-alpha.7-reference-groove-2026-11-01",
   "based_on": "39.9.0",
   "changes": "alpha.5: сэмпловый банк (app/audio/samples.py + data/samples/manifest.json + tools/samples_audit.py), восстановлен пакет modules/release (экспорт с SHA-256/ZIP, площадки Spotify/Яндекс-VK/TikTok/YouTube/Shazam), починен .gitignore (release/ -> /release/) и добавлен tools/gitignore_guard.py, барабаны берут сэмплы банка первыми и честно падают в FALLBACK-синтез, harmony/drums/humanize для бита, health/self_diag/KPI указывают на реальные модули."
 }

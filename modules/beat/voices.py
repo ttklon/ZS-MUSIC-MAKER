@@ -47,7 +47,13 @@ class VoicesMixin:
         return (60_000.0 / float(self.bpm)) / 4.0
 
     def _hit_offset_sec(self, part: str, step: int, bar: int) -> float:
-        offset_ms = humanize.timing_offset_ms(
+        """Смещение удара: кач референса (если есть) + человеческий джиттер.
+
+        `groove["timing_offsets_ms"]` приходит из `groove_extractor` и содержит
+        реальные смещения ударов референса по 16 шагам. Живой джиттер мал, чтобы
+        не размывать рисунок: 40 % от обычного.
+        """
+        feel = humanize.timing_offset_ms(
             self._uniform,
             part,
             step,
@@ -55,6 +61,13 @@ class VoicesMixin:
             swing=self.groove.get("swing", 0.0) or 0.0,
             step_ms=self._step_ms(),
         )
+        reference = self.groove.get("timing_offsets_ms")
+        if isinstance(reference, (list, tuple)) and len(reference) == 16:
+            jitter = float(self._uniform(-1.5, 1.5))
+            offset_ms = float(reference[step % 16]) + jitter
+            # Рисунок референса главнее: держим его в пределах ±20 мс.
+            return float(np.clip(offset_ms, -20.0, 20.0)) / 1000.0
+        offset_ms = feel
         # Ограничение ±9 мс: дальше это уже не грув, а рассинхрон.
         return float(np.clip(offset_ms, -9.0, 9.0)) / 1000.0
 
