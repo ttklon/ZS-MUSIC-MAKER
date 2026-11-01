@@ -19,7 +19,12 @@ from __future__ import annotations
 
 from modules.beat.constructor import BeatConstructor
 from modules.beat.paths import DEFAULT_OUTPUT_DIR, output_dir  # noqa: F401 - публичный реэкспорт
-from modules.beat.patterns import GENRE_SLOT_PRESETS  # noqa: F401 - публичный реэкспорт
+from modules.beat.patterns import (  # noqa: F401 - публичный реэкспорт
+    GENRE_SLOT_PRESETS,
+    family_for_genre,
+    families,
+    velocity_map_for_genre,
+)
 from modules.beat.patterns import LEGACY_SLOT_PRESET  # noqa: F401 - публичный реэкспорт
 from modules.beat.patterns import SLOT_NAMES  # noqa: F401 - публичный реэкспорт
 from modules.beat.patterns import slot_preset_for_genre  # noqa: F401 - публичный реэкспорт
@@ -33,8 +38,11 @@ __all__ = [
     "OUTPUT_DIR",
     "SLOT_NAMES",
     "construct_beat",
+    "family_for_genre",
+    "families",
     "output_dir",
     "slot_preset_for_genre",
+    "velocity_map_for_genre",
 ]
 
 

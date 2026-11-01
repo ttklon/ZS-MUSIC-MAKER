@@ -18,7 +18,12 @@ from modules.beat.arrangement import ArrangementMixin
 from modules.beat.drums import CAPABILITIES as DRUM_ENGINE
 from modules.beat.harmony import HarmonyMixin
 from modules.beat.paths import output_dir
-from modules.beat.patterns import LEGACY_SLOT_PRESET, slot_preset_for_genre
+from modules.beat.patterns import (
+    LEGACY_SLOT_PRESET,
+    family_for_genre,
+    slot_preset_for_genre,
+    velocity_map_for_genre,
+)
 from modules.beat.samples import SampleBankMixin
 from modules.beat.voices import VoicesMixin
 
@@ -46,6 +51,11 @@ class BeatConstructor(SampleBankMixin, VoicesMixin, ArrangementMixin, HarmonyMix
             {slot: list(values) for slot, values in LEGACY_SLOT_PRESET.items()}
             if genre == "legacy"
             else slot_preset_for_genre(genre)
+        )
+        self.velocity_map = (
+            {slot: [1.0] * 16 for slot in self.slot_patterns}
+            if genre == "legacy"
+            else velocity_map_for_genre(genre)
         )
         for slot, groove_key in (("kick", "kick_pattern"), ("snare", "snare_pattern"), ("hat", "hat_pattern"), ("bass", "bass_pattern"), ("melody", "melody_pattern")):
             if isinstance(self.groove.get(groove_key), list) and len(self.groove[groove_key]) == 16:
@@ -334,6 +344,7 @@ class BeatConstructor(SampleBankMixin, VoicesMixin, ArrangementMixin, HarmonyMix
             "deterministic": self.seed is not None,
             "sections": section_info,
             "drum_engine": self._drum_engine_report(),
+            "groove_family": family_for_genre(self.genre),
             "slot_plan": self.build_slot_plan(max(1, sum(s["bars"] for s in section_info))),
             "total_bars": sum(s["bars"] for s in section_info),
             "samples_used": {

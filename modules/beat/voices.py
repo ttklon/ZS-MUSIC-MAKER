@@ -59,9 +59,14 @@ class VoicesMixin:
         return float(np.clip(offset_ms, -9.0, 9.0)) / 1000.0
 
     def _velocity(self, part: str, step: int, bar: int, ghost: bool = False) -> float:
-        return humanize.velocity_gain(
+        """Громкость удара: акценты семейства × человеческий джиттер."""
+        gain = humanize.velocity_gain(
             self._random, self._uniform, part, step, bar, ghost=ghost
         )
+        accents = getattr(self, "velocity_map", {}).get(part)
+        if accents and len(accents) == 16:
+            gain *= float(accents[step % 16])
+        return float(gain)
 
     def _generate_kick(self, step: int, bar: int) -> np.ndarray:
         """Кик: сэмпл банка или синтез с питч-конвертом и кликом."""
