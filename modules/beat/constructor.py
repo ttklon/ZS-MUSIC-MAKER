@@ -8,13 +8,13 @@ modules/beat/constructor.py — конструктор бита: состоян�
 
 from __future__ import annotations
 
-import math
 import os
 import random
 
 import numpy as np
 
 from modules.beat.arrangement import ArrangementMixin
+from modules.beat.dramaturgy import plan_sections, structure_report
 from modules.beat.drums import CAPABILITIES as DRUM_ENGINE
 from modules.beat.harmony import HarmonyMixin
 from modules.beat.paths import output_dir
@@ -139,46 +139,35 @@ class BeatConstructor(SampleBankMixin, VoicesMixin, ArrangementMixin, HarmonyMix
         """
         beat_sec = 60.0 / self.bpm
         bar_sec = beat_sec * 4
-        bars_needed = int(math.ceil(duration_sec / bar_sec))
 
-        # v26: Используем bars_needed для обеспечения целевой длительности
-        # Распределяем такты по секциям
-        intro_bars = 4 if include_intro else 0
-        outro_bars = 4 if include_outro else 0
-        verse_bars = 8
-        pre_chorus_bars = 4
-        chorus_bars = 8
+        # Структуру задаёт драматургия: энергия секций, потолок плотности и
+        # правило «хук в первые 15 секунд» вместо жёстких 8/4/8 тактов.
+        plans = plan_sections(
+            bpm=self.bpm,
+            duration_sec=duration_sec,
+            include_intro=include_intro,
+            include_outro=include_outro,
+            n_verses=n_verses,
+            n_choruses=n_choruses,
+        )
+        self.dramaturgy = structure_report(plans, self.bpm)
 
-        sections = []
-        if include_intro:
-            sections.append(("intro", intro_bars))
-        sections.append(("verse", verse_bars))
-        sections.append(("pre_chorus", pre_chorus_bars))
-        sections.append(("hook", chorus_bars))
-        for v in range(1, n_verses):
-            sections.append(("verse", verse_bars))
-            sections.append(("pre_chorus", pre_chorus_bars))
-            sections.append(("hook", chorus_bars))
-        if include_outro:
-            sections.append(("outro", outro_bars))
-
-        # Собираем
         all_audio = []
         section_info = []
-        current_time = 0.0
-
-        for section_name, n_bars in sections:
-            audio = self._build_section(section_name, n_bars, aggression)
+        for plan in plans:
+            audio = self._build_section(plan.name, plan.bars, aggression, plan=plan)
             all_audio.append(audio)
             section_info.append(
                 {
-                    "name": section_name,
-                    "bars": n_bars,
-                    "start_sec": round(current_time, 2),
-                    "duration_sec": round(n_bars * bar_sec, 2),
+                    "name": plan.name,
+                    "bars": plan.bars,
+                    "start_sec": round(sum(item.bars for item in plans[: len(section_info)]) * bar_sec, 2),
+                    "duration_sec": round(plan.bars * bar_sec, 2),
+                    "energy": plan.energy,
+                    "gain_db": plan.gain_db,
+                    "layers": list(plan.layers),
                 }
             )
-            current_time += n_bars * bar_sec
 
         full_track = np.concatenate(all_audio, axis=0)
 
@@ -234,7 +223,9 @@ class BeatConstructor(SampleBankMixin, VoicesMixin, ArrangementMixin, HarmonyMix
             beat_sec_local = 60.0 / self.bpm
             bar_sec_local = beat_sec_local * 4
             for _info in section_info:
-                if _info["name"] not in ("hook", "chorus"):
+                # Мотив хука обязан звучать в интро (TikTok-вход) и в припевах;
+                # в остальных секциях он молчит, чтобы не «замылиться».
+                if _info["name"] not in ("hook", "chorus", "intro"):
                     continue
                 _hs = int(_info["start_sec"] * self.sr)
                 _hn = int(_info["duration_sec"] * self.sr)
@@ -252,8 +243,9 @@ class BeatConstructor(SampleBankMixin, VoicesMixin, ArrangementMixin, HarmonyMix
                     ) * _env
                     # Хук-лид тоже панорамируем слегка для стерео-баланса
                     _lead_pan = 0.15 if _mi % 2 == 0 else -0.15
+                    _lead_gain = 0.12 if _info["name"] in ("hook", "chorus") else 0.085
                     full_track[_pos : _pos + _ns] += (
-                        self._pan_audio(_lead.astype(np.float32), _lead_pan) * 0.12
+                        self._pan_audio(_lead.astype(np.float32), _lead_pan) * _lead_gain
                     )
                     _pos += _ns
                     _mi += 1
@@ -345,6 +337,7 @@ class BeatConstructor(SampleBankMixin, VoicesMixin, ArrangementMixin, HarmonyMix
             "sections": section_info,
             "drum_engine": self._drum_engine_report(),
             "groove_family": family_for_genre(self.genre),
+            "dramaturgy": getattr(self, "dramaturgy", None),
             "slot_plan": self.build_slot_plan(max(1, sum(s["bars"] for s in section_info))),
             "total_bars": sum(s["bars"] for s in section_info),
             "samples_used": {

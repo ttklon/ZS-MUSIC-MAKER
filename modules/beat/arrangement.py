@@ -16,7 +16,7 @@ from modules.beat import humanize
 
 class ArrangementMixin:
     def _build_section(
-        self, section: str, n_bars: int, aggression: float = 0.7
+        self, section: str, n_bars: int, aggression: float = 0.7, plan=None
     ) -> np.ndarray:
         """Строит секцию трека из нескольких тактов (СТЕРЕО)."""
         beat_sec = 60.0 / self.bpm
@@ -25,19 +25,23 @@ class ArrangementMixin:
         step_samples = bar_samples // 16
 
         section_audio = np.zeros((bar_samples * n_bars, 2), dtype=np.float32)
+        # Потолок плотности из драматургии: в куплете не должно звучать всё сразу.
+        layers = set(plan.layers) if plan is not None else {
+            "drums", "bass", "pad", "keys", "melody", "fx"
+        }
 
         for bar in range(n_bars):
             bar_start = bar * bar_samples
             bar_audio = np.zeros((bar_samples, 2), dtype=np.float32)
 
             # Басовая линия (центр)
-            if section not in ("intro_pad", "breakdown_silent", "outro_fade"):
+            if section not in ("intro_pad", "breakdown_silent", "outro_fade") and "bass" in layers:
                 bass = self._generate_bass_line(bar, bar_samples)
                 bar_audio += self._pan_audio(bass, 0.0)
 
             # Драм-паттерн. Каждый удар ставится со своим микротаймингом:
             # ровно по сетке играет только метроном.
-            if section not in ("intro_pad", "breakdown_silent"):
+            if section not in ("intro_pad", "breakdown_silent") and "drums" in layers:
                 for step in range(16):
                     step_start = step * step_samples
 
@@ -81,18 +85,20 @@ class ArrangementMixin:
                         )
 
             # Гармония: пэд + аккордовые стабы (основа «трека», не только ритм)
-            if section not in ("breakdown_silent",):
+            if section not in ("breakdown_silent",) and layers & {"pad", "keys"}:
                 bar_audio += self._pan_audio(
                     self._generate_harmony(bar, section, bar_samples), 0.0
                 )
 
-            # Мелодия (шире)
-            mel = self._generate_melody(bar, section, bar_samples)
-            bar_audio += self._pan_audio(mel, self._uniform(-0.6, 0.6))
+            # Мелодия (шире). В «бедной» секции её нет — это анти-«каша».
+            if "melody" in layers:
+                mel = self._generate_melody(bar, section, bar_samples)
+                bar_audio += self._pan_audio(mel, self._uniform(-0.6, 0.6))
 
             # FX (очень широко)
-            fx = self._generate_fx(bar, section, bar_samples)
-            bar_audio += self._pan_audio(fx, self._uniform(-0.85, 0.85))
+            if "fx" in layers:
+                fx = self._generate_fx(bar, section, bar_samples)
+                bar_audio += self._pan_audio(fx, self._uniform(-0.85, 0.85))
 
             # Микро-мутации: во второй половине секции меняем хэт
             if bar >= n_bars // 2 and section in ("verse", "hook"):

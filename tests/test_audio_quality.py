@@ -154,7 +154,7 @@ def test_golden_beat_fixture_signature_is_stable() -> None:
     # Пороги фиксируют профиль текущего FALLBACK-движка барабанов
     # (modules/beat/drums.py): жирный низ, плотные хэты, контролируемая ширина.
     assert 0.80 <= signature["peak"] <= 0.97
-    assert 0.140 <= signature["rms"] <= 0.170
+    assert 0.120 <= signature["rms"] <= 0.150
     assert 5_800 <= signature["spectral_centroid_hz"] <= 7_200
     assert 0.80 <= signature["stereo_correlation"] <= 0.89
 
