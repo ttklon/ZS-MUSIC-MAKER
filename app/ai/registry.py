@@ -3,6 +3,8 @@
 Реестр локальных AI-моделей. Одна тяжёлая модель в VRAM за раз.
 Бюджет: VRAM<=12GB, RAM<=32GB, CPU 2xXeon(40 threads). Только серьёзные модели (>=8B)."""
 from __future__ import annotations
+
+import logging
 import gc, os, time, threading
 from dataclasses import dataclass
 from pathlib import Path
@@ -200,7 +202,7 @@ class ModelRegistry:
             try:
                 del self._current.handle
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("ignored exception", exc_info=True)
             self._current = None
             gc.collect()
             try:
@@ -209,7 +211,7 @@ class ModelRegistry:
                     torch.cuda.empty_cache()
                     torch.cuda.ipc_collect()
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("ignored exception", exc_info=True)
 
     class _UseCtx:
         def __init__(self, reg, key, unload_after):
@@ -239,13 +241,13 @@ class ModelRegistry:
                 if need <= self.hw.vram_gb:
                     return "cuda"
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("ignored exception", exc_info=True)
         try:
             import torch_directml  # noqa
             if pref in ("dml", "auto") and need <= self.hw.vram_gb:
                 return "dml"
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("ignored exception", exc_info=True)
         return "cpu"
 
     def _register_default_loaders(self) -> None:
@@ -292,7 +294,7 @@ class ModelRegistry:
                 try:
                     t.to("cuda")
                 except Exception:
-                    pass
+                    logging.getLogger(__name__).debug("ignored exception", exc_info=True)
             return t, device
         self._loaders["tts_vocal"] = _xtts
 
@@ -311,7 +313,7 @@ class ModelRegistry:
                 try:
                     m.to("cuda")
                 except Exception:
-                    pass
+                    logging.getLogger(__name__).debug("ignored exception", exc_info=True)
             return m, device
         self._loaders["stem_splitter"] = _demucs
 
@@ -335,7 +337,7 @@ class ModelRegistry:
                 try:
                     m = m.to("cuda")
                 except Exception:
-                    pass
+                    logging.getLogger(__name__).debug("ignored exception", exc_info=True)
             return (m, p), device
         self._loaders["audio_tagger"] = _clap
 
@@ -358,7 +360,7 @@ class ModelRegistry:
                     pipe.enable_attention_slicing()
                     pipe.enable_vae_tiling()
                 except Exception:
-                    pass
+                    logging.getLogger(__name__).debug("ignored exception", exc_info=True)
             return pipe, device
         self._loaders["cover_art"] = _sdxl
 

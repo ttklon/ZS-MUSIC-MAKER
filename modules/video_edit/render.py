@@ -9,6 +9,8 @@ ffmpeg-командой: пользователь получает резуль�
 
 from __future__ import annotations
 
+import logging
+
 import os
 
 from modules.video_edit.audio import detect_hook
@@ -164,7 +166,7 @@ def _build_with_moviepy(req, hook_start, hook_end, tmp_dir, mpy) -> VideoEditRes
             final.close()
             audio.close()
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("ignored exception", exc_info=True)
     return VideoEditResult(
         ok=True,
         output_path=req.output_path,

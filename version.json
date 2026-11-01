@@ -1,6 +1,6 @@
 {
-  "version": "41.0.0-alpha.10",
-  "build": "v41.0.0-alpha.10-mix-mastering-2026-11-02",
+  "version": "41.0.0-alpha.11",
+  "build": "v41.0.0-alpha.11-anti-neuro-2026-11-02",
   "based_on": "39.9.0",
-  "changes": "alpha.10: единый DSP-слой modules/dsp (RMS/peak/true-peak 4x/LUFS/crest/корреляция), пакет modules/mix (gain staging -18 dBFS по опорному участку, канальный EQ вокала, сайдчейн kick->низ <120 Гц, mid/side ширина, гейты §7.2 и mix_report.json), мастеринг сведён к одному движку (тон -> двухполосная компрессия -> soft clip -> look-ahead лимитер -1 dBTP -> LUFS по 8 стендам, mastering_report.json); mastering_chain стал тонким адаптером; исправлены NameError в anti_neuro_track (полировка всегда падала в FALLBACK) и валидация фильтра на 22.05 кГц; полированный мастер возвращается к -14 LUFS; pytest-конфиг с маркерами; +25 тестов."
+  "changes": "alpha.11: anti-neuro 4.7 (микро-вариация повторов: пропуски/добавки хэтов, ghost-ноты, дыхание такта; дрейф темпа ±0.2 % с сохранением длины; шум комнаты −62 dBFS; энтропия типов тактов и сходство соседей как гейт формульности), 4.5.4 референс-матчинг микса (matchering или band_eq_match с точной реконструкцией полос, отчёт отклонений до/после, гейт 2.5 дБ), защита такта мягким клиппером вместо деления на пик, tools/audit_honesty.py и зачистка всех 54 немых except: pass, smoke_audio проверяет LUFS -14±0.5."
 }

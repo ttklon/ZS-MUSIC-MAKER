@@ -50,7 +50,7 @@ def detect() -> dict[str, Any]:
                 out["vram_mb"] = int(props.total_memory / (1024 * 1024))
                 out["gpu_name"] = props.name
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("ignored exception", exc_info=True)
     except Exception as e:
         log.debug("no torch cuda: %s", e)
 

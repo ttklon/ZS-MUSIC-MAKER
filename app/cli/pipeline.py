@@ -9,6 +9,8 @@ async-оркестратор и сборка досье артиста.
 
 from __future__ import annotations
 
+import logging
+
 import json
 import traceback
 
@@ -130,7 +132,7 @@ def run_god(args) -> int:
             safe_print("  full list: python main.py --list-genres")
             return 2
     except ImportError:
-        pass  # движок жанров недоступен — пусть пайплайн сам решит
+        logging.getLogger(__name__).debug("ignored exception", exc_info=True)
 
     from app.cli.backup import preflight_backup
 

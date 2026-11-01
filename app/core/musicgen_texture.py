@@ -15,6 +15,8 @@
 
 from __future__ import annotations
 
+import logging
+
 import hashlib
 from pathlib import Path
 from typing import Any
@@ -69,7 +71,7 @@ def unload_all() -> None:
 
         torch.cuda.empty_cache()
     except Exception:
-        pass
+        logging.getLogger(__name__).debug("ignored exception", exc_info=True)
 
 
 # --------------------------------------------------------------- v35: honest status

@@ -11,6 +11,7 @@ TOOLS = (
     "ast_dead_imports.py",
     "audio_golden_metrics.py",
     "audit_data_inventory.py",
+    "audit_honesty.py",
     "fallback_audit.py",
     "generate_audio_goldens.py",
     "genre_validator.py",

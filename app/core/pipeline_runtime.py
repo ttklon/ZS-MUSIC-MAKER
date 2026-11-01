@@ -15,6 +15,8 @@ app/core/pipeline_runtime.py — рантайм стадий: тайминг, ч
 
 from __future__ import annotations
 
+import logging
+
 import time
 from collections.abc import Callable
 from pathlib import Path
@@ -65,7 +67,7 @@ def _apply_seed(seed: int | None) -> None:
 
         np.random.seed(int(seed) % (2**32 - 1))
     except Exception:  # noqa: BLE001 - numpy опционален
-        pass
+        logging.getLogger(__name__).debug("ignored exception", exc_info=True)
 
 
 def _wanted(only: set[str] | None, key: str) -> bool:

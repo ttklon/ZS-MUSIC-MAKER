@@ -9,6 +9,8 @@ tools/readiness/inventory.py — статическая матрица верс�
 
 from __future__ import annotations
 
+import logging
+
 import ast
 import subprocess
 from pathlib import Path
@@ -42,7 +44,7 @@ def tracked_python_modules() -> list[str]:
                     paths.append(rel)
             return sorted(paths)
     except Exception:  # pragma: no cover - git отсутствует
-        pass
+        logging.getLogger(__name__).debug("ignored exception", exc_info=True)
     paths = ["main.py"] if (ROOT / "main.py").exists() else []
     for root in INVENTORY_ROOTS:
         base = ROOT / root

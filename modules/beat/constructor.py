@@ -8,6 +8,8 @@ modules/beat/constructor.py — конструктор бита: состоян�
 
 from __future__ import annotations
 
+import logging
+
 import os
 import random
 
@@ -190,7 +192,7 @@ class BeatConstructor(SampleBankMixin, VoicesMixin, ArrangementMixin, HarmonyMix
                     )[:, np.newaxis]
                     full_track[_idx - _fade : _idx] *= _env
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("ignored exception", exc_info=True)
 
         # v26 FIX (P0): повторяющиеся 4 ноты в припевах → hook_repeatability raw>0
         try:
@@ -251,7 +253,7 @@ class BeatConstructor(SampleBankMixin, VoicesMixin, ArrangementMixin, HarmonyMix
                     _pos += _ns
                     _mi += 1
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("ignored exception", exc_info=True)
 
         # Обрезка/дополнение
         target_samples = int(duration_sec * self.sr)
@@ -311,6 +313,18 @@ class BeatConstructor(SampleBankMixin, VoicesMixin, ArrangementMixin, HarmonyMix
         except Exception as exc:
             print(f"[beat_constructor] stereo width fallback: {exc}")
 
+        # «Человеческие шероховатости» (план 4.7.2): дрейф темпа ±0.2 % и шум
+        # комнаты. Применяются к уже сведённому стерео — до этого момента
+        # политика ширины и уровня не меняется.
+        from modules.beat import microtime, variation
+
+        stereo, humanity = microtime.apply_humanity(
+            stereo, self.sr, seed=self.seed if self.seed is not None else 0
+        )
+        _peak_after = float(np.max(np.abs(stereo))) + 1e-9
+        if _peak_after > 0.98:
+            stereo = stereo / _peak_after * 0.95
+
         out_dir = output_dir()
         os.makedirs(out_dir, exist_ok=True)
         out_path = os.path.join(out_dir, out_name)
@@ -325,7 +339,7 @@ class BeatConstructor(SampleBankMixin, VoicesMixin, ArrangementMixin, HarmonyMix
                 # Стерео запись через wavfile
                 wavfile.write(out_path, self.sr, (stereo * 32767).astype(np.int16))
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("ignored exception", exc_info=True)
 
         return {
             "ok": True,
@@ -339,6 +353,8 @@ class BeatConstructor(SampleBankMixin, VoicesMixin, ArrangementMixin, HarmonyMix
             "drum_engine": self._drum_engine_report(),
             "groove_family": family_for_genre(self.genre),
             "dramaturgy": getattr(self, "dramaturgy", None),
+            "humanity": humanity,
+            "repetition": variation.repetition_report(stereo, self.sr, self.bpm),
             "slot_plan": self.build_slot_plan(max(1, sum(s["bars"] for s in section_info))),
             "total_bars": sum(s["bars"] for s in section_info),
             "samples_used": {

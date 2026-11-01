@@ -22,7 +22,7 @@ class SafeStream:
         try:
             self.s.flush()
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("ignored exception", exc_info=True)
 
 
 def setup_logger(name: str = "mmzs") -> logging.Logger:

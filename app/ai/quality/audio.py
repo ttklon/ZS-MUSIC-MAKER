@@ -9,6 +9,8 @@ app/ai/quality/audio.py — объективные проверки звуков
 
 from __future__ import annotations
 
+import logging
+
 from pathlib import Path
 from typing import Any
 
@@ -66,7 +68,7 @@ def master_audio_metrics(path: str | Path) -> dict[str, Any]:
             oversampled = resample_poly(samples, 4, 1, axis=0)
         except Exception:
             # Без scipy peak остаётся консервативной нижней оценкой true peak.
-            pass
+            logging.getLogger(__name__).debug("ignored exception", exc_info=True)
         true_peak = max(float(np.max(np.abs(oversampled))), 1e-12)
         metrics.update({
             "peak_dbfs": round(20.0 * float(np.log10(peak)), 3),

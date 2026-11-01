@@ -5,6 +5,8 @@ app/core/stages/release.py — Релиз: полный пакет и честн
 
 from __future__ import annotations
 
+import logging
+
 import json
 
 from typing import Any
@@ -75,7 +77,7 @@ def _minimal_release_pack(
             seg.export(mp3, format="mp3", bitrate="320k")
             files.append(str(mp3))
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("ignored exception", exc_info=True)
         try:
             from PIL import Image, ImageDraw
 
@@ -86,7 +88,7 @@ def _minimal_release_pack(
             img.save(cov)
             files.append(str(cov))
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("ignored exception", exc_info=True)
         (out / "lyrics.txt").write_text(meta.get("lyrics_text", ""), encoding="utf-8")
         (out / "metadata.json").write_text(
             json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8"

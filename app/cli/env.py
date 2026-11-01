@@ -10,6 +10,8 @@ app/cli/env.py — корневой контекст CLI: версия/сбор�
 
 from __future__ import annotations
 
+import logging
+
 import io
 import json
 import os
@@ -30,7 +32,7 @@ def _load_version_info() -> tuple[str, str]:
 
         default_v = str(__version__)
     except Exception:
-        pass
+        logging.getLogger(__name__).debug("ignored exception", exc_info=True)
     try:
         vp = ROOT / "version.json"
         if vp.exists():
@@ -40,7 +42,7 @@ def _load_version_info() -> tuple[str, str]:
                 str(data.get("build", default_b)),
             )
     except Exception:
-        pass
+        logging.getLogger(__name__).debug("ignored exception", exc_info=True)
     return default_v, default_b
 
 
@@ -72,7 +74,7 @@ def setup_console_encoding() -> None:
                 sys.stderr.reconfigure(encoding="utf-8", errors="replace")
                 return
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("ignored exception", exc_info=True)
         for encoding in ("utf-8", "cp866"):
             try:
                 sys.stdout = io.TextIOWrapper(
@@ -91,7 +93,7 @@ def setup_console_encoding() -> None:
             except Exception:
                 continue
     except Exception:
-        pass
+        logging.getLogger(__name__).debug("ignored exception", exc_info=True)
 
 
 def safe_print(msg: str) -> None:
@@ -101,7 +103,7 @@ def safe_print(msg: str) -> None:
         try:
             sys.stdout.buffer.write((msg + "\n").encode("utf-8", "replace"))
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("ignored exception", exc_info=True)
 
 
 def header() -> None:

@@ -8,6 +8,8 @@ Ollama (локально), OpenRouter, Grok (xAI), Gemini. Каждый вызо
 
 from __future__ import annotations
 
+import logging
+
 try:
     import requests
 
@@ -201,7 +203,7 @@ def call_gemini(
         try:
             text = j["candidates"][0]["content"]["parts"][0]["text"]
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("ignored exception", exc_info=True)
         return ProviderResult(
             True,
             text=text,

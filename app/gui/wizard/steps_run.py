@@ -5,6 +5,8 @@ app/gui/wizard/steps_run.py — запуск и результат: экспер
 
 from __future__ import annotations
 
+import logging
+
 from pathlib import Path
 import os
 import sys
@@ -240,7 +242,7 @@ class StepResult(StepBase):
                 from pathlib import Path
                 webbrowser.open(Path(p).absolute().as_uri())
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("ignored exception", exc_info=True)
     def rebuild_full(self):
         if not self.current_job:
             return

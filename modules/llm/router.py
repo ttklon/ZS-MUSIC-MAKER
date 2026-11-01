@@ -9,6 +9,8 @@ modules/llm/router.py — маршрутизация запроса по про�
 
 from __future__ import annotations
 
+import logging
+
 import time
 from typing import Any
 
@@ -50,7 +52,7 @@ class LLMRouter:
             s.close()
             out["internet"] = True
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("ignored exception", exc_info=True)
         try:
             parts = self.ollama_url.split("://", 1)[-1].split(":")
             host = parts[0]
@@ -61,7 +63,7 @@ class LLMRouter:
             s.close()
             out["ollama"] = True
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("ignored exception", exc_info=True)
         LLMRouter._preflight_cache = out
         return out
 

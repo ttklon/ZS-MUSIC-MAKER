@@ -189,7 +189,9 @@ def run_full_pipeline(
     elif beat_wav:
         mix_stage = _timed(
             "_stage_mix_and_sidechain",
-            lambda: _stage_mix_and_sidechain(beat_wav, vocal_final, out_root),
+            lambda: _stage_mix_and_sidechain(
+                beat_wav, vocal_final, out_root, (recipe.get("refs") or [None])[0]
+            ),
         )
     else:
         mix_stage = _blocked("_stage_mix_and_sidechain", "no beat")

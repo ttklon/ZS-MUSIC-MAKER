@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from modules.beat import humanize
+from modules.beat import humanize, variation
 
 
 class ArrangementMixin:
@@ -35,6 +35,9 @@ class ArrangementMixin:
         for bar in range(n_bars):
             bar_start = bar * bar_samples
             bar_audio = np.zeros((bar_samples, 2), dtype=np.float32)
+            # Микро-вариация рисунка: один и тот же такт не повторяется буквально
+            # (план 4.7.1). Сильные доли не трогаются — грув узнаваем.
+            variant = variation.bar_variant(self._random, self._uniform, bar, section)
 
             # Басовая линия (центр)
             if section not in ("intro_pad", "breakdown_silent", "outro_fade") and "bass" in layers:
@@ -65,7 +68,10 @@ class ArrangementMixin:
                         snare[: snare_end - snare_at], self._uniform(-0.05, 0.05)
                     )
 
-                    # Хэты панорамируем (шире для стерео-поля)
+                    # Хэты панорамируем (шире для стерео-поля). Пропуск шага —
+                    # это и есть вариация рисунка, а не ошибка сетки.
+                    if step in variant["skip_hat_steps"]:
+                        continue
                     hh = self._generate_hihat(step, bar)
                     hh_at = max(0, step_start + int(self._hit_offset_sec("hat", step, bar) * self.sr))
                     hh_end = min(hh_at + len(hh), bar_samples)
@@ -107,6 +113,26 @@ class ArrangementMixin:
                 sub = self._generate_sub(bar, bar_samples)
                 bar_audio += self._pan_audio(sub, 0.0) * 0.45
 
+            # Ghost-ноты и добавочные хэты из вариации такта
+            for ghost_step in variant["ghost_snare_steps"]:
+                ghost = self._generate_snare(ghost_step, bar) * 0.22
+                ghost_at = max(0, min(bar_samples - 1, ghost_step * step_samples))
+                ghost_end = min(ghost_at + len(ghost), bar_samples)
+                bar_audio[ghost_at:ghost_end] += self._pan_audio(
+                    ghost[: ghost_end - ghost_at], self._uniform(-0.12, 0.12)
+                )
+            for extra_step in variant["extra_hat_steps"]:
+                extra = self._generate_hihat(extra_step, bar) * 0.45
+                extra_at = max(0, min(bar_samples - 1, extra_step * step_samples))
+                extra_end = min(extra_at + len(extra), bar_samples)
+                bar_audio[extra_at:extra_end] += self._pan_audio(
+                    extra[: extra_end - extra_at], 0.25 if extra_step % 2 else -0.25
+                )
+
+            # Дыхание уровня такта (±0.3 дБ) — часть вариации.
+            if variant["bar_gain_db"]:
+                bar_audio = bar_audio * float(10.0 ** (float(variant["bar_gain_db"]) / 20.0))
+
             # Микро-мутации: во второй половине секции меняем хэт
             if bar >= n_bars // 2 and section in ("verse", "hook"):
                 # Добавляем доп. хэты на офф-битах
@@ -131,14 +157,14 @@ class ArrangementMixin:
                 except Exception:
                     bar_audio = bar_audio * plan.bass_gain
 
-            # Аварийная защита такта, а не нормализация.
-            # Раньше такт делился на пик при peak > 1.0 — это давало слышимую
-            # « pump»-качку уровня от такта к такту. Теперь гейн меняется только
-            # при реальном перегрузе, а общий уровень выставляет финальная
-            # нормализация трека.
-            peak = np.max(np.abs(bar_audio)) + 1e-9
-            if peak > 1.25:
-                bar_audio = bar_audio / peak * 1.1
+            # Защита такта от перегруза: не деление на пик (это давало слышимую
+            # «качку» уровня), а мягкое ограничение только того, что выше −3 dBFS.
+            # Ниже колена сигнал не меняется вообще.
+            peak = float(np.max(np.abs(bar_audio))) + 1e-9
+            if peak > 0.99:
+                from modules.dsp.limiter import soft_clip
+
+                bar_audio = soft_clip(bar_audio, knee_dbfs=-3.0)[0].astype(np.float32)
 
             section_audio[bar_start : bar_start + bar_samples] = bar_audio
 

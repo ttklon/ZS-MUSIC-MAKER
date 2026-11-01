@@ -6,6 +6,8 @@ ZS Music Maker — orchestrator_god.py (GOD MODE)
 Реализован на базе PipelineCore для максимальной надежности.
 """
 
+import logging
+
 import os
 import json
 from pathlib import Path
@@ -35,7 +37,7 @@ def _json_safe(obj: Any) -> Any:
         if isinstance(obj, _np.generic):
             return obj.item()
     except ImportError:
-        pass
+        logging.getLogger(__name__).debug("ignored exception", exc_info=True)
     if isinstance(obj, dict):
         return {str(k): _json_safe(v) for k, v in obj.items()}
     if isinstance(obj, (list, tuple, set)):

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+
 import json
 import platform
 from dataclasses import asdict, dataclass
@@ -38,7 +40,7 @@ def probe() -> HW:
             )
             hw.backend = "cuda"
     except Exception:
-        pass
+        logging.getLogger(__name__).debug("ignored exception", exc_info=True)
 
     # 2. DirectML (AMD/Intel iGPU на Windows)
     if hw.backend == "cpu":
@@ -51,7 +53,7 @@ def probe() -> HW:
             hw.vram_gb = 4.0  # оценочно — уточняется через DXGI
             hw.backend = "directml"
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("ignored exception", exc_info=True)
 
     hw.mode = "full" if hw.vram_gb >= 10 else "fallback"
     return hw

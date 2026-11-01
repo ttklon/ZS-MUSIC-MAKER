@@ -5,6 +5,8 @@ app/gui/wizard/steps_intro.py — первые шаги: статус локал
 
 from __future__ import annotations
 
+import logging
+
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QDragEnterEvent, QDropEvent
 from PySide6.QtWidgets import QFileDialog, QHBoxLayout, QLabel, QLineEdit, QListWidget, QPushButton, QSlider, QTextEdit
@@ -77,13 +79,13 @@ class StepArtist(StepBase):
             from modules.user_profile import get_artist_name
             self.name.setText(get_artist_name())
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("ignored exception", exc_info=True)
     def commit(self, recipe):
         try:
             from modules.user_profile import set_artist_name
             set_artist_name(self.name.text().strip() or "ZSMM Artist")
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("ignored exception", exc_info=True)
         recipe["artist_name"] = self.name.text().strip() or "ZSMM Artist"
     def help_text(self):
         return "Артист-имя — то, под которым ты выпускаешь треки."

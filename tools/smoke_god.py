@@ -15,6 +15,8 @@ ZS Music Maker — smoke_god.py (God Mode E2E)
 
 from __future__ import annotations
 
+import logging
+
 import json
 import shutil
 import subprocess
@@ -181,7 +183,7 @@ def _write_report(name: str, passed: int, failed: int) -> None:
             encoding="utf-8",
         )
     except Exception:
-        pass  # отчёт — nice-to-have, не должен валить smoke
+        logging.getLogger(__name__).debug("ignored exception", exc_info=True)
 
 
 if __name__ == "__main__":

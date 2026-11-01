@@ -15,6 +15,8 @@
 
 from __future__ import annotations
 
+import logging
+
 import json
 import os
 import platform
@@ -57,7 +59,7 @@ def _gpu_info() -> dict:
             )
             return g
     except Exception:
-        pass
+        logging.getLogger(__name__).debug("ignored exception", exc_info=True)
     # DirectML (AMD/Intel iGPU на Windows)
     try:
         import torch_directml as dml
@@ -94,7 +96,7 @@ def _gpu_info() -> dict:
             g["vram_gb"] = 4.0  # осторожная оценка для RX 580
         return g
     except Exception:
-        pass
+        logging.getLogger(__name__).debug("ignored exception", exc_info=True)
     # ROCm (Linux)
     try:
         if os.path.exists("/opt/rocm"):
@@ -103,7 +105,7 @@ def _gpu_info() -> dict:
             g["vram_gb"] = 8.0
             return g
     except Exception:
-        pass
+        logging.getLogger(__name__).debug("ignored exception", exc_info=True)
     return g
 
 
@@ -115,7 +117,7 @@ def detect(force: bool = False) -> dict:
             if time.time() - cached.get("ts", 0) < 86400:
                 return cached
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("ignored exception", exc_info=True)
 
     cpu = _cpu_info()
     gpu = _gpu_info()
@@ -152,7 +154,7 @@ def detect(force: bool = False) -> dict:
             json.dumps(profile, ensure_ascii=False, indent=2), encoding="utf-8"
         )
     except Exception:
-        pass
+        logging.getLogger(__name__).debug("ignored exception", exc_info=True)
     return profile
 
 

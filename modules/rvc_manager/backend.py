@@ -9,6 +9,8 @@ NVIDIA → `rvc-python` (CUDA), AMD/DirectML → Applio/Mangio-форк чере
 
 from __future__ import annotations
 
+import logging
+
 import subprocess
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -43,7 +45,7 @@ def detect_backend() -> RVCBackend:
             b.reason = "CUDA available"
             return b
     except Exception:
-        pass
+        logging.getLogger(__name__).debug("ignored exception", exc_info=True)
     # 2) DirectML (AMD/Intel iGPU на Windows)
     try:
         import torch_directml as dml
@@ -58,7 +60,7 @@ def detect_backend() -> RVCBackend:
         b.reason = "DirectML available"
         return b
     except Exception:
-        pass
+        logging.getLogger(__name__).debug("ignored exception", exc_info=True)
     # 3) ROCm (Linux, редко)
     try:
         import torch
@@ -72,7 +74,7 @@ def detect_backend() -> RVCBackend:
             b.reason = "ROCm available"
             return b
     except Exception:
-        pass
+        logging.getLogger(__name__).debug("ignored exception", exc_info=True)
     # 4) CPU fallback
     b.kind = "cpu"
     b.device_name = "CPU"

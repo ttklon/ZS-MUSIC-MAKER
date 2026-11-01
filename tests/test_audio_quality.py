@@ -153,10 +153,12 @@ def test_golden_beat_fixture_signature_is_stable() -> None:
     assert signature["duration_sec"] == 15.0
     # Пороги фиксируют профиль текущего FALLBACK-движка барабанов
     # (modules/beat/drums.py): жирный низ, плотные хэты, контролируемая ширина.
+    # alpha.10: мягкое ограничение бара (soft clip на −3 dBFS вместо деления
+    # на пик) и шум комнаты −62 dBFS подняли уровень и RMS.
     assert 0.80 <= signature["peak"] <= 0.97
-    assert 0.120 <= signature["rms"] <= 0.150
-    assert 5_800 <= signature["spectral_centroid_hz"] <= 7_200
-    assert 0.80 <= signature["stereo_correlation"] <= 0.89
+    assert 0.145 <= signature["rms"] <= 0.175
+    assert 4_800 <= signature["spectral_centroid_hz"] <= 6_000
+    assert 0.82 <= signature["stereo_correlation"] <= 0.90
 
 
 def test_deterministic_beat_rerender_matches_golden_features(tmp_path: Path, monkeypatch) -> None:

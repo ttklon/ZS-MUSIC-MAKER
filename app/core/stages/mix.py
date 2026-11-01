@@ -15,7 +15,7 @@ from typing import Any
 
 
 def _stage_mix_and_sidechain(
-    beat_wav: str, voice_wav: str | None, out_dir: Path
+    beat_wav: str, voice_wav: str | None, out_dir: Path, reference_wav: str | None = None
 ) -> dict[str, Any]:
     """Собрать микс штатным микшером и вернуть измеренный отчёт."""
     try:
@@ -31,6 +31,21 @@ def _stage_mix_and_sidechain(
     out_wav = result.get("out_wav")
     if not out_wav or not Path(out_wav).exists():
         return {"ok": False, "reason": "mix produced no output file"}
+
+    reference_report: dict[str, Any] | None = None
+    if reference_wav:
+        # 4.5.4: референс-матчинг с отчётом отклонений. Ошибка матчинга не
+        # ломает микс: остаётся честно помеченный отчёт с причиной.
+        try:
+            from modules.mix.reference import match_to_reference
+
+            reference_report = match_to_reference(
+                out_wav, reference_wav, str(Path(out_dir) / "mix_matched.wav")
+            )
+            if reference_report.get("ok"):
+                out_wav = str(reference_report["out_wav"])
+        except Exception as exc:  # noqa: BLE001 - стадия обязана вернуть причину
+            reference_report = {"ok": False, "reason": f"{type(exc).__name__}: {exc}"}
 
     report = dict(result.get("report") or {})
     return {
@@ -50,4 +65,5 @@ def _stage_mix_and_sidechain(
         },
         "sidechain": result.get("sidechain"),
         "width": result.get("width"),
+        "reference": reference_report,
     }

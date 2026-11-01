@@ -5,6 +5,8 @@ app/core/stages/vocal.py — Вокал: TTS-синтез, конвертаци�
 
 from __future__ import annotations
 
+import logging
+
 from pathlib import Path
 from typing import Any
 
@@ -92,7 +94,7 @@ def _pyttsx3_speak(text: str, out_wav: str) -> dict[str, Any]:
                 "reason": "primary TTS unavailable; using pyttsx3",
             }
     except Exception:
-        pass
+        logging.getLogger(__name__).debug("ignored exception", exc_info=True)
     # v19: честный numpy-fallback — короткая "рыба" вокала с формантной
     # огибающей по слогам, чтобы пайплайн доехал до mix/master даже
     # без TTS. Помечается synthetic=True, blocked=True, engine='rap_scaffold'.
@@ -186,7 +188,7 @@ def _pyttsx3_speak(text: str, out_wav: str) -> dict[str, Any]:
                         seg = seg + sosfilt(sos, seg) * 0.6
                 except Exception:
                     # fallback: просто нормализуем
-                    pass
+                    logging.getLogger(__name__).debug("ignored exception", exc_info=True)
             # Огибающая: attack + decay (форма слога)
             env = _np.exp(-tt * 3.5) * (1.0 - _np.exp(-tt * 60.0))
             seg = seg * env

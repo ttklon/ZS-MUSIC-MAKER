@@ -5,6 +5,8 @@ app/gui/wizard/steps_creative.py — творческие шаги: жанров
 
 from __future__ import annotations
 
+import logging
+
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QCheckBox, QComboBox, QGroupBox, QHBoxLayout, QLabel, QLineEdit, QListWidget, QMessageBox, QPushButton, QSpinBox, QSplitter, QTextEdit, QVBoxLayout
 
@@ -283,7 +285,7 @@ class StepVoice(StepBase):
                     f"[RVC training] {st}  |  {stage}  |  {int(prog*100)}%"
                 )
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("ignored exception", exc_info=True)
     def commit(self, recipe):
         modes = ["pro", "lazy", "off"]
         recipe["voice_mode"] = modes[self.mode.currentIndex()]
