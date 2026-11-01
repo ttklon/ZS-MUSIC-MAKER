@@ -175,8 +175,14 @@ def run_full_pipeline(
         ], str(resumed_vocal)
         warnings.append("vocal chain resumed from voice_fx.wav")
     else:
+        beat_output = _output(beat_stage)
         vocal_stages, vocal_final, vocal_warnings = _run_vocal_chain(
-            recipe, lyrics_text, out_root
+            recipe,
+            lyrics_text,
+            out_root,
+            bpm=beat_output.get("bpm")
+            or (analysis.get("bpm") if isinstance(analysis, dict) else None),
+            key=beat_output.get("key"),
         )
         warnings.extend(vocal_warnings)
     stages.extend(vocal_stages)

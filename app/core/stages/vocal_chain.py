@@ -22,6 +22,8 @@ def _run_vocal_chain(
     recipe: dict[str, Any],
     lyrics_text: str,
     out_root: Path,
+    bpm: float | None = None,
+    key: str | None = None,
 ) -> tuple[list[StageResult], str | None, list[str]]:
     """Вокальная ветка: запись пользователя → TTS → RVC → эффекты.
 
@@ -71,7 +73,12 @@ def _run_vocal_chain(
     vocal_final = rvc_path or voice_wav
 
     if vocal_final:
-        fx = _timed("_stage_vocal_fx", lambda: _stage_vocal_fx(vocal_final, out_root))
+        fx = _timed(
+            "_stage_vocal_fx",
+            lambda: _stage_vocal_fx(
+                vocal_final, out_root, bpm=bpm, key=key, tune=bool(recipe.get("tune", True))
+            ),
+        )
     else:
         fx = _blocked("_stage_vocal_fx", "no vocal")
     stages.append(fx)

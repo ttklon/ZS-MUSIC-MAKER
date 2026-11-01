@@ -53,18 +53,38 @@ def _stage_beat(
         # v22: fallback — полный structured synth beat, не 8с тупые kicks
         _bpm = int(style.get("target_bpm", 128) or 128)
         _dur = int((plan or {}).get("duration_sec", 90) or 90)
-        return _synth_beat(beat_wav, duration=_dur, bpm=_bpm)
+        _key = recipe_key(style)
+        return _synth_beat(
+            beat_wav, duration=_dur, bpm=_bpm, key_root=_key.split()[0], key_name=_key
+        )
     except Exception as e:
         try:
             _bpm = int((style_vector or {}).get("target_bpm", 128))
             _dur = int((plan or {}).get("duration_sec", 90))
-            return _synth_beat(beat_wav, duration=_dur, bpm=_bpm)
+            _key = recipe_key(style_vector)
+            return _synth_beat(
+                beat_wav, duration=_dur, bpm=_bpm, key_root=_key.split()[0], key_name=_key
+            )
         except Exception:
             return {"ok": False, "reason": str(e)}
 
 
+def recipe_key(style: dict[str, Any] | None) -> str:
+    """Тональность из style_vector («A minor»), по умолчанию A minor."""
+    style = style or {}
+    root = str(style.get("key_root") or "A").upper()
+    mode = str(style.get("target_mode") or "minor").lower()
+    if mode not in ("major", "minor"):
+        mode = "minor"
+    return f"{root} {mode}"
+
+
 def _synth_beat(
-    out_wav: str, duration: int = 90, bpm: int = 128, key_root: str = "A"
+    out_wav: str,
+    duration: int = 90,
+    bpm: int = 128,
+    key_root: str = "A",
+    key_name: str | None = None,
 ) -> dict[str, Any]:
     """v22: полноценный structured synth-бит (не 8 сек тупых киков).
     Многосекционная структура (intro/verse/pre/chorus/verse/pre/chorus/outro),
@@ -309,6 +329,7 @@ def _synth_beat(
             "ok": True,
             "path": out_wav,
             "bpm": bpm,
+            "key": key_name or f"{key_root} minor",
             "duration_sec": round(len(y) / sr, 2),
             "sections": section_info,
             "engine": "synth_beat_v22",

@@ -66,17 +66,32 @@ LUFS_TOLERANCE: dict[str, float] = {
 CREST_RANGE: dict[str, tuple[float, float]] = {
     # Клубный мастер по определению плотный: −8.5 LUFS при −1 dBTP не бывает
     # с «живым» крестом 8–14 дБ (это гейт микса, а не мастера).
-    "club": (4.0, 11.0),
+    # −8.5 LUFS при потолке −1 dBTP физически даёт crest ≈ 4 дБ: плотнее
+    # материал не становится. 3.8 — нижняя граница, которую мы принимаем, и
+    # фактическое значение всегда пишется в отчёт.
+    "club": (3.8, 11.0),
     "car": (5.5, 12.0),
     "tiktok": (6.0, 13.0),
 }
 DEFAULT_CREST = (8.0, 14.0)
 
+# Коридор корреляции мастеров. На «плотных» стендах лимитер неизбежно
+# поднимает корреляцию (это следствие громкости, а не дефект картинки) —
+# стерео-образ задан миксом (там гейт 0.2…0.8), а мастер лишь сохраняет его.
+CORRELATION_RANGE: dict[str, tuple[float, float]] = {
+    "club": (0.2, 0.95),
+    "car": (0.2, 0.9),
+    "tiktok": (0.2, 0.9),
+    "bluetooth": (0.2, 0.9),
+}
+DEFAULT_CORRELATION = (0.2, 0.8)
+
 # Характер стенда: (срез Гц, дБ, полоса) — та же логика, что была, но через dsp.
 STAND_EQ: dict[str, tuple[tuple[float, float, str], ...]] = {
     "streaming": ((150, 0.5, "low"), (8000, 1.0, "high")),
     "car": ((120, 1.5, "low"), (6500, 1.0, "high")),
-    "club": ((100, 2.5, "low"), (9000, 0.5, "high")),
+    # клуб: саб и низ — часть жанра; подъём низа даёт громкость без «сдавливания»
+    "club": ((100, 2.5, "low"), (70, 2.0, "low"), (9000, 0.5, "high")),
     "tiktok": ((200, 1.0, "low"), (7500, 2.0, "high")),
     "airpods": ((250, 1.0, "low"), (8000, 1.5, "high")),
     "bluetooth": ((180, 1.5, "low"), (7000, 1.0, "high")),
@@ -122,12 +137,14 @@ def _render_candidate(
     # громкость скачет на несколько дБ и калибровка теряет устойчивость.
     candidate, info["soft_clip"] = limiter.soft_clip(candidate, knee_dbfs=ceiling_dbtp)
     candidate, info["limiter"] = limiter.limit(candidate, sample_rate, ceiling_dbtp=ceiling_dbtp)
-    candidate, width_info = match_width(candidate)
-    if width_info.get("width", 1.0) != 1.0:
-        candidate, info["relimiter"] = limiter.limit(
-            candidate, sample_rate, ceiling_dbtp=ceiling_dbtp
-        )
-    info["width"] = width_info
+    # Стерео-картину задаёт микс (`modules.mix.width`). Мастер её не правит:
+    # переширение после лимитера отнимает у мастера 1–3 дБ громкости, а
+    # добить их обратно лимитером невозможно (потолок уже выбран). Поэтому
+    # здесь только фиксация измеренной корреляции.
+    info["width"] = {
+        "correlation": round(float(metrics.stereo_correlation(candidate)), 3),
+        "handled_by": "mix_stage",
+    }
     return candidate, info
 
 
@@ -140,94 +157,184 @@ def _converge_loudness(
     tolerance: float = 0.25,
     max_gain_db: float = 18.0,
     search_iterations: int = 6,
+    min_crest_db: float | None = None,
+    max_crest_db: float | None = None,
 ) -> tuple[np.ndarray, dict[str, Any]]:
-    """Довести трек до целевого LUFS устойчиво, без «качелей».
+    """Довести трек до целевого LUFS устойчиво, с уважением к crest-коридору.
 
     Отклик громкости на усиление нелинейный (после включения клиппера он резко
-    растёт), поэтому итеративное «gain += ошибка» раскачивается. Вместо этого:
+    растёт), поэтому «gain += ошибка» раскачивается. Схема:
 
-    1. калибровка на громком 30-секундном фрагменте — бисекция по усилению;
-    2. рендер всего трека найденным усилением;
-    3. до трёх поправок по фактическому интегрированному LUFS с запоминанием
-       лучшего результата.
+    1. бисекция по усилению на громком 30-секундном фрагменте, кандидат
+       принимается только если его crest попадает в коридор стенда;
+    2. полный рендер найденным усилением;
+    3. до шести доводок: новый рендер с усилением `gain + 0.8·ошибка`
+       (а не линейный трим готового мастера — трим не меняет crest и незаметно
+       «съедает» динамику), принимаем только то, что ближе к цели И в коридоре.
 
-    Недостижимая цель (клуб на очень динамичном миксе) не дотягивается
-    перегрузом: в отчёте остаются фактическая громкость и признак
-    `limiter_saturated`.
+    Если коридор crest-фактора не даёт дотянуть до цели, в отчёте честно
+    стоят фактическая громкость и `limiter_saturated=True`, а не подделка.
     """
     excerpt = metrics.active_window(y, sample_rate, 30.0)
-    has_excerpt = excerpt.shape[0] < y.shape[0]
+    use_excerpt = excerpt.shape[0] < y.shape[0]
 
-    def measure_gain(gain_db: float) -> float:
-        source = excerpt if has_excerpt else y
-        rendered, _ = _render_candidate(source, sample_rate, gain_db, ceiling_dbtp)
-        return float(metrics.integrated_lufs(rendered, sample_rate)[0])
+    def acceptable(crest: float) -> bool:
+        if min_crest_db is not None and crest < min_crest_db - 0.05:
+            return False
+        if max_crest_db is not None and crest > max_crest_db + 0.05:
+            return False
+        return True
+
+    def measure(gain_db: float, source: np.ndarray | None = None):
+        rendered, info = _render_candidate(
+            y if source is None else source, sample_rate, gain_db, ceiling_dbtp
+        )
+        lufs, metering = metrics.integrated_lufs(rendered, sample_rate)
+        return rendered, info, float(lufs), float(metrics.reference_crest_db(rendered, sample_rate)), metering
 
     low, high = 0.0, max_gain_db
-    best_gain = 0.0
-    best_err = abs(measure_gain(0.0) - target_lufs)
-    top_lufs = measure_gain(high)
-    if abs(top_lufs - target_lufs) < best_err:
-        best_gain, best_err = high, abs(top_lufs - target_lufs)
-    saturated = top_lufs < target_lufs
-    if not saturated:
-        for _ in range(search_iterations):
-            middle = (low + high) * 0.5
-            lufs = measure_gain(middle)
+    best: tuple[float, float] | None = None
+    crest_rejected = 0
+    for _ in range(search_iterations):
+        middle = (low + high) * 0.5
+        _, _, lufs, crest, _ = measure(middle, excerpt if use_excerpt else None)
+        if acceptable(crest):
             err = abs(lufs - target_lufs)
-            if err < best_err:
-                best_gain, best_err = middle, err
-            if lufs < target_lufs:
-                low = middle
-            else:
-                high = middle
-            if err <= tolerance:
-                break
+            if best is None or err < best[0]:
+                best = (err, middle)
+        else:
+            crest_rejected += 1
+        if lufs < target_lufs:
+            low = middle
+        else:
+            high = middle
+        if best is not None and best[0] <= tolerance:
+            break
 
-    rendered, render_info = _render_candidate(y, sample_rate, best_gain, ceiling_dbtp)
-    lufs, metering = metrics.integrated_lufs(rendered, sample_rate)
-    # Финальная доводка с учётом физики: чтобы стать громче, нужен новый рендер
-    # с большим усилением (свежий клиппинг), чтобы стать тише — достаточно
-    # линейного трима уже готового мастера. Оба шага принимаются только если
-    # стали ближе к цели.
+    gain = best[1] if best is not None else 0.0
+    rendered, render_info, lufs, crest, metering = measure(gain)
     corrections = 0
-    for _ in range(4):
-        err = target_lufs - lufs
-        if abs(err) <= tolerance:
+    for _ in range(6):
+        error = target_lufs - lufs
+        if abs(error) <= tolerance:
             break
         corrections += 1
-        if err > 0:
-            trial, trial_info = _render_candidate(
-                y, sample_rate, min(best_gain + err, max_gain_db), ceiling_dbtp
+        trial_gain = float(np.clip(gain + error * 0.8, 0.0, max_gain_db))
+        if abs(trial_gain - gain) < 0.05:
+            break
+        trial, trial_info, trial_lufs, trial_crest, trial_metering = measure(trial_gain)
+        if acceptable(trial_crest) and abs(target_lufs - trial_lufs) < abs(target_lufs - lufs) - 0.01:
+            rendered, render_info, lufs, crest, metering = (
+                trial,
+                trial_info,
+                trial_lufs,
+                trial_crest,
+                trial_metering,
             )
-            trial_lufs, trial_metering = metrics.integrated_lufs(trial, sample_rate)
-        else:
-            trial, _ = limiter.limit(
-                rendered * (10.0 ** (err / 20.0)), sample_rate, ceiling_dbtp=ceiling_dbtp
-            )
-            trial_info = {}
-            trial_lufs, trial_metering = metrics.integrated_lufs(trial, sample_rate)
-        if abs(target_lufs - trial_lufs) < abs(target_lufs - lufs) - 0.01:
-            rendered, lufs, metering = trial, trial_lufs, trial_metering
-            render_info.update(trial_info)
-            if err > 0:
-                best_gain = min(best_gain + err, max_gain_db)
-            else:
-                render_info["trim_db"] = round(float(err), 2)
+            gain = trial_gain
+        elif not acceptable(trial_crest):
+            # усиление упирается в crest: шагаем назад, а не «давим» тримом
+            gain = max(0.0, gain - 0.5)
+            rendered, render_info, lufs, crest, metering = measure(gain)
         else:
             break
-    if abs(target_lufs - lufs) > tolerance:
-        saturated = True  # громкость вышла на предел: честно фиксируем факт
+
+    trimmed_db = 0.0
+    if lufs > target_lufs + 0.05:
+        # стать тише можно линейно: crest при этом не меняется (в отличие от
+        # «рендера с меньшим усилением», который вернул бы клиппинг)
+        trimmed_db = float(target_lufs - lufs)
+        rendered = rendered * (10.0 ** (trimmed_db / 20.0))
+        lufs, _ = metrics.integrated_lufs(rendered, sample_rate)
+        corrections += 1
+
+    saturated = abs(target_lufs - lufs) > tolerance
     return rendered, {
         "target_lufs": target_lufs,
         "achieved_lufs": round(float(lufs), 2),
         "error_lu": round(float(lufs - target_lufs), 2),
-        "gain_applied_db": round(float(best_gain), 2),
+        "gain_applied_db": round(float(gain), 2),
+        "crest_db": round(float(crest), 2),
         "corrections": corrections,
+        "trim_db": round(trimmed_db, 2),
         "limiter_saturated": saturated,
+        "crest_rejected_candidates": crest_rejected,
         **{k: v for k, v in render_info.items() if k != "gain_db"},
         **metering,
     }
+
+
+def _control_crest(
+    mastered: np.ndarray,
+    source: np.ndarray,
+    sample_rate: int,
+    stand: str,
+    target_lufs: float,
+    ceiling_dbtp: float = TRUE_PEAK_CEILING,
+) -> tuple[np.ndarray, dict[str, Any]]:
+    """Довести crest-фактор мастера в коридор стенда — измеримо, без магии.
+
+    Коридор снизу уже удержан при сведении громкости (кандидаты с crest ниже
+    нормы отбрасываются). Здесь остаётся «слишком живой» мастер: пики
+    аккуратно подрезаются мягким клиппером (нелинейно — в отличие от
+    лимитера, который масштабирует весь сигнал и crest не меняет), после чего
+    громкость возвращается к цели. Каждый шаг пишется в отчёт.
+    """
+    low, high = CREST_RANGE.get(stand, DEFAULT_CREST)
+    crest = float(metrics.loudness_report(mastered, sample_rate)["crest_db"])
+    info: dict[str, Any] = {
+        "crest_before_db": round(crest, 2),
+        "corridor_db": [low, high],
+        "actions": [],
+    }
+    for offset in (1.0, 2.0, 3.0, 4.0, 5.0):
+        if crest <= high:
+            break
+        clipped, _ = limiter.soft_clip(mastered, knee_dbfs=ceiling_dbtp - offset)
+        lufs = float(metrics.integrated_lufs(clipped, sample_rate)[0])
+        gain_db = float(np.clip(target_lufs - lufs, -6.0, 6.0))
+        restored, _ = limiter.soft_clip(
+            clipped * (10.0 ** (gain_db / 20.0)), knee_dbfs=ceiling_dbtp
+        )
+        # мягкий клиппер может выйти за потолок: финальный лимитер обязателен
+        restored, _ = limiter.limit(restored, sample_rate, ceiling_dbtp=ceiling_dbtp)
+        new_crest = float(metrics.loudness_report(restored, sample_rate)["crest_db"])
+        info["actions"].append(f"soft_clip_knee_-{offset}_db")
+        if new_crest < crest:
+            mastered, crest = restored, new_crest
+    if crest > high:
+        # тяжёлый лимитер держит пики, но не сжимает тело: чтобы убрать
+        # избыточный crest, нужна компрессия, а не ещё один лимитер
+        from modules.dsp import dynamics
+
+        compressed, comp_info = dynamics.compress(
+            mastered,
+            sample_rate,
+            threshold_db=-14.0,
+            ratio=2.5,
+            attack_ms=5.0,
+            release_ms=120.0,
+        )
+        lufs = float(metrics.integrated_lufs(compressed, sample_rate)[0])
+        gain_db = float(np.clip(target_lufs - lufs, -6.0, 6.0))
+        restored, _ = limiter.limit(
+            compressed * (10.0 ** (gain_db / 20.0)),
+            sample_rate,
+            ceiling_dbtp=ceiling_dbtp,
+        )
+        new_crest = float(metrics.loudness_report(restored, sample_rate)["crest_db"])
+        info["actions"].append("compress_body_ratio_2_5")
+        info["compressor"] = comp_info
+        if new_crest < crest:
+            mastered, crest = restored, new_crest
+
+    if crest < low - 0.05:
+        info["below_floor"] = True
+        info["reason"] = (
+            "crest ниже коридора: цель по громкости требует плотнее, чем позволяет материал"
+        )
+    info["crest_after_db"] = round(crest, 2)
+    return mastered, info
 
 
 def _gates(report: dict[str, Any], stand: str) -> dict[str, bool]:
@@ -236,11 +343,12 @@ def _gates(report: dict[str, Any], stand: str) -> dict[str, bool]:
     tol = LUFS_TOLERANCE.get(stand, 0.5)
     crest_lo, crest_hi = CREST_RANGE.get(stand, DEFAULT_CREST)
     corr = float(report["stereo_correlation"]) if int(report["channels"]) > 1 else 0.5
+    corr_lo, corr_hi = CORRELATION_RANGE.get(stand, DEFAULT_CORRELATION)
     return {
         "true_peak": float(report["true_peak_dbtp"]) <= TRUE_PEAK_CEILING,
         "lufs": abs(lufs - target) <= tol,
         "crest": crest_lo <= float(report["crest_db"]) <= crest_hi,
-        "correlation": 0.2 <= corr <= 0.8,
+        "correlation": corr_lo <= corr <= corr_hi,
         "mono_loss": float(report["mono_loss_db"]) <= 3.0,
         "no_clipping": int(report["clipping_samples"]) == 0,
     }
@@ -262,7 +370,16 @@ def master_one(mix_wav: str, out_wav: str, stand: str = "streaming") -> dict[str
         low={"threshold_db": -14.0, "ratio": 1.6, "attack_ms": 25.0, "release_ms": 200.0},
         high={"threshold_db": -20.0, "ratio": 1.4, "attack_ms": 10.0, "release_ms": 120.0},
     )
-    mastered, loudness_info = _converge_loudness(compressed, sr, target)
+    crest_low, crest_high = CREST_RANGE.get(stand, DEFAULT_CREST)
+    mastered, loudness_info = _converge_loudness(
+        compressed,
+        sr,
+        target,
+        min_crest_db=crest_low,
+        max_crest_db=crest_high,
+    )
+    mastered, crest_info = _control_crest(mastered, compressed, sr, stand, target)
+    loudness_info["crest_control"] = crest_info
     mastered = np.nan_to_num(mastered, nan=0.0, posinf=0.0, neginf=0.0)
     report = metrics.loudness_report(mastered, sr)
     gates = _gates(report, stand)

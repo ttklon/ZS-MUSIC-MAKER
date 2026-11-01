@@ -129,7 +129,10 @@ def build_mix(
 
     width_report: dict[str, Any] = {"width": 1.0, "correlation_after": stereo_report(bus)["correlation"]}
     if width is None:
-        bus, width_report = match_width(bus)
+        # Целимся в 0.72, а не в границу 0.8: мастеринговый лимитер поднимает
+        # корреляцию на 0.02–0.05, и микс с 0.79 после мастеринга вылетал за
+        # верхнюю границу §7.2. Запас в коридоре — часть контракта микса.
+        bus, width_report = match_width(bus, max_correlation=0.72)
     else:
         bus = bus * 1.0
         from modules.mix.width import apply_width

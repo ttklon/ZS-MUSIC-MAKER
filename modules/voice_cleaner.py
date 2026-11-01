@@ -60,23 +60,23 @@ def _fallback_clean(data, samplerate: int, highpass_hz: float):
 
 
 def _de_ess(data, samplerate: int, low_hz: float, high_hz: float, reduction_db: float):
-    """Attenuate only the sibilance band; content above 10 kHz is left intact."""
-    import numpy as np
-    from scipy.signal import butter, sosfilt, sosfiltfilt
+    """Де-эссинг через единственную реализацию — `modules.vocal_fx.desser`.
 
-    x = _as_2d(data)
-    nyquist = samplerate / 2.0
-    high = min(high_hz, nyquist * 0.95)
-    low = min(low_hz, high * 0.8)
-    if low <= 0.0 or high <= low:
-        return x
-    sos = butter(4, [low / nyquist, high / nyquist], btype="bandpass", output="sos")
+    Статический срез полосы глушит воздух там, где сибилянтов нет, поэтому
+    чистящая стадия использует тот же динамический де-эссер, что и вокальная
+    цепочка, только с пределом подавления из пресета очистки.
+    """
+    import numpy as np
+
+    from modules.vocal_fx.desser import dynamic_deess
+
     try:
-        band = sosfiltfilt(sos, x, axis=0).astype("float32")
-    except ValueError:  # very short clips cannot satisfy filtfilt padding
-        band = sosfilt(sos, x, axis=0).astype("float32")
-    retain = 10.0 ** (-max(0.0, reduction_db) / 20.0)
-    return x - band * (1.0 - retain)
+        processed, _report = dynamic_deess(
+            np.asarray(data, dtype="float64"), samplerate, reduction_db=float(reduction_db)
+        )
+        return processed.astype("float32")
+    except Exception:  # noqa: BLE001 - очистка не должна падать из-за де-эссера
+        return _as_2d(data)
 
 
 def _soft_silence_gate(data, samplerate: int, threshold_db: float, floor_db: float):

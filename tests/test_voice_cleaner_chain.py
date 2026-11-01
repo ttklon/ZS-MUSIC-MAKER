@@ -61,10 +61,35 @@ def test_vocal_fx_runs_clean_stage_before_optional_polish(tmp_path) -> None:
     output = tmp_path / "voice_fx.wav"
     _synthetic_vocal(source)
 
-    result = process_vocal(source, output, use_double=False, use_throw=False, genre="phonk")
+    result = process_vocal(
+        source,
+        output,
+        use_double=False,
+        use_throw=False,
+        genre="phonk",
+        use_tune=False,
+        use_deess=False,
+        use_prosody=False,
+    )
 
     assert result["ok"] is True
     assert result["stages"] == ["clean"]
     assert result["clean_used"] is True
     assert result["cleaner"]["preset"]["deesser_db"] == 3.0
     assert output.exists()
+
+
+def test_vocal_fx_reports_tune_deess_prosody_stages(tmp_path) -> None:
+    from modules.vocal_fx import process_vocal
+
+    source = tmp_path / "input.wav"
+    output = tmp_path / "voice_fx.wav"
+    _synthetic_vocal(source)
+
+    result = process_vocal(source, output, use_double=False, use_throw=False, genre="phonk")
+
+    assert result["ok"] is True
+    assert {"clean", "tune", "deess", "prosody"} <= set(result["stages"])
+    assert result["tune"]["engine"] == "phase_vocoder"
+    assert result["deess"]["engine"] == "dynamic_band_deesser"
+    assert result["prosody"]["engine"] == "phrase_prosody"

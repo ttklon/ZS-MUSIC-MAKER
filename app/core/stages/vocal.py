@@ -272,7 +272,31 @@ def _stage_rvc(
         return {"ok": False, "reason": str(e)}
 
 
-def _stage_vocal_fx(vocal_wav: str | None, out_dir: Path) -> dict[str, Any]:
+def _split_key(key: str | None) -> tuple[str, str]:
+    """«A minor» → («A», «minor»); неизвестное → безопасные дефолты.
+
+    Тюн без тональности звучит хуже, чем без тюна, поэтому дефолт — A minor
+    (его использует большинство дрифт-фонк пресетов), а не «хроматика».
+    """
+    if not key:
+        return "A", "minor"
+    parts = str(key).replace("-", " ").split()
+    tonic = parts[0].upper() if parts else "A"
+    scale = parts[1].lower() if len(parts) > 1 else "minor"
+    from modules.vocal_fx.pitch import SCALES
+
+    if scale not in SCALES:
+        scale = "minor"
+    return tonic, scale
+
+
+def _stage_vocal_fx(
+    vocal_wav: str | None,
+    out_dir: Path,
+    bpm: float | None = None,
+    key: str | None = None,
+    tune: bool = True,
+) -> dict[str, Any]:
     """v18: vocal double + delay throw ДО микса (хитовая плотность хука).
 
     Применяется к вокалу после RVC (или к voice_draft, если RVC BLOCKED).
@@ -286,7 +310,19 @@ def _stage_vocal_fx(vocal_wav: str | None, out_dir: Path) -> dict[str, Any]:
         from modules import vocal_fx
 
         out_wav = str(out_dir / "voice_fx.wav")
-        r = vocal_fx.process_vocal(vocal_wav, out_wav, use_double=True, use_throw=True)
+        tonic, scale = _split_key(key)
+        r = vocal_fx.process_vocal(
+            vocal_wav,
+            out_wav,
+            use_double=True,
+            use_throw=True,
+            use_tune=tune,
+            use_deess=True,
+            use_prosody=True,
+            bpm=bpm,
+            tonic=tonic,
+            scale=scale,
+        )
         if isinstance(r, dict) and r.get("ok") and r.get("path"):
             return r
         # FX не критичен — возвращаем исходный вокал с честной пометкой
