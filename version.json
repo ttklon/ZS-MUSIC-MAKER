@@ -1,6 +1,6 @@
 {
-  "version": "41.0.0-alpha.9",
-  "build": "v41.0.0-alpha.9-drop-contrast-2026-11-01",
+  "version": "41.0.0-alpha.10",
+  "build": "v41.0.0-alpha.10-mix-mastering-2026-11-02",
   "based_on": "39.9.0",
-  "changes": "alpha.5: сэмпловый банк (app/audio/samples.py + data/samples/manifest.json + tools/samples_audit.py), восстановлен пакет modules/release (экспорт с SHA-256/ZIP, площадки Spotify/Яндекс-VK/TikTok/YouTube/Shazam), починен .gitignore (release/ -> /release/) и добавлен tools/gitignore_guard.py, барабаны берут сэмплы банка первыми и честно падают в FALLBACK-синтез, harmony/drums/humanize для бита, health/self_diag/KPI указывают на реальные модули."
+  "changes": "alpha.10: единый DSP-слой modules/dsp (RMS/peak/true-peak 4x/LUFS/crest/корреляция), пакет modules/mix (gain staging -18 dBFS по опорному участку, канальный EQ вокала, сайдчейн kick->низ <120 Гц, mid/side ширина, гейты §7.2 и mix_report.json), мастеринг сведён к одному движку (тон -> двухполосная компрессия -> soft clip -> look-ahead лимитер -1 dBTP -> LUFS по 8 стендам, mastering_report.json); mastering_chain стал тонким адаптером; исправлены NameError в anti_neuro_track (полировка всегда падала в FALLBACK) и валидация фильтра на 22.05 кГц; полированный мастер возвращается к -14 LUFS; pytest-конфиг с маркерами; +25 тестов."
 }

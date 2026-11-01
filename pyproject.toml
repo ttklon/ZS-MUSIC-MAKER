@@ -87,3 +87,19 @@ ai = [
 amd = [
     "torch-directml>=0.2.1.dev240521",
 ]
+
+[tool.pytest.ini_options]
+# Явная конфигурация: без неё pytest собирает мусор из подкаталогов и ловит
+# сторонние тесты (например, из установленных пакетов).
+minversion = "7.0"
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
+markers = [
+    "audio: тесты, которые рендерят и измеряют аудио (медленнее обычных unit)",
+    "slow: длинные прогоны (полный пайплайн, мастеринг всех стендов)",
+    "gui: тесты интерфейса, требуют Qt (offscreen)",
+    "e2e: сквозные прогоны пайплайна",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+]

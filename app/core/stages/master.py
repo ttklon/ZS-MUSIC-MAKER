@@ -81,12 +81,12 @@ def _stage_polish(input_wav: str, out_dir: Path) -> dict[str, Any]:
                 attempts.append(f"{name}:error:{type(exc).__name__}")
                 continue
             if isinstance(result, str) and Path(result).exists():
-                return {"ok": True, "path": result, "engine": f"{label}.{name}"}
+                return _finalize_polish(result, f"{label}.{name}")
             if isinstance(result, dict) and result.get("ok"):
                 payload = dict(result)
                 payload["path"] = payload.get("path") or payload.get("out_wav") or out_wav
                 payload.setdefault("engine", f"{label}.{name}")
-                return payload
+                return _finalize_polish(str(payload["path"]), payload["engine"], payload)
     except Exception as exc:  # noqa: BLE001 - импорт недоступен
         attempts.append(f"import:error:{type(exc).__name__}")
 
@@ -100,6 +100,28 @@ def _stage_polish(input_wav: str, out_dir: Path) -> dict[str, Any]:
         "attempts": attempts,
         "reason": "anti-neuro engines unavailable; master copied as-is",
     }
+
+
+def _finalize_polish(polished_wav: str, engine: str, payload: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Вернуть громкость полировки к стенду streaming (−14 LUFS, −1 dBTP).
+
+    Anti-neuro цепочка (лента, lofi-срез, джиттер) меняет уровень на 0.5–1 дБ.
+    Без возврата к целевому LUFS «полированный» мастер выпадал бы из гейтов
+    §7.2, поэтому нормализуем тем же единым движком мастеринга.
+    """
+    from modules import mastering
+
+    result = dict(payload or {})
+    result["path"] = polished_wav
+    result["engine"] = engine
+    normalized = mastering.normalize_master_loudness(polished_wav, polished_wav, target_lufs=-14.0)
+    result["loudness"] = normalized
+    result["gates"] = {
+        "true_peak": float(normalized.get("output_true_peak_dbtp", 0.0)) <= -1.0,
+        "lufs": abs(float(normalized.get("output_lufs", 0.0)) + 14.0) <= 0.5,
+    }
+    result["gates_passed"] = all(result["gates"].values())
+    return result
 
 
 def _stage_stems(master_wav: str, out_dir: Path) -> dict[str, Any]:

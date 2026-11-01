@@ -113,7 +113,7 @@ def main() -> int:
     )
 
     artifacts = {}
-    for cand in ("beat.wav", "voice_preview.wav", "mix_ducked.wav", "polished.wav"):
+    for cand in ("beat.wav", "voice_preview.wav", "mix.wav", "polished.wav"):
         p = workdir / cand
         if p.exists():
             artifacts[cand] = _check_wav(str(p))

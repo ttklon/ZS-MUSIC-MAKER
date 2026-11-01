@@ -10,7 +10,7 @@ modules/mastering_reference.py — мастеринг по референсу (M
   • `master_with_matchering(handle, input_wav, out_wav, reference_wav, ...)` —
     работа через уже загруженный handle из `app.ai.registry` (без перезагрузки).
   • `master_ai(input_wav, out_wav, reference_wav=None, ...)` — точка входа
-    стадии: matchering по референсу, иначе `mastering_chain.process_mastering`.
+    стадии: matchering по референсу, иначе единый движок `modules.mastering`.
   • `master_to_stand(target, out_wav, stand)` и `master_all_stands_matched` —
     громкость под стенд без референса (только при живом matchering).
 
@@ -87,7 +87,7 @@ def master_with_matchering(
     if not Path(out_wav).exists():
         return {"ok": False, "reason": "matchering completed without output", "engine": "matchering"}
 
-    from modules.mastering_chain import normalize_master_loudness
+    from modules.mastering import normalize_master_loudness
 
     loudness = normalize_master_loudness(out_wav, out_wav, target_lufs=target_lufs, ceiling_db=-1.2)
     if not loudness.get("ok"):
@@ -139,11 +139,11 @@ def master_ai(
     else:
         fallback_reason = "no reference"
 
-    from modules import mastering_chain
+    from modules import mastering
 
-    res = mastering_chain.process_mastering(input_wav, out_wav, vocal_path=None, target_lufs=target_lufs)
+    res = mastering.master_one(input_wav, out_wav, stand="streaming")
     res = res if isinstance(res, dict) else {"ok": True, "path": out_wav}
-    loudness = mastering_chain.normalize_master_loudness(
+    loudness = normalize_master_loudness(
         out_wav, out_wav, target_lufs=target_lufs, ceiling_db=-1.2
     )
     if not loudness.get("ok"):
@@ -164,7 +164,7 @@ def master_to_stand(target: str, out_wav: str, stand: str = "streaming") -> dict
             "reason": "matchering unavailable; refusing gain-only mastering",
             "out_wav": out_wav,
         }
-    from modules.mastering_chain import normalize_master_loudness
+    from modules.mastering import normalize_master_loudness
 
     res = normalize_master_loudness(
         target, out_wav, target_lufs=LUF_STANDS.get(stand, -14.0), ceiling_db=-1.0

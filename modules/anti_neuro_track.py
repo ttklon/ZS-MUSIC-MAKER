@@ -51,7 +51,7 @@ def _write_track(path: str, y, sr):
 
 # ============================================================ effects
 def _micro_timing_jitter(y, sr, amount_ms: float = 5.0, seed: int | None = None):
-    if np is None:
+    if not NP_OK:
         return y
     rng = _np.random.default_rng(seed or int(time.time()))
     seg_len = int(sr * 0.5)  # 500 мс блоки
@@ -76,7 +76,7 @@ def _micro_timing_jitter(y, sr, amount_ms: float = 5.0, seed: int | None = None)
 def _breath_insert(
     y, sr, breath_samples: list, positions_sec: list, volume_db: float = -22.0
 ):
-    if np is None or not breath_samples:
+    if not NP_OK or not breath_samples:
         return y
     out = y.copy()
     gain = 10 ** (volume_db / 20.0)
@@ -98,7 +98,7 @@ def _breath_insert(
 
 
 def _section_dynamics_variation(y, sr, sections: list, seed: int | None = None):
-    if np is None or not sections:
+    if not NP_OK or not sections:
         return y
     rng = random.Random(seed or int(time.time()))
     out = y.copy()
@@ -124,7 +124,7 @@ def _ghost_harmonies_kill(y, sr):
     Устранение "призрачных" гармоник, типичных для RVC/нейронок.
     v14: Добавлены адаптивные частоты 3.2k, 4.8k, 6.4k, 8k.
     """
-    if np is None:
+    if not NP_OK:
         return y
     try:
         import scipy.signal as sg
@@ -145,7 +145,7 @@ def _ghost_harmonies_kill(y, sr):
 
 
 def _formulaic_structure_bust(y, sr, seed: int | None = None):
-    if np is None:
+    if not NP_OK:
         return y
     rng = random.Random(seed or int(time.time()))
     dur = len(y) / sr
@@ -166,7 +166,7 @@ def _formulaic_structure_bust(y, sr, seed: int | None = None):
 
 
 def _tape_saturation(y, amount: float = 0.06):
-    if np is None:
+    if not NP_OK:
         return y
     x = _np.clip(y * (1 + amount), -1.0, 1.0)
     return _np.tanh(x * (1 + amount)) * (1 / (1 + amount))
@@ -176,7 +176,7 @@ def _imperfect_tuning(y, sr, cents: float = 4.0):
     """
     Реальное микро-расстроение (vibrato) через интерполяцию.
     """
-    if np is None:
+    if not NP_OK:
         return y
     try:
         from scipy.interpolate import interp1d
@@ -210,13 +210,17 @@ def _imperfect_tuning(y, sr, cents: float = 4.0):
 
 
 def _lofi_pass(y, sr, cutoff: float = 15000.0):
-    if np is None:
+    if not NP_OK:
         return y
     try:
         import scipy.signal as sg
     except Exception:
         return y
-    b, a = sg.butter(4, cutoff / (sr / 2), btype="low")
+    # 0.45 от Найквиста — предел Баттерворта; на 22.05 кГц это ~9.9 кГц.
+    # Без ограничения фильтр падал с ValueError на любом sr ниже 32 кГц.
+    nyquist = sr / 2.0
+    normalized = min(max(cutoff, 200.0), 0.45 * nyquist) / nyquist
+    b, a = sg.butter(4, normalized, btype="low")
     if y.ndim == 2:
         out = y.copy()
         for ch in range(y.shape[1]):

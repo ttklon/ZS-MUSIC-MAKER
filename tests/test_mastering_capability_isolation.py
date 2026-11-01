@@ -1,34 +1,51 @@
+"""Изоляция отказов мастеринга: один битый файл не ломает остальные стенды."""
+
 from __future__ import annotations
 
 import numpy as np
 import soundfile as sf
 
-from modules import mastering_chain as mastering_pro
+from modules import mastering
 
 
-def test_pedalboard_failure_does_not_disable_future_masters(tmp_path, monkeypatch) -> None:
-    source = tmp_path / "source.wav"
-    output = tmp_path / "master.wav"
-    samples = np.column_stack((np.full(4096, 0.05), np.full(4096, -0.05)))
-    sf.write(source, samples, 44_100)
+def test_broken_input_returns_reason_instead_of_raising(tmp_path) -> None:
+    broken = tmp_path / "broken.wav"
+    broken.write_bytes(b"not a wav at all")
 
-    class FailingAudioFile:
-        def __init__(self, *_args, **_kwargs):
-            pass
+    result = mastering.master_one(str(broken), str(tmp_path / "out.wav"), stand="streaming")
 
-        def __enter__(self):
-            raise RuntimeError("temporary pedalboard failure")
+    assert result["ok"] is False
+    assert "read failed" in result["reason"]
 
-        def __exit__(self, *_args):
-            return False
 
-    monkeypatch.setattr(mastering_pro, "HAS_PEDALBOARD", True)
-    monkeypatch.setattr(mastering_pro, "HAS_PYLOUDNORM", False)
-    monkeypatch.setattr(mastering_pro, "AudioFile", FailingAudioFile, raising=False)
+def test_failed_stand_does_not_block_the_rest(tmp_path) -> None:
+    source = tmp_path / "mix.wav"
+    sample_rate = 44_100
+    time = np.arange(sample_rate * 2) / sample_rate
+    wave = 0.15 * np.sin(2 * np.pi * 220 * time)
+    sf.write(source, np.stack([wave, wave * 0.9], axis=1), sample_rate)
 
-    result = mastering_pro.process_mastering(str(source), str(output))
+    broken = tmp_path / "broken.wav"
+    broken.write_bytes(b"broken")
 
-    assert result["ok"] is True
-    assert result["engine"] == "numpy_rms_safe"
-    assert output.exists()
-    assert mastering_pro.HAS_PEDALBOARD is True
+    from modules import mastering as engine
+
+    calls: list[str] = []
+    original = engine.master_one
+
+    def routed(mix_wav: str, out_wav: str, stand: str = "streaming"):
+        calls.append(stand)
+        if stand == "club":
+            return {"ok": False, "reason": "synthetic club failure"}
+        return original(mix_wav, out_wav, stand=stand)
+
+    engine.master_one = routed  # type: ignore[assignment]
+    try:
+        result = engine.master_all_stands(str(source), str(tmp_path / "masters"), stands=["club", "streaming"])
+    finally:
+        engine.master_one = original  # type: ignore[assignment]
+
+    assert calls == ["club", "streaming"]
+    assert set(result["masters"]) == {"streaming"}
+    assert result["summary"]["errors"]["club"] == "synthetic club failure"
+    assert result["summary"]["gates_passed"] is False

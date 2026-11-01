@@ -7,7 +7,8 @@ ZS Music Maker — smoke_audio
                                    → весь мастер corr=1.0). Проверяем
                                    shape=(N,2) и corr ∈ [0.3, 0.98].
   2. v26.master_stereo_preserved — master_streaming.wav сохраняет стерео.
-  3. v26.master_loudness_target  — master в target -13.5 dBFS ±1.5.
+  3. v26.master_loudness_target  — master в LUFS -14 ±0.5 (BS.1770) и
+                                   true peak ≤ -1.0 dBTP (§7.2).
   4. v26.beat_drop_fade          — есть fade ≥100мс перед первым hook
                                    (реальный drop, не плаво).
   5. v26.hit_score_improved      — итоговый hit_score ≥55 (был 50.28 на v25).
@@ -57,6 +58,13 @@ def _dbfs(p):
     return 20.0 * np.log10(max(rms, 1e-12))
 
 
+def _master_report(p):
+    from modules.dsp import metrics
+
+    y, sr = sf.read(p, always_2d=True)
+    return metrics.loudness_report(y, sr)
+
+
 def main():
     print("=" * 64)
     print("ZS Music Maker v26 — smoke_audio (stereo + loudness + drop)")
@@ -98,11 +106,12 @@ def main():
 
     # 3
     if master.exists():
-        db = _dbfs(str(master))
+        report = _master_report(str(master))
+        ok = abs(float(report["lufs"]) + 14.0) <= 0.5 and float(report["true_peak_dbtp"]) <= -1.0
         check(
             "v26.master_loudness_target",
-            -16.0 <= db <= -11.0,
-            f"dBFS={db:.2f} target=-13.5±2.5",
+            ok,
+            f"LUFS={report['lufs']} tp={report['true_peak_dbtp']} dBTP (streaming -14±0.5, ≤-1.0)",
         )
     else:
         check("v26.master_loudness_target", False, "master missing")

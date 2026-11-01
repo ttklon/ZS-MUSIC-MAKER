@@ -48,7 +48,7 @@ _RESUME_ARTIFACTS = {
     "beat": "beat.wav",
     "texture": "texture_scaffold.wav",
     "vocal": "voice_fx.wav",
-    "mix": "mix_ducked.wav",
+    "mix": "mix.wav",
     "master": "full_master_streaming.wav",
 }
 
