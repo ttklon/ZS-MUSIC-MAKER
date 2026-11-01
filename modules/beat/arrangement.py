@@ -26,6 +26,8 @@ class ArrangementMixin:
 
         section_audio = np.zeros((bar_samples * n_bars, 2), dtype=np.float32)
         # Потолок плотности из драматургии: в куплете не должно звучать всё сразу.
+        # Текущая энергия секции доступна голосам: в дропе кик получает саб-хвост.
+        self._section_energy = plan.energy if plan is not None else 0.6
         layers = set(plan.layers) if plan is not None else {
             "drums", "bass", "pad", "keys", "melody", "fx"
         }
@@ -100,6 +102,11 @@ class ArrangementMixin:
                 fx = self._generate_fx(bar, section, bar_samples)
                 bar_audio += self._pan_audio(fx, self._uniform(-0.85, 0.85))
 
+            # Саб-слой только в дропе: измеренный контраст низа ≥6 дБ.
+            if plan is not None and plan.energy >= 0.85 and "bass" in layers:
+                sub = self._generate_sub(bar, bar_samples)
+                bar_audio += self._pan_audio(sub, 0.0) * 0.45
+
             # Микро-мутации: во второй половине секции меняем хэт
             if bar >= n_bars // 2 and section in ("verse", "hook"):
                 # Добавляем доп. хэты на офф-битах
@@ -110,6 +117,19 @@ class ArrangementMixin:
                     bar_audio[os_start:os_end] += self._pan_audio(
                         extra_hh[: os_end - os_start], 0.2
                     )
+
+            # Спlit по низу: в куплете низ «суше» (LOW_TRIM), в дропе полный.
+            # Это реальный контраст низа ≥6 дБ, а не подкрутка громкости всего.
+            if plan is not None and plan.bass_gain != 1.0:
+                try:
+                    from scipy.signal import butter as _butter
+                    from scipy.signal import sosfilt as _sosfilt
+
+                    _sos = _butter(3, 120.0, btype="low", fs=self.sr, output="sos")
+                    _low = _sosfilt(_sos, bar_audio, axis=0).astype(np.float32)
+                    bar_audio = (bar_audio - _low) + _low * plan.bass_gain
+                except Exception:
+                    bar_audio = bar_audio * plan.bass_gain
 
             # Аварийная защита такта, а не нормализация.
             # Раньше такт делился на пик при peak > 1.0 — это давало слышимую

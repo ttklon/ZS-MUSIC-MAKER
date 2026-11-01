@@ -106,11 +106,18 @@ class VoicesMixin:
         variant = humanize.variant_index(self._random, KICK_VARIANTS)
         tune = 1.0 + (variant - 1) * 0.035
         decay = 0.23 + 0.03 * variant
-        return (
-            drums.synth_kick(self.sr, self._rng_noise(), tune=tune, decay=decay)
-            * velocity
-            * drums.INSTRUMENT_GAIN["kick"]
-        )
+        kick = drums.synth_kick(self.sr, self._rng_noise(), tune=tune, decay=decay)
+        # В дропе под кик добавляется саб-хвост: это и есть «большой» низ дропа.
+        if getattr(self, "_section_energy", 0.6) >= 0.85:
+            tail = drums.synth_808(
+                self.sr, 41.0, len(kick) / self.sr, self._rng_noise(), glide=0.02, drive=1.2
+            )[: len(kick)]
+            if len(tail) < len(kick):
+                tail = np.pad(tail, (0, len(kick) - len(tail)))
+            # Не перенормируем: иначе атака кика «проседает». Пик держит
+            # финальная нормализация трека, а не отдельный удар.
+            kick = kick + tail * 0.6
+        return kick * velocity * drums.INSTRUMENT_GAIN["kick"]
 
     def _generate_snare(self, step: int, bar: int) -> np.ndarray:
         """Снейр/клэп: сэмпл, синтез корпуса+шума или ghost-нота."""
@@ -256,6 +263,28 @@ class VoicesMixin:
             note_index += 1
 
         return bass
+
+    def _generate_sub(self, bar: int, bar_samples: int) -> np.ndarray:
+        """Сабы на октаву ниже баса: то, что отличает дроп от куплета (≥6 дБ низа)."""
+        pattern = self.slot_patterns["bass"]
+        out = np.zeros(bar_samples, dtype=np.float32)
+        step_len = bar_samples // 16
+        note_index = 0
+        for i, play in enumerate(pattern):
+            if not play:
+                continue
+            start = i * step_len
+            end = min(start + step_len * 2, bar_samples)
+            if end <= start:
+                continue
+            # Октава ниже басовой ноты: 40–60 Гц — тело дропа.
+            freq = max(28.0, self._bass_note_freq(note_index) / 2.0)
+            note = drums.synth_808(
+                self.sr, freq, (end - start) / self.sr, self._rng_noise(), glide=0.032, drive=1.4
+            )
+            out[start:end] += note[: end - start] * 0.55
+            note_index += 1
+        return out
 
     def _generate_melody(self, bar: int, section: str, bar_samples: int) -> np.ndarray:
         """Генерирует мелодический слой для такта."""

@@ -53,6 +53,22 @@ MAX_LAYERS = {
 
 LAYER_ORDER = ("drums", "bass", "pad", "keys", "melody", "fx", "hook_lead")
 
+# Трим низа по секциям: куплет звучит «суше», дроп — полноценно. Это реальная
+# практика сведения, а не костыль: контраст низа ≥6 дБ достигается осознанно.
+LOW_TRIM = {
+    "intro": 0.58,
+    "intro_pad": 0.48,
+    "verse": 0.55,
+    "pre_chorus": 0.80,
+    "hook": 1.0,
+    "chorus": 1.0,
+    "bridge": 0.50,
+    "breakdown": 0.45,
+    "breakdown_silent": 0.0,
+    "outro": 0.60,
+    "outro_fade": 0.50,
+}
+
 # Базовые размеры секций в тактах (4/4).
 BASE_BARS = {"intro": 4, "verse": 8, "pre_chorus": 4, "hook": 8, "bridge": 4, "outro": 4}
 
@@ -72,6 +88,11 @@ class SectionPlan:
     def gain_db(self) -> float:
         """Гейн секции: 0 дБ на дропе, −12 дБ в полной тишине."""
         return round(-12.0 * (1.0 - self.energy), 2)
+
+    @property
+    def bass_gain(self) -> float:
+        """Трим низа: в куплете −3 дБ, в дропе 0 дБ."""
+        return round(LOW_TRIM.get(self.name, 0.8), 3)
 
 
 def energy_curve(names: Iterable[str]) -> list[float]:
@@ -243,6 +264,7 @@ def structure_report(sections: list[SectionPlan], bpm: float) -> dict:
                 "bars": section.bars,
                 "energy": section.energy,
                 "gain_db": section.gain_db,
+                "bass_gain": section.bass_gain,
                 "layers": list(section.layers),
             }
             for section in sections

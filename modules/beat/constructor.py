@@ -165,6 +165,7 @@ class BeatConstructor(SampleBankMixin, VoicesMixin, ArrangementMixin, HarmonyMix
                     "duration_sec": round(plan.bars * bar_sec, 2),
                     "energy": plan.energy,
                     "gain_db": plan.gain_db,
+                    "bass_gain": plan.bass_gain,
                     "layers": list(plan.layers),
                 }
             )
