@@ -14,6 +14,7 @@ TOOLS = (
     "fallback_audit.py",
     "generate_audio_goldens.py",
     "genre_validator.py",
+    "gitignore_guard.py",
     "pull_ai_models.py",
     "e2e.py",
     "smoke_audio.py",

@@ -74,31 +74,32 @@ CHECKS: list[dict[str, str]] = [
 
 # Внутренние модули проекта: должны быть на месте (проверка накопительности).
 INTERNAL_MODULES: list[str] = [
-    # v7-v11 базовые
+    # ядро анализа и аранжировки
     "modules.analyzer",
+    "modules.beat",
     "modules.beat_constructor",
     "modules.groove_extractor",
     "modules.reference_ingest",
     "modules.arrangement_engine",
     "modules.hit_scorer",
+    # голос
     "modules.voice_vault",
+    "modules.voice_recording",
     "modules.rvc_manager",
-    "modules.rvc_trainer",
+    "modules.vocal_fx",
+    # текст и мастеринг
     "modules.lyrics",
     "modules.author_ref_lyrics",
-    "modules.mastering_v9",
     "modules.mastering",
     "modules.anti_neuro",
-    "modules.anti_neuro",
-    "modules.release_pack_v9",
-    "modules.tiktok_edit",
-    "modules.kpi_monitor",
-    "modules.video_edit",
+    # выпуск и наблюдаемость
     "modules.release",
+    "modules.video_edit",
+    "modules.kpi_monitor",
+    "modules.kpi_dashboard",
     "modules.expert_mode",
     "app.core.hw_autodetect",
     "app.core.orchestrator",
-    "app.core.orchestrator_v11_patch",
 ]
 
 

@@ -67,8 +67,8 @@ def _tz_percent(
     * author_ref          — есть modules/author_ref_lyrics.py.
     * female_backing      — есть modules/female_backing.py.
     * expert_mode         — есть modules/expert_mode.py.
-    * license_provenance  — есть modules/provenance.py + app/core/license_manager.py.
-    * release_full        — есть modules/release_pack_v9.py.
+    * license_provenance  — есть app/core/license_manager.py.
+    * release_full        — есть modules/release/pack.py + export.py.
     * distribution_5      — есть modules/release/channels.py.
     * hit_scorer          — есть пакет modules/hit_scorer/ + ai_detector_pro.py.
     * queue_5             — есть modules/render_queue.py.
