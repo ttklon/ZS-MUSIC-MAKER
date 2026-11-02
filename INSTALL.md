@@ -102,6 +102,9 @@ pip install omegaconf soundfile
 sudo apt install ffmpeg        # Linux
 brew install ffmpeg            # macOS
 
+# Для тестов (нужны только разработке, на Windows для работы программы не нужны):
+pip install -r requirements_dev.txt
+
 python -m pytest tests/
 python main.py --health
 python main.py                 # запуск

@@ -72,6 +72,9 @@ CREST_RANGE: dict[str, tuple[float, float]] = {
     "club": (3.8, 11.0),
     "car": (5.5, 12.0),
     "tiktok": (6.0, 13.0),
+    # Bluetooth-стенд сознательно тише (−14.5 LUFS) и потому динамичнее:
+    # держать его в 14 дБ crest значило бы «сдавить» мастер вопреки цели.
+    "bluetooth": (8.0, 15.0),
 }
 DEFAULT_CREST = (8.0, 14.0)
 
@@ -378,7 +381,56 @@ def master_one(mix_wav: str, out_wav: str, stand: str = "streaming") -> dict[str
         min_crest_db=crest_low,
         max_crest_db=crest_high,
     )
+    # Если цель по громкости не достигнута из-за транзиентов (лимитер уже стоит
+    # на потолке, а прибавка усиления не даёт LUFS), единственный честный путь —
+    # уменьшить динамический диапазон тела, а не задирать усиление.
+    rescue_attempts: list[dict[str, Any]] = []
+    source = compressed
+    for _ in range(2):
+        if not loudness_info.get("limiter_saturated"):
+            break
+        source, _comp_info = dynamics.compress(
+            source,
+            sr,
+            threshold_db=-18.0,
+            ratio=2.0,
+            attack_ms=10.0,
+            release_ms=150.0,
+        )
+        mastered, loudness_info = _converge_loudness(
+            source,
+            sr,
+            target,
+            min_crest_db=crest_low,
+            max_crest_db=crest_high,
+        )
+        rescue_attempts.append(
+            {
+                "achieved_lufs": loudness_info.get("achieved_lufs"),
+                "saturated": loudness_info.get("limiter_saturated"),
+            }
+        )
+    if rescue_attempts:
+        loudness_info["loudness_rescue"] = rescue_attempts
     mastered, crest_info = _control_crest(mastered, compressed, sr, stand, target)
+    # Правка плотности (клиппер/компрессор) может уронить громкость: добираем её
+    # обратно уже на готовом сигнале, по-прежнему не выходя из crest-коридора.
+    current_lufs = float(metrics.integrated_lufs(mastered, sr)[0])
+    topup_info: dict[str, Any] | None = None
+    if abs(current_lufs - target) > 0.25:
+        mastered, topup_info = _converge_loudness(
+            mastered,
+            sr,
+            target,
+            max_gain_db=4.0,
+            min_crest_db=crest_low,
+            max_crest_db=crest_high,
+        )
+        crest_info["topup"] = {
+            "lufs_before": round(current_lufs, 2),
+            "lufs_after": topup_info.get("achieved_lufs"),
+            "gain_db": topup_info.get("gain_applied_db"),
+        }
     loudness_info["crest_control"] = crest_info
     mastered = np.nan_to_num(mastered, nan=0.0, posinf=0.0, neginf=0.0)
     report = metrics.loudness_report(mastered, sr)

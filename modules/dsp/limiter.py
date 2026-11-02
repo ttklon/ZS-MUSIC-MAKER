@@ -60,6 +60,27 @@ def _smooth_gain(gain: np.ndarray, release_ms: float, sample_rate: int, block: i
     return np.minimum(out, gain)
 
 
+def _oversampled_envelope(work: np.ndarray, window: int, oversample: int, ceiling: float) -> np.ndarray:
+    """Огибающая пика на передискретизированном сигнале → гейн базовой сетки.
+
+    Межсэмпловые перегрузы видит только 4×; поэтому усиление считается на
+    передискретизированном буфере, а на базовую сетку переносится минимумом по
+    группе из `oversample` подвыборок — так ни один подпик не проскакивает.
+    """
+    from scipy.signal import resample_poly
+
+    upsampled = resample_poly(work, oversample, 1, axis=0)
+    detection = _sliding_max(np.max(np.abs(upsampled), axis=1), window * oversample)
+    gain_up = np.minimum(1.0, ceiling / np.maximum(detection, 1e-9))
+    frames = upsampled.shape[0] // oversample
+    if frames == 0:
+        return np.ones(work.shape[0])
+    trimmed = gain_up[: frames * oversample].reshape(frames, oversample).min(axis=1)
+    if frames < work.shape[0]:
+        trimmed = np.concatenate([trimmed, np.full(work.shape[0] - frames, trimmed[-1])])
+    return trimmed[: work.shape[0]]
+
+
 def limit(
     x: np.ndarray,
     sample_rate: int,
@@ -67,8 +88,16 @@ def limit(
     ceiling_dbtp: float = -1.0,
     lookahead_ms: float = 3.0,
     release_ms: float = 60.0,
+    oversample: int = 4,
 ) -> tuple[np.ndarray, dict[str, float]]:
-    """Ограничить буфер по true-peak. Возвращает `(out, info)`."""
+    """Ограничить буфер по true-peak. Возвращает `(out, info)`.
+
+    Усиление строится по 4×-огибающей (см. `_oversampled_envelope`), а не по
+    сэмпловому пику с последующим «подтягиванием» всего буфера вниз: старый
+    вариант на плотном материале уводил мастер на 2–4 дБ ниже потолка, и
+    потерянную громкость потом добивали клиппингом — отсюда хруст и 16 %
+    клипнутых сэмплов. Здесь потеря — максимум десятые доли дБ.
+    """
     arr = np.asarray(x, dtype=np.float64)
     squeeze = arr.ndim == 1
     work = arr[:, None] if squeeze else arr
@@ -77,15 +106,18 @@ def limit(
 
     ceiling = float(10.0 ** (ceiling_dbtp / 20.0))
     window = max(int(sample_rate * lookahead_ms / 1000.0), 1)
-    detection = _sliding_max(np.max(np.abs(work), axis=1), window)
-    gain = np.minimum(1.0, ceiling / np.maximum(detection, 1e-9))
+    if oversample > 1 and work.shape[0] >= 8:
+        gain = _oversampled_envelope(work, window, oversample, ceiling)
+    else:
+        detection = _sliding_max(np.max(np.abs(work), axis=1), window)
+        gain = np.minimum(1.0, ceiling / np.maximum(detection, 1e-9))
     smoothed = _smooth_gain(gain, release_ms, sample_rate)
 
     out = work * smoothed[:, None]
-    for _ in range(2):
-        tp = true_peak_dbtp(out)
-        if tp <= ceiling_dbtp:
-            break
+    # Сглаживание базовой сетки может оставить доли дБ: добираем аккуратно,
+    # только если реально вышли за потолок (обычно не больше 0.1 дБ).
+    tp = true_peak_dbtp(out)
+    if tp > ceiling_dbtp:
         out *= float(10.0 ** ((ceiling_dbtp - tp) / 20.0))
 
     gr = float(-20.0 * np.log10(max(float(np.min(smoothed)), 1e-9)))

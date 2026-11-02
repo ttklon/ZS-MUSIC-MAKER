@@ -71,19 +71,22 @@ def peak_dbfs(y: np.ndarray) -> float:
     return max(_db(float(np.max(np.abs(arr)))), _FLOOR_DB)
 
 
-def true_peak_dbtp(y: np.ndarray, oversample: int = 4, max_regions: int = 48) -> float:
-    """True peak: 4× передискретизация только вокруг громких пиков.
+def true_peak_dbtp(y: np.ndarray, oversample: int = 4) -> float:
+    """True peak (dBTP): 4× передискретизация всего буфера, потоково.
 
-    Полная передискретизация 3-минутного стерео-трека — это 32 млн отсчётов на
-    каждый замер (десятки секунд в мастеринге). Межсэмпловые перегрузы всегда
-    живут рядом с сэмпловыми пиками, поэтому передискретизируем только участки
-    вокруг них: результат совпадает с полным расчётом, а стоит копейки.
+    Раньше передискретизировались только 48 самых громких участков по
+    сэмпловому пику. На клиппированном материале все пики равны по амплитуде,
+    а межсэмпловый перегруз гуляет от участка к участку: метод видел −1.0 dBTP
+    там, где честное 4× давало +0.4 dBTP, и лимитер из-за этого «прятался» на
+    несколько дБ ниже потолка (мастера выходили тише на 3–4 дБ, а громкость
+    добивалась клиппингом). Теперь буфер режется на окна по 10 с с запасом:
+    внутри окна результат совпадает с полным расчётом до 0.01 дБ, память —
+    мегабайты, а не гигабайты.
     """
     arr = as_2d(y)
     if arr.size == 0:
         return _FLOOR_DB
-    mono = np.max(np.abs(arr), axis=1)
-    sample_peak = float(np.max(mono))
+    sample_peak = float(np.max(np.abs(arr)))
     if oversample <= 1 or sample_peak < 1e-9:
         return max(_db(sample_peak), _FLOOR_DB)
     try:
@@ -91,29 +94,23 @@ def true_peak_dbtp(y: np.ndarray, oversample: int = 4, max_regions: int = 48) ->
     except Exception:  # pragma: no cover - scipy в зависимостях
         return max(_db(sample_peak), _FLOOR_DB)
 
-    margin = 48
-    candidates = np.flatnonzero(mono >= 0.5 * sample_peak)
-    if candidates.size == 0:
-        return max(_db(sample_peak), _FLOOR_DB)
-    # Склеиваем соседние пики в участки, чтобы не ресемплировать одно и то же.
-    runs: list[tuple[int, int]] = []
-    start = prev = int(candidates[0])
-    for idx in candidates[1:]:
-        idx = int(idx)
-        if idx - prev <= margin:
-            prev = idx
-            continue
-        runs.append((start, prev))
-        start = prev = idx
-    runs.append((start, prev))
-    runs.sort(key=lambda r: -float(np.max(mono[r[0] : r[1] + 1])))
+    margin = 256  # больше половины FIR-ядра (10·up сэмплов)
+    window = 441_000
     best = sample_peak
-    for lo, hi in runs[:max_regions]:
-        segment = arr[max(lo - margin, 0) : min(hi + margin + 1, arr.shape[0])]
-        if segment.shape[0] < 4:
+    for start in range(0, arr.shape[0], window):
+        stop = min(start + window, arr.shape[0])
+        lo = max(0, start - margin)
+        hi = min(arr.shape[0], stop + margin)
+        chunk = arr[lo:hi]
+        if chunk.shape[0] < 8:
             continue
-        oversampled = resample_poly(segment, oversample, 1, axis=0)
-        best = max(best, float(np.max(np.abs(oversampled))))
+        upsampled = resample_poly(chunk, oversample, 1, axis=0)
+        lead = (start - lo) * oversample
+        tail = upsampled.shape[0] - (hi - stop) * oversample
+        interior = upsampled[lead:tail]
+        if interior.size == 0:
+            continue
+        best = max(best, float(np.max(np.abs(interior))))
     return max(_db(best), _FLOOR_DB)
 
 

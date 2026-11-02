@@ -1,0 +1,12 @@
+# ================================================================
+#  ZS Music Maker — зависимости для разработки и тестов
+#  НЕ нужны для работы программы на Windows: только для `pytest`.
+#  Ставится так:  python -m pip install -r requirements_dev.txt
+# ================================================================
+
+pytest>=8.0.0
+# property-based тесты DSP (tests/test_dsp_properties.py): сами ищут
+# крайние случаи — тишину, один сэмпл, перегруз, моно/стерео
+hypothesis>=6.100.0
+# покрытие DSP-ядра: python -m pytest --cov=modules.dsp --cov=modules.mix
+pytest-cov>=5.0.0

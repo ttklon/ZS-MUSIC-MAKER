@@ -24,8 +24,9 @@ MAX_CORRELATION = 0.8
 def mid_side(x: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     """Разложить стерео на `(mid, side)`. Моно-вход → side = 0."""
     arr = np.asarray(x, dtype=np.float64)
-    if arr.ndim == 1:
-        return arr, np.zeros_like(arr)
+    if arr.ndim == 1 or arr.shape[1] < 2:
+        mono = arr if arr.ndim == 1 else arr[:, 0]
+        return mono, np.zeros_like(mono)
     mid = (arr[:, 0] + arr[:, 1]) * 0.5
     side = (arr[:, 0] - arr[:, 1]) * 0.5
     return mid, side
@@ -90,6 +91,8 @@ def match_width(
         return arr, report
     if arr.ndim != 2 or arr.shape[1] < 2 or report["matched"]:
         report["correlation_after"] = round(base, 3)
+        if not report["matched"]:
+            report["reason"] = "source has no stereo pair (mono/1-D input)"
         return arr, report
 
     # Корреляция монотонно убывает с ростом ширины (при положительной базе),
@@ -115,6 +118,11 @@ def match_width(
 
     out = apply_width(arr, best_width)
     report["width"] = round(best_width, 3)
+    if not (min_correlation <= best_corr <= max_correlation):
+        report["reason"] = (
+            "corridor unreachable from this source: side content too small for "
+            f"correlation range {min_correlation}…{max_correlation}"
+        )
     report["correlation_after"] = round(best_corr, 3)
     report["mono_loss_db"] = round(mono_loss_db(out), 2)
     report["matched"] = min_correlation <= best_corr <= max_correlation

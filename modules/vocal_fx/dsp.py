@@ -30,7 +30,9 @@ def _read(wav_path: str) -> tuple[Any, int]:
 
 def _write(wav_path: str, y, sr: int) -> str:
     Path(wav_path).parent.mkdir(parents=True, exist_ok=True)
-    _sf.write(wav_path, _np.clip(y, -1.0, 1.0), sr)
+    # промежуточные стадии вокальной цепочки — всегда 32-bit float:
+    # 5 последовательных записей в PCM_16 накапливали бы шум квантования
+    _sf.write(wav_path, _np.clip(y, -1.0, 1.0), sr, subtype="FLOAT")
     return wav_path
 
 

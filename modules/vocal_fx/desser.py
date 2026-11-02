@@ -139,8 +139,9 @@ def dynamic_deess(
     # тишина не де-эссится: ниже −70 dBFS сигнала в полосе практически нет
     reduction = np.where(band_db > -70.0, reduction, 0.0)
     gain = np.clip(10.0 ** (-reduction / 20.0), 10.0 ** (-float(reduction_db) / 20.0), 1.0)
-    smooth = max(3, int(0.0015 * sample_rate))
-    smoothed = np.convolve(gain, np.ones(smooth) / smooth, mode="same")
+    smooth = max(1, min(max(3, int(0.0015 * sample_rate)), gain.size))
+    # np.convolve("same") на коротком буфере вернул бы длину ядра — режем обратно
+    smoothed = np.convolve(gain, np.ones(smooth) / smooth, mode="same")[: gain.size]
     smoothed = np.minimum(smoothed, gain)  # на фронте не пропускаем пик
     output = low + band * smoothed[:, None]
     report = {

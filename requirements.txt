@@ -82,6 +82,5 @@ matchering>=2.0.6
 cryptography>=42.0.0
 audiomentations>=0.33.0
 moviepy>=1.0.3,<2.0.0
-noisereduce>=3.0.0
 lyricsgenius>=3.0.1
 mingus>=0.6.1
