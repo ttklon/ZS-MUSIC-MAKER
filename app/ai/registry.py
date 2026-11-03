@@ -10,6 +10,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional
 
+from app.ai.model_catalog import MODEL_REGISTRY  # noqa: F401 - existing public registry contract
+
 ROOT = Path(__file__).resolve().parents[2]
 MODELS_DIR = ROOT / "data" / "ai_models"
 MODELS_DIR.mkdir(parents=True, exist_ok=True)
@@ -35,80 +37,6 @@ class HardwareBudget:
             cpu_cores=int(os.environ.get("ZSMM_CPU_CORES", detected["cpu_cores"])),
             prefer_gpu=os.environ.get("ZSMM_PREFER_GPU", "1") == "1",
         )
-
-
-MODEL_REGISTRY: Dict[str, Dict[str, Any]] = {
-    "lyrics_llm": {
-        "role": "Генерация текстов (Qwen2.5-14B GGUF; требуется достаточно памяти)",
-        "engine": "llama_cpp",
-        "hf_repo": "bartowski/Qwen2.5-14B-Instruct-GGUF",
-        "file": "Qwen2.5-14B-Instruct-Q4_K_M.gguf",
-        "sha256": "e47ad95dad6ff848b431053b375adb5d39321290ea2c638682577dafca87c008",
-        "expected_size_bytes": 8988110976,
-        "context": 8192, "vram_est_gb": 9.5, "ram_est_gb": 12.0, "device_pref": "auto"},
-    "analysis_llm": {
-        "role": "Досье на артистов/треки (длинный контекст 32k)",
-        "engine": "llama_cpp",
-        "hf_repo": "bartowski/Qwen2.5-14B-Instruct-GGUF",
-        "file": "Qwen2.5-14B-Instruct-Q4_K_M.gguf",
-        "sha256": "e47ad95dad6ff848b431053b375adb5d39321290ea2c638682577dafca87c008",
-        "expected_size_bytes": 8988110976,
-        "context": 32768, "vram_est_gb": 9.5, "ram_est_gb": 14.0, "device_pref": "auto"},
-    "metadata_llm": {
-        "role": "Названия/описания/хэштеги (Llama-3.1-8B)",
-        "engine": "llama_cpp",
-        "hf_repo": "bartowski/Meta-Llama-3.1-8B-Instruct-GGUF",
-        "file": "Meta-Llama-3.1-8B-Instruct-Q5_K_M.gguf",
-        "sha256": "14e10feba0c82a55da198dcd69d137206ad22d116a809926d27fa5f2398c69c7",
-        "expected_size_bytes": 5732992416,
-        "context": 8192, "vram_est_gb": 7.0, "ram_est_gb": 10.0, "device_pref": "auto"},
-    "music_generation": {
-        "role": "Генерация бита (MusicGen-large 3.3B)",
-        "engine": "audiocraft_musicgen", "hf_repo": "facebook/musicgen-large",
-        "file": "musicgen-large", "vram_est_gb": 11.0, "ram_est_gb": 14.0,
-        "device_pref": "cuda", "cpu_fallback": "facebook/musicgen-medium"},
-    "music_stereo": {
-        "role": "Стерео-текстуры (переходы, интро, пэды)",
-        "engine": "audiocraft_musicgen", "hf_repo": "facebook/musicgen-stereo-medium",
-        "file": "musicgen-stereo-medium", "vram_est_gb": 8.0, "ram_est_gb": 10.0,
-        "device_pref": "auto"},
-    "tts_vocal": {
-        "role": "Основной вокал (XTTS-v2, клонирование голоса)",
-        "engine": "xtts_v2", "hf_repo": "coqui/XTTS-v2", "file": "XTTS-v2",
-        "vram_est_gb": 4.0, "ram_est_gb": 6.0, "device_pref": "cuda"},
-    "vocal_rvc": {
-        "role": "Voice-conversion под голос артиста (.pth кладёт юзер)",
-        "engine": "rvc", "hf_repo": "user_supplied", "file": "data/ai_models/vocal_rvc/*.pth",
-        "vram_est_gb": 3.0, "ram_est_gb": 4.0, "device_pref": "cuda"},
-    "stem_splitter": {
-        "role": "Демиксинг референса (Demucs htdemucs)",
-        "engine": "demucs", "hf_repo": "facebook/demucs-htdemucs",
-        "file": "htdemucs.th", "vram_est_gb": 6.0, "ram_est_gb": 10.0,
-        "device_pref": "cuda"},
-    "asr": {
-        "role": "Распознавание речи референса (faster-whisper large-v3)",
-        "engine": "faster_whisper", "hf_repo": "Systran/faster-whisper-large-v3",
-        "file": "faster-whisper-large-v3", "vram_est_gb": 6.0, "ram_est_gb": 8.0,
-        "device_pref": "cuda", "cpu_fallback": "Systran/faster-whisper-medium"},
-    "audio_tagger": {
-        "role": "Автотегирование (CLAP HTSAT-fused)",
-        "engine": "clap", "hf_repo": "laion/clap-htsat-fused",
-        "file": "clap-htsat-fused", "vram_est_gb": 2.5, "ram_est_gb": 4.0,
-        "device_pref": "auto"},
-    "essentia": {
-        "role": "BPM/key/loudness (librosa DSP)",
-        "engine": "essentia_or_librosa", "hf_repo": "", "file": "",
-        "vram_est_gb": 0.0, "ram_est_gb": 2.0, "device_pref": "cpu"},
-    "cover_art": {
-        "role": "Обложка (SDXL Base 1.0 fp16)",
-        "engine": "diffusers", "hf_repo": "stabilityai/stable-diffusion-xl-base-1.0",
-        "file": "sdxl-base-1.0", "vram_est_gb": 10.0, "ram_est_gb": 8.0,
-        "device_pref": "cuda", "cpu_fallback": "stabilityai/sd-turbo"},
-    "mastering_ai": {
-        "role": "AI-мастеринг (matchering под референс)",
-        "engine": "matchering_plus", "hf_repo": "", "file": "",
-        "vram_est_gb": 0.0, "ram_est_gb": 4.0, "device_pref": "cpu"},
-}
 
 
 @dataclass
@@ -163,7 +91,7 @@ class ModelRegistry:
             if eng == "faster_whisper":
                 from faster_whisper import WhisperModel  # noqa
                 from app.ai.hardware import whisper_weights_available
-                return whisper_weights_available(MODELS_DIR / key, self.pick_device(spec) != "cpu")
+                return whisper_weights_available(MODELS_DIR / key, self._whisper_device() == "cuda")
             if eng == "clap":
                 import transformers  # noqa
                 return True
@@ -231,12 +159,21 @@ class ModelRegistry:
             self.unload_after = unload_after; self.model = None
 
         def __enter__(self):
-            self.model = self.reg.load(self.key)
-            return self.model
+            # Keep the registry lease for the whole inference, not just load().
+            self.reg._lock.acquire()
+            try:
+                self.model = self.reg.load(self.key)
+                return self.model
+            except BaseException:
+                self.reg._lock.release()
+                raise
 
         def __exit__(self, et, ex, tb):
-            if self.unload_after:
-                self.reg.unload()
+            try:
+                if self.unload_after:
+                    self.reg.unload()
+            finally:
+                self.reg._lock.release()
             return False
 
     def use(self, key: str, unload_after: bool = True):
@@ -259,6 +196,20 @@ class ModelRegistry:
             logging.getLogger(__name__).debug("GPU free memory unavailable", exc_info=True)
         # Generic loaders cannot safely use torch-directml as a CUDA device.
         return "cpu"
+
+    def _whisper_device(self) -> str:
+        """CTranslate2 CUDA is not PyTorch ROCm or DirectML support."""
+        if self.pick_device(MODEL_REGISTRY["asr"]) != "cuda":
+            return "cpu"
+        try:
+            import torch
+            import ctranslate2
+            if getattr(getattr(torch, "version", None), "hip", None):
+                return "cpu"
+            return "cuda" if "float16" in ctranslate2.get_supported_compute_types("cuda") else "cpu"
+        except Exception:
+            logging.getLogger(__name__).debug("CTranslate2 CUDA unavailable", exc_info=True)
+            return "cpu"
 
     def _register_default_loaders(self) -> None:
         def _llama(key):
@@ -341,15 +292,20 @@ class ModelRegistry:
         def _wh():
             from faster_whisper import WhisperModel
             spec = MODEL_REGISTRY["asr"]
-            device = self.pick_device(spec)
-            size = "large-v3" if device != "cpu" else "medium"
-            local_dir = MODELS_DIR / "asr"
-            if all((local_dir / name).is_file() for name in
-                   ("model.bin", "config.json", "tokenizer.json", "preprocessor_config.json")):
-                size = str(local_dir)
+            device = self._whisper_device()
+            from app.ai.hardware import assert_whisper_memory, whisper_model_source
+            source = whisper_model_source(MODELS_DIR / "asr", device == "cuda")
+            if source is None:
+                raise FileNotFoundError("local Whisper weights not found")
+            size, model_bin = source
+            if device == "cuda" and model_bin.is_file():
+                estimated_vram = max(float(spec.get("vram_est_gb", 6)), model_bin.stat().st_size / (1024 ** 3) * 1.5)
+                if self.pick_device({**spec, "vram_est_gb": estimated_vram}) != "cuda":
+                    device = "cpu"
+            assert_whisper_memory(spec, device, model_bin)
             compute = "float16" if device == "cuda" else "int8"
-            return WhisperModel(size, device=device if device != "dml" else "cpu",
-                                compute_type=compute), device
+            return WhisperModel(size, device=device, compute_type=compute,
+                                local_files_only=True, cpu_threads=max(1, self.hw.cpu_threads)), device
         self._loaders["asr"] = _wh
 
         def _clap():

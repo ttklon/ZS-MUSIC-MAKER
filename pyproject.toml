@@ -65,14 +65,14 @@ version = {file = ["VERSION"]}
 # Зеркало requirements_ai.txt — тяжёлый AI-стек ставится отдельно (install.py).
 ai = [
     "llama-cpp-python>=0.2.90",
-    "huggingface_hub>=0.24.0",
+    "huggingface_hub>=0.24.0,<1",
     "safetensors>=0.4.3",
     "audiocraft>=1.3.0",
     "torch>=2.3.0",
     "torchaudio>=2.3.0",
     "TTS>=0.22.0",
     "demucs>=4.0.1",
-    "faster-whisper>=1.0.3",
+    "faster-whisper>=1.0.3,<2",
     "transformers>=4.44.0",
     "diffusers>=0.30.0",
     "accelerate>=0.33.0",

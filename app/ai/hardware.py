@@ -37,19 +37,29 @@ def detect_budget() -> dict[str, float | int]:
             "cpu_threads": max(1, int(threads)), "cpu_cores": max(1, int(cores))}
 
 
-def whisper_weights_available(local_dir, use_gpu: bool) -> bool:
-    """Check required CTranslate2 assets, locally or in the standard HF cache."""
+def whisper_model_source(local_dir, use_gpu: bool):
+    """Choose complete local ASR weights; try the other cached size, never download."""
+    from pathlib import Path
     files = ("model.bin", "config.json", "tokenizer.json", "preprocessor_config.json")
     if all((local_dir / name).is_file() for name in files):
-        return True
-    repo = "Systran/faster-whisper-large-v3" if use_gpu else "Systran/faster-whisper-medium"
+        return str(local_dir), local_dir / "model.bin"
+    choices = ("large-v3", "medium") if use_gpu else ("medium", "large-v3")
     try:
         from huggingface_hub import try_to_load_from_cache
 
-        return all(isinstance(try_to_load_from_cache(repo, name), str) for name in files)
+        for size in choices:
+            repo = "Systran/faster-whisper-" + size
+            cached = [try_to_load_from_cache(repo, name) for name in files]
+            if all(isinstance(path, str) for path in cached):
+                return size, Path(cached[0])
     except Exception:
         logging.getLogger(__name__).debug("Whisper cache unavailable", exc_info=True)
-        return False
+    return None
+
+
+def whisper_weights_available(local_dir, use_gpu: bool) -> bool:
+    """Presence of complete assets is not a successful inference."""
+    return whisper_model_source(local_dir, use_gpu) is not None
 
 
 def _windows_adapters() -> list[dict[str, str]]:
@@ -220,6 +230,16 @@ def detect_system(disk_path=None) -> dict:
         "default_backend": torch_device.get("backend", "cpu"),
         "notice": "Hardware detection does not verify model weights, compatibility or inference.",
     }
+
+
+def assert_whisper_memory(spec: dict, device: str, local_model=None) -> None:
+    """Approximate free-RAM guard, not a guarantee against out-of-memory."""
+    free_ram = available_memory_gib()
+    required = (float(spec.get("ram_est_gb", 8.0)) if device == "cpu" else 3.0) + 1.0
+    if device == "cpu" and local_model is not None and local_model.is_file():
+        required = max(required, local_model.stat().st_size / (1024 ** 3) * 1.3 + 2.0)
+    if free_ram is None or free_ram < required:
+        raise RuntimeError(f"Insufficient or unknown free RAM for ASR: need approximately {required:.1f} GiB")
 
 
 def assert_llama_memory(key: str, spec: dict, layers: int) -> None:

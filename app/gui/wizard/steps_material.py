@@ -97,6 +97,10 @@ class StepMaterial(StepBase):
         self.reference_text.setMinimumHeight(90)
         self.reference_text.setPlaceholderText(t("wizard.material.reference_text_placeholder"))
         self.root.addWidget(self.reference_text)
+        self.transcribe_refs = QCheckBox(t("wizard.material.transcribe_refs"))
+        self.transcribe_refs.setChecked(False)
+        self.root.addWidget(self.transcribe_refs)
+        self.root.addWidget(DIM(t("wizard.material.transcribe_refs_hint")))
         self.root.addWidget(H2(t("wizard.material.trend_notes")))
         self.trend_notes = QTextEdit()
         self.trend_notes.setMinimumHeight(70)
@@ -150,6 +154,7 @@ class StepMaterial(StepBase):
             line.strip() for line in self.lyrics.toPlainText().splitlines() if line.strip()
         ]
         recipe["reference_lyrics"] = self.reference_text.toPlainText()
+        recipe["transcribe_references"] = self.transcribe_refs.isChecked()
         recipe["trend_notes"] = self.trend_notes.toPlainText()
         recipe["bilingual"] = self.bilingual.isChecked()
         recipe["n_verses"] = int(self.verses.value())

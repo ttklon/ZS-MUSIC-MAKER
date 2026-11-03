@@ -243,6 +243,12 @@ class StepResult(StepBase):
         release_output = next((stage.get("output") or {} for stage in pipeline.get("stages", [])
                                if stage.get("name") == "_stage_release_pack"), {})
         release_notes = []
+        lyric_output = next((stage.get("output") or {} for stage in pipeline.get("stages", [])
+                             if stage.get("name") == "_stage_lyrics"), {})
+        asr = (lyric_output.get("creative_context") or {}).get("reference_asr") or {}
+        if asr.get("requested"):
+            release_notes.append(t("wizard.result.asr_status").format(
+                status=asr.get("status", "UNKNOWN"), reason=asr.get("reason") or "—"))
         if "timed_lyrics" in release_output.get("missing", []):
             release_notes.append(t("wizard.result.no_timed_lyrics"))
         if release_output.get("isrc_status") == "UNREGISTERED":

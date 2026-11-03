@@ -191,7 +191,7 @@ pip install audiocraft --no-deps
 pip install einops encodec sentencepiece hydra-core omegaconf av
 
 # Дополнительно: сплиттер стемов, распознавание речи, мастеринг под референс
-pip install demucs faster-whisper matchering
+pip install demucs "faster-whisper>=1.0.3,<2" matchering "huggingface-hub>=0.24,<1"
 
 # Тяжёлые TTS (опционально): XTTS, Bark
 pip install TTS
@@ -200,6 +200,26 @@ pip install git+https://github.com/suno-ai/bark.git --no-deps
 # ffmpeg (нужен pydub/demucs)
 winget install --id=Gyan.FFmpeg -e     # Windows
 ```
+
+### Локальное распознавание референсов (по желанию)
+
+После установки faster-whisper отдельно скачайте веса явной командой:
+
+```bash
+python tools/pull_ai_models.py --role asr
+python tools/pull_ai_models.py --role asr --verify
+```
+
+Команда скачивает `Systran/faster-whisper-large-v3` в `data/ai_models/asr`;
+проверьте место и условия модели. Альтернативно можно использовать уже
+загруженный в стандартный Hugging Face cache `medium` или `large-v3`. В самой
+обработке загрузки из сети нет. На CPU нужна оценка минимум 9 GiB свободной RAM
+(возможно больше в зависимости от размера весов); на AMD используется CPU,
+если CUDA CTranslate2 не подтверждён. Проверка памяти приблизительна, на CPU
+может быть медленно. В мастере отметьте распознавание на шаге материалов;
+подробности, лимиты и предупреждения о приватности — в `README.md`.
+Пакет `huggingface-hub` ограничен версией ниже 1 для совместимости с текущим
+gTTS/click; после изменения зависимостей рекомендуется выполнить `pip check`.
 
 ## 3. Проверка после установки
 

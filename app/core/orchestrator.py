@@ -185,7 +185,7 @@ def run_full_pipeline(
         lyrics_dict = _output(lyrics_stage).get("lyrics") or {}
         lyrics_text = _output(lyrics_stage).get("text") or ""
     elif _wanted(only, "lyrics"):
-        lyrics_stage, lyrics_dict, lyrics_text = _run_lyrics_stage({**recipe, "style_vector": style_vector})
+        lyrics_stage, lyrics_dict, lyrics_text = _run_lyrics_stage({**recipe, "style_vector": style_vector, "dry_run": dry_run})
     else:
         lyrics_stage = _blocked("_stage_lyrics", "skipped by --only")
         lyrics_dict, lyrics_text = {}, ""

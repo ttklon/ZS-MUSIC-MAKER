@@ -75,3 +75,20 @@ def test_full_and_batch_are_attached_to_progress(gui_module):
     assert calls[1] == ("track", "full-id")
     assert calls[-1] == ("batch", ["a", "b", "c"])
     assert all("only" not in recipe for recipe in calls[2][1])
+
+
+def test_result_shows_reference_asr_status(gui_module):
+    module, _ = gui_module
+    class Label:
+        text = ""
+        def setText(self, text): self.text = text
+    class Button:
+        def setEnabled(self, enabled): pass
+    info, detector = Label(), Label()
+    obj = SimpleNamespace(info=info, detector=detector, btn_part=Button())
+    asr = {"requested": True, "status": "BLOCKED", "reason": "local weights missing"}
+    result = {"pipeline": {"verdict": "PARTIAL", "stages": [{"name": "_stage_lyrics", "output": {
+        "creative_context": {"reference_asr": asr}}}]}}
+    job = SimpleNamespace(result=result, track_id="test", started_at=1, finished_at=2, stage="done")
+    module.StepResult.show_result(obj, job)
+    assert "BLOCKED" in info.text and "local weights missing" in info.text

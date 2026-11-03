@@ -109,6 +109,7 @@ def build_recipe(wizard_state: dict[str, Any] | None) -> dict[str, Any]:
         "duration_sec": _as_int(state.get("duration_sec")),
         "user_lyrics_lines": user_lines,
         "reference_lyrics": str(state.get("reference_lyrics") or ""),
+        "transcribe_references": bool(state.get("transcribe_references", False)),
         "trend_notes": str(state.get("trend_notes") or ""),
         "voice_mode": voice_mode,
         "stands": stands,

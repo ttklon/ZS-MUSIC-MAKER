@@ -6,9 +6,10 @@ app/core/stages/lyrics.py — Текст: структура куплет/при
 from __future__ import annotations
 
 import os
+import time
 from typing import Any
 
-from app.core.lyric_context import build_lyric_context
+from app.core.lyric_context import MAX_REFERENCE_CHARS, build_lyric_context
 from app.core.pipeline_runtime import _output, _timed
 from app.pipeline import StageResult, StageStatus
 
@@ -287,10 +288,32 @@ def _stage_lyrics(
 
 def _run_lyrics_stage(recipe: dict[str, Any]) -> tuple[StageResult, dict[str, Any], str]:
     """Текст: свои строки пользователя приоритетнее любой генерации."""
+    started = time.monotonic()
     user_lines = recipe["user_lyrics_lines"]
+    manual = str(recipe.get("reference_lyrics") or "")
+    if not manual.strip():
+        manual = ""
+    asr_report: dict[str, Any] = {"requested": False, "status": "NOT_REQUESTED"}
+    transcript = ""
+    if recipe.get("transcribe_references"):
+        if user_lines or recipe.get("dry_run"):
+            asr_report = {"requested": True, "status": "SKIPPED",
+                          "reason": "user lyrics take priority" if user_lines else "dry run"}
+        else:
+            from app.core.reference_asr import transcribe_references
+
+            transcript, asr_report = transcribe_references(recipe.get("refs") or [])
+    prefix = manual + "\n" if manual.strip() and transcript else manual
+    combined = prefix + transcript
+    included = max(0, min(len(combined), MAX_REFERENCE_CHARS) - min(len(prefix), MAX_REFERENCE_CHARS))
+    asr_report["provided_to_generator"] = False
+    asr_report["context_characters_used"] = included
+    asr_report["context_truncated"] = included < len(transcript)
+    source = "mixed" if manual.strip() and included else "audio_asr" if included else None
     context_report, creative_context = build_lyric_context(
-        recipe.get("reference_lyrics", ""), recipe.get("trend_notes", "")
+        combined, recipe.get("trend_notes", ""), reference_source=source
     )
+    context_report["reference_asr"] = asr_report
     context_report["provided_to_generator"] = False
     if user_lines:
         own_text = "\n".join(user_lines)
@@ -299,6 +322,7 @@ def _run_lyrics_stage(recipe: dict[str, Any]) -> tuple[StageResult, dict[str, An
             StageResult(
                 name="_stage_lyrics",
                 status=StageStatus.OK,
+                duration_sec=time.monotonic() - started,
                 output={
                     "ok": True,
                     "text": own_text,
@@ -319,10 +343,18 @@ def _run_lyrics_stage(recipe: dict[str, Any]) -> tuple[StageResult, dict[str, An
             creative_context=creative_context,
         ),
     )
+    stage.duration_sec = time.monotonic() - started
     out = _output(stage)
+    stage.output = out
     context_report["provided_to_generator"] = bool(
         creative_context and stage.ok and not out.get("fallback_used") and out.get("provider")
     )
+    asr_report["provided_to_generator"] = bool(included and context_report["provided_to_generator"])
+    if asr_report["status"] in ("BLOCKED", "NO_USABLE_TEXT", "PARTIAL") or asr_report["context_truncated"]:
+        if stage.status == StageStatus.OK:
+            stage.status = StageStatus.FALLBACK
+        out["fallback_used"] = True
+        stage.reason = stage.reason or "reference ASR unavailable, incomplete or truncated"
     out["creative_context"] = context_report
     struct = out.get("lyrics") or {}
     text = out.get("text") or _struct_to_text(struct)
