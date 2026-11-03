@@ -83,6 +83,14 @@ loop, и отдаёт стадии списком `AsyncStage`. Раньше у 
 порядок стадий и своя цель громкости (−12 LUFS у god), из-за чего правки
 качества до них не доезжали; теперь новая стадия добавляется в одном месте.
 
+### Мастеринг: один пакет, пять файлов
+
+`modules/mastering/` — `targets.py` (цели LUFS/crest/корреляции и EQ по
+стендам), `loudness.py` (бисекция по усилению + доводки), `chain.py`
+(`master_one`: тон → компрессия → лимитер → crest → гейты), `normalize.py`
+(догнать громкость уже готового мастера) и `stands.py` (все стенды + отчёт).
+Публичный вход — `from modules import mastering` (реэкспорт без изменений).
+
 ### Мастеринг стендов считается параллельно
 
 Восемь стендов независимы, поэтому `master_all_stands` раскладывает их по
@@ -157,7 +165,7 @@ loop, и отдаёт стадии списком `AsyncStage`. Раньше у 
 
 | Команда | Что ловит |
 |---|---|
-| `python -m pytest tests/` | 523 теста: unit, аудио, e2e, property, контракты GUI/CLI |
+| `python -m pytest tests/` | 526 тестов: unit, аудио, e2e, property, контракты GUI/CLI |
 | `python tools/smoke_audio.py` | стерео, громкость, drop (6 проверок) |
 | `python tools/smoke_god.py` | God Mode E2E, master 120 с, true-peak (8 проверок) |
 | `python tools/fallback_audit.py` | fallback-пути и маркеры заглушек |

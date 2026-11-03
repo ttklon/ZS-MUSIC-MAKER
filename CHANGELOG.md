@@ -58,9 +58,17 @@
   те же LUFS/TP/гейты, `tests/test_mastering_parallel.py`). `main.py` вызывает
   `multiprocessing.freeze_support()` — без него собранный exe при порождении
   процессов перезапускал бы сам себя.
+- **`modules/mastering.py` (632 строки) разложен на пакет** `modules/mastering/`:
+  `targets.py` (цели и коридоры по стендам), `loudness.py` (сходимость),
+  `chain.py` (цепь одного стенда), `normalize.py` (догнать громкость готового
+  мастера), `stands.py` (все стенды и параллельный счёт). Публичный API не
+  изменился (`from modules import mastering` работает как раньше), поведение
+  то же. В production-коде больше нет файлов длиннее 400 строк — правило
+  теперь стережёт `tests/test_code_hygiene.py` (плюс запрет `*_vN`-модулей и
+  проверка, что мастеринг живёт в одном месте).
 - Новые тесты: `tests/test_logger_and_crash.py` (10), `tests/test_wizard_structure.py`
   (10), `tests/test_windows_entrypoints.py` (17), `tests/test_pipeline_progress_contract.py`
-  (4), `tests/test_orchestrator_adapters.py` (8), `tests/test_mastering_parallel.py` (3). Полный набор: **523 passed, 1 skipped**; `smoke_audio` 6/6, `smoke_god` 8/8,
+  (4), `tests/test_orchestrator_adapters.py` (8), `tests/test_mastering_parallel.py` (3), `tests/test_code_hygiene.py` (3). Полный набор: **526 passed, 1 skipped**; `smoke_audio` 6/6, `smoke_god` 8/8,
   аудит честности CLEAN, AST CLEAN, gitignore CLEAN.
 
 ## 41.0.0-alpha.14 — точный true-peak, демо-прогон, property-тесты (2026-11-03)
