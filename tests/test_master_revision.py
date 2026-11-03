@@ -187,3 +187,15 @@ def test_mix_changed_during_mastering_is_not_offered_for_revision(source_project
     result = orchestrator.run_full_pipeline("changed", recipe, out_root=tmp_path / "changed")
     assert "artifact_integrity" not in result
     assert any("mix changed during render" in item for item in result["warnings"])
+
+
+def test_full_pipeline_passes_all_references_to_mix(source_project, monkeypatch, tmp_path):
+    _, recipe, _, _ = source_project
+    seen = []
+    def mix(beat, vocal, out, references, **kwargs):
+        seen.append(references)
+        return {"ok": True, "out_wav": _tone(out / "mix.wav"), "gates_passed": True, "gates": {}}
+    monkeypatch.setattr(orchestrator, "_stage_mix_and_sidechain", mix)
+    refs = ["ref1.wav", "ref2.wav", "ref3.wav"]
+    orchestrator.run_full_pipeline("all-refs", {**recipe, "references": refs}, out_root=tmp_path / "all-refs")
+    assert seen == [refs]

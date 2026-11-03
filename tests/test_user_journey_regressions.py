@@ -54,7 +54,7 @@ def test_invalid_explicit_vocal_does_not_silently_fall_back_to_tts(monkeypatch, 
     assert vocal is None and warnings
 
 
-def test_reference_match_reports_measured_output_not_original_bus(monkeypatch, tmp_path):
+def test_reference_match_rejects_candidate_that_breaks_mix_gates(monkeypatch, tmp_path):
     from app.core.stages.mix import _stage_mix_and_sidechain
     from modules.mix import bus, reference
 
@@ -68,13 +68,19 @@ def test_reference_match_reports_measured_output_not_original_bus(monkeypatch, t
         "ok": True, "out_wav": str(original), "report": {"rms_dbfs": -40.0},
         "gates": {"bus_rms": True}, "gates_passed": True})
     monkeypatch.setattr(reference, "match_to_reference", lambda *a, **k: {
-        "ok": True, "out_wav": str(matched)})
+        "ok": True, "out_wav": str(matched),
+        "gates": {"profile_deviation": False, "bandwidth_coverage": True, "true_peak": True, "no_clipping": True},
+        "bands": {"max_deviation_before_db": 10, "max_deviation_after_db": 9}})
     result = _stage_mix_and_sidechain("beat.wav", None, tmp_path, "ref.wav")
     assert result["ok"]
-    assert result["out_wav"] == str(matched)
-    assert result["metrics"]["rms_dbfs"] > -20
-    assert result["pre_reference"]["metrics"]["rms_dbfs"] == -40.0
-    assert not result["gates_passed"]
+    assert result["out_wav"] == str(original)
+    assert result["metrics"]["rms_dbfs"] == -40.0
+    assert result["reference"]["candidate_mix_metrics"]["rms_dbfs"] > -20
+    assert result["reference"]["candidate_out_wav"] == str(matched)
+    assert result["reference"]["applied"] is False
+    assert result["reference"]["gates"]["mix_safety"] is False
+    assert "bus_rms" in result["reference"]["rejection_reason"]
+    assert result["fallback_used"] is True
 
 
 def test_quality_failures_are_not_hidden_by_successful_execution():
@@ -117,3 +123,99 @@ def test_rvc_pitch_parameter_is_forwarded_to_backend(monkeypatch, tmp_path):
     monkeypatch.setattr(rvc_manager, "infer", lambda *args, **kwargs: calls.update(kwargs) or "converted.wav")
     result = vocal._stage_rvc("voice.wav", tmp_path, pitch_shift=-3)
     assert result["ok"] and calls["pitch_shift"] == -3
+
+
+def test_reference_candidate_is_measured_when_accepted(monkeypatch, tmp_path):
+    from app.core.stages.mix import _stage_mix_and_sidechain
+    from modules.mix import bus, reference
+    sr = 8000
+    original, matched = tmp_path / "mix.wav", tmp_path / "candidate.wav"
+    t = np.arange(sr * 2) / sr
+    sf.write(original, np.column_stack([0.01 * np.sin(2*np.pi*220*t)] * 2), sr)
+    sf.write(matched, np.column_stack([0.4 * np.sin(2*np.pi*220*t)] * 2), sr)
+    monkeypatch.setattr(bus, "prepare_mix", lambda *a, **k: {
+        "ok": True, "out_wav": str(original), "report": {"rms_dbfs": -40.0},
+        "gates": {"bus_rms": False}, "gates_passed": False})
+    monkeypatch.setattr(reference, "match_to_reference", lambda *a, **k: {
+        "ok": True, "out_wav": str(matched),
+        "gates": {"profile_deviation": True, "bandwidth_coverage": True, "true_peak": True, "no_clipping": True},
+        "bands": {"max_deviation_before_db": 10, "max_deviation_after_db": 9}})
+    result = _stage_mix_and_sidechain("beat.wav", None, tmp_path, ["ref.wav"])
+    assert result["out_wav"] == str(matched)
+    assert result["metrics"]["rms_dbfs"] > -20
+    assert result["reference"]["applied"] is True
+    assert not result["gates_passed"]
+
+
+def test_missing_requested_reference_is_observable_failure(monkeypatch, tmp_path):
+    from app.core.stages.mix import _stage_mix_and_sidechain
+    from app.core.pipeline_runtime import _quality_gate_failures
+    from modules.mix import bus
+    from app.pipeline import classify
+    path = tmp_path / "mix.wav"
+    sf.write(path, np.zeros((8000, 2)), 8000)
+    monkeypatch.setattr(bus, "prepare_mix", lambda *a, **k: {
+        "ok": True, "out_wav": str(path), "report": {}, "gates": {"bus_rms": True}})
+    result = _stage_mix_and_sidechain("beat.wav", None, tmp_path, ["missing.wav"])
+    assert result["out_wav"] == str(path)
+    assert result["reference"]["gates_passed"] is False and result["fallback_used"]
+    assert _quality_gate_failures([classify(result, name="_stage_mix_and_sidechain")]) == ["reference match: reference_available"]
+
+
+def test_reference_uses_strongest_safe_candidate(monkeypatch, tmp_path):
+    from app.core.stages.mix import _stage_mix_and_sidechain
+    from modules.mix import bus, reference
+    original = tmp_path / "mix.wav"
+    sf.write(original, np.zeros((8000, 2)), 8000)
+    monkeypatch.setattr(bus, "prepare_mix", lambda *a, **k: {
+        "ok": True, "out_wav": str(original), "report": {"rms_dbfs": -18.0},
+        "gates": {"bus_rms": True}, "gates_passed": True})
+    strengths = []
+    def candidate(*args, strength, **kwargs):
+        strengths.append(strength)
+        path = tmp_path / "candidate.wav"
+        sf.write(path, np.full((8000, 2), strength / 2), 8000)
+        return {"ok": True, "out_wav": str(path), "gates": {"profile_deviation": False,
+                "bandwidth_coverage": True, "true_peak": True, "no_clipping": True},
+                "bands": {"max_deviation_before_db": 10, "max_deviation_after_db": 9}}
+    monkeypatch.setattr(reference, "match_to_reference", candidate)
+    monkeypatch.setattr(bus, "evaluate_mix", lambda audio, sr: (
+        {"rms_dbfs": -18}, {"bus_rms": bool(np.max(audio) < .2)}))
+    result = _stage_mix_and_sidechain("beat.wav", None, tmp_path, ["ref.wav"])
+    assert strengths == [1.0, 0.5, 0.25]
+    assert result["reference"]["applied"] is True
+    assert result["reference"]["gates_passed"] is False  # reference profile still failed
+    assert result["fallback_used"] and "0.250" in result["reason"]
+    assert result["reference"]["attempts"][0]["rejected"] == ["bus_rms"]
+    assert result["reference"]["attempts"][-1]["rejected"] == []
+    import json
+    recorded = json.loads(Path(result["report_path"]).read_text(encoding="utf-8"))
+    assert recorded["out_wav"] == result["out_wav"]
+    assert recorded["reference"]["applied"] is True
+
+
+def test_incomplete_reference_report_is_not_a_success(monkeypatch, tmp_path):
+    from app.core.stages.mix import _stage_mix_and_sidechain
+    from modules.mix import bus, reference
+    path = tmp_path / "mix.wav"
+    sf.write(path, np.zeros((8000, 2)), 8000)
+    monkeypatch.setattr(bus, "prepare_mix", lambda *a, **k: {
+        "ok": True, "out_wav": str(path), "report": {}, "gates": {"bus_rms": True}})
+    monkeypatch.setattr(reference, "match_to_reference", lambda *a, **k: {"ok": True, "out_wav": str(path)})
+    result = _stage_mix_and_sidechain("beat.wav", None, tmp_path, ["ref.wav"])
+    assert result["fallback_used"] and not result["reference"]["gates_passed"]
+    assert "incomplete report" in result["reason"]
+
+
+def test_malformed_reference_match_result_is_explicit_fallback(monkeypatch, tmp_path):
+    from app.core.stages.mix import _stage_mix_and_sidechain
+    from modules.mix import bus, reference
+    path = tmp_path / "mix.wav"
+    sf.write(path, np.zeros((8000, 2)), 8000)
+    monkeypatch.setattr(bus, "prepare_mix", lambda *a, **k: {
+        "ok": True, "out_wav": str(path), "report": {}, "gates": {"bus_rms": True}})
+    monkeypatch.setattr(reference, "match_to_reference", lambda *a, **k: None)
+    result = _stage_mix_and_sidechain("beat.wav", None, tmp_path, ["ref.wav"])
+    assert result["out_wav"] == str(path)
+    assert result["fallback_used"] and not result["reference"]["gates_passed"]
+    assert "invalid result" in result["reason"]

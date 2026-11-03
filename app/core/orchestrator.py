@@ -221,7 +221,7 @@ def run_full_pipeline(
         mix_stage = _timed(
             "_stage_mix_and_sidechain",
             lambda: _stage_mix_and_sidechain(
-                beat_wav, vocal_final, out_root, (recipe.get("refs") or [None])[0],
+                beat_wav, vocal_final, out_root, recipe.get("refs") or None,
                 vocal_offset_ms=recipe.get("vocal_offset_ms", 0),
             ),
         )
