@@ -26,13 +26,28 @@
 
 ## Гейты
 
-- `pytest tests/` — 602 passed, 1 skipped (Linux); новый тест CLI smoke отдельно passed; Windows 11 отдельно не проверен
+- `pytest tests/` — 610 passed, 1 skipped (Linux); после этого дополнительно 35 targeted GUI/revision/release/KPI/AST-тестов passed; Windows 11 отдельно не проверен
 - `tools/smoke_audio.py` — 6/6 PASS (без MusicGen и вокальных движков)
 - `tools/smoke_god.py` — 8/8 PASS в предыдущем прогоне (DSP fallback, без тяжёлого AI)
 - `tools/ast_dead_imports.py` — CLEAN (0)
 - `python -m compileall` — 0 ошибок
 - `tools/audit_honesty.py` — CLEAN (0)
 - `tools/gitignore_guard.py` — CLEAN
+
+## Пересборка мастера и исправление релизных метаданных (2026-11-03)
+
+Отдельный Linux E2E `output/master_revision_verified/result.json`: 20 секунд,
+3 синтетических референса, 4.95 с CC0 речи, RVC выключен. Полный прогон и
+пересборка мастера — **PARTIAL**: mix bus RMS/correlation, reference profile
+и mastering correlation. Исходный микс и копия совпадают по SHA-256
+`4f1850048613c8205fbeb05a3003d096046139016d839ccb4c4aefebf63bde57`;
+15 событий прогресса, старый отчёт не меняется. Это не тест настоящих моделей,
+пения, Windows или GUI. Пересборка доступна только для задач текущей сессии с
+новым manifest, копирует лишь микс и сохраняет исходные статусы/гейты.
+
+Ранее приложение выдумывало похожие на ISRC коды и равномерные таймкоды
+LRC/SRT. Старые релизы требуют проверки; в новых такие данные не генерируются.
+`--resume` отключён до безопасной реализации. GUI проверен только моками.
 
 ## Сквозная проверка сценария (2026-11-03)
 
@@ -123,5 +138,5 @@ DXGI Windows, NVIDIA, AMD и низкая память проверены мод
 - Микрофонная запись и полноценная проверка на Windows 11 ещё не проведены;
   тяжёлые движки MusicGen и Demucs недоступны в текущей среде.
 
-План работ: `docs/PLAN_v41_MASTER.md`, архитектура: `docs/ARCHITECTURE.md`.
+План работ: `docs/ROADMAP.md`, архитектура: `docs/ARCHITECTURE.md`.
 История изменений: `CHANGELOG.md`.

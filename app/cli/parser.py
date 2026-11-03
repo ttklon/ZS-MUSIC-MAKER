@@ -29,7 +29,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--run", action="store_true", help="Run the full classic pipeline without GUI")
     parser.add_argument("--dry-run", action="store_true", help="Run pipeline in dry-run (no heavy deps)")
     parser.add_argument("--seed", type=int, default=None, help="Deterministic seed (same seed => identical beat/artefacts)")
-    parser.add_argument("--resume", action="store_true", help="Reuse artefacts of a previous run in the same project dir")
+    parser.add_argument("--resume", action="store_true", help="Disabled: legacy artifact reuse was not verified")
     parser.add_argument("--only", type=str, default="", help="Comma-separated stages to run (see --list-stages)")
     parser.add_argument("--dashboard", action="store_true", help="Show KPI dashboard")
     parser.add_argument("--e2e", action="store_true", help="Run real end-to-end test")

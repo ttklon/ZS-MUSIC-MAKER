@@ -75,24 +75,16 @@ def test_unknown_only_stage_is_rejected_before_any_work(tmp_path: Path) -> None:
     assert not (tmp_path / "bad_only" / "report.json").exists()
 
 
-def test_resume_reuses_previous_beat_and_marks_it(tmp_path: Path) -> None:
+def test_unsafe_legacy_resume_is_rejected_without_overwriting(tmp_path: Path) -> None:
     out_root = tmp_path / "resume"
     _beat_run(tmp_path, "resume", 99)
     before = _sha256(out_root / "beat.wav")
-
-    report = run_full_pipeline(
-        "resume",
-        {"genre": "drift_phonk", "theme": "night drive", "seed": 99, "duration_sec": 12},
-        out_root=out_root,
-        only={"arrangement", "beat"},
-        resume=True,
-    )
-
-    beat_stage = next(s for s in report["stages"] if s["name"] == "_stage_beat")
-    assert beat_stage["status"] == "OK"
-    assert beat_stage["output"]["resumed"] is True
-    assert report["resume"] is True
+    report_before = (out_root / "report.json").read_bytes()
+    with pytest.raises(ValueError, match="resume is disabled"):
+        run_full_pipeline("resume", {"genre": "drift_phonk", "seed": 99},
+                          out_root=out_root, only={"beat"}, resume=True)
     assert _sha256(out_root / "beat.wav") == before
+    assert (out_root / "report.json").read_bytes() == report_before
 
 
 def test_report_json_is_written_next_to_artefacts(tmp_path: Path) -> None:

@@ -2,7 +2,7 @@
 """
 modules/release/pack.py — полный релизный пакет из результата пайплайна.
 
-Собирает мастер (+ варианты стендов), стемы, тексты (txt/lrc/srt), метаданные,
+Собирает мастер (+ варианты стендов), стемы, текст (txt), метаданные,
 пакеты площадок, отчёт хит-метрик, манифест с SHA-256 и ZIP. Всё, что не
 удалось сделать, честно попадает в `missing`/`warnings` — «тихий успех»
 запрещён.
@@ -17,39 +17,6 @@ from typing import Any
 
 from modules.release.channels import build_all_channels
 from modules.release.export import export_release, refresh_zip, sha256_file
-
-
-def _lyrics_to_lrc(lyrics_text: str, total_sec: float) -> str:
-    """LRC по строкам: строки раскладываются ровно по длительности трека."""
-    lines = [line.strip() for line in (lyrics_text or "").splitlines() if line.strip()]
-    if not lines:
-        return ""
-    step = max(1.0, float(total_sec or 0) / len(lines)) if total_sec else 4.0
-    out = []
-    for index, line in enumerate(lines):
-        seconds = index * step
-        out.append(f"[{int(seconds // 60):02d}:{seconds % 60:05.2f}]{line}")
-    return "\n".join(out) + "\n"
-
-
-def _lyrics_to_srt(lyrics_text: str, total_sec: float) -> str:
-    lines = [line.strip() for line in (lyrics_text or "").splitlines() if line.strip()]
-    if not lines:
-        return ""
-    step = max(1.0, float(total_sec or 0) / len(lines)) if total_sec else 4.0
-
-    def stamp(seconds: float) -> str:
-        hours = int(seconds // 3600)
-        minutes = int((seconds % 3600) // 60)
-        secs = int(seconds % 60)
-        millis = int((seconds - int(seconds)) * 1000)
-        return f"{hours:02d}:{minutes:02d}:{secs:02d},{millis:03d}"
-
-    blocks = []
-    for index, line in enumerate(lines):
-        start = index * step
-        blocks.append(f"{index + 1}\n{stamp(start)} --> {stamp(start + step)}\n{line}\n")
-    return "\n".join(blocks)
 
 
 def _copy_masters(masters_map: dict[str, str] | None, out: Path) -> list[str]:
@@ -118,12 +85,12 @@ def build_pack(
             "reason": f"master not found: {master_wav!r}",
         }
 
+    if any((out / name).exists() for name in ("lyrics.lrc", "lyrics.srt")):
+        return {"ok": False, "engine": "modules.release.pack",
+                "reason": "existing timed lyrics may be stale; use a fresh release directory"}
     meta.setdefault("title", Path(master_wav).stem)
     meta.setdefault("artist", "ZS Music Maker")
     meta.setdefault("lyrics_text", lyrics_text)
-
-    duration = meta.get("duration_sec") or 0.0
-    files: dict[str, str] = {}
 
     masters = _copy_masters(masters_map, out)
     if masters_map and not masters:
@@ -132,21 +99,15 @@ def build_pack(
     if stems_map and not stems:
         missing.append("stems")
 
-    extra_artifacts: list[Path] = []
     if lyrics_text.strip():
-        lrc_path = out / "lyrics.lrc"
-        lrc_path.write_text(_lyrics_to_lrc(lyrics_text, float(duration)), encoding="utf-8")
-        files["lyrics.lrc"] = str(lrc_path)
-        srt_path = out / "lyrics.srt"
-        srt_path.write_text(_lyrics_to_srt(lyrics_text, float(duration)), encoding="utf-8")
-        files["lyrics.srt"] = str(srt_path)
-        extra_artifacts += [lrc_path, srt_path]
+        missing.append("timed_lyrics")
+        warnings.append("LRC/SRT not generated: lyrics have not been aligned to the audio")
     else:
         missing.append("lyrics")
+    extra_artifacts: list[Path] = []
 
     hit_path = out / "hit_report.md"
     hit_path.write_text(_hit_report(meta, hit_metrics), encoding="utf-8")
-    files["hit_report.md"] = str(hit_path)
     extra_artifacts.append(hit_path)
 
     channels = build_all_channels(meta, out / "channels")
@@ -183,6 +144,8 @@ def build_pack(
     manifest["stems"] = stems
     manifest["channels"] = channels.get("channels")
     manifest["stages"] = _stage_summary(stages)
+    manifest["missing"] = missing
+    manifest["warnings"] = warnings
     manifest_path.write_text(
         json.dumps(manifest, ensure_ascii=False, indent=2, sort_keys=True), encoding="utf-8"
     )
@@ -193,7 +156,7 @@ def build_pack(
         warnings.append("release.zip could not be rebuilt after the manifest update")
     exported["files"]["release.zip"] = str(out / "release.zip")
 
-    all_files = sorted(set(list(exported["files"].values()) + masters + stems))
+    all_files = sorted(set(list(exported["files"].values()) + masters + stems + channels.get("files", []) + [str(p) for p in extra_artifacts]))
     return {
         "ok": True,
         "engine": "modules.release.pack",

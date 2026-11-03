@@ -21,7 +21,6 @@ from pathlib import Path
 from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import (
     QHBoxLayout,
-    QInputDialog,
     QLabel,
     QMessageBox,
     QProgressBar,
@@ -44,15 +43,6 @@ BATCH_THEMES = (
 )
 
 TICK_MS = 1000
-
-# «Переделать часть» → реальные стадии конвейера (`STAGE_KEYS`), а не пожелание
-REBUILD_STAGES: dict[str, set[str]] = {
-    "part_bit": {"analysis", "groove", "arrangement", "beat", "texture"},
-    "part_lyrics": {"lyrics", "vocal"},
-    "part_voice": {"vocal", "mix", "master", "polish", "stems", "hit_score", "release"},
-    "part_master": {"mix", "master", "polish", "stems", "hit_score", "release"},
-}
-
 
 class StepRun(StepBase):
     """Очередь, ночная пачка, прогресс по стадиям."""
@@ -129,6 +119,24 @@ class StepRun(StepBase):
         self.log.append(f"[BATCH] {len(self.batch_tids)}: {', '.join(self.batch_tids)}")
         self.queue_label.setText(f"Очередь: {len(self.batch_tids)}")
 
+    def track_job(self, tid: str) -> None:
+        """Track a job created from the result screen using the existing progress UI."""
+        self.current_tid = tid
+        self.btn_start.setEnabled(False)
+        self.log.append(t("wizard.run.enqueued", id=tid))
+        self.wizard.stack.setCurrentWidget(self)
+        self.wizard.crumbs.setText(self.wizard._crumb_text())
+        self.wizard._sync_nav()
+        self.enter()
+
+    def track_batch(self, tids: list[str]) -> None:
+        self.batch_tids.extend(tids)
+        self.log.append(f"[BATCH] {len(tids)}: {', '.join(tids)}")
+        self.wizard.stack.setCurrentWidget(self)
+        self.wizard.crumbs.setText(self.wizard._crumb_text())
+        self.wizard._sync_nav()
+        self.enter()
+
     # --- прогресс ----------------------------------------------------------
     def enter(self) -> None:
         if not self._timer_started:
@@ -169,7 +177,8 @@ class StepRun(StepBase):
                     self.status.setText(str(job.error))
             elif tid in self.batch_tids:
                 self.batch_tids.remove(tid)
-                self.log.append(f"[{tid}] {job.status}")
+                detail = f" → {job.project_dir}" if job.status == "done" else f" → {job.error}"
+                self.log.append(f"[{tid}] {job.status}{detail}")
 
     def commit(self, recipe: dict) -> None:
         """На этом шаге ничего не сохраняется: рецепт уже собран шагами 1–4."""
@@ -199,10 +208,8 @@ class StepResult(StepBase):
         self.btn_full = QPushButton(t("wizard.result.rebuild_all"))
         self.btn_full.clicked.connect(self.rebuild_full)
         self.btn_part = QPushButton(t("wizard.result.rebuild_part"))
-        # A partial job currently gets a fresh directory without the prior beat,
-        # vocal or mix. Disable rather than claim a successful rebuild.
-        self.btn_part.setEnabled(False)
-        self.btn_part.setToolTip("Частичная пересборка временно недоступна: исходные артефакты не переносятся")
+        self.btn_part.setToolTip(t("wizard.result.master_tooltip"))
+        self.btn_part.clicked.connect(self.rebuild_part)
         self.btn_three = QPushButton(t("wizard.result.variants"))
         self.btn_three.clicked.connect(self.three_variants)
         row.addWidget(self.btn_full)
@@ -229,14 +236,24 @@ class StepResult(StepBase):
         master = result.get("master") or result.get("master_path", "—")
         elapsed = max(0.0, float(job.finished_at or 0) - float(job.started_at or 0))
         pipeline = result.get("pipeline") or {}
+        self.btn_part.setEnabled(bool((pipeline.get("artifact_integrity") or {}).get("mix"))
+                                 and not pipeline.get("only") and not pipeline.get("resume")
+                                 and not pipeline.get("dry_run"))
         verdict = pipeline.get("verdict") or job.stage
+        release_output = next((stage.get("output") or {} for stage in pipeline.get("stages", [])
+                               if stage.get("name") == "_stage_release_pack"), {})
+        release_notes = []
+        if "timed_lyrics" in release_output.get("missing", []):
+            release_notes.append(t("wizard.result.no_timed_lyrics"))
+        if release_output.get("isrc_status") == "UNREGISTERED":
+            release_notes.append(t("wizard.result.no_isrc"))
         headline = "✅ Обработка завершена" if verdict == "PASS" else "⚠️ Обработка завершена с ограничениями"
         self.info.setText(
             f"{headline} (статус: {verdict})\n\n"
             f"Track ID: {job.track_id}\n"
             f"Мастер: {master}\n"
             f"Релиз-пакет: {release}\n"
-            f"Время: {elapsed:.1f} сек"
+            f"Время: {elapsed:.1f} сек\n" + "\n".join(release_notes)
         )
         detector = result.get("ai_detector") or {}
         if detector.get("ok"):
@@ -266,43 +283,36 @@ class StepResult(StepBase):
     def rebuild_full(self) -> None:
         if not self.current_job:
             return
-        recipe = dict(self.current_job.recipe)
-        recipe.pop("only", None)
-        self.wizard.orch.enqueue(recipe)
-        QMessageBox.information(self, t("wizard.result.title"), t("wizard.run.enqueued", id="…"))
-
-    def rebuild_part(self) -> None:
-        """Пересобрать только выбранную часть: остальные стадии пропускаются."""
-        if not self.current_job:
+        run_step = self.wizard.steps[-1]
+        if run_step.current_tid:
+            QMessageBox.warning(self, t("dialog.error"), t("wizard.result.job_busy"))
             return
-        labels = [
-            ("part_bit", t("wizard.result.part_bit")),
-            ("part_lyrics", t("wizard.result.part_lyrics")),
-            ("part_voice", t("wizard.result.part_voice")),
-            ("part_master", t("wizard.result.part_master")),
-        ]
-        item, ok = QInputDialog.getItem(
-            self,
-            t("wizard.result.part_question"),
-            t("wizard.result.part_question"),
-            [label for _key, label in labels],
-            0,
-            False,
-        )
-        if not ok:
-            return
-        key = next(k for k, label in labels if label == item)
         recipe = dict(self.current_job.recipe)
         recipe.pop("only", None)
         try:
-            tid = self.wizard.orch.enqueue(recipe, only=REBUILD_STAGES[key])
-        except TypeError:
-            # старый оркестратор без `only` — честно сообщаем, а не делаем вид
-            QMessageBox.warning(self, t("dialog.error"), "Пересборка части не поддерживается")
+            tid = self.wizard.orch.enqueue(recipe)
+            run_step.track_job(tid)
+        except Exception as error:  # noqa: BLE001 - enqueue may fail
+            QMessageBox.warning(self, t("dialog.error"), str(error))
+
+    def rebuild_part(self) -> None:
+        """Re-master a verified prior mix; earlier stages are not regenerated."""
+        if not self.current_job:
             return
-        self.wizard.stack.setCurrentIndex(self.wizard.steps.index(self.wizard.steps[-1]))
-        self.wizard._sync_nav()
-        QMessageBox.information(self, t("wizard.result.title"), t("wizard.run.enqueued", id=tid))
+        run_step = self.wizard.steps[-1]
+        if run_step.current_tid:
+            QMessageBox.warning(self, t("dialog.error"), t("wizard.result.job_busy"))
+            return
+        if QMessageBox.question(self, t("wizard.result.rebuild_part"),
+                                t("wizard.result.master_confirm")) != QMessageBox.StandardButton.Yes:
+            return
+        settings = self.wizard.current_recipe()
+        overrides = {key: settings[key] for key in ("stands", "export_stems") if key in settings}
+        try:
+            tid = self.wizard.orch.enqueue_master_revision(self.current_job.track_id, overrides)
+            run_step.track_job(tid)
+        except Exception as error:  # noqa: BLE001 - reject unverifiable source
+            QMessageBox.warning(self, t("dialog.error"), str(error))
 
     def three_variants(self) -> None:
         if not self.current_job:
@@ -310,11 +320,15 @@ class StepResult(StepBase):
         recipes = []
         for index in range(3):
             recipe = dict(self.current_job.recipe)
+            recipe.pop("only", None)
             recipe["variant"] = index + 1
             recipe["aggression"] = 0.4 + index * 0.2
             recipes.append(recipe)
-        tids = self.wizard.orch.enqueue_batch(recipes)
-        QMessageBox.information(self, t("wizard.result.title"), ", ".join(tids))
+        try:
+            tids = self.wizard.orch.enqueue_batch(recipes)
+            self.wizard.steps[-1].track_batch(tids)
+        except Exception as error:  # noqa: BLE001
+            QMessageBox.warning(self, t("dialog.error"), str(error))
 
     def commit(self, recipe: dict) -> None:
         """На экране результата рецепт не меняется."""

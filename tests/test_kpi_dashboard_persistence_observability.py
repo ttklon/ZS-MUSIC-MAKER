@@ -13,7 +13,7 @@ def test_dashboard_reports_saved_report_paths(monkeypatch, tmp_path):
     assert result.persistence["ok"] is True
     assert result.persistence["status"] == "saved"
     assert (tmp_path / "data" / "kpi_dashboard.json").exists()
-    assert (tmp_path / "docs" / "KPI_DASHBOARD_v12.md").exists()
+    assert (tmp_path / "output" / "kpi_dashboard.md").exists()
 
 
 def test_dashboard_reports_failed_report_write(monkeypatch, tmp_path):
@@ -23,7 +23,7 @@ def test_dashboard_reports_failed_report_write(monkeypatch, tmp_path):
     original_write_text = pathlib.Path.write_text
 
     def fail_markdown(self, text, *args, **kwargs):
-        if self.name == "KPI_DASHBOARD_v12.md":
+        if self.name == "kpi_dashboard.md":
             raise OSError("disk full")
         return original_write_text(self, text, *args, **kwargs)
 

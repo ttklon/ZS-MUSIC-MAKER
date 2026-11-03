@@ -25,15 +25,17 @@ import time
 from pathlib import Path
 from typing import Any, Callable
 
+from app.core.revision import add_mix_integrity
 from app.core.pipeline_runtime import (
     STAGE_KEYS,
+    STAGE_RECORDS,
+    MASTER_STANDS,
+    STEM_NAMES,
     _apply_seed,
     _blocked,
     _normalize_path_map,
     _output,
     _quality_gate_failures,
-    _resume_path,
-    _resumed,
     _timed,
     _wanted,
 )
@@ -55,34 +57,6 @@ from app.pipeline import summarize
 
 ROOT = Path(__file__).resolve().parents[2]
 
-MASTER_STANDS = (
-    "streaming",
-    "car",
-    "club",
-    "tiktok",
-    "airpods",
-    "bluetooth",
-    "headphones",
-    "monitors",
-)
-STEM_NAMES = ("drums", "bass", "vocals", "other")
-# Полный список записей прогона в порядке выполнения (для прогресса и отчёта).
-STAGE_RECORDS = (
-    "_stage_analyze", "_stage_groove",
-    "_stage_arrangement",
-    "_stage_beat",
-    "_stage_texture",
-    "_stage_lyrics",
-    "_stage_voice_synth",
-    "_stage_rvc",
-    "_stage_vocal_fx",
-    "_stage_mix_and_sidechain",
-    "_stage_mastering",
-    "_stage_polish",
-    "_stage_stems",
-    "_stage_hit_score",
-    "_stage_release_pack",
-)
 
 def run_full_pipeline(
     project_id: str,
@@ -92,17 +66,21 @@ def run_full_pipeline(
     only: set[str] | None = None,
     resume: bool = False,
     on_stage: Callable[[str, str, int, int], None] | None = None,
+    reused_stages: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Полный прогон от рецепта до релиз-пакета.
 
     ``only``   — подмножество `STAGE_KEYS`; невыбранные стадии получают статус
                  BLOCKED с причиной «skipped by --only», а не тихо исчезают.
-    ``resume`` — переиспользовать артефакты предыдущего прогона в `out_root`.
+    ``resume`` — временно отключён: прежняя проверка только по имени файла небезопасна.
     ``seed``   — из `wizard_state`; при заданном seed прогон воспроизводим.
     ``on_stage`` — колбэк `(name, status, index, total)` после каждой стадии:
                  по нему GUI показывает реальный прогресс, а не «0.1 → 0.92».
     """
+    if resume:
+        raise ValueError("resume is disabled: previous artifacts were not verified; use a new full render or verified master revision")
     started_at = time.time()
+    reused_stages = reused_stages or {}
     out_root = out_root or (ROOT / "output" / "audit_v17" / project_id)
     out_root.mkdir(parents=True, exist_ok=True)
 
@@ -119,6 +97,8 @@ def run_full_pipeline(
     _apply_seed(recipe.get("seed"))
     stages: list[StageResult] = []
     warnings: list[str] = []
+    prior = _output(reused_stages.get("_stage_mix_and_sidechain")) if reused_stages.get("_stage_mix_and_sidechain") else {}
+    warnings.extend(f"prior run: {w}" for w in prior.get("reused_source_warnings", []))
     # Пайплайн всегда добавляет одно и то же число записей: пропущенные стадии
     # попадают в список как BLOCKED, а не исчезают. Поэтому «всего» известно
     # заранее и прогресс в GUI не врёт.
@@ -130,14 +110,17 @@ def run_full_pipeline(
             stages.append(stage)
             if on_stage is not None:
                 try:
-                    on_stage(stage.name, stage.status.value, len(stages), total_stages)
+                    status = f"{stage.status.value} (reused)" if _output(stage).get("reused") else stage.status.value
+                    on_stage(stage.name, status, len(stages), total_stages)
                 except Exception as error:  # noqa: BLE001 - колбэк не должен ломать прогон
                     warnings.append(f"progress callback failed: {type(error).__name__}: {error}")
 
     if not _wanted(only, "vocal"):
         warnings.append("vocal stages skipped by --only")
 
-    if _wanted(only, "analysis"):
+    if "_stage_analyze" in reused_stages:
+        analysis_stage = reused_stages["_stage_analyze"]
+    elif _wanted(only, "analysis"):
         analysis_stage = _timed(
             "_stage_analyze",
             lambda: _stage_analyze(recipe["refs"], dry_run, recipe["genre"]),
@@ -147,7 +130,9 @@ def run_full_pipeline(
     add(analysis_stage)
     analysis = _output(analysis_stage).get("analysis")
 
-    if _wanted(only, "groove"):
+    if "_stage_groove" in reused_stages:
+        groove_stage = reused_stages["_stage_groove"]
+    elif _wanted(only, "groove"):
         groove_stage = _timed(
             "_stage_groove",
             lambda: _stage_groove(recipe["refs"], recipe["genre"]),
@@ -157,7 +142,9 @@ def run_full_pipeline(
     add(groove_stage)
     groove = _output(groove_stage).get("groove")
 
-    if _wanted(only, "arrangement"):
+    if "_stage_arrangement" in reused_stages:
+        arrangement_stage = reused_stages["_stage_arrangement"]
+    elif _wanted(only, "arrangement"):
         arrangement_stage = _timed("_stage_arrangement", lambda: _stage_arrangement(analysis))
     else:
         arrangement_stage = _blocked("_stage_arrangement", "skipped by --only")
@@ -166,9 +153,8 @@ def run_full_pipeline(
     style_vector = resolve_style_vector(recipe, analysis)
     plan = build_arrangement_plan(recipe, _output(arrangement_stage).get("plan"), analysis)
 
-    resumed_beat = _resume_path(out_root, "beat") if resume and recipe["beat_engine"] == "procedural" else None
-    if resumed_beat:
-        beat_stage = _resumed("_stage_beat", {"ok": True, "path": str(resumed_beat)})
+    if "_stage_beat" in reused_stages:
+        beat_stage = reused_stages["_stage_beat"]
     elif _wanted(only, "beat"):
         beat_stage = _timed(
             "_stage_beat",
@@ -177,11 +163,11 @@ def run_full_pipeline(
     else:
         beat_stage = _blocked("_stage_beat", "skipped by --only")
     add(beat_stage)
-    beat_wav = _output(beat_stage).get("path")
+    # Earlier audio paths in reused stage records are historical metadata only.
+    beat_wav = None if reused_stages else _output(beat_stage).get("path")
 
-    resumed_texture = _resume_path(out_root, "texture") if resume else None
-    if resumed_texture:
-        add(_resumed("_stage_texture", {"ok": True, "path": str(resumed_texture)}))
+    if "_stage_texture" in reused_stages:
+        add(reused_stages["_stage_texture"])
     elif _wanted(only, "texture"):
         add(
             _timed(
@@ -194,25 +180,26 @@ def run_full_pipeline(
     else:
         add(_blocked("_stage_texture", "skipped by --only"))
 
-    if _wanted(only, "lyrics"):
+    if "_stage_lyrics" in reused_stages:
+        lyrics_stage = reused_stages["_stage_lyrics"]
+        lyrics_dict = _output(lyrics_stage).get("lyrics") or {}
+        lyrics_text = _output(lyrics_stage).get("text") or ""
+    elif _wanted(only, "lyrics"):
         lyrics_stage, lyrics_dict, lyrics_text = _run_lyrics_stage({**recipe, "style_vector": style_vector})
     else:
         lyrics_stage = _blocked("_stage_lyrics", "skipped by --only")
         lyrics_dict, lyrics_text = {}, ""
     add(lyrics_stage)
 
-    resumed_vocal = _resume_path(out_root, "vocal") if resume else None
-    if not _wanted(only, "vocal"):
+    if "_stage_voice_synth" in reused_stages:
+        vocal_stages = [reused_stages[name] for name in ("_stage_voice_synth", "_stage_rvc", "_stage_vocal_fx")]
+        vocal_final = None  # The corresponding mix is already frozen and reused.
+    elif not _wanted(only, "vocal"):
         vocal_stages = [
             _blocked(name, "skipped by --only")
             for name in ("_stage_voice_synth", "_stage_rvc", "_stage_vocal_fx")
         ]
         vocal_final = None
-    elif resumed_vocal:
-        vocal_stages, vocal_final = [
-            _resumed("_stage_vocal_fx", {"ok": True, "path": str(resumed_vocal)})
-        ], str(resumed_vocal)
-        warnings.append("vocal chain resumed from voice_fx.wav")
     else:
         beat_output = _output(beat_stage)
         vocal_stages, vocal_final, vocal_warnings = _run_vocal_chain(
@@ -226,9 +213,8 @@ def run_full_pipeline(
         warnings.extend(vocal_warnings)
     add(*vocal_stages)
 
-    resumed_mix = _resume_path(out_root, "mix") if resume else None
-    if resumed_mix:
-        mix_stage = _resumed("_stage_mix_and_sidechain", {"ok": True, "out_wav": str(resumed_mix)})
+    if "_stage_mix_and_sidechain" in reused_stages:
+        mix_stage = reused_stages["_stage_mix_and_sidechain"]
     elif not _wanted(only, "mix"):
         mix_stage = _blocked("_stage_mix_and_sidechain", "skipped by --only")
     elif beat_wav:
@@ -242,12 +228,11 @@ def run_full_pipeline(
     else:
         mix_stage = _blocked("_stage_mix_and_sidechain", "no beat")
     add(mix_stage)
+    initial_integrity: dict[str, Any] = {}
+    add_mix_integrity(initial_integrity, mix_stage, out_root, warnings)
     mix_wav = _output(mix_stage).get("out_wav")
 
-    resumed_master = _resume_path(out_root, "master") if resume else None
-    if resumed_master:
-        master_stage = _resumed("_stage_mastering", {"ok": True, "out_wav": str(resumed_master)})
-    elif not _wanted(only, "master"):
+    if not _wanted(only, "master"):
         master_stage = _blocked("_stage_mastering", "skipped by --only")
     elif mix_wav:
         master_stage = _timed(
@@ -324,6 +309,7 @@ def run_full_pipeline(
     else:
         release_stage = _blocked("_stage_release_pack", "skipped by --only")
     add(release_stage)
+    warnings.extend(f"release: {w}" for w in _output(release_stage).get("warnings", []))
 
     summary = summarize(stages, dry_run=dry_run)
     warnings.extend(summary.pop("warnings", []))
@@ -362,6 +348,10 @@ def run_full_pipeline(
             "stands": recipe["stands"],
         },
     }
+    add_mix_integrity(report, mix_stage, out_root, warnings)
+    if initial_integrity.get("artifact_integrity") != report.get("artifact_integrity"):
+        report.pop("artifact_integrity", None)
+        warnings.append("mix changed during render; master revision is unavailable")
     # Отчёт всегда ложится рядом с артефактами: он же — точка возобновления.
     try:
         (out_root / "report.json").write_text(

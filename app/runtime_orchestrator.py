@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import logging
 import threading
 import time
@@ -26,19 +27,20 @@ class Job:
     started_at: float = 0.0
     finished_at: float = 0.0
     result: dict[str, Any] = field(default_factory=dict)
+    revision_source_id: str | None = None
 
 
 def _summarize_pipeline_result(result: dict[str, Any]) -> dict[str, Any]:
     """Extract desktop job fields from the stable full-pipeline result contract."""
     release_dir = None
-    master_path = None
+    master_path = result.get("master_path")
     hit: dict[str, Any] = {}
     for stage in result.get("stages") or []:
         name = stage.get("name")
         output = stage.get("output") or {}
         if name == "_stage_release_pack":
             release_dir = output.get("path") or release_dir
-        elif name == "_stage_polish":
+        elif name == "_stage_polish" and not result.get("master_path"):
             master_path = output.get("path") or output.get("out_wav") or master_path
         elif name == "_stage_mastering" and not master_path:
             master_path = (output.get("stands", {}) or {}).get("streaming", {}).get("out_wav")
@@ -112,7 +114,7 @@ class RuntimeOrchestrator:
         """
         tid = uuid.uuid4().hex[:10]
         out_dir = ROOT / "output" / "desktop_runs" / tid
-        payload = dict(recipe or {})
+        payload = copy.deepcopy(recipe or {})
         if only:
             payload["only"] = sorted(only)
         job = Job(track_id=tid, recipe=payload, project_dir=str(out_dir))
@@ -121,6 +123,30 @@ class RuntimeOrchestrator:
             self._queue.append(tid)
         self._ensure_worker()
         self._log(f"[runtime_orch] enqueued {tid}")
+        return tid
+
+    def enqueue_master_revision(self, source_id: str, overrides: dict[str, Any] | None = None) -> str:
+        """Create a new job from a completed in-session project; source stays untouched."""
+        with self._lock:
+            source = self.jobs.get(source_id)
+            if not source or source.status != "done":
+                raise ValueError("source project is not a completed job in this session")
+            source_report = source.result.get("pipeline") or {}
+            if (source_report.get("only") or source_report.get("resume") or source_report.get("dry_run")
+                    or not (source_report.get("artifact_integrity") or {}).get("mix")):
+                raise ValueError("source has no verified full-run mix manifest; run a new full render first")
+            payload = copy.deepcopy(source.recipe)
+            payload.pop("only", None)
+            for key in ("stands", "export_stems"):
+                if key in (overrides or {}):
+                    payload[key] = copy.deepcopy(overrides[key])
+            tid = uuid.uuid4().hex[:10]
+            out_dir = ROOT / "output" / "desktop_runs" / tid
+            job = Job(track_id=tid, recipe=payload, project_dir=str(out_dir), revision_source_id=source_id)
+            self.jobs[tid] = job
+            self._queue.append(tid)
+        self._ensure_worker()
+        self._log(f"[runtime_orch] enqueued mastering revision {tid} from {source_id}")
         return tid
 
     def enqueue_batch(self, recipes: list[dict[str, Any]]) -> list[str]:
@@ -155,12 +181,28 @@ class RuntimeOrchestrator:
                 # 5 % — старт, 95 % — конец: полоска не «прыгает» в 100 % заранее
                 job.progress = min(0.95, 0.05 + 0.9 * index / max(total, 1))
 
+            reused_stages = None
+            if job.revision_source_id:
+                import json
+                from app.core.revision import prepare_master_revision
+
+                source = self.jobs.get(job.revision_source_id)
+                if not source or source.status != "done":
+                    raise ValueError("source job is no longer available")
+                report_path = Path(source.project_dir) / "report.json"
+                if report_path.stat().st_size > 16 * 1024 * 1024:
+                    raise ValueError("source report exceeds size limit")
+                source_report = json.loads(report_path.read_text(encoding="utf-8"))
+                if source_report.get("project_id") != source.track_id:
+                    raise ValueError("source report project id does not match")
+                reused_stages = prepare_master_revision(Path(source.project_dir), out_dir, source_report)
             result = run_full_pipeline(
                 job.track_id,
                 job.recipe,
                 dry_run=False,
                 out_root=out_dir,
                 on_stage=on_stage,
+                reused_stages=reused_stages,
             )
             job.progress = 0.92
             job.result = _summarize_pipeline_result(result)

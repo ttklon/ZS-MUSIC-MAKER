@@ -9,7 +9,6 @@ app/core/pipeline_runtime.py — рантайм стадий: тайминг, ч
 * `_timed`  — исключение стадии становится статусом FAILED, а не падением;
 * `_blocked`— стадия не выполнялась по заведомой причине;
 * `STAGE_KEYS` / `--only` — явный список того, что можно запускать по частям;
-* `_resume_path` / `_resumed` — повторный прогон переиспользует артефакты;
 * `_apply_seed` — фиксирует ГПСЧ, без этого «детерминизм» — лозунг.
 """
 
@@ -45,15 +44,34 @@ STAGE_KEYS = (
     "release",
 )
 
-# Артефакты, по которым `--resume` понимает, что стадия уже выполнена.
-_RESUME_ARTIFACTS = {
-    "beat": "beat.wav",
-    "texture": "texture_scaffold.wav",
-    "vocal": "voice_fx.wav",
-    "mix": "mix.wav",
-    "master": "full_master_streaming.wav",
-}
+MASTER_STANDS = (
+    "streaming",
+    "car",
+    "club",
+    "tiktok",
+    "airpods",
+    "bluetooth",
+    "headphones",
+    "monitors",
+)
+STEM_NAMES = ("drums", "bass", "vocals", "other")
 
+STAGE_RECORDS = (
+    "_stage_analyze", "_stage_groove",
+    "_stage_arrangement",
+    "_stage_beat",
+    "_stage_texture",
+    "_stage_lyrics",
+    "_stage_voice_synth",
+    "_stage_rvc",
+    "_stage_vocal_fx",
+    "_stage_mix_and_sidechain",
+    "_stage_mastering",
+    "_stage_polish",
+    "_stage_stems",
+    "_stage_hit_score",
+    "_stage_release_pack",
+)
 
 def _apply_seed(seed: int | None) -> None:
     """Зафиксировать глобальные ГПСЧ, чтобы прогон был воспроизводим."""
@@ -72,23 +90,6 @@ def _apply_seed(seed: int | None) -> None:
 
 def _wanted(only: set[str] | None, key: str) -> bool:
     return only is None or key in only
-
-
-def _resumed(name: str, output: dict[str, Any]) -> StageResult:
-    """Стадия не пересчитывалась: артефакт найден на диске от прошлого прогона."""
-    return StageResult(
-        name=name,
-        status=StageStatus.OK,
-        output={**output, "resumed": True, "reason": "artifact reused from previous run"},
-    )
-
-
-def _resume_path(out_root: Path, key: str) -> Path | None:
-    artifact = _RESUME_ARTIFACTS.get(key)
-    if not artifact:
-        return None
-    path = out_root / artifact
-    return path if path.exists() else None
 
 
 def _timed(name: str, fn: Callable[[], Any]) -> StageResult:

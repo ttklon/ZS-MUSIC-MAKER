@@ -2,12 +2,12 @@
 """
 modules/release/export.py — экспорт релизного пакета с отпечатками файлов.
 
-Пакет всегда содержит: master, тексты, метаданные с валидным ISRC, recipe,
-release_notes и ZIP. У каждого артефакта считается SHA-256 — дистрибьютор
+Пакет содержит мастер, текст, метаданные, рецепт, release_notes и ZIP.
+ISRC включается только при явном вводе, его присвоение не проверяется. У каждого артефакта считается SHA-256 — дистрибьютор
 и проверяющий видят, что именно уехало в релиз.
 
-Никаких фейковых плейсхолдеров ISRC: если валидный код получить нельзя,
-поле остаётся пустым и в манифесте стоит `isrc_status: UNREGISTERED`.
+Никаких сгенерированных ISRC: без введённого кода поле пустое и стоит
+`UNREGISTERED`; введённый код помечается `USER_SUPPLIED_UNVERIFIED`.
 """
 
 from __future__ import annotations
@@ -39,12 +39,12 @@ def _resolve_artist_name(artist_name: str | None) -> str:
 
 
 def _isrc_for(meta: dict[str, Any]) -> tuple[str, str]:
-    """Валидный ISRC или честный статус UNREGISTERED."""
+    """Только введённый код; синтаксис не подтверждает присвоение."""
     try:
         from app.core.isrc import get_isrc
 
         value = get_isrc(meta)
-        return value, "REGISTERED" if value else "UNREGISTERED"
+        return value, "USER_SUPPLIED_UNVERIFIED" if value else "UNREGISTERED"
     except Exception:
         return "", "UNREGISTERED"
 
@@ -57,7 +57,7 @@ def _release_notes(meta: dict[str, Any], manifest: dict[str, Any]) -> str:
         f"- BPM: {meta.get('bpm') or 'n/a'}",
         f"- Тональность: {meta.get('key') or 'n/a'}",
         f"- Длительность: {meta.get('duration_sec') or 'n/a'} с",
-        f"- ISRC: {manifest['metadata']['isrc'] or 'не зарегистрирован'}",
+        f"- ISRC: {manifest['metadata']['isrc'] or 'не указан'} ({manifest['metadata']['isrc_status']})",
         f"- Артефактов в пакете: {len(manifest['artifacts_sha256'])}",
         "",
         "## Что внутри",
@@ -139,6 +139,7 @@ def export_release(
             "bpm": (recipe or {}).get("bpm", ""),
             "key": (recipe or {}).get("key", ""),
             "duration_sec": (recipe or {}).get("duration_sec", ""),
+            "isrc": (recipe or {}).get("isrc", ""),
         }
         isrc, isrc_status = _isrc_for(meta)
         meta["isrc"] = isrc

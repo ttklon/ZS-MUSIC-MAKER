@@ -45,10 +45,14 @@ def test_manifest_covers_every_artifact_with_sha256(tmp_path) -> None:
     manifest = json.loads((Path(result["path"]) / "manifest.json").read_text(encoding="utf-8"))
     artifacts = manifest["artifacts_sha256"]
 
-    for name in ("master.wav", "streaming.wav", "drums.wav", "lyrics.lrc", "lyrics.srt", "hit_report.md"):
+    for name in ("master.wav", "streaming.wav", "drums.wav", "lyrics.txt", "hit_report.md"):
         assert name in artifacts, f"{name} отсутствует в манифесте"
         assert len(artifacts[name]) == 64
     assert artifacts["master.wav"] == sha256_file(Path(master))
+    assert "timed_lyrics" in result["missing"]
+    assert "timed_lyrics" in manifest["missing"]
+    assert not (Path(result["path"]) / "lyrics.lrc").exists()
+    assert not (Path(result["path"]) / "lyrics.srt").exists()
     assert Path(result["path"], "release.zip").is_file()
 
 
@@ -86,13 +90,9 @@ def test_isrc_is_valid_or_honestly_unregistered(tmp_path) -> None:
         title="Track",
     )
 
-    assert exported["isrc_status"] in {"REGISTERED", "UNREGISTERED"}
-    if exported["isrc_status"] == "REGISTERED":
-        compact = exported["isrc"].replace("-", "")
-        assert len(compact) == 12
-        assert not compact.startswith("XX")
-    else:
-        assert exported["isrc"] == ""
+    assert exported["isrc_status"] == "UNREGISTERED"
+    assert exported["isrc"] == ""
+
 
 
 def test_every_channel_package_is_written(tmp_path) -> None:
@@ -145,3 +145,24 @@ def test_zip_manifest_matches_the_release_folder(tmp_path) -> None:
 
     assert set(folder_manifest["artifacts_sha256"]) == set(zip_manifest["artifacts_sha256"])
     assert "drums.wav" in zip_manifest["artifacts_sha256"]
+
+
+def test_supplied_isrc_is_unverified_not_registered(tmp_path) -> None:
+    master = _tone(tmp_path / "master.wav")
+    result = export_release("", "", master, recipe={"isrc": "US-ABC-25-12345"}, out_dir=tmp_path / "pack")
+    assert result["isrc"] == "US-ABC-25-12345"
+    assert result["isrc_status"] == "USER_SUPPLIED_UNVERIFIED"
+    assert result["manifest"]["metadata"]["isrc_status"] == "USER_SUPPLIED_UNVERIFIED"
+
+
+def test_existing_timed_lyrics_are_not_overwritten_or_silently_archived(tmp_path) -> None:
+    master = _tone(tmp_path / "master.wav")
+    out = tmp_path / "pack"
+    out.mkdir()
+    stale = out / "lyrics.lrc"
+    stale.write_text("user content", encoding="utf-8")
+    result = build_pack(master, str(out), lyrics_text="строка")
+    assert result["ok"] is False
+    assert "fresh release directory" in result["reason"]
+    assert stale.read_text(encoding="utf-8") == "user content"
+    assert not (out / "release.zip").exists()

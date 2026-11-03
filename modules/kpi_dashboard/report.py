@@ -15,7 +15,7 @@ from modules.kpi_dashboard.sources import (
     _health_section,
     _latest_telemetry,
     _load_json,
-    _newest,
+    _latest_pipeline,
     _pipeline_section,
     _smoke_section,
     _telemetry_section,
@@ -24,15 +24,12 @@ from modules.kpi_dashboard.sources import (
 
 def build(save: bool = True) -> Dashboard:
     health = _load_json(ROOT / "data" / "health.json")
-    pipe_path = _newest("master_pipeline_v12.json", ROOT / "output")
-    pipe = _load_json(pipe_path) if pipe_path else None
-    # v33 FIX: smoke_v12_report.json больше не пишется. Берём самый свежий
-    # из актуальных отчётов (smoke_audio / smoke_god); fallback — старый v12.
+    pipe = _latest_pipeline(ROOT / "output")
+    # Используем отчёты актуальных smoke-наборов.
     smoke = None
     for cand in (
         ROOT / "logs" / "smoke_god_report.json",
         ROOT / "logs" / "smoke_audio_report.json",
-        ROOT / "logs" / "smoke_v12_report.json",
     ):
         smoke = _load_json(cand)
         if smoke:
@@ -62,7 +59,7 @@ def build(save: bool = True) -> Dashboard:
 
     if save:
         json_path = ROOT / "data" / "kpi_dashboard.json"
-        markdown_path = ROOT / "docs" / "KPI_DASHBOARD_v12.md"
+        markdown_path = ROOT / "output" / "kpi_dashboard.md"
         try:
             json_path.parent.mkdir(exist_ok=True)
             markdown_path.parent.mkdir(exist_ok=True)
@@ -89,12 +86,14 @@ def build(save: bool = True) -> Dashboard:
 
 def render_markdown(dash: Dashboard) -> str:
     lines = [
-        "# KPI Dashboard v12 «Hit Locked Pro»",
+        "# KPI Dashboard «Hit Locked Pro»",
         "",
         f"_Generated: {dash.generated_at}_",
         "",
-        f"**Соответствие ТЗ: {dash.percent_tz}%**   |   "
+        f"**Наличие файлов по чеклисту: {dash.percent_tz}%**   |   "
         f"**Общий вердикт: {dash.verdict}**",
+        "",
+        "Показатель не подтверждает качество музыки, работу моделей или готовность Windows.",
         "",
     ]
     for s in dash.sections:
@@ -119,8 +118,9 @@ def render_markdown(dash: Dashboard) -> str:
 def render_text(dash: Dashboard) -> str:
     out = [
         "=" * 72,
-        f"KPI DASHBOARD v12 — {dash.generated_at}",
-        f"Соответствие ТЗ: {dash.percent_tz}%   Verdict: {dash.verdict}",
+        f"KPI DASHBOARD — {dash.generated_at}",
+        f"Наличие файлов: {dash.percent_tz}%   Verdict: {dash.verdict}",
+        "Не подтверждает работу моделей, качество музыки или готовность Windows.",
         "-" * 72,
     ]
     for s in dash.sections:

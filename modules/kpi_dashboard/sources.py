@@ -23,11 +23,20 @@ def _load_json(p: Path) -> dict[str, Any] | None:
         return None
 
 
-def _newest(pattern: str, base: Path) -> Path | None:
-    matches = list(base.rglob(pattern))
-    if not matches:
-        return None
-    return max(matches, key=lambda p: p.stat().st_mtime)
+def _latest_pipeline(base: Path) -> dict[str, Any] | None:
+    """Find the latest readable current pipeline report, not a legacy filename."""
+    candidates = []
+    for path in base.rglob("report.json"):
+        try:
+            candidates.append((path.stat().st_mtime, path))
+        except OSError:
+            continue
+    for _, path in sorted(candidates, key=lambda item: item[0], reverse=True):
+        payload = _load_json(path)
+        if (isinstance(payload, dict) and isinstance(payload.get("stages"), list)
+                and payload.get("project_id") and payload.get("verdict")):
+            return payload
+    return None
 
 
 def _health_section(health: dict[str, Any] | None) -> DashboardSection:
@@ -91,31 +100,22 @@ def _telemetry_section(telemetry: dict[str, Any] | None) -> DashboardSection:
 
 def _pipeline_section(pipe: dict[str, Any] | None) -> DashboardSection:
     if not pipe:
-        return DashboardSection(
-            "Последний прогон мастера",
-            False,
-            0,
-            [
-                "Нет master_pipeline_v12.json — запусти "
-                "`python -m modules.master_pipeline_v12`"
-            ],
-        )
-    percent = int(pipe.get("percent_ready", 0))
-    v = str(pipe.get("verdict", "?"))
-    lines = [
-        f"Проект: {pipe.get('project_id', '?')}   " f"Verdict: {v}   Ready: {percent}%"
-    ]
-    for s in pipe.get("stages", [])[:20]:
-        mark = "OK " if s.get("ok") else "FAIL"
-        fb = " (fallback)" if s.get("fallback_used") else ""
-        lines.append(
-            f"  [{mark}] {s.get('tz_ref', '?'):<6} "
-            f"{s.get('name', '?'):<22} "
-            f"{s.get('duration_sec', 0):5.2f}s{fb}"
-        )
-    return DashboardSection(
-        "Последний прогон мастера", v.endswith("PASS"), percent, lines
-    )
+        return DashboardSection("Последний прогон мастера", False, 0,
+                                ["Нет отчёта report.json — запустите полный прогон приложения"])
+    percent = int(pipe.get("percent", 0))
+    verdict = str(pipe.get("verdict", "?"))
+    lines = [f"Проект: {pipe.get('project_id', '?')}   Verdict: {verdict}   Ready: {percent}%"]
+    if pipe.get("dry_run"):
+        lines.append("Прогон без тяжёлых моделей (dry-run)")
+    if pipe.get("only"):
+        lines.append(f"Частичный прогон: {pipe['only']}")
+    for stage in pipe.get("stages", [])[:20]:
+        if isinstance(stage, dict):
+            lines.append(f"  [{stage.get('status', '?')}] {stage.get('name', '?')}")
+    for failure in pipe.get("quality_gate_failures") or []:
+        lines.append(f"  Quality gate: {failure}")
+    return DashboardSection("Последний прогон мастера", verdict == "PASS" and not pipe.get("dry_run")
+                            and not pipe.get("only") and not pipe.get("quality_gate_failures"), percent, lines)
 
 
 def _smoke_section(smoke: dict[str, Any] | None) -> DashboardSection:
