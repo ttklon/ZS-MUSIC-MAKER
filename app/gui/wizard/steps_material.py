@@ -79,10 +79,9 @@ class StepMaterial(StepBase):
         self.root.addWidget(H2(t("wizard.material.mode")))
         self.root.addWidget(DIM(t("wizard.material.mode_hint")))
         self.mode = QComboBox()
-        self.mode.addItems(
-            ["Быстрый (10–15 мин)", "Качественный (30–60 мин)", "Максимальный (1–3 ч)"]
-        )
+        self.mode.addItems(["Fast", "Quality", "Max"])
         self.mode.setCurrentIndex(1)
+        self.mode.setEnabled(False)
         self.root.addWidget(self.mode)
 
         self.root.addWidget(HR())
@@ -91,6 +90,18 @@ class StepMaterial(StepBase):
         self.lyrics.setPlaceholderText(t("wizard.material.lyrics_placeholder"))
         self.lyrics.setMinimumHeight(110)
         self.root.addWidget(self.lyrics)
+
+        self.root.addWidget(H2(t("wizard.material.reference_text")))
+        self.root.addWidget(DIM(t("wizard.material.reference_text_hint")))
+        self.reference_text = QTextEdit()
+        self.reference_text.setMinimumHeight(90)
+        self.reference_text.setPlaceholderText(t("wizard.material.reference_text_placeholder"))
+        self.root.addWidget(self.reference_text)
+        self.root.addWidget(H2(t("wizard.material.trend_notes")))
+        self.trend_notes = QTextEdit()
+        self.trend_notes.setMinimumHeight(70)
+        self.trend_notes.setPlaceholderText(t("wizard.material.trend_notes_placeholder"))
+        self.root.addWidget(self.trend_notes)
 
         row = QHBoxLayout()
         self.bilingual = QCheckBox(t("wizard.material.bilingual"))
@@ -138,6 +149,8 @@ class StepMaterial(StepBase):
         recipe["user_lyrics_lines"] = [
             line.strip() for line in self.lyrics.toPlainText().splitlines() if line.strip()
         ]
+        recipe["reference_lyrics"] = self.reference_text.toPlainText()
+        recipe["trend_notes"] = self.trend_notes.toPlainText()
         recipe["bilingual"] = self.bilingual.isChecked()
         recipe["n_verses"] = int(self.verses.value())
 

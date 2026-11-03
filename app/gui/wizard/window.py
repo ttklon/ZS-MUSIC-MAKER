@@ -25,6 +25,7 @@ from PySide6.QtWidgets import (
     QMainWindow,
     QMessageBox,
     QPushButton,
+    QScrollArea,
     QStackedWidget,
     QVBoxLayout,
     QWidget,
@@ -98,7 +99,10 @@ class Wizard(QMainWindow):
         bar.addWidget(self.btn_next)
 
         root = QVBoxLayout()
-        root.addWidget(self.stack)
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setWidget(self.stack)
+        root.addWidget(scroll)
         root.addLayout(bar)
         central = QWidget()
         central.setLayout(root)
@@ -215,7 +219,8 @@ class Wizard(QMainWindow):
             f"ZS Music Maker {app_version()}\n\n"
             "Локальная студия треков: бит, вокал, микс, мастеринг под 8 стендов, "
             "обложка и релиз-пакет.\n"
-            "Всё локально, без облака.",
+            "Облачные провайдеры используются только при их настройке; "
+            "часть моделей и возможностей требует отдельной установки.",
         )
 
     def launch_gradio_expert(self) -> None:

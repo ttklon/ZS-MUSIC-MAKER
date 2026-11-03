@@ -79,7 +79,9 @@ def _run_vocal_chain(
         rvc = _timed(
             "_stage_rvc",
             lambda: _stage_rvc(voice_wav, out_root, upstream_synthetic=synthetic,
-                               pitch_shift=recipe.get("rvc_pitch_shift", 0)),
+                               pitch_shift=recipe.get("rvc_pitch_shift", 0),
+                               model_path=recipe.get("rvc_model_path", ""),
+                               index_path=recipe.get("rvc_index_path", "")),
         )
     else:
         rvc = _blocked("_stage_rvc", "no voice_wav upstream (voice_synth failed)")

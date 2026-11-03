@@ -235,7 +235,8 @@ def _pyttsx3_speak(text: str, out_wav: str) -> dict[str, Any]:
 
 
 def _stage_rvc(
-    voice_wav: str, out_dir: Path, upstream_synthetic: bool = False, pitch_shift: int = 0
+    voice_wav: str, out_dir: Path, upstream_synthetic: bool = False, pitch_shift: int = 0,
+    model_path: str = "", index_path: str = "",
 ) -> dict[str, Any]:
     """v19: если upstream_synthetic (rap_scaffold), RVC обязан быть BLOCKED —
     кормить RVC чистую синтетику нельзя (станет ещё хуже).
@@ -253,17 +254,18 @@ def _stage_rvc(
         from modules import rvc_manager
 
         out_wav = str(out_dir / "voice_rvc.wav")
-        model_path = ROOT / "models" / "rvc" / "my_voice" / "my_voice.pth"
-        if not model_path.exists():
+        selected_model = Path(model_path) if model_path else ROOT / "models" / "rvc" / "my_voice" / "my_voice.pth"
+        if not selected_model.is_file() or selected_model.suffix.lower() != ".pth":
             return {
                 "ok": True,
                 "blocked": True,
                 "path": "",
-                "reason": "no RVC .pth model at models/rvc/my_voice/my_voice.pth",
+                "reason": f"RVC .pth model not available: {selected_model}",
                 "notice": "RVC BLOCKED — pitch-shift fallback refused (P0.05)",
             }
         r = rvc_manager.infer(
-            voice_wav, voice_name="my_voice", out_name=out_wav, pitch_shift=pitch_shift
+            voice_wav, voice_name="my_voice", out_name=out_wav, pitch_shift=pitch_shift,
+            model_path=model_path or None, index_path=index_path or None,
         )
         return {"ok": bool(r), "path": r or out_wav}
     except RuntimeError as e:

@@ -52,11 +52,15 @@ def _load(path: str | Path) -> tuple[np.ndarray, int]:
     return np.asarray(data, dtype=np.float64), int(sr)
 
 
-def _fit_length(a: np.ndarray, n: int) -> np.ndarray:
-    if a.shape[0] < n:
-        pad = np.zeros((n - a.shape[0], a.shape[1]), dtype=a.dtype)
-        return np.concatenate([a, pad], axis=0)
-    return a[:n]
+def _place_vocal(audio: np.ndarray, length: int, offset_samples: int) -> np.ndarray:
+    """Positive offset delays; negative offset advances, trimming out-of-range audio."""
+    placed = np.zeros((length, audio.shape[1]), dtype=audio.dtype)
+    source_start = max(0, -offset_samples)
+    dest_start = max(0, offset_samples)
+    count = max(0, min(len(audio) - source_start, length - dest_start))
+    if count:
+        placed[dest_start:dest_start + count] = audio[source_start:source_start + count]
+    return placed
 
 
 def _to_stereo(x: np.ndarray) -> np.ndarray:
@@ -106,6 +110,7 @@ def build_mix(
     out_wav: str | Path,
     *,
     vocal_gain_db: float = -3.0,
+    vocal_offset_ms: int = 0,
     bus_target_dbfs: float = BUS_TARGET_DBFS,
     width: float | None = None,
     sidechain: bool = True,
@@ -123,7 +128,8 @@ def build_mix(
     if vocal_wav and Path(str(vocal_wav)).exists():
         raw_vocal, vocal_sr = _load(vocal_wav)
         raw_vocal = _resample(_to_stereo(raw_vocal), vocal_sr, sr)
-        raw_vocal = _fit_length(raw_vocal, n)
+        offset_samples = round(float(vocal_offset_ms) * sr / 1000)
+        raw_vocal = _place_vocal(raw_vocal, n, offset_samples)
         if float(np.max(np.abs(raw_vocal))) > 1e-6:
             vocal, vocal_stage = stage(
                 _vocal_chain(raw_vocal, sr), target_rms_dbfs=bus_target_dbfs, sample_rate=sr
@@ -186,6 +192,7 @@ def build_mix(
         "out_wav": str(out_wav),
         "sample_rate": sr,
         "vocal_used": vocal_used,
+        "vocal_offset_ms": vocal_offset_ms,
         "beat_staging": beat_stage,
         "bus_staging": bus_stage,
         "vocal_staging": vocal_stage,

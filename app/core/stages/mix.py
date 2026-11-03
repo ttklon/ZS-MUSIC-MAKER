@@ -15,13 +15,14 @@ from typing import Any
 
 
 def _stage_mix_and_sidechain(
-    beat_wav: str, voice_wav: str | None, out_dir: Path, reference_wav: str | None = None
+    beat_wav: str, voice_wav: str | None, out_dir: Path, reference_wav: str | None = None,
+    vocal_offset_ms: int = 0,
 ) -> dict[str, Any]:
     """Собрать микс штатным микшером и вернуть измеренный отчёт."""
     try:
         from modules.mix.bus import prepare_mix
 
-        result = prepare_mix(beat_wav, voice_wav, out_dir)
+        result = prepare_mix(beat_wav, voice_wav, out_dir, vocal_offset_ms=vocal_offset_ms)
     except Exception as exc:  # noqa: BLE001 - стадия обязана вернуть причину, не падать
         return {"ok": False, "reason": f"{type(exc).__name__}: {exc}"}
 
@@ -69,6 +70,7 @@ def _stage_mix_and_sidechain(
         "engine": "modules.mix.bus",
         "fallback_used": False,
         "vocal_used": bool(result.get("vocal_used")),
+        "vocal_offset_ms": vocal_offset_ms,
         "gates": gates,
         "gates_passed": bool(gates) and all(gates.values()),
         "pre_reference": pre_reference,

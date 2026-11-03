@@ -94,7 +94,9 @@ def _minimal_release_pack(
             json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8"
         )
         (out / "licenses.txt").write_text(
-            "ZS Music Maker minimal pack.\nNo third-party samples included.\n",
+            "ZS Music Maker minimal pack.\n"
+            "Licenses and rights have not been verified automatically. "
+            "Check all samples, models, reference material and voice permissions before release.\n",
             encoding="utf-8",
         )
         (out / "hit_report.md").write_text(

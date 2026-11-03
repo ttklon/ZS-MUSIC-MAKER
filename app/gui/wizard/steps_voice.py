@@ -78,6 +78,10 @@ class StepVoice(StepBase):
         self.use_rvc = QCheckBox(t("wizard.voice.use_rvc"))
         self.use_rvc.setChecked(True)
         self.root.addWidget(self.use_rvc)
+        self._rvc_model_path = ""
+        self._rvc_index_path = ""
+        self.model_label = self._file_row("model")
+        self.index_label = self._file_row("index")
         pitch_row = QHBoxLayout()
         pitch_row.addWidget(QLabel(t("wizard.voice.rvc_pitch")))
         self.rvc_pitch = QSpinBox()
@@ -86,6 +90,15 @@ class StepVoice(StepBase):
         pitch_row.addStretch()
         self.root.addLayout(pitch_row)
         self.root.addWidget(DIM(t("wizard.voice.rvc_hint")))
+        offset_row = QHBoxLayout()
+        offset_row.addWidget(QLabel(t("wizard.voice.offset")))
+        self.vocal_offset = QSpinBox()
+        self.vocal_offset.setRange(-5000, 5000)
+        self.vocal_offset.setSuffix(" ms")
+        offset_row.addWidget(self.vocal_offset)
+        offset_row.addStretch()
+        self.root.addLayout(offset_row)
+        self.root.addWidget(DIM(t("wizard.voice.offset_hint")))
         self.root.addWidget(H2(t("wizard.voice.vault")))
         self.vault_label = QLabel("…")
         self.vault_label.setWordWrap(True)
@@ -111,6 +124,35 @@ class StepVoice(StepBase):
         self._timer = QTimer(self)
         self._timer.timeout.connect(self.refresh_training)
         self._timer_started = False
+
+    def _file_row(self, kind: str) -> QLabel:
+        row = QHBoxLayout()
+        row.addWidget(QLabel(t(f"wizard.voice.{kind}_label")))
+        label = QLabel(t(f"wizard.voice.{kind}_default"))
+        label.setWordWrap(True)
+        row.addWidget(label, 1)
+        choose = QPushButton(t("wizard.voice.choose"))
+        choose.clicked.connect(lambda: self._pick_rvc_file(kind, label))
+        clear = QPushButton("✕")
+        clear.setToolTip(t("wizard.material.clear"))
+        clear.clicked.connect(lambda: self._clear_rvc_file(kind, label))
+        row.addWidget(choose)
+        row.addWidget(clear)
+        self.root.addLayout(row)
+        return label
+
+    def _pick_rvc_file(self, kind: str, label: QLabel) -> None:
+        extension = "pth" if kind == "model" else "index"
+        path, _ = QFileDialog.getOpenFileName(
+            self, t(f"wizard.voice.{kind}_label"), "", f"RVC (*.{extension})"
+        )
+        if path:
+            setattr(self, f"_rvc_{kind}_path", path)
+            label.setText(path)
+
+    def _clear_rvc_file(self, kind: str, label: QLabel) -> None:
+        setattr(self, f"_rvc_{kind}_path", "")
+        label.setText(t(f"wizard.voice.{kind}_default"))
 
     # --- вход на шаг -------------------------------------------------------
     def enter(self) -> None:
@@ -216,7 +258,10 @@ class StepVoice(StepBase):
         recipe["voice_mode"] = VOICE_MODES[index]
         recipe["own_vocal_wav"] = self._own_vocal
         recipe["use_rvc"] = self.use_rvc.isChecked()
+        recipe["rvc_model_path"] = self._rvc_model_path
+        recipe["rvc_index_path"] = self._rvc_index_path
         recipe["rvc_pitch_shift"] = self.rvc_pitch.value()
+        recipe["vocal_offset_ms"] = self.vocal_offset.value()
 
     def help_text(self) -> str:
         return t("wizard.voice.hint")
