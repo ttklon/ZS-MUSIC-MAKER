@@ -158,7 +158,7 @@ def run_full_pipeline(
     elif _wanted(only, "beat"):
         beat_stage = _timed(
             "_stage_beat",
-            lambda: _stage_beat(plan, out_root, groove=groove, style_vector=style_vector) if recipe["beat_engine"] == "procedural" else _stage_ai_beat(recipe, plan, out_root, style_vector, dry_run),
+            lambda: _stage_beat(plan, out_root, groove=groove, style_vector=style_vector) if recipe["beat_engine"] == "procedural" and not recipe.get("recorded_backing_sha256") else _stage_ai_beat(recipe, plan, out_root, style_vector, dry_run),
         )
     else:
         beat_stage = _blocked("_stage_beat", "skipped by --only")

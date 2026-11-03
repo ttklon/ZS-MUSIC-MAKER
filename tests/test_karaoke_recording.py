@@ -144,3 +144,45 @@ def test_device_probe_prefers_stereo_at_alternate_compatible_rate():
                            check_input_settings=lambda **kw: None, check_output_settings=output)
     rate, channels, checked = karaoke_recorder._select_device_format(fake, 44100, 2)
     assert (rate, channels, checked) == (48000, 2, True)
+
+
+def test_backing_fingerprint_and_path_persist_with_recording(tmp_path, monkeypatch):
+    from modules.release.export import sha256_file
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    monkeypatch.setattr(karaoke_recorder, "VAULT", vault)
+    monkeypatch.setattr(voice_convert, "VAULT_DIR", vault)
+    monkeypatch.setattr(voice_convert, "VOICE_INDEX", vault / "vault_index.json")
+    monkeypatch.setattr(voice_convert, "_ensure_dirs", lambda: None)
+    backing = tmp_path / "track.wav"
+    sf.write(backing, np.full(8000, .15, dtype=np.float32), 8000)
+    monkeypatch.setitem(sys.modules, "sounddevice", SimpleNamespace(
+        playrec=lambda data, **kw: np.full((len(data), 1), .1, dtype=np.float32)))
+    result = karaoke_recorder.record_with_backing(str(backing), duration_sec=1, sr=8000)
+    assert result["ok"] and result["backing_path"] == str(backing.resolve())
+    assert result["backing_sha256"] == sha256_file(backing)
+    assert voice_convert.recording_backing(result["path"]) == {
+        "path": str(backing.resolve()), "sha256": sha256_file(backing)}
+
+
+def test_changed_backing_during_preparation_does_not_start_recording(tmp_path, monkeypatch):
+    from modules.release import export
+    backing = tmp_path / "track.wav"
+    sf.write(backing, np.full(8000, .15, dtype=np.float32), 8000)
+    real_hash = export.sha256_file(backing)
+    calls = iter((real_hash, "0" * 64))
+    monkeypatch.setattr(export, "sha256_file", lambda *args: next(calls))
+    monkeypatch.setitem(sys.modules, "sounddevice", SimpleNamespace(
+        playrec=lambda *args, **kwargs: pytest.fail("must not record")))
+    result = karaoke_recorder.record_with_backing(str(backing), duration_sec=1, sr=8000)
+    assert "backing changed" in result["error"]
+
+
+@pytest.mark.parametrize("samples", [np.full(100, .1), np.full(8000, 1.2)])
+def test_unusable_backing_is_rejected_before_recording(tmp_path, monkeypatch, samples):
+    backing = tmp_path / "bad.wav"
+    sf.write(backing, samples, 8000, subtype="FLOAT")
+    monkeypatch.setitem(sys.modules, "sounddevice", SimpleNamespace(
+        playrec=lambda *a, **kw: pytest.fail("must reject incompatible backing first")))
+    result = karaoke_recorder.record_with_backing(str(backing), duration_sec=1, sr=8000)
+    assert "error" in result

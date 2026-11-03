@@ -124,9 +124,12 @@ class StepBrief(StepBase):
     def _choose_instrumental(self) -> None:
         path, _ = QFileDialog.getOpenFileName(self, t("wizard.brief.beat_choose"), "", "Audio (*.wav *.flac *.ogg)")
         if path:
-            self._beat_input_path = path
-            self.beat_file_label.setText(path)
-            self.beat_engine.setCurrentIndex(self.beat_engine.findData("user_audio"))
+            self.set_instrumental(path)
+
+    def set_instrumental(self, path: str) -> None:
+        self._beat_input_path = path
+        self.beat_file_label.setText(path)
+        self.beat_engine.setCurrentIndex(self.beat_engine.findData("user_audio"))
 
     @staticmethod
     def _duration_text(seconds: int) -> str:

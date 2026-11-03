@@ -79,6 +79,8 @@ def add_recording(wav_path: str, meta: dict) -> dict:
                 "file": dst.name, "path": str(dst), "style": meta.get("style", "unk"),
                 "text": meta.get("text", ""), "duration_sec": float(meta.get("duration_sec", 0)),
                 "quality_score": meta.get("quality_score"), "timestamp": meta.get("timestamp"),
+                "backing_path": str(meta.get("backing_path") or ""),
+                "backing_sha256": str(meta.get("backing_sha256") or ""),
             }
             idx.append(entry)
             _save_index(idx)
@@ -89,6 +91,16 @@ def add_recording(wav_path: str, meta: dict) -> dict:
         if not copy_complete and dst != source and dst.is_file():
             failure["partial_copy_path"] = str(dst)
         return failure
+
+
+def recording_backing(wav_path: str) -> dict:
+    """Retrieve persisted backing metadata for a wizard recording, if indexed."""
+    path = Path(wav_path).resolve()
+    for entry in reversed(_load_index()):
+        if entry.get("path") and Path(entry["path"]).resolve() == path:
+            return {"path": str(entry.get("backing_path") or ""),
+                    "sha256": str(entry.get("backing_sha256") or "")}
+    return {}
 
 
 def vault_summary() -> dict:

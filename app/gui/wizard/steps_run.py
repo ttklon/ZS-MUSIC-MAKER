@@ -249,6 +249,11 @@ class StepResult(StepBase):
         if asr.get("requested"):
             release_notes.append(t("wizard.result.asr_status").format(
                 status=asr.get("status", "UNKNOWN"), reason=asr.get("reason") or "—"))
+        beat_stage = next((stage for stage in pipeline.get("stages", [])
+                           if stage.get("name") == "_stage_beat"), {})
+        beat_reason = str(beat_stage.get("reason") or (beat_stage.get("output") or {}).get("reason") or "")
+        if "recorded backing" in beat_reason:
+            release_notes.append(t("wizard.result.backing_changed"))
         vocal_output = next((stage.get("output") or {} for stage in pipeline.get("stages", [])
                              if stage.get("name") == "_stage_voice_synth"), {})
         if (vocal_output.get("recording_quality") or {}).get("near_clipping_warning"):

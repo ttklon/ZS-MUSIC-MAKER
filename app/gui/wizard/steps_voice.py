@@ -74,6 +74,7 @@ class StepVoice(StepBase):
         own_row.addWidget(drop)
         self.root.addLayout(own_row)
         self._own_vocal: str | None = None
+        self._recorded_backing_sha256 = ""
 
         self.use_rvc = QCheckBox(t("wizard.voice.use_rvc"))
         self.use_rvc.setChecked(False)
@@ -214,6 +215,7 @@ class StepVoice(StepBase):
         """Принять запись пользователя; несуществующий файл не принимаем молча."""
         if not path:
             return
+        self._recorded_backing_sha256 = ""
         file = Path(path)
         if not file.is_file() or file.suffix.lower() not in AUDIO_SUFFIXES:
             self._own_vocal = None
@@ -221,10 +223,26 @@ class StepVoice(StepBase):
             return
         self._own_vocal = str(file)
         size_mb = file.stat().st_size / (1024 * 1024)
-        self.own_label.setText(f"{file.name}  ({size_mb:.1f} MB)")
+        self.own_label.setText(f"{file.name}  ({size_mb:.1f} MB)\nСвязь с минусом не подтверждена.")
+        try:
+            from modules.voice_convert import recording_backing
+
+            binding = recording_backing(str(file))
+            if binding.get("path") and binding.get("sha256"):
+                self._bind_recording_backing(binding["path"], binding["sha256"])
+        except Exception as error:  # noqa: BLE001 - selected take remains usable, binding is unverified
+            LOGGER.warning("recording backing metadata unavailable: %s", error)
+
+    def _bind_recording_backing(self, path: str, sha256: str) -> None:
+        self._recorded_backing_sha256 = sha256
+        self.wizard.steps[0].set_instrumental(path)
+        self.wizard.recipe["beat_engine"] = "user_audio"
+        self.wizard.recipe["beat_input_path"] = path
+        self.own_label.setText(f"{Path(self._own_vocal).name}\nМинус для дубля: {path} (будет проверен SHA-256)")
 
     def clear_own_vocal(self) -> None:
         self._own_vocal = None
+        self._recorded_backing_sha256 = ""
         self.own_label.setText(t("wizard.voice.none"))
 
     def own_vocal(self) -> str | None:
@@ -242,6 +260,9 @@ class StepVoice(StepBase):
             dialog = RecordDialog(self, default_backing=backing, default_duration=int(duration))
             if dialog.exec() == dialog.Accepted and dialog.result_path:
                 self.set_own_vocal(dialog.result_path)
+                recording = getattr(dialog, "recording_result", {})
+                if recording.get("backing_used") and recording.get("backing_path") and recording.get("backing_sha256"):
+                    self._bind_recording_backing(recording["backing_path"], recording["backing_sha256"])
             self.refresh_vault()
         except Exception as error:  # noqa: BLE001 - рекордер опционален
             QMessageBox.warning(self, t("wizard.voice.karaoke"), str(error))
@@ -268,6 +289,7 @@ class StepVoice(StepBase):
         index = max(0, min(self.mode.currentIndex(), len(VOICE_MODES) - 1))
         recipe["voice_mode"] = VOICE_MODES[index]
         recipe["own_vocal_wav"] = self._own_vocal
+        recipe["recorded_backing_sha256"] = getattr(self, "_recorded_backing_sha256", "") if self._own_vocal and index != 2 else ""
         recipe["use_rvc"] = self.use_rvc.isChecked()
         recipe["use_vocal_fx"] = self.use_vocal_fx.isChecked()
         recipe["tune"] = self.use_tune.isChecked()

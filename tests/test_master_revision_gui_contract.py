@@ -124,3 +124,19 @@ def test_result_displays_lost_vocal_warning(gui_module):
     job = SimpleNamespace(result=result, track_id="test", started_at=1, finished_at=2, stage="done")
     module.StepResult.show_result(obj, job)
     assert "не попала в микс" in info.text or "outside the mix" in info.text
+
+
+def test_result_reports_recorded_backing_mismatch(gui_module):
+    module, _ = gui_module
+    class Label:
+        text = ""
+        def setText(self, text): self.text = text
+    class Button:
+        def setEnabled(self, enabled): pass
+    info = Label()
+    obj = SimpleNamespace(info=info, detector=Label(), btn_part=Button())
+    result = {"pipeline": {"verdict": "PARTIAL", "stages": [{"name": "_stage_beat", "status": "FAILED",
+        "reason": "recorded backing changed"}]}}
+    job = SimpleNamespace(result=result, track_id="test", started_at=1, finished_at=2, stage="done")
+    module.StepResult.show_result(obj, job)
+    assert "не совпадает с записью" in info.text or "no longer matches" in info.text

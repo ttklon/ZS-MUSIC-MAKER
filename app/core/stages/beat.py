@@ -12,12 +12,16 @@ from typing import Any
 def _stage_ai_beat(recipe: dict[str, Any], plan: Any, out_dir: Path,
                    style: dict[str, Any], dry_run: bool = False) -> dict[str, Any]:
     """Explicit external model: no substitution if it is missing or fails."""
+    expected = recipe.get("recorded_backing_sha256", "")
+    if expected and recipe.get("beat_engine") != "user_audio":
+        return {"ok": False, "engine": "user_instrumental", "reason": "recorded backing required; select the original or record again"}
     if recipe.get("beat_engine") == "user_audio":
         try:
             from app.core.stages.imported_beat import import_instrumental
-            return import_instrumental(recipe.get("beat_input_path", ""), out_dir / "beat.wav")
+            return import_instrumental(recipe.get("beat_input_path", ""), out_dir / "beat.wav", expected_sha256=expected)
         except Exception as exc:
-            return {"ok": False, "engine": "user_instrumental", "reason": f"{type(exc).__name__}: {exc}"}
+            prefix = "recorded backing: " if expected else ""
+            return {"ok": False, "engine": "user_instrumental", "reason": f"{prefix}{type(exc).__name__}: {exc}"}
     if recipe.get("beat_engine") != "ace_step":
         return {"ok": False, "reason": f"unknown beat engine: {recipe.get('beat_engine')}"}
     if dry_run:

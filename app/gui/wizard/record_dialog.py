@@ -92,6 +92,7 @@ class RecordDialog(QDialog):
         self.setWindowTitle(t("wizard.voice.karaoke"))
         self.resize(620, 360)
         self.result_path: str | None = None
+        self.recording_result: dict = {}
         self._thread: _Recorder | None = None
         self._pending_accept = False
         self._backing = default_backing
@@ -190,6 +191,7 @@ class RecordDialog(QDialog):
 
     def _on_recorded(self, result: dict) -> None:
         self.result_path = result.get("path")
+        self.recording_result = result
         self.status.setText(f"Готово: {self.result_path}")
         if result.get("warning"):
             QMessageBox.warning(self, t("wizard.voice.karaoke"), str(result["warning"]))

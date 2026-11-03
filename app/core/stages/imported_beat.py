@@ -6,14 +6,24 @@ import tempfile
 from pathlib import Path
 
 
-def import_instrumental(source: str, destination: Path) -> dict:
+def import_instrumental(source: str, destination: Path, expected_sha256: str = "") -> dict:
     """Copy in chunks; never mutate the source or use an invalid/silent file."""
     import numpy as np
     import soundfile as sf
 
     src = Path(source)
     if not src.is_file():
-        raise FileNotFoundError(f"instrumental file not found: {source}")
+        label = "recorded backing" if expected_sha256 else "instrumental file"
+        raise FileNotFoundError(f"{label} not found: {source}")
+    if src.resolve() == destination.resolve() or (destination.exists() and os.path.samefile(src, destination)):
+        raise ValueError("instrumental source and destination must be different files")
+    if expected_sha256:
+        from modules.release.export import sha256_file
+
+        if len(expected_sha256) != 64 or any(c not in "0123456789abcdef" for c in expected_sha256):
+            raise ValueError("recorded backing fingerprint is invalid")
+        if sha256_file(src) != expected_sha256:
+            raise ValueError("recorded backing changed or does not match; select the original or record again")
     destination.parent.mkdir(parents=True, exist_ok=True)
     temp_path = None
     try:
@@ -36,6 +46,8 @@ def import_instrumental(source: str, destination: Path) -> dict:
                     output.write(block)
             if peak < 1e-5:
                 raise ValueError("instrumental is silent")
+        if expected_sha256 and sha256_file(src) != expected_sha256:
+            raise ValueError("recorded backing changed during import; select the original or record again")
         os.replace(temp_path, destination)
         return {"ok": True, "path": str(destination), "engine": "user_instrumental",
                 "duration_sec": round(duration, 2), "source": str(src)}

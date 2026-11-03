@@ -100,6 +100,7 @@ def build_recipe(wizard_state: dict[str, Any] | None) -> dict[str, Any]:
         "theme": theme,
         "beat_engine": str(state.get("beat_engine") or "procedural"),
         "beat_input_path": str(state.get("beat_input_path") or ""),
+        "recorded_backing_sha256": str(state.get("recorded_backing_sha256") or ""),
         "genre": state.get("genre") or preset_key or "drift_phonk",
         "artist": state.get("artist") or state.get("artist_name") or "ZS Producer",
         "preset": preset_key,

@@ -104,16 +104,22 @@ def record_with_backing(
             raise ValueError("duration must be 0–600 seconds and sample rate 8–192 kHz")
         backing = None
         backing_sr = None
+        backing_sha256 = ""
         channels = 0
         if backing_path:
             path = Path(backing_path)
             if not path.is_file():
                 raise FileNotFoundError(f"backing track not found: {backing_path}")
+            from modules.release.export import sha256_file
+
+            backing_sha256 = sha256_file(path)
             with sf.SoundFile(str(path)) as source:
                 backing_sr = source.samplerate
                 channels = source.channels
                 if channels not in (1, 2) or not 8000 <= backing_sr <= 192000:
                     raise ValueError("backing must be mono/stereo and 8–192 kHz")
+                if not 0.25 <= len(source) / backing_sr <= 600:
+                    raise ValueError("backing must be 0.25–600 seconds for the mix")
         actual_sr, output_channels, format_checked = _select_device_format(sd, int(sr), channels)
         frames = int(float(duration_sec) * actual_sr)
         if frames < 1:
@@ -125,8 +131,12 @@ def record_with_backing(
                     raise ValueError("backing format changed before recording")
                 wanted = min(len(source), int(np.ceil(frames * backing_sr / actual_sr)) + 4)
                 backing = source.read(wanted, dtype="float32", always_2d=True)
+            if sha256_file(path) != backing_sha256:
+                raise ValueError("backing changed while preparing playback; select it again")
             if not len(backing) or not np.isfinite(backing).all():
                 raise ValueError("backing track is empty or invalid")
+            if float(np.max(np.abs(backing))) > 1.0001:
+                raise ValueError("backing contains clipped samples and cannot be imported")
             if backing_sr != actual_sr:
                 from math import gcd
                 from scipy.signal import resample_poly
@@ -169,7 +179,9 @@ def record_with_backing(
         from modules.voice_convert import add_recording
 
         entry = add_recording(str(out), {"style": style, "text": text,
-                                        "duration_sec": len(audio) / actual_sr, "timestamp": ts / 1e9})
+                                        "duration_sec": len(audio) / actual_sr, "timestamp": ts / 1e9,
+                                        "backing_path": str(path.resolve()) if backing_path else "",
+                                        "backing_sha256": backing_sha256})
         if entry.get("error"):
             warning = f"Recording saved but Voice Vault indexing failed: {entry['error']}"
     except Exception as exc:
@@ -184,7 +196,8 @@ def record_with_backing(
     if peak >= 0.98:
         warning = (warning + " " if warning else "") + "Recording may be clipped; lower microphone gain."
     return {"ok": True, "path": str(out), "style": style, "duration_sec": len(audio) / actual_sr, "sample_rate": actual_sr,
-            "backing_used": bool(backing_path), "playback_channels": output_channels,
+            "backing_used": bool(backing_path), "backing_path": str(path.resolve()) if backing_path else "",
+            "backing_sha256": backing_sha256, "playback_channels": output_channels,
             "device_format_checked": format_checked, "backing_shorter": short_backing,
             "peak": peak, "warning": warning}
 

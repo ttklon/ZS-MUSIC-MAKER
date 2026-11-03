@@ -122,3 +122,41 @@ def test_vault_ui_does_not_claim_phoneme_recognition_or_model_training(gui_modul
     module.StepVoice.refresh_vault(obj)
     assert "не распознавание аудио" in messages[0]
     assert "обучение RVC не подтверждено" in messages[0] and "Готово к обучению" not in messages[0]
+
+
+def test_dialog_chosen_backing_replaces_previous_selection_and_binds(gui_modules, monkeypatch):
+    module, _, _ = gui_modules
+    messages = []
+    class Dialog:
+        Accepted = 1
+        result_path = "recorded.wav"
+        recording_result = {"backing_used": True, "backing_path": "/other/beat.wav", "backing_sha256": "a" * 64}
+        def __init__(self, parent, **kwargs): pass
+        def exec(self): return self.Accepted
+    record_module = ModuleType("app.gui.wizard.record_dialog")
+    record_module.RecordDialog = Dialog
+    monkeypatch.setitem(sys.modules, "app.gui.wizard.record_dialog", record_module)
+    brief = SimpleNamespace(set_instrumental=lambda path: messages.append(path))
+    wizard = SimpleNamespace(recipe={"beat_engine": "user_audio", "beat_input_path": "old.wav"}, steps=[brief])
+    obj = SimpleNamespace(wizard=wizard, _own_vocal="recorded.wav", own_label=SimpleNamespace(setText=messages.append),
+                          set_own_vocal=lambda path: None, refresh_vault=lambda: None)
+    obj._bind_recording_backing = lambda path, sha: module.StepVoice._bind_recording_backing(obj, path, sha)
+    module.StepVoice.open_karaoke(obj)
+    assert wizard.recipe["beat_input_path"] == "/other/beat.wav" and wizard.recipe["beat_engine"] == "user_audio"
+    assert obj._recorded_backing_sha256 == "a" * 64 and messages[0] == "/other/beat.wav"
+    assert "будет проверен SHA-256" in messages[1]
+
+
+def test_selecting_indexed_take_restores_original_backing(gui_modules, monkeypatch, tmp_path):
+    from modules import voice_convert
+    module, _, _ = gui_modules
+    vocal = tmp_path / "voice.wav"
+    vocal.write_bytes(b"audio")
+    monkeypatch.setattr(voice_convert, "recording_backing", lambda path: {"path": "original.wav", "sha256": "a" * 64})
+    messages = []
+    wizard = SimpleNamespace(recipe={}, steps=[SimpleNamespace(set_instrumental=lambda path: messages.append(path))])
+    obj = SimpleNamespace(wizard=wizard, own_label=SimpleNamespace(setText=messages.append))
+    obj._bind_recording_backing = lambda path, sha: module.StepVoice._bind_recording_backing(obj, path, sha)
+    module.StepVoice.set_own_vocal(obj, str(vocal))
+    assert wizard.recipe["beat_input_path"] == "original.wav" and obj._recorded_backing_sha256 == "a" * 64
+    assert "будет проверен" in messages[-1]
