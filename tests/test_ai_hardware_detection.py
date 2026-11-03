@@ -48,3 +48,18 @@ def test_registry_asr_does_not_confuse_runtime_with_weights(tmp_path, monkeypatc
     for name in ("model.bin", "config.json", "tokenizer.json", "preprocessor_config.json"):
         (folder / name).write_bytes(b"test only")
     assert model_registry.is_available("asr") is True
+
+
+def test_registry_uses_free_vram_and_respects_cpu_preference(monkeypatch):
+    import sys
+    from types import SimpleNamespace
+    from app.ai.registry import HardwareBudget, ModelRegistry
+
+    gib = 1024 ** 3
+    cuda = SimpleNamespace(is_available=lambda: True, mem_get_info=lambda: (5 * gib, 8 * gib))
+    monkeypatch.setitem(sys.modules, "torch", SimpleNamespace(cuda=cuda))
+    reg = ModelRegistry(HardwareBudget(vram_gb=8, ram_gb=16, prefer_gpu=True))
+    assert reg.pick_device({"vram_est_gb": 4, "device_pref": "auto"}) == "cuda"
+    assert reg.pick_device({"vram_est_gb": 5, "device_pref": "auto"}) == "cpu"
+    reg.hw.prefer_gpu = False
+    assert reg.pick_device({"vram_est_gb": 1}) == "cpu"

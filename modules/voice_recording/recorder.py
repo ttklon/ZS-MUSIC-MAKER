@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import math
 import time
+import wave
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -19,9 +20,12 @@ from modules.voice_recording.state import (
     SD_OK,
     VAULT_DIR,
     RecorderMetrics,
+    TakeInfo,
     _np,
     _sd,
 )
+
+from modules.voice_recording.takes import split_wav_into_takes
 
 
 class RealMicRecorder:

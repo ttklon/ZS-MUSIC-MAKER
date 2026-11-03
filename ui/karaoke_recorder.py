@@ -2,17 +2,15 @@
 [v7] karaoke_recorder v4 — караоке-запись с 8 стилями и прогрессом покрытия.
 
 Возможности:
-  • Показ фразы с подсветкой слова (по времени)
-  • Проигрывание бита в наушниках при записи (Pro mode)
-  • Метроном по BPM
-  • Автосохранение в voice_vault/ с меткой стиля
-  • Прогресс: сколько записей по каждому стилю, покрытие фонем
+  • Синхронное воспроизведение выбранного бита при записи через sounddevice
+  • Сохранение в voice_vault/ с меткой стиля и диагностикой индекса
 """
 
 from __future__ import annotations
 
 import json
-import os
+import logging
+import re
 import time
 from pathlib import Path
 
@@ -46,33 +44,6 @@ def build_metronome(bpm: int, duration_sec: int = 8, sr: int = 44100) -> str:
         return ""
 
 
-def play_backing_track(track_path: str, in_headphones: bool = True) -> bool:
-    """
-    Стартует проигрывание бита в наушниках. На Windows — через winsound
-    (playAsync), на других системах — через subprocess.
-    """
-    if not track_path or not os.path.exists(track_path):
-        return False
-    try:
-        import platform
-
-        if platform.system() == "Windows":
-            import winsound
-
-            winsound.PlaySound(
-                track_path,
-                winsound.SND_FILENAME | winsound.SND_ASYNC | winsound.SND_LOOP,
-            )
-        else:
-            import subprocess
-
-            subprocess.Popen(["aplay", track_path], stderr=subprocess.DEVNULL)
-        return True
-    except Exception as e:
-        print(f"[karaoke.play_backing_track] {e}")
-        return False
-
-
 def record_with_backing(
     backing_path: str,
     duration_sec: int = 30,
@@ -91,34 +62,65 @@ def record_with_backing(
     except ImportError:
         return {"error": "sounddevice не установлен"}
 
-    if backing_path and os.path.exists(backing_path):
-        play_backing_track(backing_path, in_headphones=True)
+    try:
+        frames = int(duration_sec * sr)
+        if frames <= 0 or frames > 600 * sr:
+            raise ValueError("duration must be between 0 and 600 seconds")
+        if backing_path:
+            path = Path(backing_path)
+            if not path.is_file():
+                raise FileNotFoundError(f"backing track not found: {backing_path}")
+            with sf.SoundFile(str(path)) as source:
+                backing_sr = source.samplerate
+                wanted = min(len(source), int(np.ceil(frames * backing_sr / sr)) + 4)
+                backing = source.read(wanted, dtype="float32", always_2d=True)
+            if not len(backing) or not np.isfinite(backing).all():
+                raise ValueError("backing track is empty or invalid")
+            if backing_sr != sr:
+                from math import gcd
+                from scipy.signal import resample_poly
 
-    print(f"[karaoke] Запись {duration_sec} сек в стиле '{style}' — ПОЕХАЛИ!")
-    audio = sd.rec(int(duration_sec * sr), samplerate=sr, channels=1, dtype="float32")
-    sd.wait()
+                factor = gcd(backing_sr, sr)
+                backing = resample_poly(backing, sr // factor, backing_sr // factor, axis=0).astype("float32")
+            if backing.shape[1] > 2:
+                backing = backing[:, :2]
+            # Pad with silence instead of looping unexpectedly.
+            playback = np.zeros((frames, backing.shape[1]), dtype="float32")
+            n = min(frames, len(backing))
+            playback[:n] = backing[:n]
+            audio = sd.playrec(playback, samplerate=sr, channels=1, dtype="float32", blocking=True)
+        else:
+            audio = sd.rec(frames, samplerate=sr, channels=1, dtype="float32")
+            sd.wait()
+        audio = np.asarray(audio, dtype="float32").reshape(-1)
+        if len(audio) != frames or not np.isfinite(audio).all():
+            raise ValueError("microphone returned incomplete or invalid audio")
+        peak = float(np.max(np.abs(audio)))
+        if peak < 1e-5:
+            raise ValueError("microphone recording is silent; check input device and level")
+        safe_style = re.sub(r"[^\w-]", "_", style)[:40] or "voice"
+        ts = time.time_ns()
+        out = VAULT / f"rec_{ts}_{safe_style}.wav"
+        sf.write(str(out), audio, sr)
+    except Exception as exc:
+        return {"error": f"recording failed: {type(exc).__name__}: {exc}"}
 
-    ts = int(time.time())
-    out = VAULT / f"rec_{ts}_{style}.wav"
-    sf.write(str(out), audio.squeeze(), sr)
-
-    # Регистрируем в vault_index через voice_convert
+    # A saved take remains usable even if indexing fails; report the distinction.
+    warning = ""
     try:
         from modules.voice_convert import add_recording
 
-        add_recording(
-            str(out),
-            {
-                "style": style,
-                "text": text,
-                "duration_sec": duration_sec,
-                "timestamp": ts,
-            },
-        )
-    except Exception:
-        pass
-
-    return {"ok": True, "path": str(out), "style": style, "duration_sec": duration_sec}
+        entry = add_recording(str(out), {"style": style, "text": text,
+                                        "duration_sec": len(audio) / sr, "timestamp": ts / 1e9})
+        if entry.get("error"):
+            warning = f"Recording saved but Voice Vault indexing failed: {entry['error']}"
+    except Exception as exc:
+        warning = f"Recording saved but Voice Vault indexing failed: {type(exc).__name__}: {exc}"
+        logging.getLogger(__name__).warning(warning)
+    if peak >= 0.98:
+        warning = (warning + " " if warning else "") + "Recording may be clipped; lower microphone gain."
+    return {"ok": True, "path": str(out), "style": style, "duration_sec": len(audio) / sr,
+            "backing_used": bool(backing_path), "peak": peak, "warning": warning}
 
 
 def karaoke_ui(

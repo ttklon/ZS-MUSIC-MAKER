@@ -98,6 +98,8 @@ def build_recipe(wizard_state: dict[str, Any] | None) -> dict[str, Any]:
         "project_id": state.get("project_id"),
         "refs": [str(r) for r in (state.get("references") or [])],
         "theme": theme,
+        "beat_engine": str(state.get("beat_engine") or "procedural"),
+        "beat_input_path": str(state.get("beat_input_path") or ""),
         "genre": state.get("genre") or preset_key or "drift_phonk",
         "artist": state.get("artist") or state.get("artist_name") or "ZS Producer",
         "preset": preset_key,
@@ -114,6 +116,8 @@ def build_recipe(wizard_state: dict[str, Any] | None) -> dict[str, Any]:
         "extra_prompt": extra_prompt,
         "seed": _as_int(state.get("seed")),
         "own_vocal_wav": state.get("own_vocal_wav") or state.get("vocal_wav"),
+        "use_rvc": bool(state.get("use_rvc", True)),
+        "rvc_pitch_shift": max(-12, min(12, _as_int(state.get("rvc_pitch_shift"), 0) or 0)),
         "tune": bool(state.get("tune", True)),
         # явные флаги пользователя: конвейер их уважает, а не игнорирует
         "export_stems": bool(state.get("export_stems", True)),

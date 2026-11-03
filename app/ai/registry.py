@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """ZS Music Maker - app/ai/registry.py (v38)
-Реестр локальных AI-моделей. Одна тяжёлая модель в VRAM за раз.
-Бюджет: VRAM<=12GB, RAM<=32GB, CPU 2xXeon(40 threads). Только серьёзные модели (>=8B)."""
+Реестр локальных AI-моделей. Одна тяжёлая модель реестра за раз.
+Аппаратные параметры определяются на текущем компьютере."""
 from __future__ import annotations
 
 import logging
@@ -17,10 +17,10 @@ MODELS_DIR.mkdir(parents=True, exist_ok=True)
 
 @dataclass
 class HardwareBudget:
-    vram_gb: float = 12.0
-    ram_gb: float = 32.0
-    cpu_threads: int = 40
-    cpu_cores: int = 20
+    vram_gb: float = 0.0
+    ram_gb: float = 0.0
+    cpu_threads: int = 1
+    cpu_cores: int = 1
     prefer_gpu: bool = True
 
     @classmethod
@@ -39,7 +39,7 @@ class HardwareBudget:
 
 MODEL_REGISTRY: Dict[str, Dict[str, Any]] = {
     "lyrics_llm": {
-        "role": "Генерация текстов (сильная RU/EN LLM, никаких 1B-игрушек)",
+        "role": "Генерация текстов (Qwen2.5-14B GGUF; требуется достаточно памяти)",
         "engine": "llama_cpp",
         "hf_repo": "bartowski/Qwen2.5-14B-Instruct-GGUF",
         "file": "Qwen2.5-14B-Instruct-Q4_K_M.gguf",
@@ -243,28 +243,27 @@ class ModelRegistry:
         return ModelRegistry._UseCtx(self, key, unload_after)
 
     def pick_device(self, spec: Dict[str, Any]) -> str:
+        """Use CUDA/ROCm only if measured *free* VRAM leaves a 1 GiB reserve."""
         pref = spec.get("device_pref", "auto")
         need = float(spec.get("vram_est_gb", 0.0))
-        if pref == "cpu":
+        if pref == "cpu" or not self.hw.prefer_gpu:
             return "cpu"
         try:
             import torch
             if pref in ("cuda", "auto") and torch.cuda.is_available():
-                if need <= self.hw.vram_gb:
+                free_bytes, _ = torch.cuda.mem_get_info()
+                free_gb = min(self.hw.vram_gb, free_bytes / (1024 ** 3))
+                if need <= max(0.0, free_gb - 1.0):
                     return "cuda"
         except Exception:
-            logging.getLogger(__name__).debug("ignored exception", exc_info=True)
-        try:
-            import torch_directml  # noqa
-            if pref in ("dml", "auto") and need <= self.hw.vram_gb:
-                return "dml"
-        except Exception:
-            logging.getLogger(__name__).debug("ignored exception", exc_info=True)
+            logging.getLogger(__name__).debug("GPU free memory unavailable", exc_info=True)
+        # Generic loaders cannot safely use torch-directml as a CUDA device.
         return "cpu"
 
     def _register_default_loaders(self) -> None:
         def _llama(key):
             def _do():
+                import llama_cpp
                 from llama_cpp import Llama
                 spec = MODEL_REGISTRY[key]
                 mp = MODELS_DIR / key / spec["file"]
@@ -274,10 +273,18 @@ class ModelRegistry:
                         f"[{key}] not found at {mp}. "
                         f"Run: python tools/pull_ai_models.py --model {key}")
                 device = self.pick_device(spec)
+                supports_gpu = bool(getattr(llama_cpp, "llama_supports_gpu_offload", lambda: False)())
+                override = os.environ.get("ZSMM_LLAMA_GPU_LAYERS")
+                layers = int(override) if override is not None else (999 if device == "cuda" and supports_gpu else 0)
+                if layers < -1:
+                    raise ValueError("ZSMM_LLAMA_GPU_LAYERS must be -1, 0 or a positive integer")
+                if layers and not supports_gpu:
+                    raise RuntimeError("llama-cpp-python has no GPU offload backend; install a compatible build or use CPU")
+                device = "gpu_offload_requested" if layers else "cpu"
                 llm = Llama(model_path=str(mp),
                             n_ctx=spec.get("context", 4096),
                             n_threads=min(self.hw.cpu_threads, 20),
-                            n_gpu_layers=999 if device in ("cuda", "dml") else 0,
+                            n_gpu_layers=layers,
                             verbose=False)
                 return llm, device
             return _do

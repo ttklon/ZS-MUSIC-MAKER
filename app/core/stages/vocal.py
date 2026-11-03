@@ -235,7 +235,7 @@ def _pyttsx3_speak(text: str, out_wav: str) -> dict[str, Any]:
 
 
 def _stage_rvc(
-    voice_wav: str, out_dir: Path, upstream_synthetic: bool = False
+    voice_wav: str, out_dir: Path, upstream_synthetic: bool = False, pitch_shift: int = 0
 ) -> dict[str, Any]:
     """v19: если upstream_synthetic (rap_scaffold), RVC обязан быть BLOCKED —
     кормить RVC чистую синтетику нельзя (станет ещё хуже).
@@ -263,7 +263,7 @@ def _stage_rvc(
                 "notice": "RVC BLOCKED — pitch-shift fallback refused (P0.05)",
             }
         r = rvc_manager.infer(
-            voice_wav, voice_name="my_voice", out_name=out_wav
+            voice_wav, voice_name="my_voice", out_name=out_wav, pitch_shift=pitch_shift
         )
         return {"ok": bool(r), "path": r or out_wav}
     except RuntimeError as e:

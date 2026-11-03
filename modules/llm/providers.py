@@ -49,6 +49,8 @@ def call_ollama(
     model: str = "llama3.2:3b",
     base_url: str = "http://127.0.0.1:11434",
     timeout: float = 60.0,
+    max_tokens: int = 512,
+    temperature: float = 0.8,
 ) -> ProviderResult:
     if not HAS_REQ:
         return ProviderResult(False, provider="ollama", error="requests_missing")
@@ -59,6 +61,8 @@ def call_ollama(
                 "model": model,
                 "prompt": (system + "\n\n" + prompt).strip(),
                 "stream": False,
+                "keep_alive": 0,
+                "options": {"num_ctx": 4096, "num_predict": max_tokens, "temperature": temperature},
             },
             timeout=timeout,
         )

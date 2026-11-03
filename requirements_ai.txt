@@ -1,5 +1,5 @@
 # ZS Music Maker v38 - AI stack requirements (ставится отдельно от базового requirements.txt)
-# Веса: python tools/pull_ai_models.py --all. Бюджет: 12GB VRAM / 32GB RAM / 2xXeon.
+# Не устанавливайте всё без проверки совместимости и свободного места; см. INSTALL.md.
 llama-cpp-python>=0.2.90
 huggingface_hub>=0.24.0
 safetensors>=0.4.3

@@ -74,3 +74,25 @@ def test_split_keeps_takes_and_logs_when_manifest_write_fails(tmp_path, monkeypa
 
     assert len(takes) == 1
     assert "voice take manifest was not written: disk full" in caplog.text
+
+
+def test_recorded_audio_writes_valid_wav_and_can_be_split(monkeypatch, tmp_path):
+    import wave
+    monkeypatch.setattr(recording, "_np", np)
+    monkeypatch.setattr(recording, "VAULT_DIR", tmp_path)
+    recorder = recording.RealMicRecorder(sample_rate=8000, style="sing")
+    recorder._active = True
+    recorder._start_ts = 1234
+    recorder._buf = [np.full((8000, 1), 0.1, dtype=np.float32)]
+    class Stream:
+        def stop(self): pass
+        def close(self): pass
+    recorder._stream = Stream()
+    result = recorder.stop()
+    assert result["ok"] is True
+    with wave.open(result["path"], "rb") as audio:
+        assert audio.getnframes() == 8000
+        assert audio.getframerate() == 8000
+    monkeypatch.setattr(recorder, "stop", lambda: result)
+    takes = recorder.stop_and_split(min_take_ms=500)
+    assert len(takes) == 1 and takes[0].style == "sing"

@@ -91,3 +91,29 @@ def test_quality_failures_are_not_hidden_by_successful_execution():
     failures = _quality_gate_failures(stages)
     assert len(failures) == 3
     assert "bus_rms" in failures[0] and "profile" in failures[1] and "crest" in failures[2]
+
+
+def test_user_can_disable_rvc_and_keep_the_recorded_voice(monkeypatch, tmp_path):
+    from app.core.stages import vocal_chain
+    voice = tmp_path / "voice.wav"
+    sf.write(voice, 0.1 * np.sin(np.arange(8000) * .1), 8000)
+    monkeypatch.setattr(vocal_chain, "_stage_rvc", lambda *a, **k: (_ for _ in ()).throw(AssertionError("RVC disabled")))
+    monkeypatch.setattr(vocal_chain, "_stage_vocal_fx", lambda path, *a, **k: {"ok": True, "path": path})
+    recipe = build_recipe({"own_vocal_wav": str(voice), "use_rvc": False, "rvc_pitch_shift": 99})
+    stages, vocal, _ = vocal_chain._run_vocal_chain(recipe, "слова", tmp_path)
+    assert recipe["rvc_pitch_shift"] == 12
+    assert stages[1].status.value == "BLOCKED" and "disabled by user" in stages[1].reason
+    assert vocal == str(voice)
+
+
+def test_rvc_pitch_parameter_is_forwarded_to_backend(monkeypatch, tmp_path):
+    from app.core.stages import vocal
+    from modules import rvc_manager
+    model = tmp_path / "models/rvc/my_voice/my_voice.pth"
+    model.parent.mkdir(parents=True)
+    model.write_bytes(b"test model")
+    monkeypatch.setattr(vocal, "ROOT", tmp_path)
+    calls = {}
+    monkeypatch.setattr(rvc_manager, "infer", lambda *args, **kwargs: calls.update(kwargs) or "converted.wav")
+    result = vocal._stage_rvc("voice.wav", tmp_path, pitch_shift=-3)
+    assert result["ok"] and calls["pitch_shift"] == -3

@@ -5,6 +5,7 @@ app/core/stages/lyrics.py — Текст: структура куплет/при
 
 from __future__ import annotations
 
+import os
 from typing import Any
 
 from app.core.pipeline_runtime import _output, _timed
@@ -193,7 +194,7 @@ def _stage_lyrics(
     try:
         from app.ai.registry import registry
 
-        if registry.is_available("lyrics_llm"):
+        if not os.environ.get("ZSMM_OLLAMA_MODEL", "").strip() and registry.is_available("lyrics_llm"):
             from modules.lyrics.ai import generate_lyrics_ai
 
             generated = generate_lyrics_ai(theme, style_vector=style_vector, n_verses=n_verses,
@@ -227,6 +228,7 @@ def _stage_lyrics(
                     "provider": result.get("provider"),
                     "fallback_used": result.get("fallback_used", False),
                     "provider_chain": result.get("provider_chain"),
+                    "provider_errors": result.get("error"),
                     "fallback_attempts": fallback_attempts,
                     "reason": (
                         result.get("provider") + "_ok"

@@ -38,7 +38,7 @@ from app.core.pipeline_runtime import (
     _wanted,
 )
 from app.core.recipe import build_arrangement_plan, build_recipe, resolve_style_vector
-from app.core.stages.beat import _stage_beat
+from app.core.stages.beat import _stage_beat, _stage_ai_beat
 from app.core.stages.lyrics import _run_lyrics_stage
 from app.core.stages.master import (
     _stage_hit_score,
@@ -167,13 +167,13 @@ def run_full_pipeline(
     style_vector = resolve_style_vector(recipe, analysis)
     plan = build_arrangement_plan(recipe, _output(arrangement_stage).get("plan"), analysis)
 
-    resumed_beat = _resume_path(out_root, "beat") if resume else None
+    resumed_beat = _resume_path(out_root, "beat") if resume and recipe["beat_engine"] == "procedural" else None
     if resumed_beat:
         beat_stage = _resumed("_stage_beat", {"ok": True, "path": str(resumed_beat)})
     elif _wanted(only, "beat"):
         beat_stage = _timed(
             "_stage_beat",
-            lambda: _stage_beat(plan, out_root, groove=groove, style_vector=style_vector),
+            lambda: _stage_beat(plan, out_root, groove=groove, style_vector=style_vector) if recipe["beat_engine"] == "procedural" else _stage_ai_beat(recipe, plan, out_root, style_vector, dry_run),
         )
     else:
         beat_stage = _blocked("_stage_beat", "skipped by --only")

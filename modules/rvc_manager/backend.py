@@ -2,9 +2,8 @@
 """
 modules/rvc_manager/backend.py — определение бэкенда RVC и подтягивание форка.
 
-NVIDIA → `rvc-python` (CUDA), AMD/DirectML → Applio/Mangio-форк через git clone,
-остальное → CPU. `detect_backend()` честно возвращает `ok=False`, если
-рабочего рантайма нет.
+Определение устройства PyTorch для RVC inference и ручное получение форков.
+Наличие устройства не доказывает наличие пакета, весов или успешный inference.
 """
 
 from __future__ import annotations
@@ -30,58 +29,23 @@ class RVCBackend:
 
 
 def detect_backend() -> RVCBackend:
-    """Определяем оптимальный бэкенд и форк RVC под текущее железо."""
-    b = RVCBackend()
-    # 1) NVIDIA CUDA
+    """rvc-python supports torch CPU or torch CUDA/ROCm, not generic DirectML."""
     try:
         import torch
 
         if torch.cuda.is_available():
-            b.kind = "cuda"
-            b.device_name = torch.cuda.get_device_name(0)
-            b.vram_gb = round(torch.cuda.get_device_properties(0).total_memory / 1e9, 1)
-            b.fork = "rvc-python"
-            b.ok = True
-            b.reason = "CUDA available"
-            return b
+            is_rocm = bool(getattr(getattr(torch, "version", None), "hip", None))
+            return RVCBackend(
+                kind="rocm" if is_rocm else "cuda",
+                device_name=torch.cuda.get_device_name(0),
+                vram_gb=round(torch.cuda.get_device_properties(0).total_memory / (1024 ** 3), 2),
+                fork="rvc-python", ok=True,
+                reason="PyTorch ROCm device detected" if is_rocm else "PyTorch CUDA device detected",
+            )
     except Exception:
-        logging.getLogger(__name__).debug("ignored exception", exc_info=True)
-    # 2) DirectML (AMD/Intel iGPU на Windows)
-    try:
-        import torch_directml as dml
-
-        b.kind = "directml"
-        b.device_name = (
-            dml.device_name(0) if hasattr(dml, "device_name") else "DirectML GPU"
-        )
-        b.vram_gb = 4.0
-        b.fork = "applio"  # Applio — лучший AMD-friendly форк
-        b.ok = True
-        b.reason = "DirectML available"
-        return b
-    except Exception:
-        logging.getLogger(__name__).debug("ignored exception", exc_info=True)
-    # 3) ROCm (Linux, редко)
-    try:
-        import torch
-
-        if hasattr(torch.version, "hip") and torch.version.hip is not None:
-            b.kind = "rocm"
-            b.device_name = "AMD GPU (ROCm)"
-            b.vram_gb = 8.0
-            b.fork = "mangio"
-            b.ok = True
-            b.reason = "ROCm available"
-            return b
-    except Exception:
-        logging.getLogger(__name__).debug("ignored exception", exc_info=True)
-    # 4) CPU fallback
-    b.kind = "cpu"
-    b.device_name = "CPU"
-    b.fork = "rvc-python"
-    b.ok = True
-    b.reason = "CPU fallback"
-    return b
+        logging.getLogger(__name__).debug("RVC GPU backend unavailable", exc_info=True)
+    return RVCBackend(kind="cpu", device_name="CPU", fork="rvc-python", ok=True,
+                      reason="CPU selected; installed RVC package and model still need verification")
 
 
 # ---------------------------------------------------------------- ensure fork

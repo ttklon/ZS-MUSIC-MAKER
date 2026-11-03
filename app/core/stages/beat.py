@@ -9,6 +9,34 @@ from pathlib import Path
 from typing import Any
 
 
+def _stage_ai_beat(recipe: dict[str, Any], plan: Any, out_dir: Path,
+                   style: dict[str, Any], dry_run: bool = False) -> dict[str, Any]:
+    """Explicit external model: no substitution if it is missing or fails."""
+    if recipe.get("beat_engine") == "user_audio":
+        try:
+            from app.core.stages.imported_beat import import_instrumental
+            return import_instrumental(recipe.get("beat_input_path", ""), out_dir / "beat.wav")
+        except Exception as exc:
+            return {"ok": False, "engine": "user_instrumental", "reason": f"{type(exc).__name__}: {exc}"}
+    if recipe.get("beat_engine") != "ace_step":
+        return {"ok": False, "reason": f"unknown beat engine: {recipe.get('beat_engine')}"}
+    if dry_run:
+        return {"ok": True, "blocked": True, "reason": "ACE-Step skipped in dry run"}
+    try:
+        import os
+        from app.ai.acestep import generate_instrumental
+
+        prompt = f"Instrumental {recipe['genre']}, {recipe['theme']}; no vocals"
+        return generate_instrumental(
+            prompt, out_dir / "beat.wav", duration_sec=float((plan or {}).get("duration_sec") or 90),
+            bpm=int(style.get("target_bpm") or 128), key=recipe_key(style), seed=recipe.get("seed"),
+            base_url=os.getenv("ZSMM_ACESTEP_URL", "http://127.0.0.1:8001"),
+            timeout_sec=float(os.getenv("ZSMM_ACESTEP_TIMEOUT", "7200")),
+        )
+    except Exception as exc:
+        return {"ok": False, "engine": "ace_step_1_5_api", "reason": f"{type(exc).__name__}: {exc}"}
+
+
 def _stage_beat(
     plan: Any,
     out_dir: Path,

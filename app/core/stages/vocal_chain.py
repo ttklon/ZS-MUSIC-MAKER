@@ -73,10 +73,13 @@ def _run_vocal_chain(
     voice_wav = _output(synth).get("path")
     synthetic = bool(_output(synth).get("synthetic"))
 
-    if voice_wav:
+    if voice_wav and not recipe.get("use_rvc", True):
+        rvc = _blocked("_stage_rvc", "RVC disabled by user; original recording retained")
+    elif voice_wav:
         rvc = _timed(
             "_stage_rvc",
-            lambda: _stage_rvc(voice_wav, out_root, upstream_synthetic=synthetic),
+            lambda: _stage_rvc(voice_wav, out_root, upstream_synthetic=synthetic,
+                               pitch_shift=recipe.get("rvc_pitch_shift", 0)),
         )
     else:
         rvc = _blocked("_stage_rvc", "no voice_wav upstream (voice_synth failed)")

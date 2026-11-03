@@ -80,3 +80,30 @@ def test_local_model_failure_is_reported_when_router_takes_over(monkeypatch):
     result = lyrics_stage._stage_lyrics("пуэр", "trap")
     assert result["fallback_used"] is True
     assert result["fallback_attempts"][0]["error"] == "bad model"
+
+
+def test_router_error_details_are_not_lost_on_template_fallback(monkeypatch):
+    from app.ai.registry import registry
+    monkeypatch.setattr(registry, "is_available", lambda key: False)
+    class Router:
+        def __init__(self, **kwargs): pass
+        def complete(self, *args, **kwargs):
+            return {"ok": True, "text": "fallback", "provider": "local_template",
+                    "fallback_used": True, "error": {"ollama": "http_404"}}
+    monkeypatch.setattr(lyrics_stage, "LLMRouter", Router)
+    result = lyrics_stage._stage_lyrics("пуэр", "house")
+    assert result["provider_errors"]["ollama"] == "http_404"
+
+
+def test_configured_ollama_model_skips_heavy_registered_gguf(monkeypatch):
+    from app.ai.registry import registry
+    from modules.lyrics import ai
+    monkeypatch.setenv("ZSMM_OLLAMA_MODEL", "qwen3.5:4b")
+    monkeypatch.setattr(registry, "is_available", lambda key: True)
+    monkeypatch.setattr(ai, "generate_lyrics_ai", lambda *a, **kw: (_ for _ in ()).throw(AssertionError("GGUF must be skipped")))
+    class Router:
+        def __init__(self, **kwargs): pass
+        def complete(self, *args, **kwargs): return {"ok": True, "text": "lyrics", "provider": "ollama"}
+    monkeypatch.setattr(lyrics_stage, "LLMRouter", Router)
+    result = lyrics_stage._stage_lyrics("пуэр", "house")
+    assert result["provider"] == "ollama" and not result["fallback_attempts"]

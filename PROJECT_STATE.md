@@ -26,9 +26,9 @@
 
 ## Гейты
 
-- `pytest tests/` — 557 passed, 1 skipped (Linux); Windows 11 отдельно не проверен
+- `pytest tests/` — 578 passed, 1 skipped (Linux); Windows 11 отдельно не проверен
 - `tools/smoke_audio.py` — 6/6 PASS (без MusicGen и вокальных движков)
-- `tools/smoke_god.py` — 8/8 PASS (DSP fallback, без тяжёлого AI)
+- `tools/smoke_god.py` — 8/8 PASS в предыдущем прогоне (DSP fallback, без тяжёлого AI)
 - `tools/ast_dead_imports.py` — CLEAN (0)
 - `python -m compileall` — 0 ошибок
 - `tools/audit_honesty.py` — CLEAN (0)
@@ -66,6 +66,24 @@ crest 14.15 дБ при пределе 14.0; LUFS −14.0, true peak −1.37 dBT
 `voice.wav` как “this is a test of me your recording my voice”. Это не
 интеграционный тест приложения, не русский ASR и не распознавание пения.
 На пользовательском Windows данные пакеты не установлены этим экспериментом.
+
+## Проверка после добавления ACE-Step (2026-11-03)
+
+На Linux повторён 20-секундный сценарий: 3 синтетических сигнала-референса,
+тема «пуэр и ночной город», 4,95 с открытой записи речи
+[Bart Massey (CC0)](https://github.com/pdx-cs-sound/wavs). Процедурный
+бит 135 BPM, E minor; запись речи действительно обработана и добавлена в микс.
+Итог **PARTIAL**: шаблон текста, MusicGen и RVC BLOCKED, стемы отключены;
+не прошли mix bus RMS/correlation, reference profile deviation и mastering
+correlation. Это не исполнение текста, не проверка вокального пения, новых
+моделей, популярных артистов или коммерческого качества.
+Локальный отчёт — `output/real_scenario/result.json` (output вне git).
+
+ACE-Step HTTP-путь и RVC API проверены тестовыми серверами/заглушками, не
+нейросетевым inference. На тестовой Linux-машине нет GPU и весов, а GUI не
+запустился из-за отсутствия libGL; Windows 11 и пользовательская Radeon не
+проверялись. Собственная модель голоса не создана; встроенное обучение RVC
+заблокировано до подключения настоящего обучающего backend.
 
 ## Ограничения
 

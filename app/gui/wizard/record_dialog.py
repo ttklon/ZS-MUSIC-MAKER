@@ -2,7 +2,7 @@
 """
 app/gui/wizard/record_dialog.py — окно записи голоса.
 
-Запись идёт через `ui.karaoke_recorder.record_with_backing`: метроном в
+Запись идёт через `ui.karaoke_recorder.record_with_backing`: необязательный бит в
 наушниках, выбранный стиль (8 стилей из Voice Vault), сохранение в `voice_vault/`
 и регистрация в индексе. Пишем в отдельном потоке, чтобы окно не замирало на
 30 секундах записи.
@@ -19,6 +19,7 @@ from PySide6.QtCore import QThread, Signal
 from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
+    QFileDialog,
     QHBoxLayout,
     QLabel,
     QMessageBox,
@@ -91,6 +92,7 @@ class RecordDialog(QDialog):
         self.resize(620, 360)
         self.result_path: str | None = None
         self._thread: _Recorder | None = None
+        self._backing = ""
 
         layout = QVBoxLayout(self)
         layout.addWidget(DIM(t("wizard.voice.hint")))
@@ -106,6 +108,16 @@ class RecordDialog(QDialog):
         self.duration.setValue(20)
         style_row.addWidget(self.duration)
         layout.addLayout(style_row)
+
+        backing_row = QHBoxLayout()
+        self.backing_label = QLabel("Без минуса (можно выбрать свой бит)")
+        self.backing_label.setWordWrap(True)
+        choose_backing = QPushButton("Выбрать минус…")
+        choose_backing.clicked.connect(self._choose_backing)
+        backing_row.addWidget(self.backing_label, 1)
+        backing_row.addWidget(choose_backing)
+        layout.addLayout(backing_row)
+        layout.addWidget(DIM("Используйте наушники: минус воспроизводится во время записи, но не записывается в вокальный файл."))
 
         layout.addWidget(H2("Что читаем"))
         self.phrase = QComboBox()
@@ -131,6 +143,18 @@ class RecordDialog(QDialog):
         layout.addWidget(self.status)
         layout.addStretch()
 
+    def _choose_backing(self) -> None:
+        path, _ = QFileDialog.getOpenFileName(self, "Выбрать минус", "", "Audio (*.wav *.flac *.ogg)")
+        if path:
+            self._backing = path
+            self.backing_label.setText(path)
+
+    def reject(self) -> None:
+        if self._thread is not None and self._thread.isRunning():
+            self.status.setText("Дождитесь завершения записи перед закрытием окна.")
+            return
+        super().reject()
+
     def start_recording(self) -> None:
         if self._thread is not None and self._thread.isRunning():
             return
@@ -140,6 +164,7 @@ class RecordDialog(QDialog):
             duration_sec=int(self.duration.value()),
             style=self.style.currentText(),
             text=self.phrase.currentText(),
+            backing=self._backing,
         )
         self._thread.finished_ok.connect(self._on_recorded)
         self._thread.failed.connect(self._on_failed)
@@ -149,6 +174,8 @@ class RecordDialog(QDialog):
     def _on_recorded(self, result: dict) -> None:
         self.result_path = result.get("path")
         self.status.setText(f"Готово: {self.result_path}")
+        if result.get("warning"):
+            QMessageBox.warning(self, t("wizard.voice.karaoke"), str(result["warning"]))
         self.accept()
 
     def _on_failed(self, message: str) -> None:

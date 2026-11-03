@@ -10,6 +10,7 @@ modules/llm/router.py — маршрутизация запроса по про�
 from __future__ import annotations
 
 import logging
+import os
 
 import time
 from typing import Any
@@ -36,12 +37,8 @@ class LLMRouter:
     # v25 (P1): быстрый preflight (<1с). Раньше 4 провайдера по 8с таймауту
     # = до 32с мёртвого простоя, если сети нет / ключей нет. Теперь один
     # socket.connect() решает, стоит ли вообще звонить в облака / локальный
-    # Ollama. Кэшируется на уровне класса.
-    _preflight_cache: dict[str, bool] | None = None
-
+    # Ollama. Состояние не кэшируется: сервер можно запустить во время работы.
     def _preflight(self) -> dict[str, bool]:
-        if LLMRouter._preflight_cache is not None:
-            return LLMRouter._preflight_cache
         out = {"internet": False, "ollama": False}
         import socket
 
@@ -64,7 +61,6 @@ class LLMRouter:
             out["ollama"] = True
         except Exception:
             logging.getLogger(__name__).debug("ignored exception", exc_info=True)
-        LLMRouter._preflight_cache = out
         return out
 
     def _try_provider(self, name: str, fn):
@@ -168,7 +164,9 @@ class LLMRouter:
             r4 = self._try_provider(
                 "ollama",
                 lambda: call_ollama(
-                    prompt, system, base_url=self.ollama_url, timeout=self.timeout
+                    prompt, system, model=os.getenv("ZSMM_OLLAMA_MODEL", "llama3.2:3b"),
+                    base_url=self.ollama_url, timeout=float(os.getenv("ZSMM_OLLAMA_TIMEOUT", "600")),
+                    max_tokens=max_tokens, temperature=temperature,
                 ),
             )
             chain.append("ollama")

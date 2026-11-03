@@ -16,7 +16,7 @@ from __future__ import annotations
 import logging
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QComboBox, QHBoxLayout, QLabel, QLineEdit, QSlider, QSpinBox
+from PySide6.QtWidgets import QComboBox, QFileDialog, QHBoxLayout, QLabel, QLineEdit, QPushButton, QSlider, QSpinBox
 
 from app.core.i18n import t
 from app.gui.wizard.ui import DIM, H1, H2, HR, StepBase
@@ -79,10 +79,26 @@ class StepBrief(StepBase):
         self.root.addWidget(self.artist)
 
         self.root.addWidget(HR())
+        self.root.addWidget(H2(t("wizard.brief.beat_engine")))
+        self.beat_engine = QComboBox()
+        self.beat_engine.addItem(t("wizard.brief.beat_procedural"), "procedural")
+        self.beat_engine.addItem(t("wizard.brief.beat_ace"), "ace_step")
+        self.beat_engine.addItem(t("wizard.brief.beat_file"), "user_audio")
+        self.root.addWidget(self.beat_engine)
+        self._beat_input_path = ""
+        file_row = QHBoxLayout()
+        self.beat_file_label = QLabel(t("wizard.brief.beat_none"))
+        self.beat_file_label.setWordWrap(True)
+        choose_file = QPushButton(t("wizard.brief.beat_choose"))
+        choose_file.clicked.connect(self._choose_instrumental)
+        file_row.addWidget(self.beat_file_label, 1)
+        file_row.addWidget(choose_file)
+        self.root.addLayout(file_row)
+        self.root.addWidget(DIM(t("wizard.brief.beat_hint")))
         self.root.addWidget(H2(t("wizard.brief.duration")))
         dur_row = QHBoxLayout()
         self.duration = QSlider(Qt.Horizontal)
-        self.duration.setRange(90, 300)
+        self.duration.setRange(10, 300)
         self.duration.setValue(150)
         self.duration.setSingleStep(1)
         self.duration.setPageStep(10)
@@ -104,6 +120,13 @@ class StepBrief(StepBase):
         self.root.addLayout(seed_row)
         self.root.addWidget(DIM(t("wizard.brief.seed_hint")))
         self.root.addStretch()
+
+    def _choose_instrumental(self) -> None:
+        path, _ = QFileDialog.getOpenFileName(self, t("wizard.brief.beat_choose"), "", "Audio (*.wav *.flac *.ogg)")
+        if path:
+            self._beat_input_path = path
+            self.beat_file_label.setText(path)
+            self.beat_engine.setCurrentIndex(self.beat_engine.findData("user_audio"))
 
     @staticmethod
     def _duration_text(seconds: int) -> str:
@@ -138,6 +161,8 @@ class StepBrief(StepBase):
         theme = self.theme.text().strip() or DEFAULT_THEME
         artist = self.artist.text().strip() or "ZSMM Artist"
         recipe["genre"] = genre
+        recipe["beat_engine"] = self.beat_engine.currentData()
+        recipe["beat_input_path"] = self._beat_input_path
         recipe["theme"] = theme
         recipe["artist"] = artist
         recipe["artist_name"] = artist

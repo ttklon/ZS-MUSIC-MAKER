@@ -18,12 +18,14 @@ from pathlib import Path
 
 from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import (
+    QCheckBox,
     QComboBox,
     QFileDialog,
     QHBoxLayout,
     QLabel,
     QMessageBox,
     QPushButton,
+    QSpinBox,
 )
 
 from app.core.i18n import t
@@ -73,6 +75,17 @@ class StepVoice(StepBase):
         self.root.addLayout(own_row)
         self._own_vocal: str | None = None
 
+        self.use_rvc = QCheckBox(t("wizard.voice.use_rvc"))
+        self.use_rvc.setChecked(True)
+        self.root.addWidget(self.use_rvc)
+        pitch_row = QHBoxLayout()
+        pitch_row.addWidget(QLabel(t("wizard.voice.rvc_pitch")))
+        self.rvc_pitch = QSpinBox()
+        self.rvc_pitch.setRange(-12, 12)
+        pitch_row.addWidget(self.rvc_pitch)
+        pitch_row.addStretch()
+        self.root.addLayout(pitch_row)
+        self.root.addWidget(DIM(t("wizard.voice.rvc_hint")))
         self.root.addWidget(H2(t("wizard.voice.vault")))
         self.vault_label = QLabel("…")
         self.vault_label.setWordWrap(True)
@@ -185,6 +198,9 @@ class StepVoice(StepBase):
             from modules.voice_convert import train_rvc_model
 
             result = train_rvc_model(voice_name="my_voice", epochs=100, night_mode=night)
+            if not result.get("job_started"):
+                QMessageBox.warning(self, t("wizard.voice.rvc"), result.get("reason") or "RVC training unavailable")
+                return
             QMessageBox.information(
                 self,
                 t("wizard.voice.rvc"),
@@ -199,6 +215,8 @@ class StepVoice(StepBase):
         index = max(0, min(self.mode.currentIndex(), len(VOICE_MODES) - 1))
         recipe["voice_mode"] = VOICE_MODES[index]
         recipe["own_vocal_wav"] = self._own_vocal
+        recipe["use_rvc"] = self.use_rvc.isChecked()
+        recipe["rvc_pitch_shift"] = self.rvc_pitch.value()
 
     def help_text(self) -> str:
         return t("wizard.voice.hint")

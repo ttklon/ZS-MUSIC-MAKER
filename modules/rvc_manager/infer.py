@@ -5,8 +5,12 @@ modules/rvc_manager/infer.py — инференс RVC: рендер голоса
 
 from __future__ import annotations
 
+import os
+import tempfile
+from pathlib import Path
+
 from modules.rvc_manager.backend import detect_backend
-from modules.rvc_manager.config import FORKS_DIR, MODELS_DIR, ROOT, _load_state
+from modules.rvc_manager.config import MODELS_DIR, ROOT, _load_state
 
 
 def infer(
@@ -19,6 +23,8 @@ def infer(
     RVC-инференс: заменяет тембр во входном wav на голос пользователя.
     Пытается сначала rvc-python, потом форк. Возвращает путь к результату.
     """
+    if not voice_name or Path(voice_name).name != voice_name or voice_name in (".", ".."):
+        raise ValueError("invalid voice name")
     OUT = ROOT / "output" / "voice_final"
     OUT.mkdir(parents=True, exist_ok=True)
     out_path = OUT / out_name
@@ -29,42 +35,40 @@ def infer(
     if not model_path.exists():
         raise RuntimeError("RVC model is not available; refusing pitch-shift fallback")
 
-    # 1) rvc-python
+    # rvc-python 0.1.x exposes RVCInference, not a module-level infer_file.
+    # DirectML is not supported by this API; use CPU unless torch CUDA/ROCm is available.
     backend = detect_backend()
+    temp_path = None
+    model = None
     try:
-        from rvc_python.infer import infer_file
+        from rvc_python.infer import RVCInference
+        from app.ai.quality import validate_rvc_artifact
 
-        infer_file(
-            input_path=input_wav,
-            model_path=str(model_path),
-            index_path=str(index_path) if index_path.exists() else None,
-            output_path=str(out_path),
-            f0up_key=pitch_shift,
-            f0method="rmvpe",
-            device=backend.kind,
-        )
-        if out_path.exists() and out_path.stat().st_size > 1000:
-            return str(out_path)
-        else:
-            raise RuntimeError("RVC output file is empty or too small")
-    except ImportError:
-        # 2) AMD/DirectML/CPU: try fork if present
-        if backend.fork != "rvc-python":
-            fork_dir = FORKS_DIR / backend.fork
-            if fork_dir.exists():
-                # Здесь должна быть логика вызова CLI форка,
-                # но для v14 мы оставляем это как задел для реального железа.
-                raise RuntimeError(
-                    f"RVC fork {backend.fork} is cloned but CLI integration is pending for this OS."
-                )
-        raise RuntimeError(
-            "rvc-python not installed and no active fork integration found."
-        )
-    except Exception as e:
-        print(f"[rvc_manager.infer] rvc-python failed: {e}")
-        raise RuntimeError(
-            f"RVC inference failed: {e}. No non-RVC fallback is permitted (TZ 33.5)."
-        )
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        fd, name = tempfile.mkstemp(dir=out_path.parent, suffix=".wav")
+        os.close(fd)
+        temp_path = Path(name)
+        device = "cuda:0" if backend.kind in ("cuda", "rocm") else "cpu:0"
+        model = RVCInference(device=device, model_path=str(model_path),
+                             index_path=str(index_path) if index_path.exists() else "")
+        model.set_params(f0up_key=int(pitch_shift), f0method="rmvpe")
+        model.infer_file(input_wav, str(temp_path))
+        quality = validate_rvc_artifact(input_wav, temp_path)
+        if not quality.get("ok"):
+            raise RuntimeError(f"RVC output validation failed: {quality.get('reason')}")
+        os.replace(temp_path, out_path)
+        return str(out_path)
+    except Exception as exc:
+        raise RuntimeError(f"RVC inference failed: {type(exc).__name__}: {exc}") from exc
+    finally:
+        if model is not None:
+            try:
+                model.unload_model()
+            except Exception:
+                import logging
+                logging.getLogger(__name__).warning("RVC unload failed", exc_info=True)
+        if temp_path is not None:
+            temp_path.unlink(missing_ok=True)
 
 
 def _fallback_pitch(input_wav: str, out_path: str, pitch_shift: int) -> str:

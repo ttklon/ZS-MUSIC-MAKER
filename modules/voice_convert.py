@@ -9,7 +9,9 @@
 """
 
 import json
+import re
 import shutil
+import uuid
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -67,10 +69,20 @@ def add_recording(wav_path: str, meta: dict) -> dict:
     _ensure_dirs()
     idx = _load_index()
     style = meta.get("style", "unk")
-    fname = f"rec_{len(idx):04d}_{style}.wav"
+    source = Path(wav_path)
+    safe_style = re.sub(r"[^\w-]", "_", str(style))[:40] or "voice"
+    fname = f"rec_{uuid.uuid4().hex}_{safe_style}.wav"
     dst = VAULT_DIR / fname
     try:
-        shutil.copy(wav_path, dst)
+        if not source.is_file():
+            raise FileNotFoundError(source)
+        if source.resolve().parent == VAULT_DIR.resolve():
+            dst = source.resolve()
+            fname = dst.name
+        else:
+            # Never overwrite a pre-existing take, including unindexed recordings.
+            with source.open("rb") as src, dst.open("xb") as target:
+                shutil.copyfileobj(src, target)
     except Exception as e:
         return {"error": f"copy failed: {e}"}
     entry = {
@@ -125,21 +137,21 @@ def rate_recording(index: int, quality_score: int) -> dict:
 def train_rvc_model(
     voice_name: str = "my_voice", epochs: int = 100, night_mode: bool = False
 ) -> dict:
-    """Обучение RVC-модели. В v7 — через rvc_manager (фоново, с прогрессом)."""
+    """Запрос обучения RVC; возвращает blocked, пока нет проверенного backend."""
     from modules import rvc_manager
 
     trainer = rvc_manager.RVCTrainer()
     job = trainer.train(voice_name=voice_name, epochs=epochs, night_mode=night_mode)
-    # ждать НЕ надо в UI — прогресс отдаётся через колбэки
     return {
-        "ok": True,
-        "job_started": True,
+        "ok": job.status not in {"blocked_backend", "error"},
+        "job_started": job.status not in {"blocked_backend", "error"},
+        "reason": job.error,
         "voice_name": voice_name,
         "backend": trainer.backend.kind,
         "fork": trainer.backend.fork,
         "epochs": job.epochs,
         "device": job.device,
-        "note": "Обучение идёт в фоне. Смотри voice_convert.get_training_status()",
+        "note": job.stage,
     }
 
 
