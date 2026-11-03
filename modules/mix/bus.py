@@ -123,12 +123,31 @@ def build_mix(
     n = beat_staged.shape[0]
 
     vocal_used = False
+    vocal_placement: dict[str, Any] = {"requested": bool(vocal_wav)}
     vocal_stage: dict[str, Any] = {"applied": False}
     vocal: np.ndarray | None = None
-    if vocal_wav and Path(str(vocal_wav)).exists():
+    if vocal_wav:
+        if not Path(str(vocal_wav)).is_file():
+            return {"ok": False, "reason": "requested vocal file is missing", "vocal_used": False}
         raw_vocal, vocal_sr = _load(vocal_wav)
+        if not raw_vocal.size or not np.isfinite(raw_vocal).all():
+            return {"ok": False, "reason": "requested vocal is empty or invalid", "vocal_used": False}
         raw_vocal = _resample(_to_stereo(raw_vocal), vocal_sr, sr)
         offset_samples = round(float(vocal_offset_ms) * sr / 1000)
+        start = min(len(raw_vocal), max(0, -offset_samples))
+        dest_start = max(0, offset_samples)
+        placed_samples = max(0, min(len(raw_vocal) - start, n - dest_start))
+        end = start + placed_samples
+        omitted = (raw_vocal[:start], raw_vocal[end:])
+        omitted_peak = max((float(np.max(np.abs(part))) for part in omitted if part.size), default=0.0)
+        vocal_placement.update({
+            "source_seconds": round(len(raw_vocal) / sr, 3),
+            "placed_seconds": round(placed_samples / sr, 3),
+            "trimmed_start_seconds": round(start / sr, 3),
+            "trimmed_end_seconds": round((len(raw_vocal) - end) / sr, 3),
+            "trimmed_peak": omitted_peak,
+            "trimmed_non_silent": omitted_peak > 1e-5,
+        })
         raw_vocal = _place_vocal(raw_vocal, n, offset_samples)
         if float(np.max(np.abs(raw_vocal))) > 1e-6:
             vocal, vocal_stage = stage(
@@ -136,6 +155,8 @@ def build_mix(
             )
             vocal_stage["applied"] = True
             vocal_used = True
+        else:
+            return {"ok": False, "reason": "requested vocal is silent or outside the beat after offset", "vocal_used": False}
 
     bus = beat_staged.copy()
     if vocal is not None:
@@ -192,6 +213,7 @@ def build_mix(
         "out_wav": str(out_wav),
         "sample_rate": sr,
         "vocal_used": vocal_used,
+        "vocal_placement": vocal_placement,
         "vocal_offset_ms": vocal_offset_ms,
         "beat_staging": beat_stage,
         "bus_staging": bus_stage,

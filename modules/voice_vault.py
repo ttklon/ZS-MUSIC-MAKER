@@ -1,21 +1,8 @@
-"""
-[v9] voice_vault.py — ПОСТОЯННО НАКОПИТЕЛЬНЫЙ Voice Vault.
+"""Alternative Voice Vault index for speaker selection and explicit analysis.
 
-По ТЗ 3.8: «Голосовой профиль пользователя КОПИТСЯ ПОСТОЯННО».
-Раньше v8 хранил только сырые файлы. v9 добавляет:
-
-  • индексацию каждого файла: длительность, транскрипт (whisper), стиль подачи
-    (rap / sing / adlib / shout / whisper), BPM записи (если под метроном),
-    оценка качества записи (SNR, clipping, breath-noise).
-  • автопометки стилей — 8 стилей караоке (rap/sing/adlib/shout/whisper/melodic
-    /aggressive/deadpan).
-  • очередь для RVC-переобучения: как только накопилось ≥N мин чистого голоса
-    → auto-trigger rvc_trainer.retrain_incremental().
-  • стабильные id-файлов (md5), чтобы дубликаты не попадали в vault дважды.
-  • экспорт «voice_manifest.json» — что реально скормлено в RVC.
-
-Ничего не удаляет из v7/v8. Работает без librosa/whisper (тогда без транскрипта
-и SNR-оценки).
+This index is distinct from the wizard's archive index; neither is migrated or
+deleted automatically. Optional transcription may require external backends.
+Index updates preserve damaged or unreadable user data rather than resetting it.
 """
 
 from __future__ import annotations
@@ -26,7 +13,10 @@ import logging
 import math
 import shutil
 import time
+import uuid
 from pathlib import Path
+
+from modules.voice_index_store import VoiceIndexError, lock_index, read_index, write_index
 
 try:
     import numpy as np
@@ -69,25 +59,21 @@ RETRAIN_THRESHOLD_SEC = 300.0  # 5 минут
 
 # ============================================================ index
 def _load_index() -> dict:
-    if INDEX_FILE.exists():
-        try:
-            return json.loads(INDEX_FILE.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError) as error:
-            LOGGER.warning("voice vault index unreadable; using empty index: %s", error)
-    return {"items": {}}
+    return read_index(INDEX_FILE, lambda: {"items": {}},
+                      lambda data: isinstance(data, dict) and isinstance(data.get("items"), dict)
+                      and all(isinstance(item, dict) for item in data["items"].values()))
 
 
 def _save_index(idx: dict) -> None:
-    VAULT_DIR.mkdir(parents=True, exist_ok=True)
-    INDEX_FILE.write_text(
-        json.dumps(idx, ensure_ascii=False, indent=2), encoding="utf-8"
-    )
+    write_index(INDEX_FILE, idx)
 
 
-def _md5(path: Path, limit: int = 1 << 20) -> str:
-    h = hashlib.md5()
-    with open(path, "rb") as f:
-        h.update(f.read(limit))
+def _content_digest(path: Path) -> str:
+    """Hash the entire file; a shared first megabyte must not hide another take."""
+    h = hashlib.sha256()
+    with path.open("rb") as source:
+        for chunk in iter(lambda: source.read(1024 * 1024), b""):
+            h.update(chunk)
     return h.hexdigest()
 
 
@@ -190,50 +176,65 @@ def add_recording(
     overwrite: bool = False,
 ) -> dict:
     p = Path(src_path)
-    if not p.exists():
+    if not p.is_file():
         return {"ok": False, "error": f"not found: {src_path}"}
-
-    mid = _md5(p)
-    idx = _load_index()
-    items = idx.setdefault("items", {})
-
-    if mid in items and not overwrite:
-        return {"ok": True, "already_indexed": True, "item": items[mid]}
-
-    VAULT_DIR.mkdir(parents=True, exist_ok=True)
-    dst = VAULT_DIR / f"{mid[:12]}_{p.name}"
-    if not dst.exists():
-        try:
-            shutil.copy2(p, dst)
-        except Exception as e:
-            return {"ok": False, "error": f"copy failed: {e}"}
-
-    feats = _snr_and_clipping(dst)
-    style = _guess_style(feats, style_hint)
-    if transcribe:
-        transcript, transcription = _transcribe_with_diagnostics(dst)
-    else:
-        transcript = None
-        transcription = {"ok": False, "engine": None, "status": "not_requested"}
-
-    coverage = calculate_phoneme_coverage(transcript) if transcript else {}
-
-    entry = {
-        "id": mid,
-        "src_name": p.name,
-        "vault_path": str(dst),
-        "size": dst.stat().st_size,
-        "style": style,
-        "features": feats,
-        "transcript": transcript,
-        "transcription": transcription,
-        "coverage": coverage,
-        "added_at": time.time(),
-        "used_in_rvc_rounds": [],
-    }
-    items[mid] = entry
-    _save_index(idx)
-    return {"ok": True, "already_indexed": False, "item": entry}
+    dst = p
+    copy_verified = False
+    try:
+        digest = _content_digest(p)
+        mid = digest
+        VAULT_DIR.mkdir(parents=True, exist_ok=True)
+        with lock_index(INDEX_FILE):
+            idx = _load_index()
+            items = idx["items"]
+            if mid in items and not overwrite:
+                return {"ok": True, "already_indexed": True, "item": items[mid]}
+            # Earlier versions keyed by MD5 of only the first MiB. Confirm the
+            # entire old file before treating that legacy entry as a duplicate.
+            with p.open("rb") as source:
+                legacy_id = hashlib.md5(source.read(1024 * 1024)).hexdigest()
+            legacy = items.get(legacy_id)
+            if isinstance(legacy, dict) and legacy.get("vault_path"):
+                old_path = Path(legacy["vault_path"])
+                if old_path.is_file() and _content_digest(old_path) == digest:
+                    if not overwrite:
+                        return {"ok": True, "already_indexed": True, "item": legacy}
+                    mid = legacy_id
+            previous = items.get(mid) or {}
+            dst = VAULT_DIR / f"{mid[:12]}_{p.name}"
+            if dst.exists() and _content_digest(dst) != digest:
+                dst = VAULT_DIR / f"{mid[:12]}_{uuid.uuid4().hex}_{p.name}"
+            if not dst.exists():
+                # Exclusive create prevents replacing any unindexed take.
+                with p.open("rb") as source, dst.open("xb") as target:
+                    shutil.copyfileobj(source, target)
+            if _content_digest(dst) != digest:
+                raise VoiceIndexError("source changed during copy; unindexed copy preserved")
+            copy_verified = True
+            feats = _snr_and_clipping(dst)
+            style = _guess_style(feats, style_hint)
+            if transcribe:
+                transcript, transcription = _transcribe_with_diagnostics(dst)
+            else:
+                transcript = None
+                transcription = {"ok": False, "engine": None, "status": "not_requested"}
+            coverage = calculate_phoneme_coverage(transcript) if transcript else {}
+            entry = {
+                "id": mid, "src_name": p.name, "vault_path": str(dst), "size": dst.stat().st_size,
+                "style": style, "features": feats, "transcript": transcript,
+                "transcription": transcription, "coverage": coverage,
+                "added_at": previous.get("added_at", time.time()),
+                "used_in_rvc_rounds": previous.get("used_in_rvc_rounds", []),
+            }
+            items[mid] = entry
+            _save_index(idx)
+        return {"ok": True, "already_indexed": False, "item": entry}
+    except (OSError, ValueError, TypeError, VoiceIndexError) as exc:
+        failure = {"ok": False, "error": f"voice archive update failed: {type(exc).__name__}: {exc}",
+                   "unindexed_path": str(dst) if copy_verified and dst.is_file() else str(p)}
+        if not copy_verified and dst != p and dst.is_file():
+            failure["partial_copy_path"] = str(dst)
+        return failure
 
 
 def list_recordings(style: str | None = None) -> list[dict]:

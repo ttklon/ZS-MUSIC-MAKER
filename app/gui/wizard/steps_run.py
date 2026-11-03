@@ -249,6 +249,14 @@ class StepResult(StepBase):
         if asr.get("requested"):
             release_notes.append(t("wizard.result.asr_status").format(
                 status=asr.get("status", "UNKNOWN"), reason=asr.get("reason") or "—"))
+        vocal_output = next((stage.get("output") or {} for stage in pipeline.get("stages", [])
+                             if stage.get("name") == "_stage_voice_synth"), {})
+        if (vocal_output.get("recording_quality") or {}).get("near_clipping_warning"):
+            release_notes.append(t("wizard.result.vocal_peak_warning"))
+        mix_output = next((stage.get("output") or {} for stage in pipeline.get("stages", [])
+                           if stage.get("name") == "_stage_mix_and_sidechain"), {})
+        if (mix_output.get("vocal_placement") or {}).get("trimmed_non_silent"):
+            release_notes.append(t("wizard.result.vocal_trim_warning"))
         if "timed_lyrics" in release_output.get("missing", []):
             release_notes.append(t("wizard.result.no_timed_lyrics"))
         if release_output.get("isrc_status") == "UNREGISTERED":

@@ -92,3 +92,35 @@ def test_result_shows_reference_asr_status(gui_module):
     job = SimpleNamespace(result=result, track_id="test", started_at=1, finished_at=2, stage="done")
     module.StepResult.show_result(obj, job)
     assert "BLOCKED" in info.text and "local weights missing" in info.text
+
+
+def test_result_displays_vocal_clipping_warning(gui_module):
+    module, _ = gui_module
+    class Label:
+        text = ""
+        def setText(self, text): self.text = text
+    class Button:
+        def setEnabled(self, enabled): pass
+    info = Label()
+    obj = SimpleNamespace(info=info, detector=Label(), btn_part=Button())
+    result = {"pipeline": {"verdict": "PARTIAL", "stages": [{"name": "_stage_voice_synth", "output": {
+        "recording_quality": {"near_clipping_warning": True}}}]}}
+    job = SimpleNamespace(result=result, track_id="test", started_at=1, finished_at=2, stage="done")
+    module.StepResult.show_result(obj, job)
+    assert "клиппинг" in info.text or "clipping" in info.text
+
+
+def test_result_displays_lost_vocal_warning(gui_module):
+    module, _ = gui_module
+    class Label:
+        text = ""
+        def setText(self, text): self.text = text
+    class Button:
+        def setEnabled(self, enabled): pass
+    info = Label()
+    obj = SimpleNamespace(info=info, detector=Label(), btn_part=Button())
+    result = {"pipeline": {"verdict": "PARTIAL", "stages": [{"name": "_stage_mix_and_sidechain", "output": {
+        "vocal_placement": {"trimmed_non_silent": True}}}]}}
+    job = SimpleNamespace(result=result, track_id="test", started_at=1, finished_at=2, stage="done")
+    module.StepResult.show_result(obj, job)
+    assert "не попала в микс" in info.text or "outside the mix" in info.text

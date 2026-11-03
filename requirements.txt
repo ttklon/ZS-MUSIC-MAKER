@@ -14,6 +14,12 @@ gradio>=4.44.0
 
 # --- HTTP / сеть ---
 requests>=2.32.0
+# Keep Gradio/Hugging Face compatible with gTTS's click constraint.
+huggingface_hub>=0.24.0,<2
+click>=8.0,<8.2
+
+# --- Блокировка пользовательских индексов ---
+filelock>=3.32.7
 
 # --- Аудио-анализ ---
 librosa>=0.10.2

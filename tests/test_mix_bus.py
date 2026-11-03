@@ -75,10 +75,14 @@ def test_build_mix_without_vocal_is_honestly_instrumental(tmp_path) -> None:
     beat = _write(tmp_path, "beat.wav", _beat())
     missing = str(tmp_path / "no_such_vocal.wav")
 
-    result = mix_bus.build_mix(beat, missing, str(tmp_path / "mix.wav"))
+    result = mix_bus.build_mix(beat, missing, str(tmp_path / "missing_mix.wav"))
+    assert result["ok"] is False and result["vocal_used"] is False
+    assert "vocal file is missing" in result["reason"]
+    assert not (tmp_path / "missing_mix.wav").exists()
 
-    assert result["vocal_used"] is False
-    assert result["gates"]["true_peak"] is True
+    instrumental = mix_bus.build_mix(beat, None, str(tmp_path / "instrumental.wav"))
+    assert instrumental["ok"] and instrumental["vocal_used"] is False
+    assert instrumental["gates"]["true_peak"] is True
 
 
 def test_sidechain_ducks_low_band_but_keeps_the_kick() -> None:

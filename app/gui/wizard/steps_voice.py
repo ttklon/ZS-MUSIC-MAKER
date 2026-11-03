@@ -76,7 +76,7 @@ class StepVoice(StepBase):
         self._own_vocal: str | None = None
 
         self.use_rvc = QCheckBox(t("wizard.voice.use_rvc"))
-        self.use_rvc.setChecked(True)
+        self.use_rvc.setChecked(False)
         self.root.addWidget(self.use_rvc)
         self._rvc_model_path = ""
         self._rvc_index_path = ""
@@ -90,6 +90,13 @@ class StepVoice(StepBase):
         pitch_row.addStretch()
         self.root.addLayout(pitch_row)
         self.root.addWidget(DIM(t("wizard.voice.rvc_hint")))
+        self.use_vocal_fx = QCheckBox(t("wizard.voice.use_fx"))
+        self.use_vocal_fx.setChecked(True)
+        self.root.addWidget(self.use_vocal_fx)
+        self.use_tune = QCheckBox(t("wizard.voice.use_tune"))
+        self.use_tune.setChecked(False)
+        self.root.addWidget(self.use_tune)
+        self.root.addWidget(DIM(t("wizard.voice.fx_hint")))
         offset_row = QHBoxLayout()
         offset_row.addWidget(QLabel(t("wizard.voice.offset")))
         self.vocal_offset = QSpinBox()
@@ -166,12 +173,13 @@ class StepVoice(StepBase):
             from modules.voice_convert import vault_summary
 
             summary = vault_summary()
-            ready = "ДА" if summary["ready_for_training"] else "нет (нужно ≥ 5 мин)"
+            duration_met = "да" if summary["minimum_duration_met"] else "нет"
             missing = ", ".join(summary["recommended_next_styles"][:3]) or "все ок"
             self.vault_label.setText(
                 f"Записей: {summary['recordings']}, минут: {summary['total_minutes']:.1f}, "
-                f"покрытие фонем: {summary['phoneme_coverage_pct']}%.\n"
-                f"Готово к обучению: {ready}. Не хватает стилей: {missing}"
+                f"буквы во введённых фразах: {summary['phoneme_coverage_pct']}% (не распознавание аудио).\n"
+                f"По индексу ≥ 5 мин: {duration_met}; обучение RVC не подтверждено. "
+                f"Мало записей стилей: {missing}"
             )
         except Exception as error:  # noqa: BLE001 - архив может отсутствовать
             LOGGER.warning("voice vault unavailable: %s", error)
@@ -207,7 +215,7 @@ class StepVoice(StepBase):
         if not path:
             return
         file = Path(path)
-        if not file.exists() or file.suffix.lower() not in AUDIO_SUFFIXES:
+        if not file.is_file() or file.suffix.lower() not in AUDIO_SUFFIXES:
             self._own_vocal = None
             self.own_label.setText(f"{t('dialog.error')}: {path}")
             return
@@ -228,7 +236,10 @@ class StepVoice(StepBase):
         try:
             from app.gui.wizard.record_dialog import RecordDialog
 
-            dialog = RecordDialog(self)
+            recipe = self.wizard.recipe
+            backing = recipe.get("beat_input_path", "") if recipe.get("beat_engine") == "user_audio" else ""
+            duration = recipe.get("duration_sec") or 20
+            dialog = RecordDialog(self, default_backing=backing, default_duration=int(duration))
             if dialog.exec() == dialog.Accepted and dialog.result_path:
                 self.set_own_vocal(dialog.result_path)
             self.refresh_vault()
@@ -258,6 +269,8 @@ class StepVoice(StepBase):
         recipe["voice_mode"] = VOICE_MODES[index]
         recipe["own_vocal_wav"] = self._own_vocal
         recipe["use_rvc"] = self.use_rvc.isChecked()
+        recipe["use_vocal_fx"] = self.use_vocal_fx.isChecked()
+        recipe["tune"] = self.use_tune.isChecked()
         recipe["rvc_model_path"] = self._rvc_model_path
         recipe["rvc_index_path"] = self._rvc_index_path
         recipe["rvc_pitch_shift"] = self.rvc_pitch.value()

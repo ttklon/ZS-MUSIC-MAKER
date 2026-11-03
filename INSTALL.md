@@ -172,7 +172,7 @@ Voice Vault. Для последующего полного прогона вы�
 
 - **Обязательные зависимости** из `requirements.txt` (PySide6, gradio, librosa,
   scipy, numpy, pydub, soundfile, matplotlib, mido, pyloudnorm, pedalboard,
-  pyttsx3, gtts, sounddevice, Pillow, mutagen, requests и др.).
+  pyttsx3, gtts, sounddevice, filelock, Pillow, mutagen, requests и др.).
 - **PyTorch CPU** — стабильный fallback для RX 580 4GB (опционально).
 - Создание рабочих каталогов (`output/`, `models/`, `samples_cache/`, `checkpoints/`).
 - Проверку GPU/CPU и базовых моделей.
@@ -191,7 +191,7 @@ pip install audiocraft --no-deps
 pip install einops encodec sentencepiece hydra-core omegaconf av
 
 # Дополнительно: сплиттер стемов, распознавание речи, мастеринг под референс
-pip install demucs "faster-whisper>=1.0.3,<2" matchering "huggingface-hub>=0.24,<1"
+pip install demucs "faster-whisper>=1.0.3,<2" matchering "huggingface-hub>=0.24,<2" "click>=8,<8.2"
 
 # Тяжёлые TTS (опционально): XTTS, Bark
 pip install TTS
@@ -218,8 +218,9 @@ python tools/pull_ai_models.py --role asr --verify
 если CUDA CTranslate2 не подтверждён. Проверка памяти приблизительна, на CPU
 может быть медленно. В мастере отметьте распознавание на шаге материалов;
 подробности, лимиты и предупреждения о приватности — в `README.md`.
-Пакет `huggingface-hub` ограничен версией ниже 1 для совместимости с текущим
-gTTS/click; после изменения зависимостей рекомендуется выполнить `pip check`.
+Ограничения `huggingface-hub<2` и `click<8.2` позволяют согласовать текущие
+Gradio и gTTS; после изменения зависимостей рекомендуется выполнить `pip check`.
+Конкретные версии AI-стека и Windows следует дополнительно проверять вместе.
 
 ## 3. Проверка после установки
 

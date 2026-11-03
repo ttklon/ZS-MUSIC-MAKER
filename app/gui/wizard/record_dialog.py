@@ -75,8 +75,8 @@ class _Recorder(QThread):
                 style=self.style,
                 text=self.text,
             )
-            if result.get("error"):
-                self.failed.emit(str(result["error"]))
+            if result.get("ok") is not True or not result.get("path"):
+                self.failed.emit(str(result.get("error") or "recording did not produce a file"))
             else:
                 self.finished_ok.emit(result)
         except Exception as error:  # noqa: BLE001 - сообщаем в диалог, не в лог
@@ -86,13 +86,15 @@ class _Recorder(QThread):
 class RecordDialog(QDialog):
     """Минимальный рекордер: стиль, длина, фраза, кнопка записи."""
 
-    def __init__(self, parent=None, default_text: str = ""):
+    def __init__(self, parent=None, default_text: str = "", default_backing: str = "",
+                 default_duration: int = 20):
         super().__init__(parent)
         self.setWindowTitle(t("wizard.voice.karaoke"))
         self.resize(620, 360)
         self.result_path: str | None = None
         self._thread: _Recorder | None = None
-        self._backing = ""
+        self._pending_accept = False
+        self._backing = default_backing
 
         layout = QVBoxLayout(self)
         layout.addWidget(DIM(t("wizard.voice.hint")))
@@ -104,18 +106,22 @@ class RecordDialog(QDialog):
         style_row.addWidget(self.style, 1)
         style_row.addWidget(QLabel("Секунд"))
         self.duration = QSpinBox()
-        self.duration.setRange(5, 120)
-        self.duration.setValue(20)
+        self.duration.setRange(5, 300)
+        self.duration.setValue(max(5, min(300, default_duration)))
         style_row.addWidget(self.duration)
         layout.addLayout(style_row)
 
         backing_row = QHBoxLayout()
-        self.backing_label = QLabel("Без минуса (можно выбрать свой бит)")
+        self.backing_label = QLabel(self._backing or "Без минуса (можно выбрать свой бит)")
         self.backing_label.setWordWrap(True)
         choose_backing = QPushButton("Выбрать минус…")
         choose_backing.clicked.connect(self._choose_backing)
+        clear_backing = QPushButton("✕")
+        clear_backing.setToolTip(t("wizard.material.clear"))
+        clear_backing.clicked.connect(self._clear_backing)
         backing_row.addWidget(self.backing_label, 1)
         backing_row.addWidget(choose_backing)
+        backing_row.addWidget(clear_backing)
         layout.addLayout(backing_row)
         layout.addWidget(DIM("Используйте наушники: минус воспроизводится во время записи, но не записывается в вокальный файл."))
 
@@ -149,11 +155,22 @@ class RecordDialog(QDialog):
             self._backing = path
             self.backing_label.setText(path)
 
+    def _clear_backing(self) -> None:
+        self._backing = ""
+        self.backing_label.setText("Без минуса (можно выбрать свой бит)")
+
     def reject(self) -> None:
         if self._thread is not None and self._thread.isRunning():
             self.status.setText("Дождитесь завершения записи перед закрытием окна.")
             return
         super().reject()
+
+    def closeEvent(self, event) -> None:
+        if self._thread is not None and self._thread.isRunning():
+            self.status.setText("Дождитесь завершения записи перед закрытием окна.")
+            event.ignore()
+            return
+        super().closeEvent(event)
 
     def start_recording(self) -> None:
         if self._thread is not None and self._thread.isRunning():
@@ -168,7 +185,7 @@ class RecordDialog(QDialog):
         )
         self._thread.finished_ok.connect(self._on_recorded)
         self._thread.failed.connect(self._on_failed)
-        self._thread.finished.connect(lambda: self.btn_record.setEnabled(True))
+        self._thread.finished.connect(self._on_thread_finished)
         self._thread.start()
 
     def _on_recorded(self, result: dict) -> None:
@@ -176,7 +193,14 @@ class RecordDialog(QDialog):
         self.status.setText(f"Готово: {self.result_path}")
         if result.get("warning"):
             QMessageBox.warning(self, t("wizard.voice.karaoke"), str(result["warning"]))
-        self.accept()
+        self._pending_accept = True
+        if self._thread is None or not self._thread.isRunning():
+            self.accept()
+
+    def _on_thread_finished(self) -> None:
+        self.btn_record.setEnabled(True)
+        if self._pending_accept:
+            self.accept()
 
     def _on_failed(self, message: str) -> None:
         self.status.setText(f"{t('dialog.error')}: {message}")

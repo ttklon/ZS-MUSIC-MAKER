@@ -22,3 +22,14 @@ def test_setup_dry_run_initialises_dirs_without_commands(tmp_path, monkeypatch) 
     assert install.setup(install_ai=True, dry_run=True) == 0
     assert (tmp_path / "data" / "ai_models").is_dir()
     assert (tmp_path / "output" / "queue").is_dir()
+
+
+def test_core_and_ai_constraints_share_safe_voice_and_text_dependencies() -> None:
+    from pathlib import Path
+    root = Path(__file__).resolve().parents[1]
+    core = (root / "requirements.txt").read_text(encoding="utf-8")
+    ai = (root / "requirements_ai.txt").read_text(encoding="utf-8")
+    metadata = (root / "pyproject.toml").read_text(encoding="utf-8")
+    for line in ("huggingface_hub>=0.24.0,<2", "click>=8.0,<8.2"):
+        assert line in core and line in ai and line in metadata
+    assert "filelock>=3.32.7" in core and "filelock>=3.32.7" in metadata

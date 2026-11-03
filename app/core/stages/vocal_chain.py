@@ -11,6 +11,7 @@ app/core/stages/vocal_chain.py — вокальная ветка пайплай�
 from __future__ import annotations
 
 from pathlib import Path
+import time
 from typing import Any
 
 from app.core.pipeline_runtime import _blocked, _output, _timed
@@ -43,26 +44,30 @@ def _run_vocal_chain(
 
     own_vocal = recipe.get("own_vocal_wav")
     if own_vocal:
+        validation_started = time.monotonic()
         try:
-            import soundfile as sf
+            from app.core.user_vocal import inspect_user_vocal
 
-            info = sf.info(str(own_vocal))
-            if info.frames <= 0 or info.samplerate <= 0 or info.channels <= 0:
-                raise ValueError("empty or invalid audio")
+            info = inspect_user_vocal(str(own_vocal))
         except Exception as exc:  # noqa: BLE001 - explicit input must not silently become TTS
             reason = f"recording unavailable or unreadable: {type(exc).__name__}: {exc}"
             return [
-                StageResult(name="_stage_voice_synth", status=StageStatus.FAILED, reason=reason),
+                StageResult(name="_stage_voice_synth", status=StageStatus.FAILED, reason=reason,
+                            duration_sec=time.monotonic() - validation_started),
                 _blocked("_stage_rvc", "recording unavailable"),
                 _blocked("_stage_vocal_fx", "recording unavailable"),
             ], None, [reason]
+        if info["near_clipping_warning"]:
+            warnings.append("vocal recording has samples near full scale; check for clipping and lower microphone gain")
         synth = StageResult(
             name="_stage_voice_synth",
             status=StageStatus.OK,
+            duration_sec=time.monotonic() - validation_started,
             output={
                 "ok": True,
                 "path": str(own_vocal),
                 "engine": "user_recording",
+                "recording_quality": info,
                 "reason": "own microphone recording used as primary vocal path",
             },
         )
@@ -73,7 +78,7 @@ def _run_vocal_chain(
     voice_wav = _output(synth).get("path")
     synthetic = bool(_output(synth).get("synthetic"))
 
-    if voice_wav and not recipe.get("use_rvc", True):
+    if voice_wav and not recipe.get("use_rvc", False):
         rvc = _blocked("_stage_rvc", "RVC disabled by user; original recording retained")
     elif voice_wav:
         rvc = _timed(
@@ -90,13 +95,15 @@ def _run_vocal_chain(
     rvc_path = _output(rvc).get("path") if rvc.ok else None
     vocal_final = rvc_path or voice_wav
 
-    if vocal_final:
+    if vocal_final and recipe.get("use_vocal_fx", True):
         fx = _timed(
             "_stage_vocal_fx",
             lambda: _stage_vocal_fx(
-                vocal_final, out_root, bpm=bpm, key=key, tune=bool(recipe.get("tune", True))
+                vocal_final, out_root, bpm=bpm, key=key, tune=bool(recipe.get("tune", False))
             ),
         )
+    elif vocal_final:
+        fx = _blocked("_stage_vocal_fx", "vocal effects disabled by user; original vocal retained")
     else:
         fx = _blocked("_stage_vocal_fx", "no vocal")
     stages.append(fx)

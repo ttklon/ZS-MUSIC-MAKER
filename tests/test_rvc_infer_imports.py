@@ -110,7 +110,7 @@ def test_explicit_model_and_index_reach_vocal_chain(tmp_path, monkeypatch):
         return str(voice)
     monkeypatch.setattr(rvc_manager, "infer", infer)
     monkeypatch.setattr(vocal_chain, "_stage_vocal_fx", lambda path, *a, **kw: {"ok": True, "path": path})
-    recipe = build_recipe({"own_vocal_wav": str(voice), "rvc_model_path": str(model),
+    recipe = build_recipe({"own_vocal_wav": str(voice), "use_rvc": True, "rvc_model_path": str(model),
                            "rvc_index_path": str(index), "rvc_pitch_shift": 4})
     stages, result, _ = vocal_chain._run_vocal_chain(recipe, "слова", tmp_path)
     assert stages[1].status.value == "OK" and result == str(voice)
@@ -129,7 +129,7 @@ def test_missing_explicit_index_reports_blocked_and_preserves_recording(tmp_path
     model = tmp_path / "custom.pth"
     model.write_bytes(b"fake")
     monkeypatch.setattr(vocal_chain, "_stage_vocal_fx", lambda path, *a, **kw: {"ok": True, "path": path})
-    recipe = build_recipe({"own_vocal_wav": str(voice), "rvc_model_path": str(model),
+    recipe = build_recipe({"own_vocal_wav": str(voice), "use_rvc": True, "rvc_model_path": str(model),
                            "rvc_index_path": str(tmp_path / "missing.index")})
     stages, output, _ = vocal_chain._run_vocal_chain(recipe, "слова", tmp_path)
     assert stages[1].status.value == "BLOCKED"

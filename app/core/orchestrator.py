@@ -217,6 +217,9 @@ def run_full_pipeline(
         mix_stage = reused_stages["_stage_mix_and_sidechain"]
     elif not _wanted(only, "mix"):
         mix_stage = _blocked("_stage_mix_and_sidechain", "skipped by --only")
+    elif recipe.get("own_vocal_wav") and recipe["voice_mode"] != "off" and not vocal_final:
+        mix_stage = _blocked("_stage_mix_and_sidechain", "requested recording unavailable; refusing instrumental substitution")
+        warnings.append("requested recording unavailable; mix not rendered")
     elif beat_wav:
         mix_stage = _timed(
             "_stage_mix_and_sidechain",

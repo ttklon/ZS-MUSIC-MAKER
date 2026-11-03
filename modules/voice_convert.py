@@ -1,18 +1,16 @@
-"""
-[v7] voice_convert.py — тонкая обёртка над rvc_manager.
+"""Voice archive used by the wizard and thin delegation to the RVC manager.
 
-Изменения относительно v6:
-  • RVC теперь ОСНОВНОЙ путь (см. 20.1 ТЗ).
-  • Offline pitch-shift оставлен только как аварийный fallback с WARNING.
-  • Тренировку и инференс полностью делегируем rvc_manager.
-  • Voice Vault (записи по 8 стилям + phoneme coverage) сохранён.
+The user's recording is retained on disk even if indexing fails. RVC training
+and inference require their own verified backend; no pitch shift is presented
+as voice conversion.
 """
 
-import json
 import re
 import shutil
 import uuid
 from pathlib import Path
+
+from modules.voice_index_store import VoiceIndexError, lock_index, read_index, write_index
 
 ROOT = Path(__file__).resolve().parents[1]
 VAULT_DIR = ROOT / "voice_vault"
@@ -49,58 +47,52 @@ STYLES = [
 
 # ---------- Voice Vault ----------
 def _load_index() -> list:
-    if VOICE_INDEX.exists():
-        try:
-            return json.load(open(VOICE_INDEX, "r", encoding="utf-8"))
-        except Exception:
-            return []
-    return []
+    return read_index(VOICE_INDEX, list, lambda data: isinstance(data, list) and
+                      all(isinstance(item, dict) for item in data))
 
 
-def _save_index(idx: list):
-    _ensure_dirs()
-    json.dump(
-        idx, open(VOICE_INDEX, "w", encoding="utf-8"), ensure_ascii=False, indent=2
-    )
+def _save_index(idx: list) -> None:
+    write_index(VOICE_INDEX, idx)
 
 
 def add_recording(wav_path: str, meta: dict) -> dict:
-    """Добавить запись в Voice Vault."""
-    _ensure_dirs()
-    idx = _load_index()
-    style = meta.get("style", "unk")
+    """Register a take without replacing a damaged index or an existing recording."""
     source = Path(wav_path)
-    safe_style = re.sub(r"[^\w-]", "_", str(style))[:40] or "voice"
-    fname = f"rec_{uuid.uuid4().hex}_{safe_style}.wav"
-    dst = VAULT_DIR / fname
+    if not source.is_file():
+        return {"error": f"copy failed: source not found: {source}"}
+    safe_style = re.sub(r"[^\w-]", "_", str(meta.get("style", "unk")))[:40] or "voice"
+    dst = source
+    copy_complete = False
     try:
-        if not source.is_file():
-            raise FileNotFoundError(source)
-        if source.resolve().parent == VAULT_DIR.resolve():
-            dst = source.resolve()
-            fname = dst.name
-        else:
-            # Never overwrite a pre-existing take, including unindexed recordings.
-            with source.open("rb") as src, dst.open("xb") as target:
-                shutil.copyfileobj(src, target)
-    except Exception as e:
-        return {"error": f"copy failed: {e}"}
-    entry = {
-        "file": fname,
-        "path": str(dst),
-        "style": style,
-        "text": meta.get("text", ""),
-        "duration_sec": float(meta.get("duration_sec", 0)),
-        "quality_score": meta.get("quality_score"),
-        "timestamp": meta.get("timestamp"),
-    }
-    idx.append(entry)
-    _save_index(idx)
-    return entry
+        _ensure_dirs()
+        with lock_index(VOICE_INDEX):
+            idx = _load_index()
+            if source.resolve().parent != VAULT_DIR.resolve():
+                dst = VAULT_DIR / f"rec_{uuid.uuid4().hex}_{safe_style}.wav"
+                # Exclusive create: do not overwrite pre-existing or concurrent takes.
+                with source.open("rb") as src, dst.open("xb") as target:
+                    shutil.copyfileobj(src, target)
+            else:
+                dst = source.resolve()
+            copy_complete = True
+            entry = {
+                "file": dst.name, "path": str(dst), "style": meta.get("style", "unk"),
+                "text": meta.get("text", ""), "duration_sec": float(meta.get("duration_sec", 0)),
+                "quality_score": meta.get("quality_score"), "timestamp": meta.get("timestamp"),
+            }
+            idx.append(entry)
+            _save_index(idx)
+        return entry
+    except (OSError, ValueError, TypeError, VoiceIndexError) as exc:
+        failure = {"error": f"voice archive update failed: {type(exc).__name__}: {exc}",
+                   "unindexed_path": str(dst) if copy_complete and dst.is_file() else str(source)}
+        if not copy_complete and dst != source and dst.is_file():
+            failure["partial_copy_path"] = str(dst)
+        return failure
 
 
 def vault_summary() -> dict:
-    """Сводка по vault: сколько минут, покрытие фонем, рекомендации."""
+    """Duration and entered-letter counts; not ASR, phoneme coverage or training proof."""
     idx = _load_index()
     by_style = {}
     total_sec = 0
@@ -116,8 +108,13 @@ def vault_summary() -> dict:
         "recordings": len(idx),
         "total_minutes": round(total_sec / 60, 2),
         "by_style": by_style,
-        "ready_for_training": total_sec >= 300,  # 5 минут — минимум
-        "recommended_for_full": total_sec >= 600,  # 10 минут — идеал
+        "minimum_duration_met": total_sec >= 300,
+        "duration_kind": "index_metadata_unverified",
+        "ready_for_training": False,  # no integrated trainer has been verified
+        "training_status": "UNVERIFIED",
+        "recommended_for_full": False,  # duration does not establish dataset quality
+        "coverage_kind": "entered_letters_not_asr",
+        "audio_coverage_verified": False,
         "phoneme_coverage_pct": round(len(covered) / len(PHONEMES) * 100, 1),
         "missing_phonemes": missing,
         "recommended_next_styles": [s for s in STYLES if by_style.get(s, 0) < 3],
@@ -125,12 +122,16 @@ def vault_summary() -> dict:
 
 
 def rate_recording(index: int, quality_score: int) -> dict:
-    idx = _load_index()
-    if index < 0 or index >= len(idx):
-        return {"error": "индекс вне диапазона"}
-    idx[index]["quality_score"] = quality_score
-    _save_index(idx)
-    return {"ok": True, "entry": idx[index]}
+    try:
+        with lock_index(VOICE_INDEX):
+            idx = _load_index()
+            if index < 0 or index >= len(idx):
+                return {"error": "индекс вне диапазона"}
+            idx[index]["quality_score"] = quality_score
+            _save_index(idx)
+        return {"ok": True, "entry": idx[index]}
+    except (OSError, ValueError, TypeError, VoiceIndexError) as exc:
+        return {"error": f"voice archive update failed: {type(exc).__name__}: {exc}"}
 
 
 # ---------- Training (делегируем rvc_manager) ----------

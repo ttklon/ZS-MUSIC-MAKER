@@ -1,18 +1,21 @@
-from __future__ import annotations
-
-import logging
+"""A damaged archive must never be treated as an empty index during writes."""
 from pathlib import Path
 
+import pytest
 import modules.voice_vault as vault
+from modules.voice_index_store import VoiceIndexError
 
 
-def test_corrupt_voice_vault_index_falls_back_and_logs_warning(tmp_path: Path, monkeypatch, caplog) -> None:
+def test_corrupt_voice_vault_index_is_preserved_and_reported(tmp_path: Path, monkeypatch) -> None:
     index = tmp_path / "index.json"
-    index.write_text("{not valid json", encoding="utf-8")
+    original = b"{not valid json"
+    index.write_bytes(original)
+    recording = tmp_path / "recording.wav"
+    recording.write_bytes(b"voice")
     monkeypatch.setattr(vault, "INDEX_FILE", index)
-
-    with caplog.at_level(logging.WARNING, logger=vault.LOGGER.name):
-        loaded = vault._load_index()
-
-    assert loaded == {"items": {}}
-    assert "voice vault index unreadable; using empty index" in caplog.text
+    monkeypatch.setattr(vault, "VAULT_DIR", tmp_path / "vault")
+    with pytest.raises(VoiceIndexError, match="original preserved"):
+        vault._load_index()
+    result = vault.add_recording(str(recording))
+    assert result["ok"] is False and "original preserved" in result["error"]
+    assert index.read_bytes() == original and recording.read_bytes() == b"voice"

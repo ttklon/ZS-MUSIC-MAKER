@@ -29,6 +29,9 @@ def _stage_mix_and_sidechain(
     if not result.get("ok"):
         return {"ok": False, "reason": result.get("reason", "mix failed")}
 
+    if voice_wav and result.get("vocal_used") is not True:
+        return {"ok": False, "reason": "requested vocal was not mixed; check recording and offset", "vocal_used": False}
+
     out_wav = result.get("out_wav")
     if not out_wav or not Path(out_wav).exists():
         return {"ok": False, "reason": "mix produced no output file"}
@@ -114,6 +117,11 @@ def _stage_mix_and_sidechain(
             fallback_used = True
             fallback_reason = reference_report["rejection_reason"]
         reference_report["attempts"] = attempts
+    vocal_placement = result.get("vocal_placement") or {}
+    if vocal_placement.get("trimmed_non_silent"):
+        vocal_reason = "non-silent vocal is outside the mix; adjust instrumental length or vocal offset"
+        fallback_used = True
+        fallback_reason = "; ".join(filter(None, (fallback_reason, vocal_reason)))
     import json
     stage_report = Path(out_dir) / "mix_stage_report.json"
     payload = {
@@ -125,6 +133,7 @@ def _stage_mix_and_sidechain(
         "fallback_used": fallback_used,
         "reason": fallback_reason,
         "vocal_used": bool(result.get("vocal_used")),
+        "vocal_placement": vocal_placement,
         "vocal_offset_ms": vocal_offset_ms,
         "gates": gates,
         "gates_passed": bool(gates) and all(gates.values()),
