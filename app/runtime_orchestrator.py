@@ -107,8 +107,8 @@ class RuntimeOrchestrator:
     def enqueue(self, recipe: dict[str, Any], only: set[str] | None = None) -> str:
         """Поставить трек в очередь.
 
-        `only` — подмножество стадий (`STAGE_KEYS`): так работает «переделать
-        только вокал/мастер» из экрана результата, без полной пересборки.
+        `only` — подмножество стадий (`STAGE_KEYS`) в новой директории.
+        Переиспользование предыдущего проекта здесь не реализовано.
         """
         tid = uuid.uuid4().hex[:10]
         out_dir = ROOT / "output" / "desktop_runs" / tid

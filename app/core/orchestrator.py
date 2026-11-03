@@ -31,6 +31,7 @@ from app.core.pipeline_runtime import (
     _blocked,
     _normalize_path_map,
     _output,
+    _quality_gate_failures,
     _resume_path,
     _resumed,
     _timed,
@@ -67,8 +68,7 @@ MASTER_STANDS = (
 STEM_NAMES = ("drums", "bass", "vocals", "other")
 # Полный список записей прогона в порядке выполнения (для прогресса и отчёта).
 STAGE_RECORDS = (
-    "_stage_analyze",
-    "_stage_groove",
+    "_stage_analyze", "_stage_groove",
     "_stage_arrangement",
     "_stage_beat",
     "_stage_texture",
@@ -195,9 +195,11 @@ def run_full_pipeline(
     else:
         add(_blocked("_stage_texture", "skipped by --only"))
 
-    lyrics_stage, lyrics_dict, lyrics_text = _run_lyrics_stage(recipe)
-    if not _wanted(only, "lyrics"):
+    if _wanted(only, "lyrics"):
+        lyrics_stage, lyrics_dict, lyrics_text = _run_lyrics_stage(recipe)
+    else:
         lyrics_stage = _blocked("_stage_lyrics", "skipped by --only")
+        lyrics_dict, lyrics_text = {}, ""
     add(lyrics_stage)
 
     resumed_vocal = _resume_path(out_root, "vocal") if resume else None
@@ -285,7 +287,7 @@ def run_full_pipeline(
         "artist": recipe["artist"],
         "genre": recipe["genre"],
         "theme": recipe["theme"],
-        "bpm": analysis.get("bpm") if isinstance(analysis, dict) else None,
+        "bpm": style_vector.get("target_bpm"),
         "hit_score": _output(hit_stage).get("hit_score") if hit_stage.ok else None,
         "verdict": _output(hit_stage).get("verdict") if hit_stage.ok else None,
         "lyrics_text": lyrics_text,
@@ -325,6 +327,11 @@ def run_full_pipeline(
 
     summary = summarize(stages, dry_run=dry_run)
     warnings.extend(summary.pop("warnings", []))
+    quality_failures = [] if dry_run else _quality_gate_failures(stages)
+    if quality_failures:
+        warnings.append("Quality gates failed: " + "; ".join(quality_failures))
+        if summary["verdict"].startswith("PASS"):
+            summary["verdict"] = "PARTIAL"
     finished_at = time.time()
 
     report = {
@@ -340,6 +347,7 @@ def run_full_pipeline(
         "stages": [stage.to_dict() for stage in stages],
         "percent": summary["percent"],
         "warnings": warnings,
+        "quality_gate_failures": quality_failures,
         "master_path": str(streaming_master) if streaming_master else None,
         "status_summary": {
             "blocked": summary["blocked_stages"],

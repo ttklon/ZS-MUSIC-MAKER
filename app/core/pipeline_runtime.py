@@ -141,3 +141,23 @@ def _normalize_path_map(data: Any, keys: list[str] | None = None) -> dict[str, s
 
 def _output(stage: StageResult) -> dict[str, Any]:
     return stage.output if isinstance(stage.output, dict) else {}
+
+
+def _quality_gate_failures(stages: list[StageResult]) -> list[str]:
+    """Quality is separate from execution: a written WAV can still fail gates."""
+    failures: list[str] = []
+    for stage in stages:
+        output = _output(stage)
+        if stage.name == "_stage_mix_and_sidechain":
+            if output.get("gates_passed") is False:
+                bad = [name for name, passed in (output.get("gates") or {}).items() if not passed]
+                failures.append("mix: " + (", ".join(bad) or "gates failed"))
+            reference = output.get("reference") or {}
+            if reference.get("gates_passed") is False:
+                bad = [name for name, passed in (reference.get("gates") or {}).items() if not passed]
+                failures.append("reference match: " + (", ".join(bad) or "gates failed"))
+        if stage.name == "_stage_mastering":
+            summary = output.get("summary") or {}
+            if summary.get("gates_passed") is False:
+                failures.append("mastering: " + str(summary.get("failed_gates") or "gates failed"))
+    return failures

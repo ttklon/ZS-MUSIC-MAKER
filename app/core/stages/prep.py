@@ -130,9 +130,12 @@ def _stage_groove(refs: list[str], genre: str = "drift_phonk") -> dict[str, Any]
 
         if not refs:
             gs = _default_style_for_genre(genre)
+            from modules.beat.patterns import slot_preset_for_genre
+
+            patterns = slot_preset_for_genre(genre)
             groove = {
-                "kick_pattern": [1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0],
-                "snare_pattern": [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0],
+                "kick_pattern": patterns["kick"],
+                "snare_pattern": patterns["snare"],
                 "hihat_density": gs["hihat_density"],
                 "swing": gs["swing"],
                 "triplet_rolls": True,

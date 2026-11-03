@@ -114,6 +114,7 @@ def build_recipe(wizard_state: dict[str, Any] | None) -> dict[str, Any]:
         "extra_prompt": extra_prompt,
         "seed": _as_int(state.get("seed")),
         "own_vocal_wav": state.get("own_vocal_wav") or state.get("vocal_wav"),
+        "tune": bool(state.get("tune", True)),
         # явные флаги пользователя: конвейер их уважает, а не игнорирует
         "export_stems": bool(state.get("export_stems", True)),
         "bilingual": bool(state.get("bilingual", True)),
@@ -144,7 +145,11 @@ def resolve_style_vector(recipe: dict[str, Any], analysis: Any) -> dict[str, Any
     Приоритет явный: пользовательский BPM перекрывает анализ, анализ
     перекрывает пресет, пресет — дефолт.
     """
-    style: dict[str, Any] = {"target_bpm": 128, "target_mode": "minor"}
+    style: dict[str, Any] = {
+        "target_bpm": 128,
+        "target_mode": "minor",
+        "genre": recipe.get("genre") or "drift_phonk",
+    }
     preset_sv = recipe.get("preset_style_vector") or {}
     if isinstance(preset_sv, dict):
         if preset_sv.get("target_bpm"):
@@ -154,10 +159,16 @@ def resolve_style_vector(recipe: dict[str, Any], analysis: Any) -> dict[str, Any
         if preset_sv.get("prompt_hint"):
             style["prompt_hint"] = preset_sv["prompt_hint"]
     if isinstance(analysis, dict):
-        if analysis.get("bpm"):
-            style["target_bpm"] = int(analysis["bpm"])
-        if analysis.get("mode"):
-            style["target_mode"] = analysis["mode"]
+        bpm = analysis.get("bpm") or analysis.get("target_bpm")
+        mode = analysis.get("mode") or analysis.get("target_mode")
+        if bpm:
+            style["target_bpm"] = int(bpm)
+        if mode:
+            style["target_mode"] = mode
+        if analysis.get("key_root"):
+            style["key_root"] = analysis["key_root"]
+        if analysis.get("individual"):
+            style["individual"] = analysis["individual"]
     if recipe.get("bpm_override"):
         style["target_bpm"] = int(recipe["bpm_override"])
         if isinstance(analysis, dict):

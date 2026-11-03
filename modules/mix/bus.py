@@ -85,6 +85,21 @@ def _vocal_chain(vocal: np.ndarray, sample_rate: int) -> np.ndarray:
     return shelf(out, sample_rate, 3000.0, 2.0, band="high")
 
 
+def evaluate_mix(audio: np.ndarray, sample_rate: int) -> tuple[dict[str, Any], dict[str, bool]]:
+    """Measure the actual mix signal against the same bus gates at any stage."""
+    report = loudness_report(audio, sample_rate)
+    rms = reference_rms_dbfs(audio, sample_rate)
+    crest = reference_crest_db(audio, sample_rate)
+    gates = {
+        "bus_rms": MIX_GATES["bus_rms_dbfs"][0] <= rms <= MIX_GATES["bus_rms_dbfs"][1],
+        "correlation": MIX_GATES["correlation"][0] <= float(report["stereo_correlation"]) <= MIX_GATES["correlation"][1],
+        "true_peak": float(report["true_peak_dbtp"]) <= MIX_GATES["true_peak_dbtp_max"],
+        "crest": MIX_GATES["crest_db"][0] <= crest <= MIX_GATES["crest_db"][1],
+        "no_clipping": int(report["clipping_samples"]) == MIX_GATES["clipping_samples"],
+    }
+    return {**report, "reference_rms_dbfs": round(rms, 2), "reference_crest_db": round(crest, 2)}, gates
+
+
 def build_mix(
     beat_wav: str | Path,
     vocal_wav: str | Path | None,
@@ -165,18 +180,7 @@ def build_mix(
         peak_trim_db = MIX_GATES["peak_dbfs_max"] - peak_dbfs(bus)
         bus = bus * (10.0 ** (peak_trim_db / 20.0))
 
-    report = loudness_report(bus, sr)
-    reference_rms = reference_rms_dbfs(bus, sr)
-    reference_crest = reference_crest_db(bus, sr)
-    gates = {
-        "bus_rms": MIX_GATES["bus_rms_dbfs"][0] <= reference_rms <= MIX_GATES["bus_rms_dbfs"][1],
-        "correlation": MIX_GATES["correlation"][0]
-        <= float(report["stereo_correlation"])
-        <= MIX_GATES["correlation"][1],
-        "true_peak": float(report["true_peak_dbtp"]) <= MIX_GATES["true_peak_dbtp_max"],
-        "crest": MIX_GATES["crest_db"][0] <= reference_crest <= MIX_GATES["crest_db"][1],
-        "no_clipping": int(report["clipping_samples"]) == MIX_GATES["clipping_samples"],
-    }
+    report, gates = evaluate_mix(bus, sr)
     payload: dict[str, Any] = {
         "ok": True,
         "out_wav": str(out_wav),
@@ -190,8 +194,7 @@ def build_mix(
         "sidechain": duck_report,
         "width": width_report,
         "peak_trim_db": round(peak_trim_db, 2),
-        "report": {**report, "reference_rms_dbfs": round(reference_rms, 2),
-                   "reference_crest_db": round(reference_crest, 2)},
+        "report": report,
         "gates": gates,
         "gates_passed": all(gates.values()),
     }

@@ -199,7 +199,10 @@ class StepResult(StepBase):
         self.btn_full = QPushButton(t("wizard.result.rebuild_all"))
         self.btn_full.clicked.connect(self.rebuild_full)
         self.btn_part = QPushButton(t("wizard.result.rebuild_part"))
-        self.btn_part.clicked.connect(self.rebuild_part)
+        # A partial job currently gets a fresh directory without the prior beat,
+        # vocal or mix. Disable rather than claim a successful rebuild.
+        self.btn_part.setEnabled(False)
+        self.btn_part.setToolTip("Частичная пересборка временно недоступна: исходные артефакты не переносятся")
         self.btn_three = QPushButton(t("wizard.result.variants"))
         self.btn_three.clicked.connect(self.three_variants)
         row.addWidget(self.btn_full)
@@ -225,8 +228,11 @@ class StepResult(StepBase):
         release = (result.get("release") or {}).get("release_dir", "—")
         master = result.get("master") or result.get("master_path", "—")
         elapsed = max(0.0, float(job.finished_at or 0) - float(job.started_at or 0))
+        pipeline = result.get("pipeline") or {}
+        verdict = pipeline.get("verdict") or job.stage
+        headline = "✅ Обработка завершена" if verdict == "PASS" else "⚠️ Обработка завершена с ограничениями"
         self.info.setText(
-            f"✅ Готово!\n\n"
+            f"{headline} (статус: {verdict})\n\n"
             f"Track ID: {job.track_id}\n"
             f"Мастер: {master}\n"
             f"Релиз-пакет: {release}\n"
@@ -237,11 +243,13 @@ class StepResult(StepBase):
             advice = "\n".join(f"  • {item}" for item in detector.get("advice", [])[:4])
             flags = ", ".join(detector.get("flags", [])) or "нет"
             self.detector.setText(
-                f"🧪 AI-детектор: {detector.get('verdict')} | score={detector.get('score')}\n"
+                f"📊 Эвристическая оценка трека: {detector.get('verdict')} | score={detector.get('score')}\n"
+                "Это не проверка на ИИ и не прогноз хита.\n"
                 f"Флаги: {flags}\n{advice}"
             )
         else:
-            self.detector.setText(t("wizard.result.no_ai"))
+            warnings = pipeline.get("warnings") or []
+            self.detector.setText("\n".join(str(item) for item in warnings[:4]) or t("wizard.result.no_ai"))
 
     def open_folder(self) -> None:
         if not self.current_job:

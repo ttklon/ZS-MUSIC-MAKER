@@ -48,6 +48,20 @@ def _stage_mix_and_sidechain(
             reference_report = {"ok": False, "reason": f"{type(exc).__name__}: {exc}"}
 
     report = dict(result.get("report") or {})
+    gates = dict(result.get("gates") or {})
+    pre_reference = None
+    if reference_report and reference_report.get("ok"):
+        # Reference EQ changes level, crest and stereo. Report the actual file
+        # passed to mastering, not the pre-match bus measurements.
+        import soundfile as sf
+        from modules.mix.bus import evaluate_mix
+
+        try:
+            pre_reference = {"metrics": report, "gates": gates}
+            matched, sr = sf.read(out_wav, always_2d=True, dtype="float64")
+            report, gates = evaluate_mix(matched, sr)
+        except Exception as exc:  # noqa: BLE001
+            return {"ok": False, "reason": f"cannot measure matched mix: {type(exc).__name__}: {exc}"}
     return {
         "ok": True,
         "out_wav": out_wav,
@@ -55,8 +69,9 @@ def _stage_mix_and_sidechain(
         "engine": "modules.mix.bus",
         "fallback_used": False,
         "vocal_used": bool(result.get("vocal_used")),
-        "gates": result.get("gates", {}),
-        "gates_passed": bool(result.get("gates_passed")),
+        "gates": gates,
+        "gates_passed": bool(gates) and all(gates.values()),
+        "pre_reference": pre_reference,
         "metrics": report,
         "staging": {
             "beat": result.get("beat_staging"),

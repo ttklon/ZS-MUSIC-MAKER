@@ -58,10 +58,11 @@ def construct_beat(
     """Удобная функция-обёртка для вызова из main.py."""
     bpm = style_vector.get("target_bpm", 128)
     mode = style_vector.get("target_mode", "minor")
-    key_root = "A"  # fallback
-    for ind in style_vector.get("individual", []):
-        key_root = ind.get("key_root", "A")
-        break
+    key_root = style_vector.get("key_root") or "A"
+    if not style_vector.get("key_root"):
+        for ind in style_vector.get("individual", []):
+            key_root = ind.get("key_root") or key_root
+            break
     key = f"{key_root} {mode}"
 
     bc = BeatConstructor(

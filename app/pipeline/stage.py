@@ -172,7 +172,7 @@ def summarize(stages: Iterable[dict[str, Any] | StageResult], *, dry_run: bool =
     elif any_blocked:
         verdict = "PASS_BLOCKED"
         warnings.append(
-            "Some heavy stages BLOCKED (missing deps): see status=BLOCKED. "
+            "Some stages BLOCKED (see stage reasons). "
             f"Stages: {', '.join(row.get('name', '?') for row in rows if _status(row) == 'BLOCKED')}."
         )
         if any_fallback:

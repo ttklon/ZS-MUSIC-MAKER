@@ -42,7 +42,20 @@ def _run_vocal_chain(
         return stages, None, warnings
 
     own_vocal = recipe.get("own_vocal_wav")
-    if own_vocal and Path(str(own_vocal)).exists():
+    if own_vocal:
+        try:
+            import soundfile as sf
+
+            info = sf.info(str(own_vocal))
+            if info.frames <= 0 or info.samplerate <= 0 or info.channels <= 0:
+                raise ValueError("empty or invalid audio")
+        except Exception as exc:  # noqa: BLE001 - explicit input must not silently become TTS
+            reason = f"recording unavailable or unreadable: {type(exc).__name__}: {exc}"
+            return [
+                StageResult(name="_stage_voice_synth", status=StageStatus.FAILED, reason=reason),
+                _blocked("_stage_rvc", "recording unavailable"),
+                _blocked("_stage_vocal_fx", "recording unavailable"),
+            ], None, [reason]
         synth = StageResult(
             name="_stage_voice_synth",
             status=StageStatus.OK,
