@@ -94,6 +94,9 @@ class BeatConstructor(SampleBankMixin, VoicesMixin, ArrangementMixin, HarmonyMix
         }
         if len(covered) >= 4:
             report["status"] = "REAL_PASS"
+            # Имя движка не врёт: барабаны действительно из банка, синтез
+            # остаётся только для перкуссии/импактов, которых в банке нет.
+            report["engine"] = "sample_bank+procedural"
             report["reason"] = "drums come from the licensed sample bank"
         else:
             report["reason"] = (

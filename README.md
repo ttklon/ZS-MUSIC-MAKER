@@ -1,6 +1,6 @@
 # ZS Music Maker — «Hit Locked Pro»
 
-> **Версия:** `41.0.0-alpha.15` (источник правды — [`version.json`](version.json))
+> **Версия:** `41.0.0-alpha.16` (источник правды — [`version.json`](version.json))
 > **Платформа:** Windows 11, локально, без облака и платных сервисов
 > **Состояние:** идёт рефакторинг v41 — см. [`docs/PLAN_v41_MASTER.md`](docs/PLAN_v41_MASTER.md)
 

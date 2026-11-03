@@ -93,21 +93,25 @@ class VoicesMixin:
 
         velocity = self._velocity("kick", step, bar)
 
+        # Источник кика: банк → пользовательские сэмплы → синтез. Саб-хвост в
+        # дропе добавляется в любом случае: это не «украшение синтеза», а
+        # контраст низа (≥6 дБ), которого у one-shot'а TR-808 просто нет —
+        # он короче, чем нужно дропу.
         bank_kick = self._bank_audio("kick", velocity)
-        if bank_kick is not None:
-            return bank_kick * velocity * drums.INSTRUMENT_GAIN["kick"]
-
-        if self.kick_samples:
+        kick = bank_kick * drums.BANK_GAIN["kick"] if bank_kick is not None else None
+        if kick is None and self.kick_samples:
             kick_path = self.kick_samples[
                 humanize.variant_index(self._random, len(self.kick_samples))
             ]
-            return self._load_audio(kick_path) * velocity * drums.INSTRUMENT_GAIN["kick"]
+            kick = self._load_audio(kick_path)
+        if kick is None:
+            variant = humanize.variant_index(self._random, KICK_VARIANTS)
+            tune = 1.0 + (variant - 1) * 0.035
+            decay = 0.23 + 0.03 * variant
+            kick = drums.synth_kick(self.sr, self._rng_noise(), tune=tune, decay=decay)
+        else:
+            kick = np.asarray(kick, dtype=np.float32)
 
-        variant = humanize.variant_index(self._random, KICK_VARIANTS)
-        tune = 1.0 + (variant - 1) * 0.035
-        decay = 0.23 + 0.03 * variant
-        kick = drums.synth_kick(self.sr, self._rng_noise(), tune=tune, decay=decay)
-        # В дропе под кик добавляется саб-хвост: это и есть «большой» низ дропа.
         if getattr(self, "_section_energy", 0.6) >= 0.85:
             tail = drums.synth_808(
                 self.sr, 41.0, len(kick) / self.sr, self._rng_noise(), glide=0.02, drive=1.2
@@ -127,13 +131,19 @@ class VoicesMixin:
             return np.zeros(1, dtype=np.float32)
 
         position = step % 16
-        # На 2 и 4 доле бита — клэп поверх снейра (типично для phonk/trap).
-        wants_clap = bool(self.clap_samples) and position in (4, 12) and bar % 2 == 1
+        # Чередуем снейр и клэп в банке на 2 и 4 доле нечётного такта.
+        bank = self._bank()
+        has_clap = bool(self.clap_samples) or bool(bank and bank.usable("clap"))
+        wants_clap = has_clap and position in (4, 12) and bar % 2 == 1
         velocity = self._velocity("snare", step, bar, ghost=is_ghost)
 
-        bank_snare = self._bank_audio("clap" if wants_clap else "snare", velocity)
-        if bank_snare is not None:
-            return bank_snare * velocity * drums.INSTRUMENT_GAIN["snare"]
+        instrument = "clap" if wants_clap else "snare"
+        bank_hit = self._bank_audio(instrument, velocity)
+        if bank_hit is None and wants_clap:
+            instrument = "snare"
+            bank_hit = self._bank_audio(instrument, velocity)
+        if bank_hit is not None:
+            return bank_hit * drums.BANK_GAIN[instrument] * velocity * drums.INSTRUMENT_GAIN["snare"]
 
         if self.snare_samples:
             snare_path = self.snare_samples[
@@ -179,7 +189,8 @@ class VoicesMixin:
 
         bank_hat = self._bank_audio("open_hat" if open_hat else "hat", velocity)
         if bank_hat is not None:
-            return bank_hat * velocity * drums.INSTRUMENT_GAIN["hat"]
+            trim = drums.BANK_GAIN["open_hat" if open_hat else "hat"]
+            return bank_hat * trim * velocity * drums.INSTRUMENT_GAIN["hat"]
 
         if self.hihat_samples:
             if open_hat and self.open_hat_samples:
@@ -232,9 +243,19 @@ class VoicesMixin:
                 bass = np.pad(bass, (0, bar_samples - len(bass)))
             return bass[:bar_samples] * 0.8
 
+        # 808 в банке — это затухающий удар TR-808, а не «луп на такт»: он не
+        # держит ноту столько, сколько нужно линии, и его нельзя подстроить под
+        # ступень без потери атаки. Поэтому низ строит синтез (он же держит
+        # уровень и паттерн), а сэмпл даёт характер — настоящую атаку 808
+        # поверх синтезированного тела (гибридный 808, как в реальных битах).
         bank_808 = self._bank_audio("808", 0.9)
-        if bank_808 is not None and len(bank_808) >= bar_samples:
-            return bank_808[:bar_samples] * drums.INSTRUMENT_GAIN["bass808"]
+        attack = None
+        if bank_808 is not None and len(bank_808):
+            attack_len = min(len(bank_808), int(self.sr * 0.09))
+            attack = bank_808[:attack_len].copy() * drums.INSTRUMENT_GAIN["bass808"]
+            # Не обрывать волну на произвольной фазе: плавный спад подавляет щелчок.
+            fade_len = min(attack_len, max(1, int(self.sr * 0.01)))
+            attack[-fade_len:] *= np.linspace(1.0, 0.0, fade_len, dtype=np.float32)
 
         bass_pattern = self.slot_patterns["bass"]
         bass = np.zeros(bar_samples, dtype=np.float32)
@@ -255,11 +276,13 @@ class VoicesMixin:
                 glide=0.028,
                 drive=1.7 + 0.2 * (bar % 2),
             )
-            bass[start:end] += (
-                note[: end - start]
-                * drums.INSTRUMENT_GAIN["bass808"]
-                * self._velocity("bass", i, bar)
-            )
+            layer = note[: end - start] * drums.INSTRUMENT_GAIN["bass808"]
+            if attack is not None:
+                # Атака сэмпла ложится на первые ~90 мс ноты: щелчок и «шершавость»
+                # настоящего 808, которых синус сам по себе не даёт.
+                head = min(len(attack), len(layer))
+                layer[:head] += attack[:head] * 0.9
+            bass[start:end] += layer * self._velocity("bass", i, bar)
             note_index += 1
 
         return bass

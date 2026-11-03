@@ -131,16 +131,16 @@ def test_read_sample_resamples_to_requested_rate(tmp_path) -> None:
     assert np.max(np.abs(audio)) > 0.5
 
 
-def test_pitch_shift_changes_length_and_keeps_signal() -> None:
-    audio = read_sample(_write_sample(Path("/tmp") / "zs_pitch_src.wav", seconds=0.2))
+def test_pitch_shift_changes_length_and_keeps_signal(tmp_path: Path) -> None:
+    audio = read_sample(_write_sample(tmp_path / "zs_pitch_src.wav", seconds=0.2))
     up = pitch_shift(audio, 12.0)
 
     assert up is not None and len(up) < len(audio) * 0.6
     assert np.max(np.abs(up)) > 0.5
 
 
-def test_time_stretch_keeps_duration_ratio() -> None:
-    audio = read_sample(_write_sample(Path("/tmp") / "zs_stretch_src.wav", seconds=0.4))
+def test_time_stretch_keeps_duration_ratio(tmp_path: Path) -> None:
+    audio = read_sample(_write_sample(tmp_path / "zs_stretch_src.wav", seconds=0.4))
     stretched = time_stretch(audio, 1.5)
 
     assert stretched is not None
@@ -189,3 +189,19 @@ def test_samples_audit_tool_reports_licenses_and_coverage(tmp_path, monkeypatch)
     assert report["coverage"]["kick"]["samples"] == 1
     assert "kick" in report["instruments_thin"], "один слой — это «тонко», аудит обязан сказать"
     assert "CC0-1.0" in licenses and "example.org" in licenses
+
+
+def test_missing_source_rejects_sample(tmp_path: Path) -> None:
+    _write_sample(tmp_path / "kick" / "k.wav")
+    manifest = _manifest(tmp_path, {"kick": [{"file": "kick/k.wav", "license": "CC0-1.0"}]})
+    bank = load_bank(manifest)
+    assert bank.usable("kick") == []
+    assert "source missing" in bank.entries["kick"][0].problems
+
+
+def test_non_object_manifest_returns_empty_bank_with_warning(tmp_path: Path) -> None:
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text("[]", encoding="utf-8")
+    bank = load_bank(manifest)
+    assert bank.empty
+    assert "manifest must be a JSON object" in bank.warnings

@@ -1,16 +1,359 @@
 {
   "schema": "zsmm.sample-bank.v1",
-  "note": "Пустой банк — это честный FALLBACK: бит синтезируется modules/beat/drums.py и помечается drum_engine.status=FALLBACK. Любой добавленный сэмпл обязан иметь license (CC0/CC-BY/public domain), source и sha256; см. README.md рядом.",
+  "note": "CC0 one-shots (Roland TR-808 sample set by Michael Fischer и три набора Boochi44/free-drum-samples). Собрано tools/import_samples.py; пересборка детерминированная — не редактируйте вручную.",
+  "velocity_mode": "engine-gain",
   "instruments": {
-    "kick": [],
-    "snare": [],
-    "clap": [],
-    "hat": [],
-    "open_hat": [],
-    "808": [],
-    "bass": [],
-    "melody": [],
-    "fx": [],
-    "foley": []
+    "808": [
+      {
+        "file": "808/808-sub-long.wav",
+        "license": "CC0-1.0",
+        "source": "https://github.com/tidalcycles/sounds-tr808-fischer",
+        "origin": "tidalcycles/sounds-tr808-fischer:bd8/BD0010.WAV",
+        "velocity": 1.0,
+        "round_robin": 0,
+        "sha256": "5b54cc1edc0bd5a51da0b278ec78f32c59a839eb84c03e6ece597e7a1507d7ec",
+        "duration_sec": 3.0,
+        "tuning_hz": 49.7,
+        "note": "распад на максимум — классический 808-бас"
+      },
+      {
+        "file": "808/808-sub-high.wav",
+        "license": "CC0-1.0",
+        "source": "https://github.com/tidalcycles/sounds-tr808-fischer",
+        "origin": "tidalcycles/sounds-tr808-fischer:bd8/BD2510.WAV",
+        "velocity": 1.0,
+        "round_robin": 1,
+        "sha256": "ff393b7e41a23a778c560a7cd8ed10661545c973a5fe95efac13780062af4e7a",
+        "duration_sec": 3.0,
+        "tuning_hz": 49.7
+      },
+      {
+        "file": "808/hard-trap-sub.wav",
+        "license": "CC0-1.0",
+        "source": "https://github.com/Boochi44/free-drum-samples",
+        "origin": "Boochi44/free-drum-samples:drum-samples/01-hard-trap/808s/808-bass-sub.wav",
+        "velocity": 1.0,
+        "round_robin": 2,
+        "sha256": "bb379ced717dc3dc427bf46faefd5981caca3a001ab940ddc40b96d096a1caf2",
+        "duration_sec": 0.8,
+        "tuning_hz": 52.5
+      },
+      {
+        "file": "808/hard-trap-dist.wav",
+        "license": "CC0-1.0",
+        "source": "https://github.com/Boochi44/free-drum-samples",
+        "origin": "Boochi44/free-drum-samples:drum-samples/01-hard-trap/808s/808-bass-dist.wav",
+        "velocity": 1.0,
+        "round_robin": 3,
+        "sha256": "b20ece876f80c50309990f38947d86badfa4927390896b147454ac743073e0e7",
+        "duration_sec": 1.2,
+        "tuning_hz": 45.8
+      },
+      {
+        "file": "808/bounce-long.wav",
+        "license": "CC0-1.0",
+        "source": "https://github.com/Boochi44/free-drum-samples",
+        "origin": "Boochi44/free-drum-samples:drum-samples/02-bounce/808s/808-bass-long.wav",
+        "velocity": 1.0,
+        "round_robin": 4,
+        "sha256": "2dd4815b38f35304002682037ae6052630b37edb22b67ffb499c6fc647358362",
+        "duration_sec": 1.0,
+        "tuning_hz": 47.7
+      },
+      {
+        "file": "808/vintage-lofi.wav",
+        "license": "CC0-1.0",
+        "source": "https://github.com/Boochi44/free-drum-samples",
+        "origin": "Boochi44/free-drum-samples:drum-samples/03-soulful-vintage/808s/808-bass-lofi.wav",
+        "velocity": 1.0,
+        "round_robin": 5,
+        "sha256": "c86780b5f817f0bd5da9e1a889dd33b10232934b12059df0e5c0643a33828b19",
+        "duration_sec": 1.12,
+        "tuning_hz": 49.9
+      }
+    ],
+    "clap": [
+      {
+        "file": "clap/808-cp.wav",
+        "license": "CC0-1.0",
+        "source": "https://github.com/tidalcycles/sounds-tr808-fischer",
+        "origin": "tidalcycles/sounds-tr808-fischer:cp8/CP.WAV",
+        "velocity": 1.0,
+        "round_robin": 0,
+        "sha256": "ebd75f63338e26460bf443309db049f4dbf062768514a690ea00bd5227bb6f0f",
+        "duration_sec": 1.96
+      },
+      {
+        "file": "clap/hard-trap-01.wav",
+        "license": "CC0-1.0",
+        "source": "https://github.com/Boochi44/free-drum-samples",
+        "origin": "Boochi44/free-drum-samples:drum-samples/01-hard-trap/claps/clap-01.wav",
+        "velocity": 1.0,
+        "round_robin": 1,
+        "sha256": "bbb3c280c6ca3d0c53cb669f17be4385e366bc7a4c41b9c8bcf4589877413ce9",
+        "duration_sec": 0.059
+      },
+      {
+        "file": "clap/vintage-01.wav",
+        "license": "CC0-1.0",
+        "source": "https://github.com/Boochi44/free-drum-samples",
+        "origin": "Boochi44/free-drum-samples:drum-samples/03-soulful-vintage/claps/vintage-clap-01.wav",
+        "velocity": 1.0,
+        "round_robin": 3,
+        "sha256": "9f5d1d013f1140cf714ab6c7bdb612c80317fcd94cf5d061b1cc693ce6d967c6",
+        "duration_sec": 0.25
+      }
+    ],
+    "hat": [
+      {
+        "file": "hat/808-ch.wav",
+        "license": "CC0-1.0",
+        "source": "https://github.com/tidalcycles/sounds-tr808-fischer",
+        "origin": "tidalcycles/sounds-tr808-fischer:ch8/CH.WAV",
+        "velocity": 1.0,
+        "round_robin": 0,
+        "sha256": "cc7872c33f67e8d1c1bc3bc596c568cdb5b85d6903dd6e3f4c18c438f24bec60",
+        "duration_sec": 0.213,
+        "note": "closed hat с реальной машины"
+      },
+      {
+        "file": "hat/vintage-01.wav",
+        "license": "CC0-1.0",
+        "source": "https://github.com/Boochi44/free-drum-samples",
+        "origin": "Boochi44/free-drum-samples:drum-samples/03-soulful-vintage/hi-hats/hi-hat-closed-01.wav",
+        "velocity": 1.0,
+        "round_robin": 2,
+        "sha256": "0ae6a54a7d4298a596b5f487dce9ac0c310be8426d38bf04995ca0d37ed34056",
+        "duration_sec": 0.25
+      }
+    ],
+    "kick": [
+      {
+        "file": "kick/808-bd-tone0-decay50.wav",
+        "license": "CC0-1.0",
+        "source": "https://github.com/tidalcycles/sounds-tr808-fischer",
+        "origin": "tidalcycles/sounds-tr808-fischer:bd8/BD0050.WAV",
+        "velocity": 1.0,
+        "round_robin": 0,
+        "sha256": "7f6794b643ba47140b8889387de6bcea2fe2118f14a4095bc06bf2d81a0e2333",
+        "duration_sec": 1.271,
+        "tuning_hz": 49.7,
+        "note": "средний распад, самый универсальный"
+      },
+      {
+        "file": "kick/808-bd-tone0-decay25.wav",
+        "license": "CC0-1.0",
+        "source": "https://github.com/tidalcycles/sounds-tr808-fischer",
+        "origin": "tidalcycles/sounds-tr808-fischer:bd8/BD0025.WAV",
+        "velocity": 1.0,
+        "round_robin": 1,
+        "sha256": "82ce7abb9eed481be5e6e5e2e65c125a8ca376d2453767f5175a76277ebb4585",
+        "duration_sec": 0.5,
+        "tuning_hz": 49.6,
+        "note": "короткий панч"
+      },
+      {
+        "file": "kick/808-bd-tone25-decay50.wav",
+        "license": "CC0-1.0",
+        "source": "https://github.com/tidalcycles/sounds-tr808-fischer",
+        "origin": "tidalcycles/sounds-tr808-fischer:bd8/BD2550.WAV",
+        "velocity": 1.0,
+        "round_robin": 2,
+        "sha256": "a22435995d900b780cf3b8207aeae510d67f20948c15727bb8c3df407d45d5d0",
+        "duration_sec": 1.493,
+        "tuning_hz": 49.6,
+        "note": "выше по тону — для быстрых битов"
+      },
+      {
+        "file": "kick/hard-trap-01.wav",
+        "license": "CC0-1.0",
+        "source": "https://github.com/Boochi44/free-drum-samples",
+        "origin": "Boochi44/free-drum-samples:drum-samples/01-hard-trap/kicks/hard-kick-01.wav",
+        "velocity": 1.0,
+        "round_robin": 3,
+        "sha256": "8aa83e41cab1d4287698be26d8b2c475cfd2f0eeb6b4a1d2922b8e18f48ecf6a",
+        "duration_sec": 2.0,
+        "tuning_hz": 49.7
+      },
+      {
+        "file": "kick/bounce-01.wav",
+        "license": "CC0-1.0",
+        "source": "https://github.com/Boochi44/free-drum-samples",
+        "origin": "Boochi44/free-drum-samples:drum-samples/02-bounce/kicks/bounce-kick-01.wav",
+        "velocity": 1.0,
+        "round_robin": 5,
+        "sha256": "fae89ada11b00b40045c2874b867980c40009f076d56e351c1bb70231f2f33ae",
+        "duration_sec": 0.236,
+        "tuning_hz": 26.2
+      },
+      {
+        "file": "kick/bounce-03.wav",
+        "license": "CC0-1.0",
+        "source": "https://github.com/Boochi44/free-drum-samples",
+        "origin": "Boochi44/free-drum-samples:drum-samples/02-bounce/kicks/bounce-kick-03.wav",
+        "velocity": 1.0,
+        "round_robin": 6,
+        "sha256": "bf6c0b7f34241546c8555d337f9cd7024906912ed595bd783285276b2498746e",
+        "duration_sec": 1.493,
+        "tuning_hz": 49.7
+      },
+      {
+        "file": "kick/vintage-01.wav",
+        "license": "CC0-1.0",
+        "source": "https://github.com/Boochi44/free-drum-samples",
+        "origin": "Boochi44/free-drum-samples:drum-samples/03-soulful-vintage/kicks/vintage-kick-01.wav",
+        "velocity": 1.0,
+        "round_robin": 7,
+        "sha256": "e0c443a71eaa5980eb6116ac40cb2f830fdec22cead3b702adc42820da9fe0a5",
+        "duration_sec": 0.25,
+        "tuning_hz": 80.7
+      },
+      {
+        "file": "kick/vintage-02.wav",
+        "license": "CC0-1.0",
+        "source": "https://github.com/Boochi44/free-drum-samples",
+        "origin": "Boochi44/free-drum-samples:drum-samples/03-soulful-vintage/kicks/vintage-kick-02.wav",
+        "velocity": 1.0,
+        "round_robin": 8,
+        "sha256": "2873b52e730e60d5a665740af98b31b80241f5d75791985bd89fab05ae56f420",
+        "duration_sec": 0.5,
+        "tuning_hz": 46.1
+      }
+    ],
+    "open_hat": [
+      {
+        "file": "open_hat/808-oh-short.wav",
+        "license": "CC0-1.0",
+        "source": "https://github.com/tidalcycles/sounds-tr808-fischer",
+        "origin": "tidalcycles/sounds-tr808-fischer:oh8/OH00.WAV",
+        "velocity": 1.0,
+        "round_robin": 0,
+        "sha256": "42ac179f91491cfbfad5d57afb2391dd45d7df0aba7998c946f1337b40fe1c63",
+        "duration_sec": 0.125
+      },
+      {
+        "file": "open_hat/808-oh-mid.wav",
+        "license": "CC0-1.0",
+        "source": "https://github.com/tidalcycles/sounds-tr808-fischer",
+        "origin": "tidalcycles/sounds-tr808-fischer:oh8/OH25.WAV",
+        "velocity": 1.0,
+        "round_robin": 1,
+        "sha256": "925824662ad3c0d46061c90b89b7607c0f60a163f5c5948a85761d8a5e345479",
+        "duration_sec": 0.235
+      },
+      {
+        "file": "open_hat/808-oh-long.wav",
+        "license": "CC0-1.0",
+        "source": "https://github.com/tidalcycles/sounds-tr808-fischer",
+        "origin": "tidalcycles/sounds-tr808-fischer:oh8/OH50.WAV",
+        "velocity": 1.0,
+        "round_robin": 2,
+        "sha256": "944a8796534013e8f0fccd52a1ec98f0231efaf4a9d912193bcff6711bdd21b5",
+        "duration_sec": 0.384
+      },
+      {
+        "file": "open_hat/bounce-01.wav",
+        "license": "CC0-1.0",
+        "source": "https://github.com/Boochi44/free-drum-samples",
+        "origin": "Boochi44/free-drum-samples:drum-samples/02-bounce/open-hats/open-hat-01.wav",
+        "velocity": 1.0,
+        "round_robin": 3,
+        "sha256": "93b9fcf115968a7acae513cadfd710f94da19c6d754f13ddea7ae714e3195137",
+        "duration_sec": 0.612
+      }
+    ],
+    "snare": [
+      {
+        "file": "snare/808-sd-crisp.wav",
+        "license": "CC0-1.0",
+        "source": "https://github.com/tidalcycles/sounds-tr808-fischer",
+        "origin": "tidalcycles/sounds-tr808-fischer:sd8/SD7550.WAV",
+        "velocity": 1.0,
+        "round_robin": 0,
+        "sha256": "ee18916c01bc03ea001825fd8cc762f806b31203b37a6b741f89148305ba8487",
+        "duration_sec": 0.5,
+        "note": "ручки на максимум — самый «острый»"
+      },
+      {
+        "file": "snare/808-sd-roomy.wav",
+        "license": "CC0-1.0",
+        "source": "https://github.com/tidalcycles/sounds-tr808-fischer",
+        "origin": "tidalcycles/sounds-tr808-fischer:sd8/SD5010.WAV",
+        "velocity": 1.0,
+        "round_robin": 1,
+        "sha256": "75d31686aa4ed49070d4080bafe3d242ab3240e180175d91c0397328b9b78420",
+        "duration_sec": 0.5
+      },
+      {
+        "file": "snare/808-sd-dull.wav",
+        "license": "CC0-1.0",
+        "source": "https://github.com/tidalcycles/sounds-tr808-fischer",
+        "origin": "tidalcycles/sounds-tr808-fischer:sd8/SD2500.WAV",
+        "velocity": 1.0,
+        "round_robin": 2,
+        "sha256": "844a08014a73a6fe5a31c80cad5a2ba28d60e399bebff72f87a81cdb2b6758cc",
+        "duration_sec": 0.25
+      },
+      {
+        "file": "snare/hard-trap-01.wav",
+        "license": "CC0-1.0",
+        "source": "https://github.com/Boochi44/free-drum-samples",
+        "origin": "Boochi44/free-drum-samples:drum-samples/01-hard-trap/snares/hard-snare-01.wav",
+        "velocity": 1.0,
+        "round_robin": 3,
+        "sha256": "7b48ec453f1580e1f8f6e513602dfa5776e93582ec6e36d8869e3b063c5b00a0",
+        "duration_sec": 0.5
+      },
+      {
+        "file": "snare/hard-trap-02.wav",
+        "license": "CC0-1.0",
+        "source": "https://github.com/Boochi44/free-drum-samples",
+        "origin": "Boochi44/free-drum-samples:drum-samples/01-hard-trap/snares/hard-snare-02.wav",
+        "velocity": 1.0,
+        "round_robin": 4,
+        "sha256": "3d473da99676d1826fb587752410c2c5a9eff32d065f199f992eab74abedeb18",
+        "duration_sec": 0.498
+      },
+      {
+        "file": "snare/bounce-01.wav",
+        "license": "CC0-1.0",
+        "source": "https://github.com/Boochi44/free-drum-samples",
+        "origin": "Boochi44/free-drum-samples:drum-samples/02-bounce/snares/bounce-snare-01.wav",
+        "velocity": 1.0,
+        "round_robin": 5,
+        "sha256": "c264ab91ee96b2e89442f10f1a9c0a2d21649fe6a9f0fbd229cf4304d0eefbe7",
+        "duration_sec": 0.25
+      },
+      {
+        "file": "snare/bounce-03.wav",
+        "license": "CC0-1.0",
+        "source": "https://github.com/Boochi44/free-drum-samples",
+        "origin": "Boochi44/free-drum-samples:drum-samples/02-bounce/snares/bounce-snare-03.wav",
+        "velocity": 1.0,
+        "round_robin": 6,
+        "sha256": "9e34d180946cbcb16ab729facfda46c62c25f55dfc507c38f193853ec9d32bb8",
+        "duration_sec": 0.215
+      },
+      {
+        "file": "snare/vintage-01.wav",
+        "license": "CC0-1.0",
+        "source": "https://github.com/Boochi44/free-drum-samples",
+        "origin": "Boochi44/free-drum-samples:drum-samples/03-soulful-vintage/snares/vintage-snare-01.wav",
+        "velocity": 1.0,
+        "round_robin": 7,
+        "sha256": "dbd6aa97ee302441157256d8409f011fd999bd247bfb3e0fa105cc8e08992160",
+        "duration_sec": 0.25
+      },
+      {
+        "file": "snare/vintage-02.wav",
+        "license": "CC0-1.0",
+        "source": "https://github.com/Boochi44/free-drum-samples",
+        "origin": "Boochi44/free-drum-samples:drum-samples/03-soulful-vintage/snares/vintage-snare-02.wav",
+        "velocity": 1.0,
+        "round_robin": 8,
+        "sha256": "6376f02f57fd6bbf24de15534de397a7d45caa24de947ff8cbebdcc924e872a6",
+        "duration_sec": 0.25
+      }
+    ]
   }
 }

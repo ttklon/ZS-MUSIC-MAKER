@@ -1,14 +1,14 @@
 # PROJECT_STATE
 
-> Состояние репозитория `ZS-MUSIC-MAKER` на 2026-11-03 (версия 41.0.0-alpha.15).
+> Состояние репозитория `ZS-MUSIC-MAKER` на 2026-11-03 (версия 41.0.0-alpha.16).
 > Сгенерировано `python -m tools.readiness --json`.
 
 ## Готовность: 65.0 %
 
 ## Модули
 
-- отслеживается: **259**
-- REAL_PASS: **257**, REAL_FAIL: **0**, PLANNED: **2**
+- отслеживается: **264**
+- REAL_PASS: **261**, REAL_FAIL: **0**, PLANNED: **3**
 
 ## Блоки
 
@@ -23,13 +23,21 @@
 
 ## Гейты
 
-- `pytest tests/` — 526 passed, 1 skipped
-- `tools/smoke_audio.py` — 6/6 PASS
-- `tools/smoke_god.py` — 8/8 PASS
+- `pytest tests/` — 538 passed, 1 skipped (Linux); Windows 11 отдельно не проверен
+- `tools/smoke_audio.py` — 6/6 PASS до последних изменений бита
+- `tools/smoke_god.py` — 8/8 PASS до последних изменений бита
 - `tools/ast_dead_imports.py` — CLEAN (0)
 - `python -m compileall` — 0 ошибок
 - `tools/audit_honesty.py` — CLEAN (0)
 - `tools/gitignore_guard.py` — CLEAN
+
+## Ограничения
+
+- Экспериментальные пять демо созданы до последнего исправления клэпа и атаки 808.
+  Повторный расчёт строгих гейтов показал у trap crest 14.02 дБ (предел 14.0)
+  в streaming и monitors. Нужен повторный рендер текущего кода и прослушивание.
+- Микрофонная запись и полноценная проверка на Windows 11 ещё не проведены;
+  тяжёлые движки MusicGen и Demucs недоступны в текущей среде.
 
 План работ: `docs/PLAN_v41_MASTER.md`, архитектура: `docs/ARCHITECTURE.md`.
 История изменений: `CHANGELOG.md`.

@@ -42,7 +42,8 @@ python main.py --run --seed 42 --only beat,lyrics   # воспроизводим
 
 ## Добавить сэмплы
 
-1. Файлы в `data/samples/<категория>/`, запись в `data/samples/manifest.json`:
+1. Файлы в `data/samples/<категория>/`, запись в `data/samples/manifest.json`
+   (`tools/import_samples.py` предназначен только для двух указанных в нём наборов, не для произвольных паков):
    `name, category, bpm_range, key, license, source, sha256`.
 2. Лицензия обязательна: без неё сэмпл не попадает в релиз-пакет.
 3. `python tools/audit_data_inventory.py` — проверка структуры.

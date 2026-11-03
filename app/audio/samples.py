@@ -82,6 +82,10 @@ class SampleEntry:
 class SampleBank:
     entries: dict[str, list[SampleEntry]] = field(default_factory=dict)
     warnings: list[str] = field(default_factory=list)
+    # Как банк задаёт громкость удара:
+    #   "layers"      — отдельные записи на каждый уровень (акустика);
+    #   "engine-gain" — одна запись, громкость считает движок (драм-машина).
+    velocity_mode: str = "layers"
 
     def usable(self, instrument: str) -> list[SampleEntry]:
         return [entry for entry in self.entries.get(instrument, []) if entry.allowed]
@@ -157,6 +161,11 @@ def load_bank(manifest_path: str | Path | None = None, verify_hash: bool = False
     base = path.parent
     for problem in validate_manifest(payload):
         bank.warnings.append(problem)
+    if not isinstance(payload, dict) or not isinstance(payload.get("instruments"), dict):
+        return bank
+
+    mode = str(payload.get("velocity_mode") or "layers").strip().lower()
+    bank.velocity_mode = mode if mode in ("layers", "engine-gain") else "layers"
 
     for instrument, rows in (payload.get("instruments") or {}).items():
         for row in rows if isinstance(rows, list) else []:
@@ -177,6 +186,8 @@ def load_bank(manifest_path: str | Path | None = None, verify_hash: bool = False
                 entry.problems.append("file missing")
             elif entry.license.upper() not in ALLOWED_LICENSES:
                 entry.problems.append(f"license '{entry.license}' is not cleared for release")
+            elif not entry.source.strip():
+                entry.problems.append("source missing")
             elif verify_hash and entry.sha256 and _sha256(sample_path) != entry.sha256:
                 entry.problems.append("sha256 mismatch")
             bank.entries.setdefault(instrument, []).append(entry)

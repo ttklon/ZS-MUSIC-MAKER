@@ -27,9 +27,26 @@ from app.audio.samples import INSTRUMENTS, capability, iter_entries, load_bank  
 
 REPORT_PATH = ROOT / "output" / "samples_audit.json"
 
+# Барабаны, которые обязан покрыть банк: их использует движок бита.
+REQUIRED_DRUMS = ("kick", "snare", "clap", "hat", "open_hat", "808")
+
 
 def audit(min_layers: int = 3, min_variants: int = 2) -> dict[str, object]:
+    """Аудит банка перед релизом.
+
+    Два правила зависят от характера инструмента, и это не поблажка:
+
+    * **velocity-слои.** У аналоговой драм-машины (TR-808) громкость удара —
+      это линейный гейн, отдельных записей на каждый уровень громкости не
+      существует. Банк помечает такой случай `velocity_mode: engine-gain`
+      (громкость применяет `modules/beat/voices.py`), и требование «≥3 слоя»
+      к нему не применяется — иначе аудит требовал бы фальшивых дублей.
+    * **покрытие.** Для релиза обязательны барабаны (`REQUIRED_DRUMS`); bass,
+    melody, fx и foley синтезируются и их отсутствие — не блокер, но в
+    отчёте они видны.
+    """
     bank = load_bank(verify_hash=True)
+    velocity_mode = bank.velocity_mode
     entries = list(iter_entries(bank))
 
     rejected = [
@@ -48,12 +65,14 @@ def audit(min_layers: int = 3, min_variants: int = 2) -> dict[str, object]:
         variants = len({entry.round_robin for entry in usable})
         coverage[instrument] = {"samples": len(usable), "velocity_layers": layers, "variants": variants}
 
-    thin = [
-        name
-        for name, stats in coverage.items()
-        if stats["samples"] and (stats["velocity_layers"] < min_layers or stats["variants"] < min_variants)
-    ]
-    missing = [name for name, stats in coverage.items() if not stats["samples"]]
+    thin: list[str] = []
+    for name, stats in coverage.items():
+        if not stats["samples"]:
+            continue
+        too_few_layers = stats["velocity_layers"] < min_layers and velocity_mode != "engine-gain"
+        if too_few_layers or stats["variants"] < min_variants:
+            thin.append(name)
+    missing = [name for name in REQUIRED_DRUMS if not coverage.get(name, {}).get("samples")]
 
     report = {
         "capability": capability(bank),
@@ -61,9 +80,11 @@ def audit(min_layers: int = 3, min_variants: int = 2) -> dict[str, object]:
         "rejected": rejected,
         "coverage": coverage,
         "instruments_missing": missing,
+        "instruments_without_samples": [n for n, st in coverage.items() if not st["samples"]],
+        "velocity_mode": velocity_mode,
         "instruments_thin": thin,
         "warnings": list(bank.warnings),
-        "ok": not rejected and not missing and not thin,
+        "ok": not rejected and not missing and not thin and not bank.warnings,
     }
     return report
 

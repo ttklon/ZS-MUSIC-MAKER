@@ -151,13 +151,13 @@ def test_golden_beat_fixture_signature_is_stable() -> None:
     assert signature["sample_rate"] == 44_100
     assert signature["channels"] == 2
     assert signature["duration_sec"] == 15.0
-    # Пороги фиксируют профиль текущего FALLBACK-движка барабанов
-    # (modules/beat/drums.py): жирный низ, плотные хэты, контролируемая ширина.
-    # alpha.10: мягкое ограничение бара (soft clip на −3 dBFS вместо деления
-    # на пик) и шум комнаты −62 dBFS подняли уровень и RMS.
+    # Пороги фиксируют профиль текущего движка барабанов: alpha.16 добавил
+    # сэмпловый банк (реальные удары TR-808), поэтому бит стал динамичнее
+    # синтезированного (crest 18 дБ вместо 15) и чуть тише по RMS — громкость
+    # ему потом поднимает микс, а не сам бит.
     assert 0.80 <= signature["peak"] <= 0.97
-    assert 0.145 <= signature["rms"] <= 0.175
-    assert 4_800 <= signature["spectral_centroid_hz"] <= 6_000
+    assert 0.095 <= signature["rms"] <= 0.130
+    assert 5_300 <= signature["spectral_centroid_hz"] <= 6_300
     assert 0.82 <= signature["stereo_correlation"] <= 0.90
 
 
@@ -186,3 +186,14 @@ def test_deterministic_beat_rerender_matches_golden_features(tmp_path: Path, mon
     assert abs(rerender["rms"] - golden["rms"]) / golden["rms"] <= 0.05
     assert abs(rerender["spectral_centroid_hz"] - golden["spectral_centroid_hz"]) / golden["spectral_centroid_hz"] <= 0.05
     assert abs(rerender["stereo_correlation"] - golden["stereo_correlation"]) <= 0.03
+
+
+def test_mastering_crest_gate_keeps_strict_upper_bound() -> None:
+    from modules.mastering.chain import _gates
+
+    report = {"lufs": -14.0, "true_peak_dbtp": -1.04, "crest_db": 14.0,
+              "stereo_correlation": 0.74, "channels": 2, "mono_loss_db": 0.5,
+              "clipping_samples": 0}
+    assert _gates(report, "streaming")["crest"]
+    report["crest_db"] = 14.02
+    assert not _gates(report, "streaming")["crest"]

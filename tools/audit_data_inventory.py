@@ -55,6 +55,30 @@ def classify_data_file(path: Path, data_dir: Path = DATA_DIR) -> str | None:
     return None
 
 
+# Заголовки аудиоформатов: файл бинарный, читать его как текст нельзя,
+# но убедиться, что это действительно звук, а не обрезанный огрызок — нужно.
+AUDIO_MAGIC = {
+    ".wav": (b"RIFF",),
+    ".flac": (b"fLaC",),
+    ".mp3": (b"ID3", b"\xff\xfb", b"\xff\xf3", b"\xff\xf2"),
+    ".ogg": (b"OggS",),
+}
+
+AUDIO_MIN_BYTES = 44  # меньше — это уже не заголовок WAV, а мусор
+
+
+def _validate_audio(path: Path) -> tuple[bool, str | None]:
+    """Аудио проверяется по магии заголовка и минимальному размеру."""
+    magic = AUDIO_MAGIC[path.suffix.lower()]
+    if path.stat().st_size < AUDIO_MIN_BYTES:
+        return False, f"audio file is too small ({path.stat().st_size} bytes)"
+    with open(path, "rb") as handle:
+        head = handle.read(16)
+    if not any(head.startswith(prefix) for prefix in magic):
+        return False, f"not a valid {path.suffix.lstrip('.')} file (bad header)"
+    return True, None
+
+
 def _validate_jsonl(path: Path) -> tuple[bool, str | None]:
     for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
         if not line.strip():
@@ -71,6 +95,8 @@ def validate_data_file(path: Path) -> tuple[bool, str | None]:
     try:
         if path.name == ".gitkeep":
             return True, None
+        if path.suffix.lower() in AUDIO_MAGIC:
+            return _validate_audio(path)
         if path.suffix == ".json":
             json.loads(path.read_text(encoding="utf-8"))
         elif path.suffix == ".jsonl":

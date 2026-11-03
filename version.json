@@ -1,6 +1,6 @@
 {
-  "version": "41.0.0-alpha.15",
-  "build": "v41.0.0-alpha.15-wizard-logging-packaging-2026-11-03",
+  "version": "41.0.0-alpha.16",
+  "build": "v41.0.0-alpha.16-sample-bank-cc0-2026-11-03",
   "based_on": "39.9.0",
-  "changes": "alpha.15: визард сведён к пяти шагам с i18n без «строк мимо словаря»; единый логгер app/core/logger.py (журнал в %LOCALAPPDATA%, редакция секретов, безопасная консоль cp866, крэш-репорты) вместо двух конкурирующих реализаций; упаковка PyInstaller (onedir по умолчанию, data/docs/scripts в бандле, console=False) и скрипты setup/run/run_silent/build_exe/verify; реальный прогресс по стадиям через колбэк on_stage и честная «пересборка части» через only вместо мёртвого rebuild_only; инвентарь готовности больше не падает на рассинхронизированном индексе."
+  "changes": "alpha.16: сэмпловый банк наполнен 32 CC0 one-shot'ами — реальные удары Roland TR-808 (набор Майкла Фишера) и три набора BOOCHI44 (hard trap/bounce/vintage); импорт детерминированный (tools/import_samples.py: моно 44.1 кГц PCM-16, −1 dBFS, обрезка хвоста, дедуп по SHA-256, измеренный основной тон для кика и 808), атрибуция в data/samples/ATTRIBUTION.md, аудит лицензий/хэшей/покрытия зелёный; движок бита играет из банка (drum_engine = sample_bank+procedural, REAL_PASS), velocity_mode engine-gain — без фальшивых velocity-слоёв."
 }
