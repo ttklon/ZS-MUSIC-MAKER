@@ -1,6 +1,6 @@
 # ZS Music Maker — «Hit Locked Pro»
 
-> **Версия:** `41.0.0-alpha.1` (источник правды — [`version.json`](version.json))
+> **Версия:** `41.0.0-alpha.15` (источник правды — [`version.json`](version.json))
 > **Платформа:** Windows 11, локально, без облака и платных сервисов
 > **Состояние:** идёт рефакторинг v41 — см. [`docs/PLAN_v41_MASTER.md`](docs/PLAN_v41_MASTER.md)
 
@@ -11,10 +11,17 @@
 ## Быстрый старт (Windows 11)
 
 ```bat
-scripts\setup.cmd            :: один раз: venv + зависимости
-scripts\run.cmd              :: запуск GUI-визарда
+scripts\setup.cmd            :: один раз: проверка Python, venv, зависимости, health-check
+scripts\run_silent.cmd       :: запуск мастера без окна консоли (как обычное приложение)
+scripts\run.cmd              :: то же, но с консолью (видно прогресс и ошибки)
+scripts\build_exe.cmd        :: собрать exe (PyInstaller, onedir) в dist\
+scripts\verify.cmd           :: полная проверка: тесты, смоуки, аудиты
 python main.py --console     :: консольный режим
 ```
+
+Мастер — пять шагов: **жанр и тема → материал → голос → тонкая настройка → запуск**.
+Своя запись голоса с микрофона — основной путь; синтез и RVC помечаются как FALLBACK.
+Журналы и крэш-репорты лежат в `%LOCALAPPDATA%\ZS Music Maker\logs`.
 
 Полезные режимы:
 
@@ -58,10 +65,11 @@ python main.py --smoke               :: smoke-набор (God Mode + аудио-
 ## Проверки
 
 ```bash
-python -m pytest tests/          # 287 тестов
+python -m pytest tests/          # полный набор, см. PROJECT_STATE.md
 python tools/smoke_audio.py      # 6/6 (стерео, громкость, drop)
 python tools/smoke_god.py        # 8/8 (God Mode E2E → master 120 с)
-python tools/fallback_audit.py   # честность fallback-ветвей
+python tools/fallback_audit.py   # fallback-пути
+python -m tools.audit_honesty   # фейковые успехи и немые except
 python -m tools.readiness
 ```
 

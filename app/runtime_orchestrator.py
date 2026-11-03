@@ -104,10 +104,18 @@ class RuntimeOrchestrator:
         if worker and worker is not threading.current_thread():
             worker.join(timeout=max(0.0, float(join_timeout)))
 
-    def enqueue(self, recipe: dict[str, Any]) -> str:
+    def enqueue(self, recipe: dict[str, Any], only: set[str] | None = None) -> str:
+        """Поставить трек в очередь.
+
+        `only` — подмножество стадий (`STAGE_KEYS`): так работает «переделать
+        только вокал/мастер» из экрана результата, без полной пересборки.
+        """
         tid = uuid.uuid4().hex[:10]
         out_dir = ROOT / "output" / "desktop_runs" / tid
-        job = Job(track_id=tid, recipe=dict(recipe or {}), project_dir=str(out_dir))
+        payload = dict(recipe or {})
+        if only:
+            payload["only"] = sorted(only)
+        job = Job(track_id=tid, recipe=payload, project_dir=str(out_dir))
         with self._lock:
             self.jobs[tid] = job
             self._queue.append(tid)
@@ -141,8 +149,18 @@ class RuntimeOrchestrator:
         job.progress = 0.1
         job.started_at = time.time()
         try:
+            def on_stage(name: str, status: str, index: int, total: int) -> None:
+                """Прогресс по факту: имя стадии и её статус из пайплайна."""
+                job.stage = f"{name}:{status}".lower()
+                # 5 % — старт, 95 % — конец: полоска не «прыгает» в 100 % заранее
+                job.progress = min(0.95, 0.05 + 0.9 * index / max(total, 1))
+
             result = run_full_pipeline(
-                job.track_id, job.recipe, dry_run=False, out_root=out_dir
+                job.track_id,
+                job.recipe,
+                dry_run=False,
+                out_root=out_dir,
+                on_stage=on_stage,
             )
             job.progress = 0.92
             job.result = _summarize_pipeline_result(result)

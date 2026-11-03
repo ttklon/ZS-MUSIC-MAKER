@@ -28,7 +28,7 @@ def try_launch_pyside() -> bool:
         from app.gui import theme
         from app.gui.wizard import Wizard
         from app.hw_probe import probe
-        from app.logger import setup_logger
+        from app.core.logger import install_excepthook, setup_logger
         from app.runtime_orchestrator import RuntimeOrchestrator
     except Exception as e:
         safe_print(
@@ -43,6 +43,8 @@ def try_launch_pyside() -> bool:
         safe_print(f"[main] GUI theme fallback after apply failure: {exc}")
     try:
         log = setup_logger("zsmm")
+        # крэш-репорт рядом с журналом: окно не должно закрываться «молча»
+        install_excepthook(log, context="desktop-wizard")
         hw = probe()
         orch = RuntimeOrchestrator(log=log)
         w = Wizard(orch=orch, hw=hw, log=log)

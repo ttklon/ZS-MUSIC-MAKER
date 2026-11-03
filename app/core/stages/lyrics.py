@@ -177,15 +177,21 @@ def _fallback_lyrics(theme: str, genre: str) -> dict[str, Any]:
     return out
 
 
-def _stage_lyrics(theme: str, genre: str) -> dict[str, Any]:
-    """v17 FIX (P0): ВСЕГДА возвращаем И text, И lyrics-структуру."""
+def _stage_lyrics(theme: str, genre: str, n_verses: int = 2) -> dict[str, Any]:
+    """v17 FIX (P0): ВСЕГДА возвращаем И text, И lyrics-структуру.
+
+    `n_verses` из мастера доезжает до промпта: раньше выбор пользователя
+    (сколько куплетов) терялся по дороге, и стадия всегда писала «16–24 строки».
+    """
     fallback_attempts: list[dict[str, str]] = []
     if LLMRouter is not None:
         try:
             router = LLMRouter(timeout=8.0)
+            verses = max(1, min(int(n_verses or 2), 4))
+            lines_low, lines_high = 8 * verses, 12 * verses
             prompt = (
                 f"Напиши текст в жанре {genre} про {theme}, "
-                f"16-24 строки, с verse и hook, на русском."
+                f"{lines_low}-{lines_high} строк, {verses} куплета и хук, на русском."
             )
             result = router.complete(prompt, "", theme=theme, genre=genre, language="ru")
             if isinstance(result, dict) and result.get("ok") and result.get("text", "").strip():
@@ -256,7 +262,10 @@ def _run_lyrics_stage(recipe: dict[str, Any]) -> tuple[StageResult, dict[str, An
             struct,
             own_text,
         )
-    stage = _timed("_stage_lyrics", lambda: _stage_lyrics(recipe["theme"], recipe["genre"]))
+    stage = _timed(
+        "_stage_lyrics",
+        lambda: _stage_lyrics(recipe["theme"], recipe["genre"], recipe.get("n_verses", 2)),
+    )
     out = _output(stage)
     struct = out.get("lyrics") or {}
     text = out.get("text") or _struct_to_text(struct)

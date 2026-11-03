@@ -6,48 +6,8 @@ from dataclasses import dataclass
 from threading import RLock
 from typing import Any
 
-_TRANSLATIONS: dict[str, dict[str, str]] = {
-    "ru": {
-        "menu.file": "Файл",
-        "menu.settings": "Настройки",
-        "menu.help": "Помощь",
-        "menu.language": "Язык",
-        "menu.tour": "Обучающий тур",
-        "menu.about": "О программе",
-        "menu.ai": "AI",
-        "menu.model_status": "Статус моделей",
-        "nav.back": "← Назад",
-        "nav.next": "Далее →",
-        "nav.help": "❓ Помощь (F1)",
-        "pipeline.started": "Пайплайн запущен",
-        "pipeline.stage": "Стадия: {stage}",
-        "pipeline.completed": "Пайплайн завершён",
-        "pipeline.failed": "Пайплайн завершился с ошибкой: {reason}",
-        "status.ready": "Готово",
-        "status.running": "Выполняется",
-        "status.blocked": "Недоступно",
-    },
-    "en": {
-        "menu.file": "File",
-        "menu.settings": "Settings",
-        "menu.help": "Help",
-        "menu.language": "Language",
-        "menu.tour": "Guided tour",
-        "menu.about": "About",
-        "menu.ai": "AI",
-        "menu.model_status": "Model status",
-        "nav.back": "← Back",
-        "nav.next": "Next →",
-        "nav.help": "❓ Help (F1)",
-        "pipeline.started": "Pipeline started",
-        "pipeline.stage": "Stage: {stage}",
-        "pipeline.completed": "Pipeline completed",
-        "pipeline.failed": "Pipeline failed: {reason}",
-        "status.ready": "Ready",
-        "status.running": "Running",
-        "status.blocked": "Unavailable",
-    },
-}
+from app.core.i18n_data import TRANSLATIONS as _TRANSLATIONS
+
 
 @dataclass
 class _LanguageState:

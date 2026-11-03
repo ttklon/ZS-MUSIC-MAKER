@@ -19,7 +19,7 @@ from typing import Any
 from tools.readiness.paths import INVENTORY_ROOTS, ROOT, TEST_ROOT
 
 
-def tracked_python_modules() -> list[str]:
+def _tracked_candidates() -> list[str]:
     """Return tracked production Python files (git if available, else filesystem)."""
     try:
         import subprocess
@@ -52,6 +52,16 @@ def tracked_python_modules() -> list[str]:
             continue
         paths.extend(str(p.relative_to(ROOT)) for p in base.rglob("*.py"))
     return sorted(paths)
+
+
+def tracked_python_modules() -> list[str]:
+    """Список модулей, реально присутствующих на диске.
+
+    `git ls-files` может помнить удалённый файл (индекс ещё не обновлён),
+    поэтому результат фильтруется по существованию: инвентарь описывает
+    дерево, а не историю.
+    """
+    return [path for path in _tracked_candidates() if (ROOT / path).is_file()]
 
 
 def _source_texts() -> tuple[str, str]:

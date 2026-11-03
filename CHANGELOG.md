@@ -1,8 +1,53 @@
 # CHANGELOG
 
-> Актуальная версия: **41.0.0-alpha.14** (2026-11-03). План рефакторинга —
+> Актуальная версия: **41.0.0-alpha.15** (2026-11-03). План рефакторинга —
 > `docs/PLAN_v41_MASTER.md`, состояние — `PROJECT_STATE.md`.
 > История до v40 сохранена ниже как архив: удалённый `SESSION_LOG.md` больше не поддерживается.
+
+## 41.0.0-alpha.15 — визард 5 шагов, единый журнал, упаковка (2026-11-03)
+
+- **Визард сведён к пяти шагам** (`app/gui/wizard/`): жанр и тема → материал →
+  голос → тонкая настройка → запуск, плюс экран результата со «пересобрать»,
+  «три варианта», «ещё» и папкой релиза. Удалены `steps_intro.py` и
+  `steps_creative.py` (дублировали друг друга), вместо них — `steps_brief.py`,
+  `steps_material.py`, `steps_voice.py`, `steps_tuning.py`, `steps_run.py`,
+  `record_dialog.py`, `dialogs.py` (`AIStatusDialog`).
+- **i18n без «строк мимо словаря»**: тексты вынесены в `app/core/i18n_data.py`
+  (`TRANSLATIONS` ru/en, ключи `menu.*`, `nav.*`, `pipeline.*`, `status.*`,
+  `wizard.*`, `dialog.*`), тест проверяет одинаковый набор ключей у обоих языков
+  и что в UI не осталось литеральных подписей.
+- **Логирование: одна реализация вместо двух.** `app/logger.py` удалён,
+  всё в `app/core/logger.py`: каталог `ZSMM_LOG_DIR` → `%LOCALAPPDATA%\ZS Music
+  Maker\logs` → `~/.local/share/zs-music-maker/logs` → `output/logs`, ротация
+  10 МБ × 5, редакция секретов, `SafeStream` для cp866-консолей, идемпотентный
+  `setup_logger`, `write_crash_report` + `install_excepthook` (`crash_*.txt`
+  с трейсбеком, прежний hook сохраняется), `TerminalStageProgress`. Причина:
+  старая копия писала в `logs/` относительно текущего каталога и при запуске
+  с ярлыка журналы просто терялись.
+- **Упаковка под Windows 11**: `packaging/zsmm.spec` (PyInstaller onedir,
+  `console=False`, в бандле `data/`, `docs/`, `scripts/`, `version.json`,
+  `VERSION`, `INSTALL.md`, `LICENSE`, тяжёлые AI-пакеты исключены; onefile
+  только через `ZSMM_ONEFILE=1` — он распаковывается при каждом старте и
+  противоречит цели «старт < 5 с»). Скрипты: `setup.cmd` (проверка Python ≥ 3.11,
+  venv, зависимости, `--health`), `run_silent.cmd` (pythonw, без окна консоли),
+  `run.cmd`, `build_exe.cmd` (+ smoke `--version` собранного exe),
+  `verify.cmd` (compileall → pytest → смоуки → аудиты → `--readiness`),
+  `make_shortcut.ps1`.
+- **Честный прогресс и частичная пересборка.** `run_full_pipeline(...,
+  on_stage=...)` вызывает колбэк после каждой стадии; `runtime_orchestrator`
+  переводит его в `job.progress` (5 % на старте, 95 % в конце), так что полоска
+  в визарде больше не «прыгает» с 0.1 на 0.92. `total` берётся из
+  `STAGE_RECORDS` — пропущенные стадии тоже попадают в отчёт как `BLOCKED`,
+  поэтому счётчик всегда сходится с отчётом. Мёртвый флаг рецепта
+  `rebuild_only` (писался и никогда не читался) заменён рабочим `only`;
+  «пересобрать только вокал/мастер» действительно пропускает остальные стадии.
+- **Инвентарь готовности устойчив к грязному индексу**: `tracked_python_modules`
+  фильтрует файлы по наличию на диске, иначе удалённый, но ещё не
+  закоммиченный модуль ронял `tools/readiness` и три теста.
+- Новые тесты: `tests/test_logger_and_crash.py` (10), `tests/test_wizard_structure.py`
+  (10), `tests/test_windows_entrypoints.py` (17), `tests/test_pipeline_progress_contract.py`
+  (4). Полный набор: **512 passed, 1 skipped**; `smoke_audio` 6/6, `smoke_god` 8/8,
+  аудит честности CLEAN, AST CLEAN, gitignore CLEAN.
 
 ## 41.0.0-alpha.14 — точный true-peak, демо-прогон, property-тесты (2026-11-03)
 

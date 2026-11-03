@@ -1,6 +1,6 @@
 # Архитектура ZS Music Maker
 
-> Версия: 41.0.0-alpha.14. Документ описывает **фактическое** устройство кода.
+> Версия: 41.0.0-alpha.15. Документ описывает **фактическое** устройство кода.
 > Если код и документ расходятся — прав код, документ правится в том же коммите.
 
 ## 1. Слои
@@ -59,6 +59,14 @@ tests/                      pytest: unit / audio / e2e
 Verdict `PASS | PASS_WITH_FALLBACK | PASS_BLOCKED | BLOCKED_SIMULATION | PARTIAL`.
 Симуляция (синтетическая заглушка вне BLOCKED) ограничивает `percent` 60.
 
+Прогресс наружу отдаётся колбэком `on_stage(name, status, index, total)`:
+`app/runtime_orchestrator.py` переводит его в `job.progress`, поэтому полоска
+в визарде движется по факту выполнения стадий, а не по «0.1 → 0.92».
+`total` — длина `STAGE_RECORDS`: пропущенная стадия тоже добавляется в список
+(со статусом `BLOCKED`), поэтому счётчик всегда совпадает с фактическим отчётом.
+Частичный прогон задаётся списком `only` в рецепте (`null` — полный прогон):
+именно так работает «пересобрать только вокал/мастер».
+
 Рецепт трека собирается один раз (`app/core/recipe.py`) из состояния визарда:
 пресет, BPM, жанр, агрессия, число куплетов, стенды, вокальный режим, свои
 строки и своя запись с микрофона (`own_vocal_wav` — основной вокальный путь,
@@ -94,13 +102,44 @@ TTS/RVC только fallback).
 - Любой отказ — словарь с `ok: False` и человекочитаемым `reason`.
 - Детерминизм: `seed` → идентичный артефакт (кроме стадий с явным `ai=True`).
 
-## 6. Проверки
+## 6. Журнал и крэш-репорты
+
+Единственная реализация — `app/core/logger.py` (прежний `app/logger.py` удалён:
+он писал в `logs/` относительно текущего каталога, из-за чего при запуске с
+ярлыка журналы терялись).
+
+- каталог: `ZSMM_LOG_DIR` → `%LOCALAPPDATA%\ZS Music Maker\logs` (Windows) →
+  `~/.local/share/zs-music-maker/logs` → `<проект>/output/logs` → temp;
+- `app.log`, ротация 10 МБ × 5; `setup_logger()` идемпотентен (нет дублей хендлеров);
+- фильтр `redact_secrets` вычищает токены/ключи до записи;
+- `SafeStream` не падает на cp866-консоли; `ZSMM_SILENT_CONSOLE=1` гасит консоль;
+- `install_excepthook()` пишет `crash_YYYYmmdd_HHMMSS.txt` с трейсбеком и
+  окружением и вызывает прежний обработчик; визард ставит его с контекстом
+  `desktop-wizard`.
+
+## 7. Упаковка и запуск
+
+- `packaging/zsmm.spec` — PyInstaller onedir (onefile только при `ZSMM_ONEFILE=1`:
+  onefile распаковывается при каждом старте и не даёт обещанного «старт < 5 с»),
+  `console=False`, в бандл попадают `data/`, `docs/`, `scripts/`, `version.json`,
+  `VERSION`, `INSTALL.md`, `LICENSE`; тяжёлые пакеты (torch, audiocraft, demucs,
+  TTS, bark, gradio) исключены.
+- `scripts\build_exe.cmd` собирает и сразу прогоняет `--version` у собранного exe.
+- `scripts\setup.cmd` (проверка Python ≥ 3.11, venv, зависимости, `--health`),
+  `scripts\run_silent.cmd` (pythonw, без окна консоли), `scripts\run.cmd`
+  (с консолью), `scripts\verify.cmd` (compileall → pytest → смоуки → аудиты →
+  `--version`/`--readiness`), `scripts\make_shortcut.ps1` (ярлык на exe или
+  на `run_silent.cmd`).
+
+## 8. Проверки
 
 | Команда | Что ловит |
 |---|---|
-| `python -m pytest tests/` | 287 тестов: unit, аудио, e2e |
+| `python -m pytest tests/` | 512 тестов: unit, аудио, e2e, property, контракты GUI/CLI |
 | `python tools/smoke_audio.py` | стерео, громкость, drop (6 проверок) |
 | `python tools/smoke_god.py` | God Mode E2E, master 120 с, true-peak (8 проверок) |
-| `python tools/fallback_audit.py` | фейковые успехи и проглоченные ошибки |
+| `python tools/fallback_audit.py` | fallback-пути и маркеры заглушек |
+| `python -m tools.audit_honesty` | фейковые успехи и немые `except` |
+| `python tools/gitignore_guard.py` | код, случайно попавший под `.gitignore` |
 | `python tools/ast_dead_imports.py` | мёртвые импорты |
 | `python -m tools.readiness` | честный процент готовности + матрица модулей |

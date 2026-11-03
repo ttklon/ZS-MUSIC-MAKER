@@ -12,6 +12,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.core.pipeline_runtime import STAGE_KEYS
+
 QUALITY_PROFILES: dict[str, dict[str, int]] = {
     "fast": {"rvc_epochs": 20, "mastering_iterations": 1},
     "quality": {"rvc_epochs": 100, "mastering_iterations": 3},
@@ -112,7 +114,28 @@ def build_recipe(wizard_state: dict[str, Any] | None) -> dict[str, Any]:
         "extra_prompt": extra_prompt,
         "seed": _as_int(state.get("seed")),
         "own_vocal_wav": state.get("own_vocal_wav") or state.get("vocal_wav"),
+        # явные флаги пользователя: конвейер их уважает, а не игнорирует
+        "export_stems": bool(state.get("export_stems", True)),
+        "bilingual": bool(state.get("bilingual", True)),
+        # какие стадии пересобирать; None/пусто = полный прогон
+        "only": _only_stages(state.get("only")),
+        "variant": _as_int(state.get("variant")),
     }
+
+
+def _only_stages(value: Any) -> list[str] | None:
+    """Нормализовать `only`: список известных стадий или None (полный прогон)."""
+    if value is None:
+        return None
+    if isinstance(value, str):
+        value = [value]
+    try:
+        requested = {str(item).strip() for item in value if str(item).strip()}
+    except TypeError:
+        return None
+    known = set(STAGE_KEYS)
+    selected = sorted(requested & known)
+    return selected or None
 
 
 def resolve_style_vector(recipe: dict[str, Any], analysis: Any) -> dict[str, Any]:

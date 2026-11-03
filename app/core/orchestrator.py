@@ -23,7 +23,7 @@ from __future__ import annotations
 import json
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from app.core.pipeline_runtime import (
     STAGE_KEYS,
@@ -65,6 +65,24 @@ MASTER_STANDS = (
     "monitors",
 )
 STEM_NAMES = ("drums", "bass", "vocals", "other")
+# Полный список записей прогона в порядке выполнения (для прогресса и отчёта).
+STAGE_RECORDS = (
+    "_stage_analyze",
+    "_stage_groove",
+    "_stage_arrangement",
+    "_stage_beat",
+    "_stage_texture",
+    "_stage_lyrics",
+    "_stage_voice_synth",
+    "_stage_rvc",
+    "_stage_vocal_fx",
+    "_stage_mix_and_sidechain",
+    "_stage_mastering",
+    "_stage_polish",
+    "_stage_stems",
+    "_stage_hit_score",
+    "_stage_release_pack",
+)
 
 
 def run_full_pipeline(
@@ -74,6 +92,7 @@ def run_full_pipeline(
     out_root: Path | None = None,
     only: set[str] | None = None,
     resume: bool = False,
+    on_stage: Callable[[str, str, int, int], None] | None = None,
 ) -> dict[str, Any]:
     """Полный прогон от рецепта до релиз-пакета.
 
@@ -81,6 +100,8 @@ def run_full_pipeline(
                  BLOCKED с причиной «skipped by --only», а не тихо исчезают.
     ``resume`` — переиспользовать артефакты предыдущего прогона в `out_root`.
     ``seed``   — из `wizard_state`; при заданном seed прогон воспроизводим.
+    ``on_stage`` — колбэк `(name, status, index, total)` после каждой стадии:
+                 по нему GUI показывает реальный прогресс, а не «0.1 → 0.92».
     """
     started_at = time.time()
     out_root = out_root or (ROOT / "output" / "audit_v17" / project_id)
@@ -94,9 +115,26 @@ def run_full_pipeline(
         )
 
     recipe = build_recipe({**wizard_state, "project_id": project_id})
+    if only is None and isinstance(recipe.get("only"), (list, tuple, set)):
+        only = set(recipe["only"])
     _apply_seed(recipe.get("seed"))
     stages: list[StageResult] = []
     warnings: list[str] = []
+    # Пайплайн всегда добавляет одно и то же число записей: пропущенные стадии
+    # попадают в список как BLOCKED, а не исчезают. Поэтому «всего» известно
+    # заранее и прогресс в GUI не врёт.
+    total_stages = len(STAGE_RECORDS)
+
+    def add(*new_stages: StageResult) -> None:
+        """Добавить стадии и сразу отдать прогресс наружу (GUI/CLI)."""
+        for stage in new_stages:
+            stages.append(stage)
+            if on_stage is not None:
+                try:
+                    on_stage(stage.name, stage.status.value, len(stages), total_stages)
+                except Exception as error:  # noqa: BLE001 - колбэк не должен ломать прогон
+                    warnings.append(f"progress callback failed: {type(error).__name__}: {error}")
+
     if not _wanted(only, "vocal"):
         warnings.append("vocal stages skipped by --only")
 
@@ -107,7 +145,7 @@ def run_full_pipeline(
         )
     else:
         analysis_stage = _blocked("_stage_analyze", "skipped by --only")
-    stages.append(analysis_stage)
+    add(analysis_stage)
     analysis = _output(analysis_stage).get("analysis")
 
     if _wanted(only, "groove"):
@@ -117,14 +155,14 @@ def run_full_pipeline(
         )
     else:
         groove_stage = _blocked("_stage_groove", "skipped by --only")
-    stages.append(groove_stage)
+    add(groove_stage)
     groove = _output(groove_stage).get("groove")
 
     if _wanted(only, "arrangement"):
         arrangement_stage = _timed("_stage_arrangement", lambda: _stage_arrangement(analysis))
     else:
         arrangement_stage = _blocked("_stage_arrangement", "skipped by --only")
-    stages.append(arrangement_stage)
+    add(arrangement_stage)
 
     style_vector = resolve_style_vector(recipe, analysis)
     plan = build_arrangement_plan(recipe, _output(arrangement_stage).get("plan"), analysis)
@@ -139,14 +177,14 @@ def run_full_pipeline(
         )
     else:
         beat_stage = _blocked("_stage_beat", "skipped by --only")
-    stages.append(beat_stage)
+    add(beat_stage)
     beat_wav = _output(beat_stage).get("path")
 
     resumed_texture = _resume_path(out_root, "texture") if resume else None
     if resumed_texture:
-        stages.append(_resumed("_stage_texture", {"ok": True, "path": str(resumed_texture)}))
+        add(_resumed("_stage_texture", {"ok": True, "path": str(resumed_texture)}))
     elif _wanted(only, "texture"):
-        stages.append(
+        add(
             _timed(
                 "_stage_texture",
                 lambda: _stage_texture(
@@ -155,12 +193,12 @@ def run_full_pipeline(
             )
         )
     else:
-        stages.append(_blocked("_stage_texture", "skipped by --only"))
+        add(_blocked("_stage_texture", "skipped by --only"))
 
     lyrics_stage, lyrics_dict, lyrics_text = _run_lyrics_stage(recipe)
     if not _wanted(only, "lyrics"):
         lyrics_stage = _blocked("_stage_lyrics", "skipped by --only")
-    stages.append(lyrics_stage)
+    add(lyrics_stage)
 
     resumed_vocal = _resume_path(out_root, "vocal") if resume else None
     if not _wanted(only, "vocal"):
@@ -185,7 +223,7 @@ def run_full_pipeline(
             key=beat_output.get("key"),
         )
         warnings.extend(vocal_warnings)
-    stages.extend(vocal_stages)
+    add(*vocal_stages)
 
     resumed_mix = _resume_path(out_root, "mix") if resume else None
     if resumed_mix:
@@ -201,7 +239,7 @@ def run_full_pipeline(
         )
     else:
         mix_stage = _blocked("_stage_mix_and_sidechain", "no beat")
-    stages.append(mix_stage)
+    add(mix_stage)
     mix_wav = _output(mix_stage).get("out_wav")
 
     resumed_master = _resume_path(out_root, "master") if resume else None
@@ -216,7 +254,7 @@ def run_full_pipeline(
         )
     else:
         master_stage = _blocked("_stage_mastering", "no mix")
-    stages.append(master_stage)
+    add(master_stage)
 
     master_out = _output(master_stage)
     stand_map = master_out.get("masters") or master_out.get("stands") or {}
@@ -225,17 +263,21 @@ def run_full_pipeline(
         streaming_raw.get("out_wav") if isinstance(streaming_raw, dict) else streaming_raw
     )
 
+    export_stems = recipe.get("export_stems", True)
     for key, name, fn in (
         ("polish", "_stage_polish", lambda: _stage_polish(streaming_master, out_root)),
         ("stems", "_stage_stems", lambda: _stage_stems(streaming_master, out_root)),
         ("hit_score", "_stage_hit_score", lambda: _stage_hit_score(streaming_master)),
     ):
         if not streaming_master:
-            stages.append(_blocked(name, "no master"))
+            add(_blocked(name, "no master"))
         elif not _wanted(only, key):
-            stages.append(_blocked(name, "skipped by --only"))
+            add(_blocked(name, "skipped by --only"))
+        elif key == "stems" and not export_stems:
+            # пользователь снял галочку — стадия помечается, а не исчезает молча
+            add(_blocked(name, "stems disabled by user (export_stems=false)"))
         else:
-            stages.append(_timed(name, fn))
+            add(_timed(name, fn))
 
     hit_stage = stages[-1]
     meta = {
@@ -251,8 +293,11 @@ def run_full_pipeline(
 
     if streaming_master and _wanted(only, "release"):
         masters_map = _normalize_path_map(stand_map, list(MASTER_STANDS))
-        stems_map = _normalize_path_map(
-            _output(stages[-2]).get("stems") or _output(stages[-2]), list(STEM_NAMES)
+        stems_stage = next((stage for stage in stages if stage.name == "_stage_stems"), None)
+        stems_map = (
+            _normalize_path_map(_output(stems_stage).get("stems") or {}, list(STEM_NAMES))
+            if stems_stage is not None and stems_stage.ok
+            else {}
         )
         hit_metrics = {
             key: value
@@ -276,7 +321,7 @@ def run_full_pipeline(
         release_stage = _blocked("_stage_release_pack", "no master")
     else:
         release_stage = _blocked("_stage_release_pack", "skipped by --only")
-    stages.append(release_stage)
+    add(release_stage)
 
     summary = summarize(stages, dry_run=dry_run)
     warnings.extend(summary.pop("warnings", []))
