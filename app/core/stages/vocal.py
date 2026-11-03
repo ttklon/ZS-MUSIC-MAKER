@@ -267,7 +267,9 @@ def _stage_rvc(
             voice_wav, voice_name="my_voice", out_name=out_wav, pitch_shift=pitch_shift,
             model_path=model_path or None, index_path=index_path or None,
         )
-        return {"ok": bool(r), "path": r or out_wav}
+        import os
+        return {"ok": bool(r), "path": r or out_wav, "engine": "rvc_python",
+                "execution": "isolated_python" if os.environ.get("ZSMM_RVC_PYTHON", "").strip() else "in_process"}
     except RuntimeError as e:
         return {"ok": True, "blocked": True, "path": "", "reason": str(e)}
     except Exception as e:

@@ -18,34 +18,49 @@ from app.ai.quality.lyrics import TOKEN_RE
 
 
 def audio_metrics(path: str | Path) -> dict[str, Any]:
-    """Измерить базовые объективные показатели WAV/аудиофайла без ML."""
+    """Measure in bounded blocks; reject NaN/Inf rather than pass invalid audio."""
     try:
         import numpy as np
         import soundfile as sf
 
-        samples, sample_rate = sf.read(str(path), always_2d=True)
+        with sf.SoundFile(str(path)) as audio:
+            sample_rate, channels = audio.samplerate, audio.channels
+            if sample_rate <= 0 or channels <= 0:
+                return {"readable": False, "reason": "invalid audio format"}
+            count, peak, sumsq = 0, 0.0, 0.0
+            channel_sums = np.zeros(channels, dtype=np.float64)
+            left_sumsq = right_sumsq = cross = side_sumsq = 0.0
+            for samples in audio.blocks(blocksize=65536, dtype="float64", always_2d=True):
+                if not np.isfinite(samples).all():
+                    return {"readable": False, "reason": "audio contains non-finite samples"}
+                block_peak = float(np.max(np.abs(samples)))
+                if block_peak > 1e6:  # Prevent arithmetic overflow from malformed float WAVs.
+                    return {"readable": False, "reason": "audio sample magnitude is invalid"}
+                count += len(samples)
+                peak = max(peak, block_peak)
+                sumsq += float(np.sum(samples * samples))
+                channel_sums += np.sum(samples, axis=0)
+                if channels >= 2:
+                    left, right = samples[:, 0], samples[:, 1]
+                    left_sumsq += float(np.dot(left, left))
+                    right_sumsq += float(np.dot(right, right))
+                    cross += float(np.dot(left, right))
+                    side_sumsq += float(np.sum(((left - right) * 0.5) ** 2))
     except Exception as exc:
         return {"readable": False, "reason": f"audio read failed: {exc}"}
-    if samples.size == 0:
+    if count == 0:
         return {"readable": False, "reason": "audio is empty"}
-    peak = float(np.max(np.abs(samples)))
-    rms = float(np.sqrt(np.mean(samples ** 2)))
-    duration = len(samples) / sample_rate
     metrics = {
-        "readable": True,
-        "duration_sec": round(duration, 3),
-        "sample_rate": int(sample_rate),
-        "channels": int(samples.shape[1]),
-        "peak": round(peak, 6),
-        "rms": round(rms, 6),
-        "dc_offset": round(float(np.max(np.abs(np.mean(samples, axis=0)))), 6),
+        "readable": True, "duration_sec": round(count / sample_rate, 3),
+        "sample_rate": int(sample_rate), "channels": int(channels),
+        "peak": round(peak, 6), "rms": round(float(np.sqrt(sumsq / (count * channels))), 6),
+        "dc_offset": round(float(np.max(np.abs(channel_sums / count))), 6),
     }
-    if samples.shape[1] >= 2:
-        left, right = samples[:, 0], samples[:, 1]
-        denominator = float(np.linalg.norm(left) * np.linalg.norm(right))
-        correlation = float(np.dot(left, right) / denominator) if denominator > 1e-12 else 1.0
+    if channels >= 2:
+        denominator = float(np.sqrt(left_sumsq) * np.sqrt(right_sumsq))
+        correlation = cross / denominator if denominator > 1e-12 else 1.0
         metrics["stereo_correlation"] = round(correlation, 6)
-        metrics["stereo_side_rms"] = round(float(np.sqrt(np.mean(((left - right) * 0.5) ** 2))), 6)
+        metrics["stereo_side_rms"] = round(float(np.sqrt(side_sumsq / count)), 6)
     return metrics
 
 
@@ -138,6 +153,23 @@ def validate_vocal_artifact(path: str | Path, text: str) -> dict[str, Any]:
     return result
 
 
+def _identical_audio_samples(first: str | Path, second: str | Path) -> bool:
+    """Reject exact passthrough even when file headers or WAV encodings differ."""
+    import numpy as np
+    import soundfile as sf
+
+    with sf.SoundFile(str(first)) as source, sf.SoundFile(str(second)) as result:
+        if (source.samplerate, source.channels, len(source)) != (result.samplerate, result.channels, len(result)):
+            return False
+        while True:
+            original = source.read(65536, dtype="float64", always_2d=True)
+            converted = result.read(65536, dtype="float64", always_2d=True)
+            if not np.array_equal(original, converted):
+                return False
+            if not len(original):
+                return True
+
+
 def validate_rvc_artifact(input_path: str | Path, output_path: str | Path) -> dict[str, Any]:
     """Проверить output RVC: аудио валидно и сохраняет временную структуру исходного вокала."""
     source = audio_metrics(input_path)
@@ -155,6 +187,11 @@ def validate_rvc_artifact(input_path: str | Path, output_path: str | Path) -> di
         return {"ok": False, "reason": "RVC output duration diverges from input", "metrics": result["metrics"]}
     if float(result["metrics"].get("dc_offset", 0.0)) > 0.02:
         return {"ok": False, "reason": "RVC output DC offset is too high", "metrics": result["metrics"]}
+    try:
+        if _identical_audio_samples(input_path, output_path):
+            return {"ok": False, "reason": "RVC output is identical to input; conversion not demonstrated", "metrics": result["metrics"]}
+    except Exception as exc:
+        return {"ok": False, "reason": f"RVC input/output comparison failed: {exc}", "metrics": result["metrics"]}
     return {"ok": True, "reason": None, "metrics": result["metrics"]}
 
 

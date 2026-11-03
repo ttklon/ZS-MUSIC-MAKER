@@ -37,11 +37,11 @@ MODEL_REGISTRY: Dict[str, Dict[str, Any]] = {
         "file": "musicgen-stereo-medium", "vram_est_gb": 8.0, "ram_est_gb": 10.0,
         "device_pref": "auto"},
     "tts_vocal": {
-        "role": "Основной вокал (XTTS-v2, клонирование голоса)",
+        "role": "Речевой черновик (XTTS-v2; не проверенное пение)",
         "engine": "xtts_v2", "hf_repo": "coqui/XTTS-v2", "file": "XTTS-v2",
         "vram_est_gb": 4.0, "ram_est_gb": 6.0, "device_pref": "cuda"},
     "vocal_rvc": {
-        "role": "Voice-conversion под голос артиста (.pth кладёт юзер)",
+        "role": "Voice-conversion собственного/разрешённого голоса (.pth пользователя)",
         "engine": "rvc", "hf_repo": "user_supplied", "file": "data/ai_models/vocal_rvc/*.pth",
         "vram_est_gb": 3.0, "ram_est_gb": 4.0, "device_pref": "cuda"},
     "stem_splitter": {

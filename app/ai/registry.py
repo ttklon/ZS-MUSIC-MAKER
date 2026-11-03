@@ -84,7 +84,15 @@ class ModelRegistry:
                 return True
             if eng == "rvc":
                 from modules.rvc_manager import is_trained
-                return is_trained("my_voice")
+                from modules.rvc_manager.rvc_worker import require_base_assets
+                if not is_trained("my_voice"):
+                    return False
+                external = os.environ.get("ZSMM_RVC_PYTHON", "").strip()
+                if external:
+                    interpreter = Path(external)
+                    return interpreter.is_absolute() and interpreter.is_file()
+                require_base_assets()
+                return True
             if eng == "demucs":
                 import demucs  # noqa
                 return True

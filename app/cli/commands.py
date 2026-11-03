@@ -161,7 +161,8 @@ def run_ai_status() -> int:
         safe_print(f"[AI] Hardware budget: {registry.hw}")
         safe_print("[AI] Presence checks only; dependencies for non-GGUF roles do not prove weights or inference.")
         for key, meta in MODEL_REGISTRY.items():
-            avail = "YES" if registry.is_available(key) else "--"
+            available = registry.is_available(key)
+            avail = ("FILES" if key == "vocal_rvc" else "YES") if available else "--"
             safe_print(
                 f"  {avail} {key:20s} {meta['engine']:22s} "
                 f"VRAM~{meta.get('vram_est_gb', 0)} GB - {meta['role']}"

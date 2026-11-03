@@ -9,8 +9,9 @@
    Хорошо:  C:\ZS_Music_Maker\
    Плохо:   C:\Мои документы\ZS Music Maker\
 
-2. Установи Python 3.10+ (https://www.python.org/downloads/),
-   при установке отметь «Add python.exe to PATH».
+2. Установи Python 3.11 (https://www.python.org/downloads/),
+   при установке отметь «Add python.exe to PATH». `scripts\setup.cmd`
+   требует Python 3.11+; совместимость каждой будущей версии не подтверждена.
 
 3. Открой терминал в папке проекта и выполни:
        python install.py
@@ -33,7 +34,7 @@ python main.py --health      # проверка здоровья системы
 python main.py --readiness   # чек-лист готовности по ТЗ
 python main.py --ai-status   # наличие зависимостей/части файлов, не тест inference
 python main.py --ai --dry-run --genre phonk --theme "night"  # безопасный AI pipeline dry-run
-python install.py --dry-run --ai  # показать opt-in план core+AI установки без изменений
+python install.py --dry-run --ai  # план core + faster-whisper, без изменений
 python tools/pull_ai_models.py --help  # сверка/pull role-scoped model artifacts
 ```
 
@@ -153,8 +154,8 @@ Voice Vault. Для последующего полного прогона вы�
 не выбраны, используются `models\rvc\my_voice\my_voice.pth` и необязательный
 `my_voice.index`. Выбранный индекс не игнорируется при ошибке. Загружайте
 `.pth` только из доверенного источника: загрузка весов PyTorch может выполнять
-код. Нужен установленный `rvc-python` и его вспомогательные
-веса. Встроенное обучение сейчас **не подключено**: внешний RVC-тренер и
+код. Нужен совместимый `rvc-python` 0.1.5, его вспомогательные веса и,
+в случае отдельного окружения, `ZSMM_RVC_PYTHON` (раздел 2). Встроенное обучение сейчас **не подключено**: внешний RVC-тренер и
 полученная в нём модель должны быть проверены отдельно. Ни обучение на
 вашем голосе, ни inference RVC на Windows не подтверждены. Ручной сдвиг вокала
 в миллисекундах помогает подогнать дубль к минусу: плюс — позже, минус — раньше.
@@ -168,38 +169,81 @@ Voice Vault. Для последующего полного прогона вы�
 для генерации. Режимы качества в мастере временно отключены, поскольку пока
 не управляют рендером.
 
-## 2. Что ставит `install.py`
+## 2. Зависимости и изоляция AI
 
-- **Обязательные зависимости** из `requirements.txt` (PySide6, gradio, librosa,
-  scipy, numpy, pydub, soundfile, matplotlib, mido, pyloudnorm, pedalboard,
-  pyttsx3, gtts, sounddevice, filelock, Pillow, mutagen, requests и др.).
-- **PyTorch CPU** — стабильный fallback для RX 580 4GB (опционально).
-- Создание рабочих каталогов (`output/`, `models/`, `samples_cache/`, `checkpoints/`).
-- Проверку GPU/CPU и базовых моделей.
+`python install.py` создаёт рабочие каталоги и устанавливает **только базовые**
+зависимости из `requirements.txt`, затем выполняет `pip check`. Команда
+`python install.py --ai` дополнительно ставит **только faster-whisper**, не веса,
+не RVC и не остальные тяжёлые движки. `--dry-run` ничего не создаёт и не ставит.
+`scripts\setup.cmd` устанавливает базовый профиль в `.venv` и тоже запускает
+`pip check`; тестовые зависимости устанавливаются отдельно.
 
-Каждый тяжёлый пакет ставится с отдельной обработкой ошибок — отсутствие
-одного не рушит остальное.
+Не устанавливайте весь AI-стек в основное окружение через `--no-deps`: по
+метаданным PyPI `rvc-python==0.1.5` требует `numpy<=1.23.5`, а ядро —
+`numpy>=1.26`; AudioCraft 1.3 требует `torch==2.1.0`, DirectML 0.2.5 —
+`torch==2.4.1`. Совместная установка не является разрешённой конфигурацией.
+Пакеты и их зависимости могут измениться; `pip check` не проверяет inference.
+ACE-Step и Ollama запускаются как отдельные приложения/серверы (см. выше).
 
-### Опциональные тяжёлые пакеты (ставятся вручную при необходимости)
+### RVC в отдельном окружении — экспериментальный путь
 
-```bash
-# AMD DirectML (только если у тебя AMD GPU на Windows)
-pip install torch-directml==0.2.5
+Новая интеграция принимает **явный** путь к Python другого окружения через
+`ZSMM_RVC_PYTHON`. Она проверена настоящим отдельным процессом с фиктивным
+backend, но **не проверена с настоящими RVC, весами, CUDA/ROCm или Windows**.
+При ошибке конверсии в миксе сохраняется исходный голос, а RVC помечается
+BLOCKED. Численные ошибки аудио и в точности совпадающая с исходником запись
+отклоняются; отличающийся сигнал сам по себе не доказывает качество или
+подлинность конверсии. Обучение по-прежнему не подключено. Требуется Python 3.10 и совместимый
+со своим ПК стек из [rvc-python](https://github.com/daswer123/rvc-python):
 
-# MusicGen (текстуры) — тяжёлый, на CPU медленно
-pip install audiocraft --no-deps
-pip install einops encodec sentencepiece hydra-core omegaconf av
-
-# Дополнительно: сплиттер стемов, распознавание речи, мастеринг под референс
-pip install demucs "faster-whisper>=1.0.3,<2" matchering "huggingface-hub>=0.24,<2" "click>=8,<8.2"
-
-# Тяжёлые TTS (опционально): XTTS, Bark
-pip install TTS
-pip install git+https://github.com/suno-ai/bark.git --no-deps
-
-# ffmpeg (нужен pydub/demucs)
-winget install --id=Gyan.FFmpeg -e     # Windows
+```bat
+REM Попытка установки только в отдельное окружение; не в .venv приложения
+py -3.10 -m venv .venv-rvc
+.venv-rvc\Scripts\python.exe -m pip install "rvc-python==0.1.5"
+.venv-rvc\Scripts\python.exe -m pip check
 ```
+
+Установка upstream может не разрешиться или потребовать сборки fairseq и
+системных инструментов, особенно на Windows; на этой машине `--only-binary`
+упёрся в отсутствие wheel fairseq. Не обходите ошибки через `--no-deps` и не
+считайте установленный пакет подтверждением работы. Подбирайте PyTorch и
+совместимую torchaudio по официальной инструкции для своей платформы: CUDA,
+ROCm и DirectML не взаимозаменяемы; RX 580 не имеет подтверждённой здесь
+поддержки ROCm на Windows. Понадобятся доверенная `.pth`-модель голоса,
+возможно `.index`, а также три файла `hubert_base.pt`, `rmvpe.pt`,
+`rmvpe.onnx` в каталоге `rvc_python/base_model` **внутри отдельного окружения**.
+Их официальный источник указан в [upstream-пакете](https://github.com/daswer123/rvc-python);
+загружайте и проверяйте права и происхождение отдельно. Приложение проверяет
+наличие и ненулевой размер файлов, **не** их подлинность, и не запускает
+типовую автоматическую загрузку rvc-python при их отсутствии.
+
+Чтобы увидеть каталог вспомогательных весов, после успешной установки:
+
+```bat
+.venv-rvc\Scripts\python.exe -c "from importlib.util import find_spec; from pathlib import Path; print(Path(find_spec('rvc_python').origin).parent / 'base_model')"
+set "ZSMM_RVC_PYTHON=%CD%\.venv-rvc\Scripts\python.exe"
+set "ZSMM_RVC_DEVICE=cpu"
+set "ZSMM_RVC_TIMEOUT=3600"
+scripts\run.cmd
+```
+
+`ZSMM_RVC_DEVICE=auto` (по умолчанию) пытается использовать только PyTorch
+CUDA/HIP в этом окружении при измеренных ≥4 GiB свободной VRAM, иначе CPU;
+`cpu` принудительно выбирает CPU. Внешний процесс требует по оценке ≥5 GiB
+свободной RAM независимо от GPU. Это приближённые проверки, не гарантия OOM
+или поддержки карты. Тайм-аут 30–7200 с, по умолчанию 1800 с: основной worker
+останавливается, но дочерние процессы сторонних библиотек могут продолжаться.
+Не используйте чужие/непроверенные `.pth`: загрузка PyTorch может исполнять код.
+Неизвестные версии rvc-python блокируются вместо предполагаемой совместимости.
+
+### Другие движки
+
+MusicGen, Demucs, XTTS и Bark не входят в базовый или `--ai` профиль и не
+проверены совместно на Windows. Не устанавливайте одновременно несовместимые
+версии в основной venv. Для каждого движка нужны отдельно согласованные
+зависимости, лицензии, веса и проверка реального inference; интеграция таких
+изолированных окружений в приложение, кроме экспериментального RVC-адаптера,
+пока не реализована. FFmpeg при необходимости устанавливается отдельно.
 
 ### Локальное распознавание референсов (по желанию)
 
@@ -225,8 +269,9 @@ Gradio и gTTS; после изменения зависимостей реко�
 ## 3. Проверка после установки
 
 ```
-scripts\verify.cmd         # Windows: pytest + smoke_audio + smoke_god + fallback_audit
-scripts\setup.cmd          # Windows: venv + зависимости одной командой
+scripts\verify.cmd         # Windows: компиляция, тесты, smoke и аудиты
+scripts\setup.cmd          # Windows: venv + базовые зависимости
+# Для verify сначала: .venv\Scripts\python.exe -m pip install -r requirements_dev.txt
 
 # Или вручную (кросс-платформенно):
 python -m pytest tests/                    # полный unit/regression suite
@@ -242,13 +287,9 @@ python main.py --health                    # общее здоровье сис�
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
-# v35: ВАЖНО — ставить согласованную пару torch+torchaudio С ОДНОГО индекса.
-# Нельзя смешивать torch (pytorch-индекс) и torchaudio (PyPI): бинарники ABI
-# несовместимы → OSError «Could not load _torchaudio.abi3.so». Берём оба с
-# pytorch-индекса с зафиксированной парой версий (проверено на Silero TTS):
-pip install "torch==2.5.1" "torchaudio==2.5.1" --index-url https://download.pytorch.org/whl/cpu
-# Зависимости Silero TTS (русский голос, ~50MB, CPU-friendly, REAL_PASS v35):
-pip install omegaconf soundfile
+# По желанию: только faster-whisper, без весов
+pip install -r requirements_ai.txt
+pip check
 
 # ffmpeg
 sudo apt install ffmpeg        # Linux
@@ -297,7 +338,8 @@ pip install omegaconf soundfile
 (pyttsx3 offline но роботичный; gtts требует сеть).
 
 ### RVC-конверсия тембра
-RVC требует установленного `rvc-python` и обученной `.pth`-модели.
+RVC требует совместимого `rvc-python==0.1.5`, вспомогательных весов и обученной
+`.pth`-модели; см. экспериментальный отдельный профиль в разделе 2.
 Если RVC недоступен — конверсия **не подменяется** pitch-shift'ом
 (это осознанный запрет по ТЗ: честность важнее фальшивого результата);
 стадия вернёт честный BLOCKED/RuntimeError с объяснением.
@@ -307,7 +349,8 @@ RVC требует установленного `rvc-python` и обученно
 Offline возможен только после отдельной установки и проверки необходимых весов;
 обычная установка Python-пакетов не скачивает все модели:
 
-- Analyzer, Groove, Beat Constructor, Mixdown, Mastering — 100% offline.
+- Локальные DSP-анализ, бит, микс и мастеринг могут работать без сети при
+  наличии зависимостей и локальных входных файлов; это не тест всех путей.
 - TTS (pyttsx3/gtts) — pyttsx3 offline; gtts требует сеть (Google).
 - SampleHunter Online — требует интернет (Freesound/Wikimedia);
   для полного offline используй локальную библиотеку сэмплов.
@@ -321,6 +364,9 @@ Offline возможен только после отдельной устано
 |---|---|
 | `OPENROUTER_API_KEY` | LLM-тексты через OpenRouter |
 | `XAI_API_KEY` / `GEMINI_API_KEY` / `GOOGLE_API_KEY` | Альтернативные LLM-провайдеры |
+| `ZSMM_RVC_PYTHON` | Абсолютный путь к Python отдельного окружения RVC |
+| `ZSMM_RVC_DEVICE` | `auto` или `cpu`; выбор устройства RVC |
+| `ZSMM_RVC_TIMEOUT` | Тайм-аут отдельного процесса RVC, 30–7200 с |
 | `ZSMM_NO_CHECKPOINTS=1` | Отключить чекпоинты пайплайна |
 | `ZSMM_PROGRAM_DIR` / `ZSMM_USER_DIR` | Переопределить каталоги updater'а |
 

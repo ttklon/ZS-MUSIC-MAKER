@@ -77,8 +77,8 @@ def ensure_fork(
         except ImportError:
             # v37 FIX: windows_build.bat больше не существует — указываем реальный путь установки.
             _p(
-                "rvc-python не установлен — pip install rvc-python "
-                "(или запусти install.py, он ставит heavy-deps per-package; см. INSTALL.md §4)"
+                "rvc-python не установлен в текущем окружении; совместимое отдельное "
+                "окружение и ограничения описаны в INSTALL.md"
             )
         return FORKS_DIR / "rvc-python"
 

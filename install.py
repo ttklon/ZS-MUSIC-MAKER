@@ -50,28 +50,31 @@ def installation_plan(install_ai: bool, system_deps: bool) -> list[list[str]]:
     plan.append([sys.executable, "-m", "pip", "install", "-r", str(CORE_REQUIREMENTS)])
     if install_ai:
         plan.append([sys.executable, "-m", "pip", "install", "-r", str(AI_REQUIREMENTS)])
+    plan.append([sys.executable, "-m", "pip", "check"])
     return plan
 
 
 def setup(*, install_ai: bool = False, system_deps: bool = False, dry_run: bool = False) -> int:
     print("=== ZS Music Maker Installer ===")
+    if install_ai:
+        print("Optional --ai profile installs faster-whisper only, without model weights; RVC and other engines are separate.")
     print(f"Detected OS: {platform.system()}")
-    _initialise_filesystem()
     plan = installation_plan(install_ai, system_deps)
     if dry_run:
         print("DRY RUN: no packages will be installed")
         for command in plan:
             print("PLAN:", " ".join(command))
         return 0
+    _initialise_filesystem()
     for command in plan:
-        run_cmd(command, critical=(command[0] == sys.executable))
+        run_cmd(command, critical=True)
     print("Installation complete. Run: python main.py --ai-status")
     return 0
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Install ZS Music Maker dependencies")
-    parser.add_argument("--ai", action="store_true", help="Install optional AI dependency manifest")
+    parser.add_argument("--ai", action="store_true", help="Install optional faster-whisper ASR dependencies only (no model weights)")
     parser.add_argument("--system-deps", action="store_true", help="Install Linux system packages (requires sudo)")
     parser.add_argument("--dry-run", action="store_true", help="Print plan and initialise directories without installation")
     args = parser.parse_args()

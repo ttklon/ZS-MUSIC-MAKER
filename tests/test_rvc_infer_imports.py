@@ -11,6 +11,8 @@ import soundfile as sf
 def test_infer_uses_public_rvc_python_class_and_validates_output(tmp_path, monkeypatch):
     module = importlib.import_module("modules.rvc_manager.infer")
     monkeypatch.setattr("app.ai.hardware.available_memory_gib", lambda: 12.0)
+    monkeypatch.delenv("ZSMM_RVC_PYTHON", raising=False)
+    monkeypatch.setattr(module, "require_base_assets", lambda: None)
     monkeypatch.setattr(module, "ROOT", tmp_path)
     monkeypatch.setattr(module, "MODELS_DIR", tmp_path / "models")
     monkeypatch.setattr(module, "detect_backend", lambda: SimpleNamespace(kind="directml", fork="applio"))
@@ -25,7 +27,7 @@ def test_infer_uses_public_rvc_python_class_and_validates_output(tmp_path, monke
     class RVCInference:
         def __init__(self, **kwargs): calls.update(kwargs)
         def set_params(self, **kwargs): calls.update(kwargs)
-        def infer_file(self, input_path, output_path): sf.write(output_path, waveform, 8000)
+        def infer_file(self, input_path, output_path): sf.write(output_path, waveform * 0.8, 8000)
         def unload_model(self): calls["unloaded"] = True
     fake.RVCInference = RVCInference
     monkeypatch.setitem(sys.modules, "rvc_python", ModuleType("rvc_python"))
@@ -64,6 +66,8 @@ def test_rocm_detected_as_rocm_not_nvidia(monkeypatch):
 def test_explicit_model_and_index_are_used_and_missing_index_is_not_ignored(tmp_path, monkeypatch):
     module = importlib.import_module("modules.rvc_manager.infer")
     monkeypatch.setattr("app.ai.hardware.available_memory_gib", lambda: 12.0)
+    monkeypatch.delenv("ZSMM_RVC_PYTHON", raising=False)
+    monkeypatch.setattr(module, "require_base_assets", lambda: None)
     monkeypatch.setattr(module, "ROOT", tmp_path)
     monkeypatch.setattr(module, "detect_backend", lambda: SimpleNamespace(kind="cpu"))
     source = tmp_path / "recording.wav"
@@ -78,7 +82,7 @@ def test_explicit_model_and_index_are_used_and_missing_index_is_not_ignored(tmp_
     class RVCInference:
         def __init__(self, **kwargs): calls.update(kwargs)
         def set_params(self, **kwargs): pass
-        def infer_file(self, input_path, output_path): sf.write(output_path, waveform, 8000)
+        def infer_file(self, input_path, output_path): sf.write(output_path, waveform * 0.8, 8000)
         def unload_model(self): pass
     fake.RVCInference = RVCInference
     monkeypatch.setitem(sys.modules, "rvc_python", ModuleType("rvc_python"))
@@ -123,6 +127,8 @@ def test_missing_explicit_index_reports_blocked_and_preserves_recording(tmp_path
     from app.core.stages import vocal_chain
     module = importlib.import_module("modules.rvc_manager.infer")
     monkeypatch.setattr("app.ai.hardware.available_memory_gib", lambda: 12.0)
+    monkeypatch.delenv("ZSMM_RVC_PYTHON", raising=False)
+    monkeypatch.setattr(module, "require_base_assets", lambda: None)
     monkeypatch.setattr(module, "ROOT", tmp_path)
     voice = tmp_path / "recording.wav"
     sf.write(voice, np.sin(np.arange(8000) * .1) * .2, 8000)
@@ -139,6 +145,8 @@ def test_missing_explicit_index_reports_blocked_and_preserves_recording(tmp_path
 
 def test_rvc_selects_gpu_only_with_measured_headroom(tmp_path, monkeypatch):
     module = importlib.import_module("modules.rvc_manager.infer")
+    monkeypatch.delenv("ZSMM_RVC_PYTHON", raising=False)
+    monkeypatch.setattr(module, "require_base_assets", lambda: None)
     monkeypatch.setattr(module, "ROOT", tmp_path)
     monkeypatch.setattr("app.ai.hardware.available_memory_gib", lambda: 8.0)
     model = tmp_path / "voice.pth"
@@ -151,7 +159,7 @@ def test_rvc_selects_gpu_only_with_measured_headroom(tmp_path, monkeypatch):
     class RVCInference:
         def __init__(self, **kwargs): calls.append(kwargs["device"])
         def set_params(self, **kwargs): pass
-        def infer_file(self, input_path, output_path): sf.write(output_path, waveform, 8000)
+        def infer_file(self, input_path, output_path): sf.write(output_path, waveform * 0.8, 8000)
         def unload_model(self): pass
     fake.RVCInference = RVCInference
     monkeypatch.setitem(sys.modules, "rvc_python", ModuleType("rvc_python"))

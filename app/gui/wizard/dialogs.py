@@ -73,7 +73,8 @@ class AIStatusDialog(QDialog):
                 "",
             ]
             for key, spec in MODEL_REGISTRY.items():
-                marker = "PREFLIGHT" if registry.is_available(key) else "MISSING / UNAVAILABLE"
+                available = registry.is_available(key)
+                marker = ("FILE CHECK ONLY" if key == "vocal_rvc" else "PREFLIGHT") if available else "MISSING / UNAVAILABLE"
                 vram = float(spec.get("vram_est_gb", 0))
                 lines.append(
                     f"[{marker}] {key} — {spec['role']} "

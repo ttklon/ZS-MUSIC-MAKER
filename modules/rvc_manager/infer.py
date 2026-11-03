@@ -6,11 +6,43 @@ modules/rvc_manager/infer.py — инференс RVC: рендер голоса
 from __future__ import annotations
 
 import os
+import subprocess
 import tempfile
 from pathlib import Path
 
 from modules.rvc_manager.backend import detect_backend
 from modules.rvc_manager.config import MODELS_DIR, ROOT, _load_state
+from modules.rvc_manager.rvc_worker import require_base_assets
+
+
+def _run_isolated(python: str, input_wav: str, output: Path, weights: Path,
+                  index: Path | None, pitch_shift: int) -> None:
+    """Run the explicit RVC interpreter without shell; main process validates WAV."""
+    interpreter = Path(python)
+    if not interpreter.is_absolute() or not interpreter.is_file():
+        raise RuntimeError("ZSMM_RVC_PYTHON must be an absolute path to an existing Python executable")
+    try:
+        timeout = float(os.environ.get("ZSMM_RVC_TIMEOUT", "1800"))
+        if not 30 <= timeout <= 7200:
+            raise ValueError("timeout outside 30–7200 seconds")
+    except ValueError as exc:
+        raise RuntimeError("ZSMM_RVC_TIMEOUT must be 30–7200 seconds") from exc
+    worker = Path(__file__).with_name("rvc_worker.py").resolve()
+    args = [str(interpreter), "-I", str(worker), "--input", str(Path(input_wav).resolve()),
+            "--output", str(output.resolve()), "--model", str(weights.resolve()),
+            "--pitch", str(int(pitch_shift))]
+    if index and index.is_file():
+        args += ["--index", str(index.resolve())]
+    with tempfile.TemporaryFile() as log:
+        try:
+            result = subprocess.run(args, stdout=log, stderr=subprocess.STDOUT, timeout=timeout, check=False)
+        except subprocess.TimeoutExpired as exc:
+            raise RuntimeError(f"isolated RVC worker timed out after {timeout:g}s") from exc
+        if result.returncode:
+            log.seek(0, os.SEEK_END)
+            log.seek(max(0, log.tell() - 4096))
+            detail = log.read().decode("utf-8", errors="replace").strip()
+            raise RuntimeError(f"isolated RVC worker failed (exit {result.returncode}): {detail}")
 
 
 def infer(
@@ -41,29 +73,38 @@ def infer(
 
     # rvc-python 0.1.x exposes RVCInference, not a module-level infer_file.
     # DirectML is not supported by this API; use CPU unless torch CUDA/ROCm is available.
-    backend = detect_backend()
+    isolated_python = os.environ.get("ZSMM_RVC_PYTHON", "").strip()
+    device_preference = os.environ.get("ZSMM_RVC_DEVICE", "auto").strip().lower()
+    if device_preference not in ("auto", "cpu"):
+        raise RuntimeError("ZSMM_RVC_DEVICE must be auto or cpu")
+    backend = detect_backend() if not isolated_python and device_preference != "cpu" else None
     from app.ai.hardware import available_memory_gib
     available_ram = available_memory_gib()
     free_vram = getattr(backend, "vram_free_gb", None)
-    use_gpu = backend.kind in ("cuda", "rocm") and free_vram is not None and free_vram >= 4
+    use_gpu = backend is not None and backend.kind in ("cuda", "rocm") and free_vram is not None and free_vram >= 4
     ram_floor = 2.0 if use_gpu else 5.0
     if available_ram is None or available_ram < ram_floor:
         raise RuntimeError(f"RVC skipped: free RAM {available_ram} GiB; estimated minimum {ram_floor} GiB")
     temp_path = None
     model = None
     try:
-        from rvc_python.infer import RVCInference
         from app.ai.quality import validate_rvc_artifact
 
         out_path.parent.mkdir(parents=True, exist_ok=True)
         fd, name = tempfile.mkstemp(dir=out_path.parent, suffix=".wav")
         os.close(fd)
         temp_path = Path(name)
-        device = "cuda:0" if use_gpu else "cpu:0"
-        model = RVCInference(device=device, model_path=str(weights),
-                             index_path=str(index) if index and index.is_file() else "")
-        model.set_params(f0up_key=int(pitch_shift), f0method="rmvpe")
-        model.infer_file(input_wav, str(temp_path))
+        if isolated_python:
+            _run_isolated(isolated_python, input_wav, temp_path, weights, index, pitch_shift)
+        else:
+            require_base_assets()
+            from rvc_python.infer import RVCInference
+
+            device = "cuda:0" if use_gpu else "cpu:0"
+            model = RVCInference(device=device, model_path=str(weights),
+                                 index_path=str(index) if index and index.is_file() else "")
+            model.set_params(f0up_key=int(pitch_shift), f0method="rmvpe")
+            model.infer_file(input_wav, str(temp_path))
         quality = validate_rvc_artifact(input_wav, temp_path)
         if not quality.get("ok"):
             raise RuntimeError(f"RVC output validation failed: {quality.get('reason')}")
