@@ -73,3 +73,29 @@ def test_registry_checks_downloaded_gguf_under_role_directory(tmp_path, monkeypa
 
     with patch.dict(sys.modules, {"llama_cpp": object()}):
         assert registry_module.registry.is_available("lyrics_llm") is True
+
+
+def test_verify_rejects_unverified_external_cache(tmp_path, monkeypatch):
+    monkeypatch.setattr(puller, "AI_MODELS_DIR", tmp_path)
+    puller._write_manifest("stem_splitter", status="installed_external_cache", source="external", files=[])
+    assert puller.verify("stem_splitter") is False
+
+
+def test_pull_all_attempts_remaining_roles_after_failure(monkeypatch):
+    calls = []
+    monkeypatch.setattr(puller, "MODEL_REGISTRY", {"a": {}, "b": {}, "c": {}})
+    monkeypatch.setattr(puller, "pull", lambda key: calls.append(key) or key != "a")
+    assert puller.main(["--all"]) == 1
+    assert calls == ["a", "b", "c"]
+
+
+def test_ai_pull_cli_returns_failure_on_download_error(monkeypatch):
+    from app.cli.commands import run_ai_pull
+    monkeypatch.setattr(puller, "pull", lambda key: False)
+    assert run_ai_pull("lyrics_llm") == 2
+
+
+def test_user_voice_missing_is_not_counted_as_download_success(tmp_path, monkeypatch):
+    monkeypatch.setattr(puller, "AI_MODELS_DIR", tmp_path)
+    assert puller.pull("vocal_rvc") is False
+    assert puller.verify("vocal_rvc") is False

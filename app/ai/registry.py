@@ -25,11 +25,14 @@ class HardwareBudget:
 
     @classmethod
     def from_env(cls) -> "HardwareBudget":
+        from app.ai.hardware import detect_budget
+
+        detected = detect_budget()
         return cls(
-            vram_gb=float(os.environ.get("ZSMM_VRAM_GB", "12")),
-            ram_gb=float(os.environ.get("ZSMM_RAM_GB", "32")),
-            cpu_threads=int(os.environ.get("ZSMM_CPU_THREADS", "40")),
-            cpu_cores=int(os.environ.get("ZSMM_CPU_CORES", "20")),
+            vram_gb=float(os.environ.get("ZSMM_VRAM_GB", detected["vram_gb"])),
+            ram_gb=float(os.environ.get("ZSMM_RAM_GB", detected["ram_gb"])),
+            cpu_threads=int(os.environ.get("ZSMM_CPU_THREADS", detected["cpu_threads"])),
+            cpu_cores=int(os.environ.get("ZSMM_CPU_CORES", detected["cpu_cores"])),
             prefer_gpu=os.environ.get("ZSMM_PREFER_GPU", "1") == "1",
         )
 
@@ -152,14 +155,15 @@ class ModelRegistry:
                 from TTS.api import TTS  # noqa
                 return True
             if eng == "rvc":
-                d = MODELS_DIR / "vocal_rvc"
-                return d.exists() and any(d.glob("*.pth"))
+                from modules.rvc_manager import is_trained
+                return is_trained("my_voice")
             if eng == "demucs":
                 import demucs  # noqa
                 return True
             if eng == "faster_whisper":
                 from faster_whisper import WhisperModel  # noqa
-                return True
+                from app.ai.hardware import whisper_weights_available
+                return whisper_weights_available(MODELS_DIR / key, self.pick_device(spec) != "cpu")
             if eng == "clap":
                 import transformers  # noqa
                 return True
@@ -178,6 +182,10 @@ class ModelRegistry:
 
     def load(self, key: str) -> LoadedModel:
         with self._lock:
+            if self._current:
+                from app.ai.llm_service import is_handle_busy
+                if is_handle_busy(self._current.handle):
+                    raise RuntimeError("Model inference is still running after timeout")
             if self._current and self._current.key == key:
                 return self._current
             if self._current is not None:
@@ -198,6 +206,10 @@ class ModelRegistry:
     def unload(self) -> None:
         with self._lock:
             if self._current is None:
+                return
+            from app.ai.llm_service import is_handle_busy
+            if is_handle_busy(self._current.handle):
+                logging.getLogger(__name__).warning("Deferring model unload: inference is still running")
                 return
             try:
                 del self._current.handle
@@ -322,6 +334,10 @@ class ModelRegistry:
             spec = MODEL_REGISTRY["asr"]
             device = self.pick_device(spec)
             size = "large-v3" if device != "cpu" else "medium"
+            local_dir = MODELS_DIR / "asr"
+            if all((local_dir / name).is_file() for name in
+                   ("model.bin", "config.json", "tokenizer.json", "preprocessor_config.json")):
+                size = str(local_dir)
             compute = "float16" if device == "cuda" else "int8"
             return WhisperModel(size, device=device if device != "dml" else "cpu",
                                 compute_type=compute), device

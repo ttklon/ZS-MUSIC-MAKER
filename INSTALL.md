@@ -1,6 +1,6 @@
 # 🛠 INSTALL — ZS Music Maker v41
 
-> Актуальная версия: **41.0.0-alpha.1**. Единый источник правды — `version.json`.
+> Актуальная версия: **41.0.0-alpha.16**. Единый источник правды — `version.json`.
 
 ## 1. Быстрый старт (Windows 11)
 
@@ -14,8 +14,8 @@
 
 3. Открой терминал в папке проекта и выполни:
        python install.py
-   Первый запуск: 10–40 минут (качаются зависимости; тяжёлые модели — опционально).
-   Интернет нужен ТОЛЬКО на этапе установки.
+   Время зависит от сети и компьютера; тяжёлые модели не устанавливаются автоматически.
+   Доступ к сети может также понадобиться при первом использовании или cloud-сервисам.
 
 4. Запуск — двойной клик по `scripts\run.cmd` (или: python main.py)
    Без аргументов откроется desktop-GUI (PySide6). Если PySide6 не установлен —
@@ -31,11 +31,30 @@ python main.py --console     # консольный режим
 python main.py --god         # God Mode: полный пайплайн одной командой (CLI)
 python main.py --health      # проверка здоровья системы
 python main.py --readiness   # чек-лист готовности по ТЗ
-python main.py --ai-status   # availability 13 AI-ролей без загрузки model weights
+python main.py --ai-status   # наличие зависимостей/части файлов, не тест inference
 python main.py --ai --dry-run --genre phonk --theme "night"  # безопасный AI pipeline dry-run
 python install.py --dry-run --ai  # показать opt-in план core+AI установки без изменений
 python tools/pull_ai_models.py --help  # сверка/pull role-scoped model artifacts
 ```
+
+
+### Модели и проверка ограничений
+
+`python main.py --ai-status` показывает определённый бюджет оборудования и
+проверки наличия, но не доказывает успешное inference; для большинства ролей
+проверяется только Python-зависимость. Укажите `ZSMM_RAM_GB` и `ZSMM_VRAM_GB`
+вручную, если детектор не может измерить память GPU. Список источников:
+`python tools/pull_ai_models.py --list`; загрузка отдельной роли:
+`python tools/pull_ai_models.py --role lyrics_llm`; проверка записанного
+манифеста: `python tools/pull_ai_models.py --verify --role lyrics_llm`.
+
+`--all` может потребовать десятки гигабайт и доступа к Hugging Face. Не
+запускайте его без проверки свободного места, лицензий и совместимости ПК.
+RVC требует собственной обученной модели `models/rvc/my_voice/my_voice.pth`;
+загрузчик не скачивает и не проверяет пользовательский голос. Установка весов не подтверждает
+качество или работу всей цепочки. Файлы моделей не входят в репозиторий.
+Проверка Windows и полное AI-воспроизведение пользовательского сценария
+пока не проведены: см. `PROJECT_STATE.md`.
 
 ## 2. Что ставит `install.py`
 
@@ -113,8 +132,9 @@ python main.py                 # запуск
 ## 5. Troubleshooting
 
 ### «torch-directml wheel not found»
-Не критично: приложение работает на CPU. Beat constructor, mixdown и
-mastering — CPU-friendly. MusicGen на CPU — примерно 4–8× медленнее.
+Часть DSP-пайплайна может работать на CPU. Для MusicGen и других тяжёлых
+моделей понадобятся достаточная RAM и совместимые зависимости; время и
+работоспособность на конкретном компьютере не гарантируются.
 
 ### «No module named 'audiocraft'»
 Тяжёлая опциональная либа для текстур. Пропусти её или установи вручную
@@ -132,8 +152,7 @@ winget install --id=Gyan.FFmpeg -e    # или: choco install ffmpeg -y
 pyttsx3 → gtts. Если ни один не установлен — пайплайн честно продолжает
 без вокала и пишет причину в отчёт проекта.
 
-**Рекомендуемый (проверен v35, REAL_PASS): Silero TTS** — лучший русский
-голос, ~50MB, полностью CPU и offline:
+Пример установки зависимостей Silero TTS (речь, а не проверенное пение):
 ```bash
 pip install "torch==2.5.1" "torchaudio==2.5.1" --index-url https://download.pytorch.org/whl/cpu
 pip install omegaconf soundfile
@@ -152,14 +171,16 @@ RVC требует установленного `rvc-python` и обученно
 
 ## 6. Полностью offline режим
 
-После первой установки модели закешированы, интернет можно отключить:
+Offline возможен только после отдельной установки и проверки необходимых весов;
+обычная установка Python-пакетов не скачивает все модели:
 
 - Analyzer, Groove, Beat Constructor, Mixdown, Mastering — 100% offline.
 - TTS (pyttsx3/gtts) — pyttsx3 offline; gtts требует сеть (Google).
 - SampleHunter Online — требует интернет (Freesound/Wikimedia);
   для полного offline используй локальную библиотеку сэмплов.
-- LLM-генерация текстов — требует API-ключи (см. ниже); без ключей
-  работает встроенный офлайн-генератор лирики.
+- Локальная GGUF-модель lyrics_llm требует отдельно установленных весов и
+  llama-cpp-python. При её отсутствии роутер может использовать API/Ollama
+  или шаблонный fallback; fallback не является LLM.
 
 ### Переменные окружения (опционально)
 

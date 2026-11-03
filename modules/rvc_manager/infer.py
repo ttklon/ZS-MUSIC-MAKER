@@ -5,7 +5,8 @@ modules/rvc_manager/infer.py — инференс RVC: рендер голоса
 
 from __future__ import annotations
 
-from modules.rvc_manager.config import FORKS_DIR, MODELS_DIR, _load_state
+from modules.rvc_manager.backend import detect_backend
+from modules.rvc_manager.config import FORKS_DIR, MODELS_DIR, ROOT, _load_state
 
 
 def infer(

@@ -111,3 +111,36 @@ def test_v15_local_wrapper_matches_shared_service_text() -> None:
     assert wrapped["ok"] is True
     assert wrapped["text"] == direct
     assert wrapped["provider"] == "local_llm_service"
+
+
+def test_timed_out_handle_is_not_retried_or_unloaded_while_worker_runs():
+    import threading
+    import time
+    import pytest
+    from app.ai.llm_service import is_handle_busy, complete_with_report, CircuitBreaker
+    from app.ai.registry import LoadedModel, ModelRegistry
+
+    release = threading.Event()
+    class BlockingHandle:
+        def create_chat_completion(self, **kwargs):
+            release.wait(2)
+            return {"choices": [{"message": {"content": "done"}}]}
+    handle = BlockingHandle()
+    reg = ModelRegistry()
+    reg._current = LoadedModel("lyrics_llm", handle, "llama_cpp", 0, "cpu", 0)
+    try:
+        report = complete_with_report(handle, "s", "u", retries=2, timeout_sec=0.01, breaker=CircuitBreaker())
+        assert report.error == "timeout" and report.attempts == 1
+        assert is_handle_busy(handle)
+        reg.unload()
+        assert reg._current is not None and reg._current.handle is handle
+        with pytest.raises(RuntimeError, match="still running"):
+            reg.load("lyrics_llm")
+    finally:
+        release.set()
+        deadline = time.monotonic() + 2
+        while is_handle_busy(handle) and time.monotonic() < deadline:
+            time.sleep(0.001)
+    assert not is_handle_busy(handle)
+    reg.unload()
+    assert reg._current is None

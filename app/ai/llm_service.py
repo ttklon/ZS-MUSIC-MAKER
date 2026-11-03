@@ -51,7 +51,16 @@ def reset_circuit_breaker() -> None:
     _DEFAULT_BREAKER.record_success()
 
 
-def _run_bounded(operation: Callable[[], str], timeout_sec: float) -> str:
+_BUSY_HANDLES: set[int] = set()
+_BUSY_LOCK = threading.Lock()
+
+
+def is_handle_busy(handle: Any) -> bool:
+    with _BUSY_LOCK:
+        return id(handle) in _BUSY_HANDLES
+
+
+def _run_bounded(operation: Callable[[], str], timeout_sec: float, handle: Any = None) -> str:
     """Return an operation result or time out without waiting for a stuck handle.
 
     llama-cpp does not expose a safe cancellation primitive. The timed-out worker
@@ -66,9 +75,24 @@ def _run_bounded(operation: Callable[[], str], timeout_sec: float) -> str:
             result["text"] = operation()
         except BaseException as exc:  # report backend errors to retry loop
             error["exception"] = exc
+        finally:
+            if handle is not None:
+                with _BUSY_LOCK:
+                    _BUSY_HANDLES.discard(id(handle))
 
+    if handle is not None:
+        with _BUSY_LOCK:
+            if id(handle) in _BUSY_HANDLES:
+                raise RuntimeError("model handle is busy")
+            _BUSY_HANDLES.add(id(handle))
     thread = threading.Thread(target=worker, daemon=True)
-    thread.start()
+    try:
+        thread.start()
+    except BaseException:
+        if handle is not None:
+            with _BUSY_LOCK:
+                _BUSY_HANDLES.discard(id(handle))
+        raise
     thread.join(timeout_sec)
     if thread.is_alive():
         raise TimeoutError(f"local LLM timed out after {timeout_sec:.1f}s")
@@ -147,7 +171,7 @@ def complete_with_report(
                 lambda: _complete_once(
                     handle, system, user, max_tokens, temperature, top_p, repeat_penalty
                 ),
-                timeout_sec,
+                timeout_sec, handle,
             )
             if not text:
                 raise ValueError("empty_completion")
@@ -156,6 +180,8 @@ def complete_with_report(
         except Exception as exc:
             elapsed = monotonic() - started
             last_error = "timeout" if isinstance(exc, TimeoutError) else type(exc).__name__
+            if last_error == "timeout":
+                break  # The worker is still using this handle; retrying is unsafe.
             if elapsed > timeout_sec and last_error != "timeout":
                 last_error = "timeout"
 

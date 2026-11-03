@@ -177,13 +177,37 @@ def _fallback_lyrics(theme: str, genre: str) -> dict[str, Any]:
     return out
 
 
-def _stage_lyrics(theme: str, genre: str, n_verses: int = 2) -> dict[str, Any]:
+def _stage_lyrics(
+    theme: str, genre: str, n_verses: int = 2,
+    style_vector: dict[str, Any] | None = None, bilingual: bool = True,
+) -> dict[str, Any]:
     """v17 FIX (P0): ВСЕГДА возвращаем И text, И lyrics-структуру.
 
     `n_verses` из мастера доезжает до промпта: раньше выбор пользователя
     (сколько куплетов) терялся по дороге, и стадия всегда писала «16–24 строки».
     """
     fallback_attempts: list[dict[str, str]] = []
+    # The model installed for lyrics_llm must actually participate in the main
+    # pipeline. Missing weights are not an inference success: use the existing
+    # router only if the registry cannot provide a local model.
+    try:
+        from app.ai.registry import registry
+
+        if registry.is_available("lyrics_llm"):
+            from modules.lyrics.ai import generate_lyrics_ai
+
+            generated = generate_lyrics_ai(theme, style_vector=style_vector, n_verses=n_verses,
+                                           bilingual=bilingual, genre=genre)
+            text = str(generated.get("lyrics") or "").strip()
+            if generated.get("ok") and text:
+                return {"ok": True, "text": text, "lyrics": _text_to_struct(text, genre),
+                        "provider": "lyrics_llm", "fallback_used": False,
+                        "reason": "local lyrics model completed inference"}
+            fallback_attempts.append({"engine": "lyrics_llm", "status": "failed",
+                                      "error": str(generated.get("reason") or "empty output")})
+    except Exception as exc:  # noqa: BLE001 - next provider remains available
+        fallback_attempts.append({"engine": "lyrics_llm", "status": "failed",
+                                  "error": f"{type(exc).__name__}: {exc}"})
     if LLMRouter is not None:
         try:
             router = LLMRouter(timeout=8.0)
@@ -203,6 +227,7 @@ def _stage_lyrics(theme: str, genre: str, n_verses: int = 2) -> dict[str, Any]:
                     "provider": result.get("provider"),
                     "fallback_used": result.get("fallback_used", False),
                     "provider_chain": result.get("provider_chain"),
+                    "fallback_attempts": fallback_attempts,
                     "reason": (
                         result.get("provider") + "_ok"
                         if not result.get("fallback_used")
@@ -264,7 +289,10 @@ def _run_lyrics_stage(recipe: dict[str, Any]) -> tuple[StageResult, dict[str, An
         )
     stage = _timed(
         "_stage_lyrics",
-        lambda: _stage_lyrics(recipe["theme"], recipe["genre"], recipe.get("n_verses", 2)),
+        lambda: _stage_lyrics(
+            recipe["theme"], recipe["genre"], recipe.get("n_verses", 2),
+            style_vector=recipe.get("style_vector"), bilingual=recipe.get("bilingual", True),
+        ),
     )
     out = _output(stage)
     struct = out.get("lyrics") or {}

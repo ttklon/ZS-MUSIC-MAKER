@@ -196,7 +196,7 @@ def run_full_pipeline(
         add(_blocked("_stage_texture", "skipped by --only"))
 
     if _wanted(only, "lyrics"):
-        lyrics_stage, lyrics_dict, lyrics_text = _run_lyrics_stage(recipe)
+        lyrics_stage, lyrics_dict, lyrics_text = _run_lyrics_stage({**recipe, "style_vector": style_vector})
     else:
         lyrics_stage = _blocked("_stage_lyrics", "skipped by --only")
         lyrics_dict, lyrics_text = {}, ""

@@ -155,8 +155,9 @@ def run_ai_status() -> int:
         from app.ai.registry import MODEL_REGISTRY, registry
 
         safe_print(f"[AI] Hardware budget: {registry.hw}")
+        safe_print("[AI] Presence checks only; dependencies for non-GGUF roles do not prove weights or inference.")
         for key, meta in MODEL_REGISTRY.items():
-            avail = "OK" if registry.is_available(key) else "--"
+            avail = "YES" if registry.is_available(key) else "--"
             safe_print(
                 f"  {avail} {key:20s} {meta['engine']:22s} "
                 f"VRAM~{meta.get('vram_est_gb', 0)} GB - {meta['role']}"
@@ -174,11 +175,9 @@ def run_ai_pull(target: str) -> int:
         if target.lower() == "all":
             from app.ai.registry import MODEL_REGISTRY
 
-            for role in MODEL_REGISTRY:
-                pm.pull(role)
-        else:
-            pm.pull(target)
-        return 0
+            results = [pm.pull(role) for role in MODEL_REGISTRY]
+            return 0 if all(results) else 2
+        return 0 if pm.pull(target) else 2
     except Exception as e:
         safe_print(f"[main --ai-pull] failed: {e}")
         return 2

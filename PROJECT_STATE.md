@@ -26,9 +26,9 @@
 
 ## Гейты
 
-- `pytest tests/` — 545 passed, 1 skipped (Linux); Windows 11 отдельно не проверен
-- `tools/smoke_audio.py` — 6/6 PASS до последних изменений бита
-- `tools/smoke_god.py` — 8/8 PASS до последних изменений бита
+- `pytest tests/` — 557 passed, 1 skipped (Linux); Windows 11 отдельно не проверен
+- `tools/smoke_audio.py` — 6/6 PASS (без MusicGen и вокальных движков)
+- `tools/smoke_god.py` — 8/8 PASS (DSP fallback, без тяжёлого AI)
 - `tools/ast_dead_imports.py` — CLEAN (0)
 - `python -m compileall` — 0 ошибок
 - `tools/audit_honesty.py` — CLEAN (0)
@@ -52,6 +52,20 @@ crest 14.15 дБ при пределе 14.0; LUFS −14.0, true peak −1.37 dBT
 исполнителя или трендов; подтверждения качества прослушиванием нет.
 Отчёт этого локального прогона: `output/user_journey/verified/report.json`
 (каталог output в git не входит).
+
+## Попытка установки моделей (2026-11-03)
+
+Текущая Linux-среда: 3.85 GiB RAM, 2 доступных логических CPU, NVIDIA GPU
+не обнаружен. Hugging Face недоступен по TLS, реальная загрузка
+`lyrics_llm` (Qwen2.5-14B Q4, около 9 GB) завершилась ошибкой. Модель не
+скачана и inference не проверен. Локально установлен CPU-движок
+`llama-cpp-python` и пакет `faster-whisper`, но это не модельные веса.
+`--ai-status` не подтверждает inference или наличие весов у большинства ролей.
+
+Отдельный эксперимент: PocketSphinx распознал английскую речь из CC0
+`voice.wav` как “this is a test of me your recording my voice”. Это не
+интеграционный тест приложения, не русский ASR и не распознавание пения.
+На пользовательском Windows данные пакеты не установлены этим экспериментом.
 
 ## Ограничения
 
