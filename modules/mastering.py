@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from pathlib import Path
 from typing import Any
 
@@ -507,6 +508,56 @@ def normalize_master_loudness(
     }
 
 
+# Оригинал `master_one`. Если его подменили (тесты, эксперименты), стенды
+# считаются в этом же процессе: чужая функция живёт только здесь, в дочерний
+# процесс она не попадёт.
+_MASTER_ONE_IMPL = master_one
+
+
+def _master_stand_job(job: tuple[str, str, str]) -> tuple[str, dict[str, Any]]:
+    """Один стенд в отдельном процессе (аргументы должны быть picklable)."""
+    mix_wav, out_wav, stand = job
+    return stand, master_one(mix_wav, out_wav, stand=stand)
+
+
+def _stand_workers(count: int) -> int:
+    """Сколько стендов считать параллельно.
+
+    Стенды независимы, поэтому 8 версий считаются одновременно, а не
+    последовательно — на 8-ядерной машине время мастеринга падает почти
+    линейно. Потолок 4: каждый процесс держит в памяти весь трек
+    (120 с стерео ≈ 42 МБ float64 на буфер), и больше четырёх воркеров
+    начинают мешать друг другу сильнее, чем помогать. `ZSMM_MASTER_WORKERS=1`
+    принудительно включает последовательный режим.
+    """
+    try:
+        forced = int(os.environ.get("ZSMM_MASTER_WORKERS", "0") or 0)
+    except ValueError:
+        forced = 0
+    if forced > 0:
+        return max(1, min(forced, count))
+    return max(1, min(count, os.cpu_count() or 1, 4))
+
+
+def _run_stands(
+    mix_wav: str,
+    out: Path,
+    chosen: list[str],
+) -> list[tuple[str, dict[str, Any]]]:
+    """Посчитать стенды; при любой проблеме с процессами — честный фолбэк."""
+    jobs = [(mix_wav, str(out / f"master_{stand}.wav"), stand) for stand in chosen]
+    workers = 1 if master_one is not _MASTER_ONE_IMPL else _stand_workers(len(jobs))
+    if workers > 1:
+        try:
+            from concurrent.futures import ProcessPoolExecutor
+
+            with ProcessPoolExecutor(max_workers=workers) as pool:
+                return list(pool.map(_master_stand_job, jobs))
+        except Exception as error:  # noqa: BLE001 - пул может быть запрещён сборкой
+            _LOG.warning("parallel mastering unavailable (%s); falling back to serial", error)
+    return [_master_stand_job(job) for job in jobs]
+
+
 def master_all_stands(
     mix_wav: str,
     out_dir: str,
@@ -519,8 +570,7 @@ def master_all_stands(
     masters: dict[str, str] = {}
     reports: dict[str, dict[str, Any]] = {}
     errors: dict[str, str] = {}
-    for stand in chosen:
-        result = master_one(mix_wav, str(out / f"master_{stand}.wav"), stand=stand)
+    for stand, result in _run_stands(mix_wav, out, list(chosen)):
         if result.get("ok"):
             masters[stand] = str(result["path"])
             reports[stand] = result

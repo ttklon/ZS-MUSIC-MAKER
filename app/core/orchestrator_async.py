@@ -1,118 +1,118 @@
 # -*- coding: utf-8 -*-
 """
-ZS Music Maker — orchestrator_async.py (GOD MODE)
-========================================================================
-Асинхронный оркестратор для параллельной обработки стадий.
-Позволяет одновременно генерировать бит, чистить вокал и анализировать гармонию.
+app/core/orchestrator_async.py — асинхронная обёртка над общим пайплайном.
+
+Раньше это был третий по счёту пайплайн: он сам собирал бит
+(`beat_constructor` + `phonk_engine.create_cowbell_melody`), сам чистил вокал
+и сам мастерил в −12 LUFS — то есть `--async` звучал иначе, чем обычный
+прогон, и не получал ни рецепта, ни гейтов качества. Теперь «async» — это
+способ запуска, а не отдельная музыка: все стадии те же, что у
+`run_full_pipeline`.
+
+Стадии уже идут в порядке зависимостей (бит → вокал → микс → мастеринг),
+поэтому параллелить их нельзя без потери корректности; выигрыш здесь —
+не блокировать event loop: пайплайн исполняется в рабочем потоке, а прогресс
+отдаётся через колбэк `on_stage`.
 """
 
+from __future__ import annotations
+
 import asyncio
-import time
-import os
 import json
+import time
+from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any, List, Optional, Callable
-from dataclasses import dataclass, asdict
+from typing import Any, Callable
+
 
 @dataclass
 class AsyncStage:
+    """Плоское представление стадии — прежний формат отчёта `--async`."""
+
     name: str
     ok: bool = False
     duration_sec: float = 0.0
     output: Any = None
-    reason: Optional[str] = None
-    
-async def run_stage_async(name: str, coro: Callable) -> AsyncStage:
-    t0 = time.time()
-    stage = AsyncStage(name=name)
+    reason: str | None = None
+    status: str = "BLOCKED"
+
+
+async def run_stage_async(name: str, fn: Callable[[], Any]) -> AsyncStage:
+    """Выполнить один шаг в потоке, не блокируя event loop."""
+    started = time.time()
     try:
-        # Если это корутина - ждем, если обычная функция - запускаем в треде
-        if asyncio.iscoroutinefunction(coro):
-            res = await coro()
-        else:
-            res = await asyncio.to_thread(coro)
-            
-        stage.ok = True
-        stage.output = res
-    except Exception as e:
-        stage.ok = False
-        stage.reason = f"{type(e).__name__}: {e}"
-    stage.duration_sec = round(time.time() - t0, 3)
-    return stage
+        output = await asyncio.to_thread(fn)
+        return AsyncStage(name=name, ok=True, output=output, status="OK",
+                          duration_sec=round(time.time() - started, 3))
+    except Exception as error:  # noqa: BLE001 - статус важнее трейсбека
+        return AsyncStage(name=name, ok=False, status="FAILED",
+                          reason=f"{type(error).__name__}: {error}",
+                          duration_sec=round(time.time() - started, 3))
+
 
 class AsyncOrchestrator:
+    """Async-вход в общий пайплайн (совместимый API `run_pipeline`)."""
+
     def __init__(self, project_id: str, out_root: Path):
         self.project_id = project_id
-        self.out_root = out_root
+        self.out_root = Path(out_root)
         self.out_root.mkdir(parents=True, exist_ok=True)
-        self.stages: List[AsyncStage] = []
-        # v26: Ограничиваем параллелизм количеством ядер для стабильности
-        import multiprocessing
-        self.semaphore = asyncio.Semaphore(max(1, multiprocessing.cpu_count() - 1))
+        self.stages: list[AsyncStage] = []
 
-    async def _run_limited(self, name: str, coro: Callable):
-        async with self.semaphore:
-            return await run_stage_async(name, coro)
+    async def run_pipeline(self, wizard_state: dict[str, Any]) -> dict[str, Any]:
+        # импорт внутри метода: без раннего связывания (тесты и повторные
+        # запуски в одном процессе должны видеть актуальный пайплайн)
+        from app.core.orchestrator import run_full_pipeline
 
-    async def run_pipeline(self, wizard_state: dict):
-        t_start = time.time()
-        
-        from modules import beat_constructor, mastering_chain, phonk_engine, voice_cleaner
-        
-        bpm = int(wizard_state.get("bpm_override") or 130)
-        genre = wizard_state.get("genre", "drift_phonk")
-        
-        # 1. Параллельный запуск генерации бита и колокольчиков (через семафор)
-        tasks = [
-            self._run_limited("beat_gen", lambda: beat_constructor.construct_beat(
-                groove={}, samples=[], 
-                style_vector={"target_bpm": bpm, "target_mode": "minor", "genre": genre},
-                out_name="beat.wav"
-            )),
-            self._run_limited("cowbell_gen", lambda: phonk_engine.create_cowbell_melody(
-                [440, 523, 392, 440], bpm, str(self.out_root / "cowbells.wav")
-            ))
-        ]
-        
-        # Если есть вокал - добавляем очистку в параллель
-        vocal_in = wizard_state.get("vocal_input_path")
-        if vocal_in and os.path.exists(vocal_in):
-            tasks.append(self._run_limited("vocal_clean", lambda: voice_cleaner.clean_vocal(
-                vocal_in, str(self.out_root / "vocal_cleaned.wav")
-            )))
-            
-        results = await asyncio.gather(*tasks)
-        self.stages.extend(results)
-        
-        # 2. Финальный мастеринг (зависит от результатов)
-        beat_stage = next((s for s in results if s.name == "beat_gen"), None)
-        if beat_stage and beat_stage.ok:
-            beat_path = beat_stage.output.get("beat_path")
-            master_wav = str(self.out_root / "masters" / "master_async.wav")
-            
-            master_stage = await run_stage_async("mastering", lambda: mastering_chain.process_mastering(
-                beat_path, master_wav, target_lufs=-12.0
-            ))
-            self.stages.append(master_stage)
-            
-        total_duration = round(time.time() - t_start, 2)
-        
-        final_res = {
+        started = time.time()
+        progress: list[tuple[str, str]] = []
+
+        def collect(name: str, status: str, index: int, total: int) -> None:
+            progress.append((name, status))
+
+        state: dict[str, Any] = dict(wizard_state or {})
+        state.setdefault("genre", "drift_phonk")
+
+        stage = await run_stage_async(
+            "pipeline",
+            lambda: run_full_pipeline(
+                self.project_id, state, dry_run=False,
+                out_root=self.out_root, on_stage=collect,
+            ),
+        )
+        # Прогресс уже собран колбэком — превращаем его в список стадий отчёта.
+        if stage.ok and isinstance(stage.output, dict):
+            self.stages = [
+                AsyncStage(name=name, status=status, ok=status != "FAILED")
+                for name, status in progress
+            ]
+        else:
+            self.stages = [stage]
+
+        report = stage.output if isinstance(stage.output, dict) else {}
+        verdict = report.get("verdict")
+        result = {
             "project_id": self.project_id,
-            "status": "completed" if all(s.ok for s in self.stages) else "partial",
-            "duration_sec": total_duration,
-            "stages": [asdict(s) for s in self.stages]
+            "status": "completed"
+            if verdict in {"PASS", "PASS_WITH_FALLBACK", "PASS_BLOCKED", "BLOCKED_SIMULATION"}
+            else "partial",
+            "verdict": verdict,
+            "error": stage.reason,
+            "duration_sec": round(time.time() - started, 2),
+            "master_path": report.get("master_path"),
+            "stages": [asdict(item) for item in self.stages],
         }
-        
-        with open(self.out_root / "async_meta.json", "w") as f:
-            json.dump(final_res, f, indent=2, default=str)
-            
-        return final_res
+        (self.out_root / "async_meta.json").write_text(
+            json.dumps(result, ensure_ascii=False, indent=2, default=str), encoding="utf-8"
+        )
+        return result
 
-async def main_async():
+
+async def main_async() -> None:  # pragma: no cover - ручной запуск
     orch = AsyncOrchestrator("async_test", Path("./output/async_test"))
-    res = await orch.run_pipeline({"genre": "phonk", "bpm_override": 140})
-    print(f"Async Pipeline Done in {res['duration_sec']}s")
+    result = await orch.run_pipeline({"genre": "drift_phonk", "bpm_override": 140})
+    print(f"Async pipeline done in {result['duration_sec']}s, verdict={result['verdict']}")
 
-if __name__ == "__main__":
+
+if __name__ == "__main__":  # pragma: no cover
     asyncio.run(main_async())

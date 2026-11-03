@@ -23,7 +23,7 @@
 
 ## Гейты
 
-- `pytest tests/` — 512 passed, 1 skipped
+- `pytest tests/` — 523 passed, 1 skipped
 - `tools/smoke_audio.py` — 6/6 PASS
 - `tools/smoke_god.py` — 8/8 PASS
 - `tools/ast_dead_imports.py` — CLEAN (0)

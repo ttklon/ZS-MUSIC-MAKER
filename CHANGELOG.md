@@ -44,9 +44,23 @@
 - **Инвентарь готовности устойчив к грязному индексу**: `tracked_python_modules`
   фильтрует файлы по наличию на диске, иначе удалённый, но ещё не
   закоммиченный модуль ронял `tools/readiness` и три теста.
+- **Один конвейер вместо трёх.** `--god` и `--async` больше не собирают свою
+  музыку: `orchestrator_god.py` (243 → ~100 строк) стал адаптером над
+  `run_full_pipeline` (длина 120 с + отчёт в прежней форме), `orchestrator_async.py`
+  (118 → ~120) исполняет тот же прогон в рабочем потоке и отдаёт стадии списком
+  `AsyncStage`. Ушли `beat_constructor`+`phonk_engine`-«колокольчики» и
+  мастеринг в −12 LUFS, из-за которых `--god` звучал иначе, чем обычный прогон
+  и не получал гейтов качества.
+- **Мастеринг восьми стендов считается параллельно**: `ProcessPoolExecutor`
+  (до `min(cpu, 4)` воркеров, `ZSMM_MASTER_WORKERS=1` — последовательно,
+  фолбэк при недоступности пула). На 120-секундном треке измерено
+  349.5 с → 180.9 с на двух ядрах; звук **побитово тот же** (max |diff| = 0.0,
+  те же LUFS/TP/гейты, `tests/test_mastering_parallel.py`). `main.py` вызывает
+  `multiprocessing.freeze_support()` — без него собранный exe при порождении
+  процессов перезапускал бы сам себя.
 - Новые тесты: `tests/test_logger_and_crash.py` (10), `tests/test_wizard_structure.py`
   (10), `tests/test_windows_entrypoints.py` (17), `tests/test_pipeline_progress_contract.py`
-  (4). Полный набор: **512 passed, 1 skipped**; `smoke_audio` 6/6, `smoke_god` 8/8,
+  (4), `tests/test_orchestrator_adapters.py` (8), `tests/test_mastering_parallel.py` (3). Полный набор: **523 passed, 1 skipped**; `smoke_audio` 6/6, `smoke_god` 8/8,
   аудит честности CLEAN, AST CLEAN, gitignore CLEAN.
 
 ## 41.0.0-alpha.14 — точный true-peak, демо-прогон, property-тесты (2026-11-03)

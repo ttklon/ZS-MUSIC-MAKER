@@ -19,6 +19,7 @@ ZS Music Maker — единая точка входа
 
 from __future__ import annotations
 
+import multiprocessing
 import sys
 from pathlib import Path
 
@@ -38,6 +39,10 @@ BUILD = ctx.build
 
 
 def main() -> int:
+    # Собранный PyInstaller-exe должен уметь порождать процессы (мастеринг
+    # считает стенды параллельно): без freeze_support дочерний процесс
+    # перезапускает exe целиком и уходит в рекурсию.
+    multiprocessing.freeze_support()
     setup_console_encoding()
     header()
     args = build_parser().parse_args()

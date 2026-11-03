@@ -72,6 +72,28 @@ Verdict `PASS | PASS_WITH_FALLBACK | PASS_BLOCKED | BLOCKED_SIMULATION | PARTIAL
 строки и своя запись с микрофона (`own_vocal_wav` — основной вокальный путь,
 TTS/RVC только fallback).
 
+### Входы, а не копии
+
+`--god` (`app/core/orchestrator_god.py`) и `--async`
+(`app/core/orchestrator_async.py`) — **адаптеры** над тем же
+`run_full_pipeline`, а не отдельные конвейеры. God задаёт длину 120 с и
+переводит отчёт в прежнюю форму (`status/stages/master_path/vocal_status`);
+async исполняет тот же прогон в рабочем потоке, чтобы не блокировать event
+loop, и отдаёт стадии списком `AsyncStage`. Раньше у каждого входа был свой
+порядок стадий и своя цель громкости (−12 LUFS у god), из-за чего правки
+качества до них не доезжали; теперь новая стадия добавляется в одном месте.
+
+### Мастеринг стендов считается параллельно
+
+Восемь стендов независимы, поэтому `master_all_stands` раскладывает их по
+процессам (`ProcessPoolExecutor`, до `min(cpu_count, 4)` воркеров;
+`ZSMM_MASTER_WORKERS=1` — принудительно последовательно, при недоступности
+пула — честный фолбэк на последовательный счёт). Результат побитово совпадает
+с последовательным (`tests/test_mastering_parallel.py`): измерено на 120-секундном
+треке — 349.5 с → 180.9 с на двух ядрах, на 8-ядерной машине ускорение
+ближе к линейному. `main.py` вызывает `multiprocessing.freeze_support()`,
+иначе собранный exe при порождении процессов перезапускал бы сам себя.
+
 ## 3. AI-слой
 
 - `app/ai/registry.py` — 13 ролей: engine, hf_repo, файл, SHA-256, VRAM/RAM.
@@ -135,7 +157,7 @@ TTS/RVC только fallback).
 
 | Команда | Что ловит |
 |---|---|
-| `python -m pytest tests/` | 512 тестов: unit, аудио, e2e, property, контракты GUI/CLI |
+| `python -m pytest tests/` | 523 теста: unit, аудио, e2e, property, контракты GUI/CLI |
 | `python tools/smoke_audio.py` | стерео, громкость, drop (6 проверок) |
 | `python tools/smoke_god.py` | God Mode E2E, master 120 с, true-peak (8 проверок) |
 | `python tools/fallback_audit.py` | fallback-пути и маркеры заглушек |
