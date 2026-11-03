@@ -2,10 +2,8 @@
 """
 app/gui/wizard/dialogs.py — диагностический диалог «AI: модели и пайплайн».
 
-Статус читается из `app.ai.registry` без загрузки весов: READY означает, что
-роль доступна раннеру, NO MODEL/DEPENDENCY — что конвейер честно применит
-fallback. Это ровно те же данные, что в CLI `--health`, поэтому окно ничего не
-приукрашивает.
+Статус — предварительная проверка пакетов и некоторых весов, не inference.
+Аппаратный профиль измеряется отдельно и не гарантирует совместимость моделей.
 """
 
 from __future__ import annotations
@@ -54,6 +52,8 @@ class AIStatusDialog(QDialog):
         row.addWidget(close)
         layout.addLayout(row)
 
+        from app.core.hw_autodetect import detect, human_summary
+        self.hardware_summary = human_summary(detect())
         self._timer = QTimer(self)
         self._timer.timeout.connect(self.refresh)
         self._timer.start(REFRESH_MS)
@@ -66,12 +66,14 @@ class AIStatusDialog(QDialog):
             runtime = registry.status()
             budget = runtime["budget"]
             lines = [
+                self.hardware_summary,
+                "Проверка пакетов/некоторых весов, не запуск модели:",
                 f"VRAM budget: {budget['vram_gb']:.1f} GB | RAM: {budget['ram_gb']:.1f} GB "
                 f"| current: {runtime['current'] or 'none'}",
                 "",
             ]
             for key, spec in MODEL_REGISTRY.items():
-                marker = "READY" if registry.is_available(key) else "NO MODEL/DEPENDENCY"
+                marker = "PREFLIGHT" if registry.is_available(key) else "MISSING / UNAVAILABLE"
                 vram = float(spec.get("vram_est_gb", 0))
                 lines.append(
                     f"[{marker}] {key} — {spec['role']} "

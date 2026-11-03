@@ -71,18 +71,44 @@ def _texture_scaffold(prompt: str, out_dir: Path) -> dict[str, Any]:
         }
 
 
+def _texture_device_plan(ram_gib: float | None, torch_device: dict) -> dict:
+    """Approximate thresholds, not an inference or memory guarantee."""
+    free = torch_device.get("free_vram_gib")
+    if ram_gib is None:
+        return {"ready": False, "reason": "free RAM could not be measured"}
+    if torch_device.get("backend") in ("cuda", "rocm") and free is not None and free >= 5 and ram_gib >= 4:
+        return {"ready": True, "device": "cuda", "vram_gb": max(0.0, free - 1.0)}
+    if ram_gib >= 8:
+        return {"ready": True, "device": "cpu", "vram_gb": 0.0}
+    return {"ready": False, "reason": "not enough measured free RAM/VRAM for conservative MusicGen preflight"}
+
+
 def _stage_texture(prompt: str, out_dir: Path) -> dict[str, Any]:
-    """v19: texture — опциональная стадия. Если MusicGen недоступен,
-    честно отдаём ok=True + blocked=True + fallback_used=True, чтобы
-    не ронять процент готовностью отсутствующей heavy-зависимости.
-    v23: вместо пустого path отдаём реальный синтезированный scaffold.
-    """
+    """Optional texture; no model load when the conservative memory preflight fails."""
+    from app.ai.hardware import _torch_device, available_memory_gib
+
+    plan = _texture_device_plan(available_memory_gib(), _torch_device())
+    if not plan["ready"]:
+        result = _texture_scaffold(prompt, out_dir)
+        result["reason"] = f"MusicGen skipped: {plan['reason']}; synthetic scaffold is not AI"
+        result["hardware_preflight"] = plan
+        return result
     try:
         from app.core import musicgen_texture as mgt
 
-        r = mgt.generate_texture(prompt, duration_sec=10, vram_gb=0.0)
-        if isinstance(r, dict) and r.get("ok") and r.get("path"):
-            return r
-        return _texture_scaffold(prompt, out_dir)
-    except Exception:
-        return _texture_scaffold(prompt, out_dir)
+        try:
+            result = mgt.generate_texture(prompt, duration_sec=10, vram_gb=plan["vram_gb"], device=plan["device"])
+        finally:
+            mgt.unload_all()
+        if isinstance(result, dict) and result.get("ok") and result.get("path"):
+            result["hardware_preflight"] = plan
+            return result
+        scaffold = _texture_scaffold(prompt, out_dir)
+        scaffold["hardware_preflight"] = plan
+        scaffold["engine_error"] = (result or {}).get("warning", "MusicGen unavailable")
+        return scaffold
+    except Exception as exc:
+        scaffold = _texture_scaffold(prompt, out_dir)
+        scaffold["hardware_preflight"] = plan
+        scaffold["engine_error"] = f"{type(exc).__name__}: {exc}"
+        return scaffold

@@ -190,6 +190,7 @@ def _stage_lyrics(
     (сколько куплетов) терялся по дороге, и стадия всегда писала «16–24 строки».
     """
     fallback_attempts: list[dict[str, str]] = []
+    auto_ollama_model = None
     # The model installed for lyrics_llm must actually participate in the main
     # pipeline. Missing weights are not an inference success: use the existing
     # router only if the registry cannot provide a local model.
@@ -197,6 +198,9 @@ def _stage_lyrics(
         from app.ai.registry import registry
 
         if not os.environ.get("ZSMM_OLLAMA_MODEL", "").strip() and registry.is_available("lyrics_llm"):
+            from modules.llm.ollama_adaptive import discover_ollama_model
+            auto_ollama_model = discover_ollama_model("http://127.0.0.1:11434").get("model")
+        if not os.environ.get("ZSMM_OLLAMA_MODEL", "").strip() and not auto_ollama_model and registry.is_available("lyrics_llm"):
             from modules.lyrics.ai import generate_lyrics_ai
 
             generated = generate_lyrics_ai(theme, style_vector=style_vector, n_verses=n_verses,
@@ -214,7 +218,7 @@ def _stage_lyrics(
                                   "error": f"{type(exc).__name__}: {exc}"})
     if LLMRouter is not None:
         try:
-            router = LLMRouter(timeout=8.0)
+            router = LLMRouter(timeout=8.0, ollama_model=auto_ollama_model)
             verses = max(1, min(int(n_verses or 2), 4))
             lines_low, lines_high = 8 * verses, 12 * verses
             prompt = (
@@ -241,6 +245,7 @@ def _stage_lyrics(
                     "fallback_used": result.get("fallback_used", False),
                     "provider_chain": result.get("provider_chain"),
                     "provider_errors": result.get("error"),
+                    "model_selection": result.get("model_selection"),
                     "fallback_attempts": fallback_attempts,
                     "reason": (
                         result.get("provider") + "_ok"

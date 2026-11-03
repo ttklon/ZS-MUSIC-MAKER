@@ -12,7 +12,7 @@ from __future__ import annotations
 import sys
 import traceback
 
-from app.cli.env import VERSION, safe_print
+from app.cli.env import safe_print
 
 
 def try_launch_pyside() -> bool:
@@ -48,7 +48,6 @@ def try_launch_pyside() -> bool:
         hw = probe()
         orch = RuntimeOrchestrator(log=log)
         w = Wizard(orch=orch, hw=hw, log=log)
-        w.setWindowTitle(f"ZS Music Maker v{VERSION} — Desktop Wizard")
         w.show()
         rc = app.exec()
         raise SystemExit(rc)

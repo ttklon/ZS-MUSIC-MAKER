@@ -45,14 +45,15 @@ def run_list_genres() -> int:
 
 def run_smoke() -> int:
     """Smoke-набор: God Mode E2E → качество аудио."""
+    codes = []
     for name in ("tools.smoke_god", "tools.smoke_audio"):
         try:
             mod = __import__(name, fromlist=["main"])
-            return int(mod.main() or 0)
+            codes.append(int(mod.main() or 0))
         except Exception as e:
             safe_print(f"[main --smoke] {name} failed: {e}")
-    safe_print("[main --smoke] No valid smoke tests found.")
-    return 2
+            codes.append(2)
+    return max(codes)
 
 
 def run_dry_run() -> int:
@@ -153,7 +154,10 @@ def run_score(master_wav: str) -> int:
 def run_ai_status() -> int:
     try:
         from app.ai.registry import MODEL_REGISTRY, registry
+        from app.core.hw_autodetect import detect, human_summary
 
+        safe_print("[AI] Current hardware profile:")
+        safe_print(human_summary(detect()))
         safe_print(f"[AI] Hardware budget: {registry.hw}")
         safe_print("[AI] Presence checks only; dependencies for non-GGUF roles do not prove weights or inference.")
         for key, meta in MODEL_REGISTRY.items():

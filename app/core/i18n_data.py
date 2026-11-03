@@ -136,7 +136,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "wizard.result.part_master": "Мастер",
         # --- диалоги --------------------------------------------------------
         "dialog.ai_title": "AI: модели и пайплайн",
-        "dialog.ai_hint": "Статус проверяется без загрузки весов в VRAM. READY — роль доступна, NO MODEL/DEPENDENCY — пайплайн честно применит fallback.",
+        "dialog.ai_hint": "Это предварительная проверка пакетов и некоторых весов, а не подтверждение совместимости или inference.",
         "dialog.refresh": "Обновить статусы",
         "dialog.help_title": "Помощь",
         "dialog.about_title": "О программе",
@@ -267,7 +267,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "wizard.result.part_master": "Master",
         # --- dialogs --------------------------------------------------------
         "dialog.ai_title": "AI: models and pipeline",
-        "dialog.ai_hint": "Status is checked without loading weights into VRAM. READY means the role is available; NO MODEL/DEPENDENCY means a fallback will be used honestly.",
+        "dialog.ai_hint": "This is a package and partial weight preflight, not proof of compatibility or inference.",
         "dialog.refresh": "Refresh status",
         "dialog.help_title": "Help",
         "dialog.about_title": "About",

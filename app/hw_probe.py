@@ -1,62 +1,35 @@
-"""Автодетект железа: CUDA / DirectML / CPU + VRAM + режим full/fallback."""
-
+"""GUI-facing hardware view backed by the shared system detector."""
 from __future__ import annotations
 
-import logging
-
 import json
-import platform
 from dataclasses import asdict, dataclass
 
 
 @dataclass
 class HW:
-    gpu_name: str = "CPU"
+    gpu_name: str = "unknown"
     vram_gb: float = 0.0
-    backend: str = "cpu"  # "cuda" | "directml" | "cpu"
+    backend: str = "cpu"
     ram_gb: float = 0.0
     cpu_name: str = ""
     os_name: str = ""
-    mode: str = "fallback"  # "full" | "fallback"
+    mode: str = "lite"
+    ram_available_gb: float | None = None
+    disk_free_gb: float | None = None
+    vram_free_gb: float | None = None
 
 
 def probe() -> HW:
-    try:
-        import psutil
+    from app.core.hw_autodetect import detect
 
-        ram_gb = round(psutil.virtual_memory().total / 1e9, 1)
-    except Exception:
-        ram_gb = 0.0
-    hw = HW(ram_gb=ram_gb, cpu_name=platform.processor(), os_name=platform.platform())
-
-    # 1. CUDA
-    try:
-        import torch
-
-        if torch.cuda.is_available():
-            hw.gpu_name = torch.cuda.get_device_name(0)
-            hw.vram_gb = round(
-                torch.cuda.get_device_properties(0).total_memory / 1e9, 1
-            )
-            hw.backend = "cuda"
-    except Exception:
-        logging.getLogger(__name__).debug("ignored exception", exc_info=True)
-
-    # 2. DirectML (AMD/Intel iGPU на Windows)
-    if hw.backend == "cpu":
-        try:
-            import torch_directml as dml
-
-            hw.gpu_name = (
-                dml.device_name(0) if hasattr(dml, "device_name") else "DirectML GPU"
-            )
-            hw.vram_gb = 4.0  # оценочно — уточняется через DXGI
-            hw.backend = "directml"
-        except Exception:
-            logging.getLogger(__name__).debug("ignored exception", exc_info=True)
-
-    hw.mode = "full" if hw.vram_gb >= 10 else "fallback"
-    return hw
+    profile = detect()
+    system = profile["system"]
+    gpu = profile["gpu"]
+    return HW(gpu_name=gpu["name"], vram_gb=gpu["vram_gb"], backend=gpu["kind"],
+              ram_gb=system["ram_total_gib"], cpu_name=system["cpu_name"],
+              os_name=f"{system['os']} {system['os_version']}", mode=profile["mode"],
+              ram_available_gb=system["ram_available_gib"], disk_free_gb=system["disk_free_gib"],
+              vram_free_gb=gpu["vram_free_gb"])
 
 
 def main():

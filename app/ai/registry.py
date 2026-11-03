@@ -280,6 +280,8 @@ class ModelRegistry:
                     raise ValueError("ZSMM_LLAMA_GPU_LAYERS must be -1, 0 or a positive integer")
                 if layers and not supports_gpu:
                     raise RuntimeError("llama-cpp-python has no GPU offload backend; install a compatible build or use CPU")
+                from app.ai.hardware import assert_llama_memory
+                assert_llama_memory(key, spec, layers)
                 device = "gpu_offload_requested" if layers else "cpu"
                 llm = Llama(model_path=str(mp),
                             n_ctx=spec.get("context", 4096),

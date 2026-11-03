@@ -42,6 +42,13 @@ def infer(
     # rvc-python 0.1.x exposes RVCInference, not a module-level infer_file.
     # DirectML is not supported by this API; use CPU unless torch CUDA/ROCm is available.
     backend = detect_backend()
+    from app.ai.hardware import available_memory_gib
+    available_ram = available_memory_gib()
+    free_vram = getattr(backend, "vram_free_gb", None)
+    use_gpu = backend.kind in ("cuda", "rocm") and free_vram is not None and free_vram >= 4
+    ram_floor = 2.0 if use_gpu else 5.0
+    if available_ram is None or available_ram < ram_floor:
+        raise RuntimeError(f"RVC skipped: free RAM {available_ram} GiB; estimated minimum {ram_floor} GiB")
     temp_path = None
     model = None
     try:
@@ -52,7 +59,7 @@ def infer(
         fd, name = tempfile.mkstemp(dir=out_path.parent, suffix=".wav")
         os.close(fd)
         temp_path = Path(name)
-        device = "cuda:0" if backend.kind in ("cuda", "rocm") else "cpu:0"
+        device = "cuda:0" if use_gpu else "cpu:0"
         model = RVCInference(device=device, model_path=str(weights),
                              index_path=str(index) if index and index.is_file() else "")
         model.set_params(f0up_key=int(pitch_shift), f0method="rmvpe")

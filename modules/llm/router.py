@@ -28,10 +28,12 @@ class LLMRouter:
         keys: dict[str, str] | None = None,
         ollama_url: str = "http://127.0.0.1:11434",
         timeout: float = 60.0,
+        ollama_model: str | None = None,
     ):
         self.keys = keys or get_keys_from_env()
         self.ollama_url = ollama_url
         self.timeout = timeout
+        self.ollama_model = ollama_model
         self.log: list[dict[str, Any]] = []
 
     # v25 (P1): быстрый preflight (<1с). Раньше 4 провайдера по 8с таймауту
@@ -159,23 +161,34 @@ class LLMRouter:
             chain.append("cloud_skipped_no_internet")
             errs["openrouter"] = errs["grok"] = errs["gemini"] = "no_internet"
 
-        # 4. Ollama (локально) — только если порт живёт
+        # 4. Ollama: choose among locally installed models, never download automatically.
         if pre.get("ollama"):
-            r4 = self._try_provider(
-                "ollama",
-                lambda: call_ollama(
-                    prompt, system, model=os.getenv("ZSMM_OLLAMA_MODEL", "llama3.2:3b"),
-                    base_url=self.ollama_url, timeout=float(os.getenv("ZSMM_OLLAMA_TIMEOUT", "600")),
-                    max_tokens=max_tokens, temperature=temperature,
-                ),
-            )
-            chain.append("ollama")
-            if r4.ok and r4.text.strip():
-                d = r4.to_dict()
-                d["provider_chain"] = chain
-                d["fallback_used"] = False
-                return d
-            errs["ollama"] = r4.error
+            selected = os.getenv("ZSMM_OLLAMA_MODEL", "").strip() or self.ollama_model
+            selection = None
+            if not selected:
+                from modules.llm.ollama_adaptive import discover_ollama_model
+                selection = discover_ollama_model(self.ollama_url)
+                selected = selection.get("model")
+            if selected:
+                r4 = self._try_provider(
+                    "ollama",
+                    lambda: call_ollama(
+                        prompt, system, model=selected, base_url=self.ollama_url,
+                        timeout=float(os.getenv("ZSMM_OLLAMA_TIMEOUT", "600")),
+                        max_tokens=max_tokens, temperature=temperature,
+                    ),
+                )
+                chain.append("ollama")
+                if r4.ok and r4.text.strip():
+                    d = r4.to_dict()
+                    d["provider_chain"] = chain
+                    d["fallback_used"] = False
+                    d["model_selection"] = selection or {"model": selected, "reason": "explicit or preselected"}
+                    return d
+                errs["ollama"] = r4.error
+            else:
+                chain.append("ollama_skipped_no_fitting_model")
+                errs["ollama"] = (selection or {}).get("reason", "no fitting model")
         else:
             chain.append("ollama_skipped_no_local_daemon")
             errs["ollama"] = "no_local_daemon"

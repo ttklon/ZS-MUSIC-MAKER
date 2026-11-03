@@ -18,6 +18,7 @@ def health_snapshot() -> dict:
             f"ready={rep.percent_ready}%  "
             f"core_ok={rep.core_ok}"
         )
+        safe_print("[main] health assesses dependencies only; models, GPU inference and audio quality are not verified.")
         return {"verdict": rep.verdict, "percent": rep.percent_ready}
     except Exception as e:
         safe_print(f"[main] health not available: {e}")

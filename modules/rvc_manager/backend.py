@@ -23,6 +23,7 @@ class RVCBackend:
     kind: str = "cpu"  # "cuda" | "directml" | "rocm" | "cpu"
     device_name: str = "CPU"
     vram_gb: float = 0.0
+    vram_free_gb: float | None = None
     fork: str = "rvc-python"  # rvc-python | applio | mangio | rvc-webui
     ok: bool = False
     reason: str = ""
@@ -35,10 +36,15 @@ def detect_backend() -> RVCBackend:
 
         if torch.cuda.is_available():
             is_rocm = bool(getattr(getattr(torch, "version", None), "hip", None))
+            try:
+                free_vram = round(torch.cuda.mem_get_info(0)[0] / (1024 ** 3), 2)
+            except Exception:
+                free_vram = None
             return RVCBackend(
                 kind="rocm" if is_rocm else "cuda",
                 device_name=torch.cuda.get_device_name(0),
                 vram_gb=round(torch.cuda.get_device_properties(0).total_memory / (1024 ** 3), 2),
+                vram_free_gb=free_vram,
                 fork="rvc-python", ok=True,
                 reason="PyTorch ROCm device detected" if is_rocm else "PyTorch CUDA device detected",
             )
