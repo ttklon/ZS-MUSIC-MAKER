@@ -33,7 +33,14 @@ def fake_qt(monkeypatch):
         def setWindowTitle(self, value): pass
         def resize(self, *args): pass
         def accept(self): self.accepted = True
-        def reject(self): pass
+        def reject(self): self.rejected = True
+        def closeEvent(self, event): self.rejected = True
+    class Progress(Widget):
+        def setRange(self, low, high): self.range = (low, high)
+    class Timer:
+        def __init__(self, *args): self.timeout = Signal(); self.running = False
+        def start(self, interval): self.running = True
+        def stop(self): self.running = False
     class Check(Widget):
         def __init__(self, *args):
             super().__init__(); self.checked = False; self.toggled = Signal()
@@ -77,7 +84,7 @@ def fake_qt(monkeypatch):
         @classmethod
         def question(cls, *args): return cls.answer
     for name, cls in {'QCheckBox': Check, 'QDialog': Dialog, 'QDialogButtonBox': Buttons,
-                      'QFileDialog': FileDialog, 'QHBoxLayout': Layout, 'QPushButton': Button,
+                      'QFileDialog': FileDialog, 'QHBoxLayout': Layout, 'QPushButton': Button, 'QProgressBar': Progress,
                       'QLabel': Widget, 'QLineEdit': Line, 'QMessageBox': MessageBox,
                       'QScrollArea': Scroll, 'QSpinBox': Spin, 'QTextEdit': Text,
                       'QVBoxLayout': Layout, 'QWidget': Widget}.items():
@@ -86,7 +93,9 @@ def fake_qt(monkeypatch):
     wizard = ModuleType('app.gui.wizard')
     wizard.__path__ = [str(Path(__file__).resolve().parents[1] / 'app/gui/wizard')]
     monkeypatch.setitem(sys.modules, 'app.gui.wizard', wizard)
+    qtcore = ModuleType('PySide6.QtCore'); qtcore.QTimer = Timer
     monkeypatch.setitem(sys.modules, 'PySide6', ModuleType('PySide6'))
+    monkeypatch.setitem(sys.modules, 'PySide6.QtCore', qtcore)
     monkeypatch.setitem(sys.modules, 'PySide6.QtWidgets', widgets)
     return widgets, MessageBox
 
@@ -140,7 +149,7 @@ def test_action_confirmation_cancel_and_busy_paths(fake_qt, monkeypatch):
     job = SimpleNamespace(track_id='opened-id', master_only=True, recipe={'theme': 'old'},
                           result={'pipeline': {'input_integrity': {'version': 1}}})
     run = SimpleNamespace(current_tid=None, batch_tids=[], track_job=lambda tid: calls.append(('track', tid)))
-    orch = SimpleNamespace(enqueue_opened_rebuild=lambda source, changes, replacements: calls.append((source, changes, replacements)) or 'next')
+    orch = SimpleNamespace(enqueue_opened_rebuild=lambda source, changes: calls.append((source, changes)) or 'next')
     screen = SimpleNamespace(current_job=job, wizard=SimpleNamespace(steps=[run], orch=orch))
     EditDialog.result = 0
     module.start_project_edit(screen)
@@ -151,7 +160,7 @@ def test_action_confirmation_cancel_and_busy_paths(fake_qt, monkeypatch):
     assert len(calls) == 2
     box.answer = box.StandardButton.Yes
     module.start_project_edit(screen)
-    assert calls[-2:] == [('opened-id', {'theme': 'new'}, {}), ('track', 'next')]
+    assert calls[-2:] == [('opened-id', {'theme': 'new'}), ('track', 'next')]
     run.current_tid = 'busy'
     module.start_project_edit(screen)
     assert box.warnings and len(calls) == 5

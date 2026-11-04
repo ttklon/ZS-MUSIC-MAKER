@@ -33,7 +33,17 @@ def start_project_edit(screen) -> None:
             replacements["ack_unverified_pairing"] = True
         if QMessageBox.question(screen, t("wizard.edit.title"), t("wizard.edit.confirm")) != QMessageBox.StandardButton.Yes:
             return
-        tid = screen.wizard.orch.enqueue_opened_rebuild(job.track_id, changes, replacements)
+        if replacements:
+            from app.gui.wizard.input_prepare_dialog import InputPrepareDialog
+            preparation = InputPrepareDialog(replacements, screen)
+            if preparation.exec() != preparation.Accepted:
+                return
+            if (screen.current_job is not job or run_step.current_tid or getattr(run_step, "batch_tids", [])):
+                QMessageBox.warning(screen, t("dialog.error"), t("wizard.result.job_busy"))
+                return
+            tid = screen.wizard.orch.enqueue_prepared_opened_rebuild(job.track_id, changes, preparation.task)
+        else:
+            tid = screen.wizard.orch.enqueue_opened_rebuild(job.track_id, changes)
         run_step.track_job(tid)
     except Exception as error:  # noqa: BLE001 - invalid edits or queue failure must be shown
         QMessageBox.warning(screen, t("dialog.error"), str(error))

@@ -26,7 +26,11 @@ def _identity(path: Path) -> tuple:
     return (info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns, info.st_ctime_ns)
 
 
-def _selected(path: str) -> dict:
+class InputPreparationCancelled(Exception):
+    """The user cancelled before any rebuild job was queued."""
+
+
+def _selected(path: str, checkpoint=None) -> dict:
     if not isinstance(path, str) or not path or len(path) > 4096:
         raise ValueError("invalid replacement path")
     file = Path(path)
@@ -34,14 +38,18 @@ def _selected(path: str) -> dict:
         raise ValueError("replacement requires an absolute WAV, FLAC or OGG path")
     identity = _identity(file)
     resolved = str(file.resolve(strict=True))
-    size, digest = _file_info(file)
+    size, digest = _file_info(file, checkpoint=checkpoint) if checkpoint is not None else _file_info(file)
     if _identity(file) != identity or str(file.resolve(strict=True)) != resolved:
         raise ValueError("selected input changed while queueing")
     return {"path": str(file), "resolved": resolved, "identity": identity, "size": size, "sha256": digest}
 
 
-def prepare_replacements(replacements: dict | None) -> dict:
-    """Hash and capture file identities at enqueue; this can block the caller."""
+def prepare_replacements(replacements: dict | None, cancelled=None) -> dict:
+    """Capture identities and hashes; optionally stop between file reads."""
+    def checkpoint():
+        if cancelled is not None and cancelled():
+            raise InputPreparationCancelled("input preparation cancelled")
+    checkpoint()
     if replacements is None:
         return {}
     if not isinstance(replacements, dict) or any(k not in INPUT_KEYS | {"ack_unverified_pairing"} for k in replacements):
@@ -51,15 +59,17 @@ def prepare_replacements(replacements: dict | None) -> dict:
         raise ValueError("invalid unverified-pairing confirmation")
     prepared = {"ack_unverified_pairing": ack}
     for key in INPUT_KEYS:
+        checkpoint()
         if key not in replacements:
             continue
         value = replacements[key]
         if key == "references":
             if not isinstance(value, list) or len(value) > 50:
                 raise ValueError("choose at most 50 reference files")
-            prepared[key] = [_selected(item) for item in value]
+            prepared[key] = [_selected(item, checkpoint=checkpoint) for item in value]
         else:
-            prepared[key] = _selected(value)
+            prepared[key] = _selected(value, checkpoint=checkpoint)
+    checkpoint()
     if len(prepared) == 1:
         if ack:
             raise ValueError("pairing confirmation requires a replacement")

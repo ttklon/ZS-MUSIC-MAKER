@@ -41,11 +41,13 @@ def _locations(recipe: dict) -> list[tuple[str, int | None, str]]:
     return locations
 
 
-def _file_info(path: Path) -> tuple[int, str]:
+def _file_info(path: Path, checkpoint=None) -> tuple[int, str]:
+    if checkpoint is not None:
+        checkpoint()
     if path.is_symlink() or not path.is_file():
         raise ValueError(f"input is missing, a symlink, or not a regular file: {path}")
     before = path.stat()
-    digest = _sha256(path)
+    digest = _sha256(path, checkpoint=checkpoint) if checkpoint is not None else _sha256(path)
     after = path.stat()
     if (before.st_size, before.st_mtime_ns, before.st_ino) != (after.st_size, after.st_mtime_ns, after.st_ino):
         raise ValueError(f"input changed during hashing: {path}")

@@ -213,6 +213,18 @@ class RuntimeOrchestrator:
         from app.core.project_inputs import prepare_replacements
         changes = validate_project_overrides(overrides)
         selection = prepare_replacements(replacements)
+        return self._queue_opened_rebuild(source_id, changes, selection)
+
+    def enqueue_prepared_opened_rebuild(self, source_id: str, overrides: dict[str, Any] | None, task) -> str:
+        """Queue one completed background preparation; never trust arbitrary path overrides."""
+        from app.core.input_prepare_task import InputPreparationTask
+        from app.core.project_edit import validate_project_overrides
+        if not isinstance(task, InputPreparationTask):
+            raise ValueError("a completed input preparation task is required")
+        changes = validate_project_overrides(overrides)
+        return self._queue_opened_rebuild(source_id, changes, task.take_result())
+
+    def _queue_opened_rebuild(self, source_id: str, changes: dict, selection: dict) -> str:
         with self._lock:
             source = self.jobs.get(source_id)
             if not source or source.status != "done" or not source.master_only:

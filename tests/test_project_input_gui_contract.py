@@ -44,8 +44,16 @@ def test_pairing_confirmation_is_separate_and_cancel_never_enqueues(fake_qt, mon
     monkeypatch.setitem(sys.modules, fake.__name__, fake)
     job = SimpleNamespace(track_id='source', master_only=True, recipe={},
                           result={'pipeline': {'input_integrity': {'version': 1}}})
+    class PrepareDialog:
+        Accepted = 1
+        result = 1
+        def __init__(self, replacements, screen): self.task = replacements
+        def exec(self): return self.result
+    prep = ModuleType('app.gui.wizard.input_prepare_dialog')
+    prep.InputPrepareDialog = PrepareDialog
+    monkeypatch.setitem(sys.modules, prep.__name__, prep)
     run = SimpleNamespace(current_tid=None, batch_tids=[], track_job=lambda tid: calls.append(('track', tid)))
-    orch = SimpleNamespace(enqueue_opened_rebuild=lambda *args: calls.append(args) or 'new')
+    orch = SimpleNamespace(enqueue_prepared_opened_rebuild=lambda *args: calls.append(args) or 'new')
     screen = SimpleNamespace(current_job=job, wizard=SimpleNamespace(steps=[run], orch=orch))
     answers = iter([box.StandardButton.No])
     monkeypatch.setattr(box, 'question', lambda *args: next(answers))
@@ -55,5 +63,10 @@ def test_pairing_confirmation_is_separate_and_cancel_never_enqueues(fake_qt, mon
     module.start_project_edit(screen)
     assert not calls
     answers = iter([box.StandardButton.Yes, box.StandardButton.Yes])
+    PrepareDialog.result = 0
+    module.start_project_edit(screen)
+    assert not calls
+    answers = iter([box.StandardButton.Yes, box.StandardButton.Yes])
+    PrepareDialog.result = 1
     module.start_project_edit(screen)
     assert calls == [('source', {}, {'own_vocal_wav': '/take.wav', 'ack_unverified_pairing': True}), ('track', 'new')]
