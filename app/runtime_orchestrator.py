@@ -30,6 +30,7 @@ class Job:
     result: dict[str, Any] = field(default_factory=dict)
     revision_source_id: str | None = None
     rebuild_source_id: str | None = None
+    rebuild_overrides: dict[str, Any] = field(default_factory=dict)
     source_report_id: str | None = None
     source_report_sha256: str | None = None
     master_only: bool = False
@@ -204,8 +205,10 @@ class RuntimeOrchestrator:
         self._log(f"[runtime_orch] enqueued mastering revision {tid} from {source_id}")
         return tid
 
-    def enqueue_opened_rebuild(self, source_id: str) -> str:
+    def enqueue_opened_rebuild(self, source_id: str, overrides: dict[str, Any] | None = None) -> str:
         """Queue a full new render; input verification and copies run in the worker."""
+        from app.core.project_edit import validate_project_overrides
+        changes = validate_project_overrides(overrides)
         with self._lock:
             source = self.jobs.get(source_id)
             if not source or source.status != "done" or not source.master_only:
@@ -214,7 +217,8 @@ class RuntimeOrchestrator:
             if not isinstance(report.get("input_integrity"), dict):
                 raise ValueError("project has no input integrity manifest; full rebuild unavailable")
             tid, out_dir = self._reserve_project(source.project_dir)
-            self.jobs[tid] = Job(track_id=tid, recipe={}, project_dir=str(out_dir), rebuild_source_id=source_id)
+            self.jobs[tid] = Job(track_id=tid, recipe={}, project_dir=str(out_dir),
+                                 rebuild_source_id=source_id, rebuild_overrides=changes)
             self._queue.append(tid)
         self._ensure_worker()
         self._log(f"[runtime_orch] enqueued full rebuild {tid} from {source_id}")
@@ -265,17 +269,22 @@ class RuntimeOrchestrator:
                 job.progress = min(0.95, 0.05 + 0.9 * index / max(total, 1))
 
             reused_stages = None
+            rebuild_info = None
             if job.revision_source_id:
                 from app.core.revision import prepare_master_revision
                 source, source_report = self._revision_source_report(job.revision_source_id)
                 reused_stages = prepare_master_revision(Path(source.project_dir), out_dir, source_report)
             elif job.rebuild_source_id:
                 from app.core.input_integrity import freeze_inputs
+                from app.core.project_edit import apply_project_overrides
                 from app.core.project_snapshot import restore_recipe
                 source, source_report = self._revision_source_report(job.rebuild_source_id)
                 job.stage = "verifying_inputs"
-                job.recipe = freeze_inputs(restore_recipe(source_report), source_report, Path(source.project_dir), out_dir)
+                frozen = freeze_inputs(restore_recipe(source_report), source_report, Path(source.project_dir), out_dir)
+                job.recipe = apply_project_overrides(frozen, job.rebuild_overrides)
                 job.recipe.pop("only", None)
+                rebuild_info = {"kind": "full", "source_project": source_report["project_id"],
+                                "overridden_fields": sorted(job.rebuild_overrides)}
             result = run_full_pipeline(
                 job.track_id,
                 job.recipe,
@@ -283,6 +292,7 @@ class RuntimeOrchestrator:
                 out_root=out_dir,
                 on_stage=on_stage,
                 reused_stages=reused_stages,
+                rebuild_info=rebuild_info,
             )
             job.progress = 0.92
             job.result = _summarize_pipeline_result(result)

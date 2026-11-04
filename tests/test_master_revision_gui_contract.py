@@ -196,4 +196,26 @@ def test_manifest_enables_only_full_rebuild_for_opened_project(gui_module):
     obj = SimpleNamespace(info=info, detector=Label(), btn_part=part, btn_full=full, btn_three=variants)
     module.StepResult.show_result(obj, job)
     assert full.enabled and part.enabled and not variants.enabled
-    assert 'проверки и копирования' in info.text or 'verifying and copying' in info.text
+    assert 'проверены и скопированы' in info.text or 'verified and copied' in info.text
+
+
+def test_edit_button_only_enabled_for_opened_project_with_manifest(gui_module):
+    module, _ = gui_module
+    class Label:
+        def setText(self, text): pass
+    class Button:
+        def setEnabled(self, value): self.enabled = value
+    part, full, variants, edit = Button(), Button(), Button(), Button()
+    obj = SimpleNamespace(info=Label(), detector=Label(), btn_part=part, btn_full=full,
+                          btn_three=variants, btn_edit=edit)
+    pipeline = {'verdict': 'PARTIAL', 'stages': [], 'artifact_integrity': {'mix': {'sha256': 'x'}}}
+    job = SimpleNamespace(result={'pipeline': pipeline}, master_only=True, track_id='opened',
+                          started_at=0, finished_at=0, stage='opened')
+    module.StepResult.show_result(obj, job)
+    assert not edit.enabled
+    pipeline['input_integrity'] = {'version': 1}
+    module.StepResult.show_result(obj, job)
+    assert edit.enabled
+    job.master_only = False
+    module.StepResult.show_result(obj, job)
+    assert not edit.enabled

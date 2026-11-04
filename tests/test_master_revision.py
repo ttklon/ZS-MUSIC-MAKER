@@ -478,3 +478,100 @@ def test_frozen_inputs_relocate_with_the_project(source_project, monkeypatch, tm
     job = runtime.jobs[tid]
     assert job.status == 'done', job.error
     assert Path(job.recipe['references'][0]).read_bytes() == b'content'
+
+
+def test_edited_rebuild_checks_original_inputs_and_records_provenance(source_project, monkeypatch, tmp_path):
+    import app.runtime_orchestrator as runtime_module
+    _, _, _, _ = source_project
+    monkeypatch.setattr(runtime_module, 'ROOT', tmp_path)
+    ref = tmp_path / 'ref.wav'
+    vocal = tmp_path / 'voice.wav'
+    ref.write_bytes(b'reference')
+    vocal.write_bytes(b'voice')
+    recipe = {'theme': 'original', 'artist': 'first', 'artist_name': 'first',
+              'references': [str(ref)], 'own_vocal_wav': str(vocal), 'voice_mode': 'pro',
+              'user_lyrics_lines': ['original line'], 'export_stems': False}
+    source = tmp_path / 'original'
+    report = orchestrator.run_full_pipeline('source-id', recipe, out_root=source)
+    original_report = (source / 'report.json').read_bytes()
+    runtime = RuntimeOrchestrator()
+    runtime.stop()
+    monkeypatch.setattr(runtime, '_ensure_worker', lambda: None)
+    opened = runtime.open_project(source)
+    changes = {'theme': 'edited theme', 'artist': 'new artist',
+               'user_lyrics_lines': ['edited line'], 'vocal_offset_ms': 200}
+    tid = runtime.enqueue_opened_rebuild(opened, changes)
+    changes['user_lyrics_lines'][0] = 'later mutation'
+    job = runtime.jobs[tid]
+    runtime._process(job)
+    assert job.status == 'done', job.error
+    assert job.recipe['theme'] == 'edited theme' and job.recipe['artist_name'] == 'new artist'
+    assert job.recipe['user_lyrics_lines'] == ['edited line'] and job.recipe['vocal_offset_ms'] == 200
+    assert Path(job.recipe['references'][0]).read_bytes() == ref.read_bytes()
+    assert Path(job.recipe['own_vocal_wav']).read_bytes() == vocal.read_bytes()
+    assert (source / 'report.json').read_bytes() == original_report
+    assert report['desktop_recipe_snapshot']['recipe'] == recipe
+    new_report = json.loads((Path(job.project_dir) / 'report.json').read_text(encoding='utf-8'))
+    assert new_report['rebuild'] == {'kind': 'full', 'source_project': 'source-id',
+                                     'overridden_fields': ['artist', 'theme', 'user_lyrics_lines', 'vocal_offset_ms']}
+    assert new_report['desktop_recipe_snapshot']['recipe'] == job.recipe
+    assert 'input_integrity' in new_report
+
+
+def test_invalid_edits_rejected_before_reserving_new_project(source_project, monkeypatch, tmp_path):
+    import app.runtime_orchestrator as runtime_module
+    source, _, _, _ = source_project
+    monkeypatch.setattr(runtime_module, 'ROOT', tmp_path)
+    runtime = RuntimeOrchestrator()
+    runtime.stop()
+    monkeypatch.setattr(runtime, '_ensure_worker', lambda: None)
+    opened = runtime.open_project(source)
+    with pytest.raises(ValueError, match='unsupported project edit'):
+        runtime.enqueue_opened_rebuild(opened, {'own_vocal_wav': 'unverified.wav'})
+    assert not (tmp_path / 'output' / 'desktop_runs').exists()
+
+
+def test_edited_rebuild_does_not_bypass_changed_source_check(source_project, monkeypatch, tmp_path):
+    import app.runtime_orchestrator as runtime_module
+    _, _, _, calls = source_project
+    monkeypatch.setattr(runtime_module, 'ROOT', tmp_path)
+    voice = tmp_path / 'voice.wav'
+    voice.write_bytes(b'original')
+    source = tmp_path / 'source-with-voice'
+    orchestrator.run_full_pipeline('source-id', {'own_vocal_wav': str(voice)}, out_root=source)
+    runtime = RuntimeOrchestrator()
+    runtime.stop()
+    monkeypatch.setattr(runtime, '_ensure_worker', lambda: None)
+    opened = runtime.open_project(source)
+    voice.write_bytes(b'changed!')
+    prior = calls.count('analyze')
+    tid = runtime.enqueue_opened_rebuild(opened, {'theme': 'edited'})
+    job = runtime.jobs[tid]
+    runtime._process(job)
+    assert job.status == 'error' and 'integrity check' in job.error
+    assert calls.count('analyze') == prior
+    assert not (Path(job.project_dir) / 'input_files').exists()
+
+
+def test_edited_rebuild_can_be_reopened_and_edited_again(source_project, monkeypatch, tmp_path):
+    import app.runtime_orchestrator as runtime_module
+    source, _, _, _ = source_project
+    monkeypatch.setattr(runtime_module, 'ROOT', tmp_path)
+    runtime = RuntimeOrchestrator()
+    runtime.stop()
+    monkeypatch.setattr(runtime, '_ensure_worker', lambda: None)
+    opened = runtime.open_project(source)
+    first = runtime.enqueue_opened_rebuild(opened, {'theme': 'new theme'})
+    runtime._process(runtime.jobs[first])
+    assert runtime.jobs[first].status == 'done', runtime.jobs[first].error
+    other = RuntimeOrchestrator()
+    other.stop()
+    monkeypatch.setattr(other, '_ensure_worker', lambda: None)
+    reopened = other.open_project(runtime.jobs[first].project_dir)
+    assert other.jobs[reopened].recipe['theme'] == 'new theme'
+    second = other.enqueue_opened_rebuild(reopened, {'artist': 'next artist'})
+    other._process(other.jobs[second])
+    job = other.jobs[second]
+    assert job.status == 'done', job.error
+    assert job.recipe['theme'] == 'new theme' and job.recipe['artist'] == 'next artist'
+    assert job.result['pipeline']['rebuild']['source_project'] == first

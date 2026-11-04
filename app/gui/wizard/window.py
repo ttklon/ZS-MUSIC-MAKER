@@ -166,6 +166,10 @@ class Wizard(QMainWindow):
 
     def back(self) -> None:
         index = self.stack.currentIndex()
+        job = getattr(self.result_step, "current_job", None)
+        if index >= len(self.steps) and job:
+            if QMessageBox.question(self, t("wizard.edit.title"), t("wizard.edit.leave_notice")) != QMessageBox.StandardButton.Yes:
+                return
         if index > 0:
             self.stack.setCurrentIndex(index - 1)
             self.stack.currentWidget().enter()

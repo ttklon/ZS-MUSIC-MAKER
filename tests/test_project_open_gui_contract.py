@@ -21,6 +21,12 @@ def module(monkeypatch):
     class Box:
         warnings = []
         notices = []
+        class StandardButton:
+            Yes = 1
+            No = 0
+        answer = 1
+        @classmethod
+        def question(cls, *args): return cls.answer
         @classmethod
         def warning(cls, *args): cls.warnings.append(args)
         @classmethod
@@ -73,3 +79,21 @@ def test_open_project_shows_invalid_project_error(module):
                              orch=SimpleNamespace(open_project=fail))
     window.Wizard.open_project(wizard)
     assert box.warnings and 'invalid report' in box.warnings[-1][-1]
+
+
+def test_back_from_result_warns_that_wizard_is_not_restored(module):
+    window, box, _ = module
+    calls = []
+    stack = SimpleNamespace(currentIndex=lambda: 2,
+                            setCurrentIndex=lambda i: calls.append(('index', i)),
+                            currentWidget=lambda: SimpleNamespace(enter=lambda: calls.append('enter')))
+    wizard = SimpleNamespace(stack=stack, steps=[object(), object()],
+                             result_step=SimpleNamespace(current_job=object()),
+                             crumbs=SimpleNamespace(setText=lambda value: calls.append(('crumb', value))),
+                             _crumb_text=lambda: 'step', _sync_nav=lambda: calls.append('sync'))
+    box.answer = box.StandardButton.No
+    window.Wizard.back(wizard)
+    assert not calls
+    box.answer = box.StandardButton.Yes
+    window.Wizard.back(wizard)
+    assert calls == [('index', 1), 'enter', ('crumb', 'step'), 'sync']

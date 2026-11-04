@@ -14,8 +14,6 @@ app/core/orchestrator.py — единый пайплайн трека (фаса�
 единый формат результата стадии — `app.pipeline.StageResult` со статусом
 `OK / FALLBACK / BLOCKED / FAILED`.
 
-Здесь остаётся только склейка: вызов стадий в правильном порядке, передача
-артефактов между ними и итоговая сводка.
 """
 
 from __future__ import annotations
@@ -67,6 +65,7 @@ def run_full_pipeline(
     resume: bool = False,
     on_stage: Callable[[str, str, int, int], None] | None = None,
     reused_stages: dict[str, Any] | None = None,
+    rebuild_info: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Полный прогон от рецепта до релиз-пакета.
 
@@ -352,7 +351,8 @@ def run_full_pipeline(
         },
     }
     from app.core.project_snapshot import snapshot_recipe
-
+    if rebuild_info is not None:
+        report["rebuild"] = rebuild_info
     report["project_root"] = str(out_root.resolve())
     try:
         report["desktop_recipe_snapshot"] = snapshot_recipe(wizard_state)

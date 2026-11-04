@@ -221,9 +221,12 @@ class StepResult(StepBase):
         row2 = QHBoxLayout()
         self.btn_folder = QPushButton(t("wizard.result.open"))
         self.btn_folder.clicked.connect(self.open_folder)
+        self.btn_edit = QPushButton(t("wizard.edit.button"))
+        self.btn_edit.clicked.connect(self.edit_project)
         self.btn_expert = QPushButton(t("wizard.result.expert"))
         self.btn_expert.clicked.connect(lambda: self.wizard.launch_gradio_expert())
         row2.addWidget(self.btn_folder)
+        row2.addWidget(self.btn_edit)
         row2.addWidget(self.btn_expert)
         row2.addStretch()
         self.root.addLayout(row2)
@@ -244,6 +247,8 @@ class StepResult(StepBase):
         if hasattr(self, "btn_full"):
             self.btn_full.setEnabled(not master_only or rebuild_available)
             self.btn_three.setEnabled(not master_only)
+        if hasattr(self, "btn_edit"):
+            self.btn_edit.setEnabled(master_only and rebuild_available)
         verdict = pipeline.get("verdict") or job.stage
         release_output = next((stage.get("output") or {} for stage in pipeline.get("stages", [])
                                if stage.get("name") == "_stage_release_pack"), {})
@@ -303,6 +308,10 @@ class StepResult(StepBase):
                 webbrowser.open(path.absolute().as_uri())
         except Exception:  # noqa: BLE001 - ОС может не уметь открывать папки
             LOGGER.warning("open folder failed", exc_info=True)
+
+    def edit_project(self) -> None:
+        from app.gui.wizard.project_edit_action import start_project_edit
+        start_project_edit(self)
 
     def rebuild_full(self) -> None:
         if not self.current_job:
