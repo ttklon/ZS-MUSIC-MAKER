@@ -199,3 +199,161 @@ def test_full_pipeline_passes_all_references_to_mix(source_project, monkeypatch,
     refs = ["ref1.wav", "ref2.wav", "ref3.wav"]
     orchestrator.run_full_pipeline("all-refs", {**recipe, "references": refs}, out_root=tmp_path / "all-refs")
     assert seen == [refs]
+
+
+def test_reopen_after_restart_and_move_preserves_recipe_and_source(source_project, monkeypatch, tmp_path):
+    import shutil
+    import app.runtime_orchestrator as runtime_module
+    source, recipe, report, calls = source_project
+    moved = tmp_path / "moved"
+    shutil.move(source, moved)
+    assert not source.exists()
+    original = {p.name: p.read_bytes() for p in moved.iterdir() if p.is_file()}
+    monkeypatch.setattr(runtime_module, "ROOT", tmp_path)
+    runtime = RuntimeOrchestrator()
+    runtime.stop()
+    monkeypatch.setattr(runtime, "_ensure_worker", lambda: None)
+    opened_id = runtime.open_project(moved)
+    opened = runtime.jobs[opened_id]
+    assert opened.master_only and opened.recipe == recipe
+    assert opened.source_report_id == "source-id" and opened_id != "source-id"
+    new_id = runtime.enqueue_master_revision(opened_id, {"stands": ["car"], "export_stems": False})
+    job = runtime.jobs[new_id]
+    assert job.master_only
+    runtime._process(job)
+    assert job.status == "done", job.error
+    assert job.result["pipeline"]["revision"]["source_project"] == "source-id"
+    assert calls[-1][1]["theme"] == "чай"
+    assert job.result["pipeline"]["desktop_recipe_snapshot"]["recipe"]["theme"] == "чай"
+    assert (Path(job.project_dir) / "reused_mix.wav").read_bytes() == (moved / "mix.wav").read_bytes()
+    assert {p.name: p.read_bytes() for p in moved.iterdir() if p.is_file()} == original
+    runtime.stop()
+
+
+def test_open_rejects_legacy_corrupt_and_damaged_reports(source_project, tmp_path):
+    source, _, report, _ = source_project
+    runtime = RuntimeOrchestrator()
+    runtime.stop()
+    path = source / "report.json"
+    report.pop("desktop_recipe_snapshot")
+    path.write_text(json.dumps(report), encoding="utf-8")
+    with pytest.raises(ValueError, match="no supported complete recipe"):
+        runtime.open_project(source)
+    path.write_text('{"project_id":"a", "project_id":"b"}', encoding="utf-8")
+    with pytest.raises(ValueError, match="duplicate"):
+        runtime.open_project(source)
+    path.write_text('{"project_id": NaN}', encoding="utf-8")
+    with pytest.raises(ValueError, match="invalid JSON constant"):
+        runtime.open_project(source)
+    path.write_text("{broken", encoding="utf-8")
+    with pytest.raises(ValueError, match="invalid project report"):
+        runtime.open_project(source)
+
+
+def test_open_and_revision_reject_changed_mix_or_report(source_project, monkeypatch, tmp_path):
+    import app.runtime_orchestrator as runtime_module
+    source, _, _, _ = source_project
+    monkeypatch.setattr(runtime_module, "ROOT", tmp_path)
+    runtime = RuntimeOrchestrator()
+    runtime.stop()
+    monkeypatch.setattr(runtime, "_ensure_worker", lambda: None)
+    opened_id = runtime.open_project(source)
+    report_path = source / "report.json"
+    original_report = report_path.read_bytes()
+    report_path.write_bytes(original_report + b" ")
+    tid = runtime.enqueue_master_revision(opened_id)
+    runtime._process(runtime.jobs[tid])
+    assert runtime.jobs[tid].status == "error" and "report changed" in runtime.jobs[tid].error
+    report_path.write_bytes(original_report)
+    mix = source / "mix.wav"
+    mix.write_bytes(mix.read_bytes() + b"x")
+    with pytest.raises(ValueError, match="integrity check"):
+        runtime.open_project(source)
+    tid = runtime.enqueue_master_revision(opened_id)
+    runtime._process(runtime.jobs[tid])
+    assert runtime.jobs[tid].status == "error" and "integrity check" in runtime.jobs[tid].error
+
+
+def test_reserved_project_collision_never_overwrites_existing_directory(monkeypatch, tmp_path):
+    import app.runtime_orchestrator as runtime_module
+    from types import SimpleNamespace
+    monkeypatch.setattr(runtime_module, "ROOT", tmp_path)
+    existing = tmp_path / "output" / "desktop_runs" / "collision"
+    existing.mkdir(parents=True)
+    (existing / "keep").write_text("safe")
+    ids = iter([SimpleNamespace(hex="collision"), SimpleNamespace(hex="new")])
+    monkeypatch.setattr(runtime_module.uuid, "uuid4", lambda: next(ids))
+    runtime = RuntimeOrchestrator()
+    runtime.stop()
+    monkeypatch.setattr(runtime, "_ensure_worker", lambda: None)
+    tid = runtime.enqueue({"theme": "test"})
+    assert tid == "new" and (existing / "keep").read_text() == "safe"
+    assert Path(runtime.jobs[tid].project_dir).is_dir()
+
+
+def test_snapshot_is_exact_and_excludes_unknown_secret_fields():
+    from app.core.project_snapshot import snapshot_recipe
+    data = {"theme": "привет", "references": ["one", "two"], "user_lyrics_lines": ["слова"]}
+    assert snapshot_recipe(data)["recipe"] == data
+    for bad in ({"secret": "do not persist"}, {"theme": float("nan")}, {"references": ("a", "b")}):
+        with pytest.raises(ValueError):
+            snapshot_recipe(bad)
+
+
+def test_snapshot_failure_is_explicit_and_does_not_persist_unknown_fields(source_project, tmp_path):
+    _, recipe, _, _ = source_project
+    report = orchestrator.run_full_pipeline('unknown', {**recipe, 'secret': 'private-value'}, out_root=tmp_path/'unknown')
+    assert 'desktop_recipe_snapshot' not in report
+    assert any('recipe not saved' in warning for warning in report['warnings'])
+    assert 'private-value' not in (tmp_path/'unknown'/'report.json').read_text(encoding='utf-8')
+
+
+def test_report_symlinks_and_oversize_are_rejected(source_project, tmp_path):
+    from app.core.project_snapshot import MAX_REPORT_BYTES, read_project_report
+    source, _, _, _ = source_project
+    link_dir = tmp_path/'links'
+    link_dir.mkdir()
+    try:
+        (link_dir/'report.json').symlink_to(source/'report.json')
+    except OSError:
+        pytest.skip('symlink creation unavailable')
+    with pytest.raises(ValueError, match='symlink'):
+        read_project_report(link_dir)
+    (link_dir/'report.json').unlink()
+    (link_dir/'report.json').write_bytes(b' ' * (MAX_REPORT_BYTES + 1))
+    with pytest.raises(ValueError, match='size limit'):
+        read_project_report(link_dir)
+
+
+def test_revision_rejects_failed_or_malformed_report(source_project, tmp_path):
+    source, _, report, _ = source_project
+    report['verdict'] = 'FAILED'
+    with pytest.raises(ValueError, match='failed verdict'):
+        prepare_master_revision(source, tmp_path/'new', report)
+    report['verdict'] = 'PARTIAL'
+    report['stages'][0]['attempts'] = 'invalid'
+    with pytest.raises(ValueError, match='invalid source stage data'):
+        prepare_master_revision(source, tmp_path/'new', report)
+    assert not (tmp_path/'new').exists()
+
+
+def test_reopened_revision_can_itself_be_reopened(source_project, monkeypatch, tmp_path):
+    import app.runtime_orchestrator as runtime_module
+    source, recipe, _, _ = source_project
+    monkeypatch.setattr(runtime_module, 'ROOT', tmp_path)
+    runtime = RuntimeOrchestrator()
+    runtime.stop()
+    monkeypatch.setattr(runtime, '_ensure_worker', lambda: None)
+    opened = runtime.open_project(source)
+    first = runtime.enqueue_master_revision(opened)
+    runtime._process(runtime.jobs[first])
+    assert runtime.jobs[first].status == 'done'
+    other = RuntimeOrchestrator()
+    other.stop()
+    monkeypatch.setattr(other, '_ensure_worker', lambda: None)
+    opened_again = other.open_project(runtime.jobs[first].project_dir)
+    assert other.jobs[opened_again].recipe == recipe
+    next_id = other.enqueue_master_revision(opened_again)
+    other._process(other.jobs[next_id])
+    assert other.jobs[next_id].status == 'done', other.jobs[next_id].error
+    assert other.jobs[next_id].result['pipeline']['revision']['source_project'] == first

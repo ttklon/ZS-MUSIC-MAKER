@@ -20,6 +20,7 @@ from pathlib import Path
 
 from PySide6.QtGui import QAction, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
+    QFileDialog,
     QHBoxLayout,
     QLabel,
     QMainWindow,
@@ -118,6 +119,10 @@ class Wizard(QMainWindow):
     # --- меню --------------------------------------------------------------
     def _build_menu(self) -> None:
         menu = self.menuBar()
+        project_menu = menu.addMenu(t("wizard.project.menu"))
+        open_project = QAction(t("wizard.project.open"), self)
+        open_project.triggered.connect(self.open_project)
+        project_menu.addAction(open_project)
         help_menu = menu.addMenu(t("menu.help"))
         tour = QAction(t("menu.tour"), self)
         tour.triggered.connect(self._show_tour)
@@ -130,6 +135,20 @@ class Wizard(QMainWindow):
         status = QAction(t("menu.model_status"), self)
         status.triggered.connect(self.show_ai_status)
         ai_menu.addAction(status)
+
+    def open_project(self) -> None:
+        if self.steps[-1].current_tid or getattr(self.steps[-1], "batch_tids", []):
+            QMessageBox.warning(self, t("dialog.error"), t("wizard.result.job_busy"))
+            return
+        QMessageBox.information(self, t("wizard.project.open"), t("wizard.project.open_notice"))
+        path = QFileDialog.getExistingDirectory(self, t("wizard.project.choose"), str(ROOT / "output" / "desktop_runs"))
+        if not path:
+            return
+        try:
+            tid = self.orch.open_project(path)
+            self.go_to_result(self.orch.jobs[tid])
+        except Exception as error:  # noqa: BLE001 - selected files can be unreadable or invalid
+            QMessageBox.warning(self, t("dialog.error"), str(error))
 
     # --- навигация ---------------------------------------------------------
     def _crumb_text(self) -> str:

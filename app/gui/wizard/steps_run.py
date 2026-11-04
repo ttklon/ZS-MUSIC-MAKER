@@ -232,17 +232,21 @@ class StepResult(StepBase):
     def show_result(self, job) -> None:
         self.current_job = job
         result = job.result or {}
-        release = (result.get("release") or {}).get("release_dir", "—")
-        master = result.get("master") or result.get("master_path", "—")
+        release = (result.get("release") or {}).get("release_dir") or "—"
+        master = result.get("master") or result.get("master_path") or "—"
         elapsed = max(0.0, float(job.finished_at or 0) - float(job.started_at or 0))
         pipeline = result.get("pipeline") or {}
         self.btn_part.setEnabled(bool((pipeline.get("artifact_integrity") or {}).get("mix"))
                                  and not pipeline.get("only") and not pipeline.get("resume")
                                  and not pipeline.get("dry_run"))
+        master_only = getattr(job, "master_only", False)
+        if hasattr(self, "btn_full"):
+            self.btn_full.setEnabled(not master_only)
+            self.btn_three.setEnabled(not master_only)
         verdict = pipeline.get("verdict") or job.stage
         release_output = next((stage.get("output") or {} for stage in pipeline.get("stages", [])
                                if stage.get("name") == "_stage_release_pack"), {})
-        release_notes = []
+        release_notes = [t("wizard.project.master_only")] if master_only else []
         lyric_output = next((stage.get("output") or {} for stage in pipeline.get("stages", [])
                              if stage.get("name") == "_stage_lyrics"), {})
         asr = (lyric_output.get("creative_context") or {}).get("reference_asr") or {}
@@ -269,7 +273,7 @@ class StepResult(StepBase):
         headline = "✅ Обработка завершена" if verdict == "PASS" else "⚠️ Обработка завершена с ограничениями"
         self.info.setText(
             f"{headline} (статус: {verdict})\n\n"
-            f"Track ID: {job.track_id}\n"
+            f"Track ID: {getattr(job, 'source_report_id', None) or job.track_id}\n"
             f"Мастер: {master}\n"
             f"Релиз-пакет: {release}\n"
             f"Время: {elapsed:.1f} сек\n" + "\n".join(release_notes)
@@ -302,8 +306,11 @@ class StepResult(StepBase):
     def rebuild_full(self) -> None:
         if not self.current_job:
             return
+        if getattr(self.current_job, "master_only", False):
+            QMessageBox.warning(self, t("dialog.error"), t("wizard.project.master_only"))
+            return
         run_step = self.wizard.steps[-1]
-        if run_step.current_tid:
+        if run_step.current_tid or getattr(run_step, "batch_tids", []):
             QMessageBox.warning(self, t("dialog.error"), t("wizard.result.job_busy"))
             return
         recipe = dict(self.current_job.recipe)
@@ -319,7 +326,7 @@ class StepResult(StepBase):
         if not self.current_job:
             return
         run_step = self.wizard.steps[-1]
-        if run_step.current_tid:
+        if run_step.current_tid or getattr(run_step, "batch_tids", []):
             QMessageBox.warning(self, t("dialog.error"), t("wizard.result.job_busy"))
             return
         if QMessageBox.question(self, t("wizard.result.rebuild_part"),
@@ -335,6 +342,13 @@ class StepResult(StepBase):
 
     def three_variants(self) -> None:
         if not self.current_job:
+            return
+        if getattr(self.current_job, "master_only", False):
+            QMessageBox.warning(self, t("dialog.error"), t("wizard.project.master_only"))
+            return
+        run_step = self.wizard.steps[-1]
+        if run_step.current_tid or getattr(run_step, "batch_tids", []):
+            QMessageBox.warning(self, t("dialog.error"), t("wizard.result.job_busy"))
             return
         recipes = []
         for index in range(3):

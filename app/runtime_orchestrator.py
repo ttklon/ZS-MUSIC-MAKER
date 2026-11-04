@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 import logging
 import threading
 import time
@@ -28,6 +29,9 @@ class Job:
     finished_at: float = 0.0
     result: dict[str, Any] = field(default_factory=dict)
     revision_source_id: str | None = None
+    source_report_id: str | None = None
+    source_report_sha256: str | None = None
+    master_only: bool = False
 
 
 def _summarize_pipeline_result(result: dict[str, Any]) -> dict[str, Any]:
@@ -106,19 +110,69 @@ class RuntimeOrchestrator:
         if worker and worker is not threading.current_thread():
             worker.join(timeout=max(0.0, float(join_timeout)))
 
+    def _reserve_project(self, source_dir: str | None = None) -> tuple[str, Path]:
+        base = ROOT / "output" / "desktop_runs"
+        if source_dir:
+            source = Path(source_dir).resolve()
+            if base.resolve() == source or base.resolve().is_relative_to(source):
+                raise ValueError("revision destination would be inside the source project")
+        base.mkdir(parents=True, exist_ok=True)
+        for _ in range(32):
+            tid = uuid.uuid4().hex
+            if tid in self.jobs:
+                continue
+            path = base / tid
+            try:
+                path.mkdir()
+            except FileExistsError:
+                continue
+            return tid, path
+        raise RuntimeError("could not reserve a unique project directory")
+
+    def open_project(self, project_dir: str | Path) -> str:
+        """Open an explicitly selected project for re-mastering, never a full resume."""
+        from app.core.project_snapshot import read_project_report, restore_recipe
+        from app.core.revision import validate_master_source
+
+        source = Path(project_dir).resolve(strict=True)
+        if not source.is_dir():
+            raise ValueError("select a project directory")
+        report, raw = read_project_report(source)
+        project_id = report.get("project_id")
+        if not isinstance(project_id, str) or not project_id or len(project_id) > 200:
+            raise ValueError("invalid project id")
+        recipe = restore_recipe(report)
+        validate_master_source(source, report)
+        with self._lock:
+            for _ in range(32):
+                tid = "opened-" + uuid.uuid4().hex
+                if tid not in self.jobs:
+                    break
+            else:
+                raise RuntimeError("could not allocate a unique job id")
+            summary = _summarize_pipeline_result(report)
+            # Old master/release paths may be stale after a project was moved.
+            summary.update(master=None, master_path=None, release={"release_dir": None})
+            self.jobs[tid] = Job(
+                track_id=tid, recipe=recipe, status="done", stage="opened",
+                project_dir=str(source), result=summary,
+                source_report_id=project_id, source_report_sha256=hashlib.sha256(raw).hexdigest(),
+                master_only=True,
+            )
+        return tid
+
     def enqueue(self, recipe: dict[str, Any], only: set[str] | None = None) -> str:
         """Поставить трек в очередь.
 
         `only` — подмножество стадий (`STAGE_KEYS`) в новой директории.
         Переиспользование предыдущего проекта здесь не реализовано.
         """
-        tid = uuid.uuid4().hex[:10]
-        out_dir = ROOT / "output" / "desktop_runs" / tid
         payload = copy.deepcopy(recipe or {})
         if only:
             payload["only"] = sorted(only)
-        job = Job(track_id=tid, recipe=payload, project_dir=str(out_dir))
         with self._lock:
+            tid, out_dir = self._reserve_project()
+            job = Job(track_id=tid, recipe=payload, project_dir=str(out_dir))
             self.jobs[tid] = job
             self._queue.append(tid)
         self._ensure_worker()
@@ -126,11 +180,11 @@ class RuntimeOrchestrator:
         return tid
 
     def enqueue_master_revision(self, source_id: str, overrides: dict[str, Any] | None = None) -> str:
-        """Create a new job from a completed in-session project; source stays untouched."""
+        """Create a new job from a completed or explicitly opened project."""
         with self._lock:
             source = self.jobs.get(source_id)
             if not source or source.status != "done":
-                raise ValueError("source project is not a completed job in this session")
+                raise ValueError("source project is not a completed or opened job")
             source_report = source.result.get("pipeline") or {}
             if (source_report.get("only") or source_report.get("resume") or source_report.get("dry_run")
                     or not (source_report.get("artifact_integrity") or {}).get("mix")):
@@ -140,9 +194,9 @@ class RuntimeOrchestrator:
             for key in ("stands", "export_stems"):
                 if key in (overrides or {}):
                     payload[key] = copy.deepcopy(overrides[key])
-            tid = uuid.uuid4().hex[:10]
-            out_dir = ROOT / "output" / "desktop_runs" / tid
-            job = Job(track_id=tid, recipe=payload, project_dir=str(out_dir), revision_source_id=source_id)
+            tid, out_dir = self._reserve_project(source.project_dir)
+            job = Job(track_id=tid, recipe=payload, project_dir=str(out_dir),
+                      revision_source_id=source_id, master_only=source.master_only)
             self.jobs[tid] = job
             self._queue.append(tid)
         self._ensure_worker()
@@ -183,17 +237,16 @@ class RuntimeOrchestrator:
 
             reused_stages = None
             if job.revision_source_id:
-                import json
+                from app.core.project_snapshot import read_project_report
                 from app.core.revision import prepare_master_revision
 
                 source = self.jobs.get(job.revision_source_id)
                 if not source or source.status != "done":
                     raise ValueError("source job is no longer available")
-                report_path = Path(source.project_dir) / "report.json"
-                if report_path.stat().st_size > 16 * 1024 * 1024:
-                    raise ValueError("source report exceeds size limit")
-                source_report = json.loads(report_path.read_text(encoding="utf-8"))
-                if source_report.get("project_id") != source.track_id:
+                source_report, raw = read_project_report(Path(source.project_dir))
+                if source.source_report_sha256 and hashlib.sha256(raw).hexdigest() != source.source_report_sha256:
+                    raise ValueError("source report changed since opening; open it again")
+                if source_report.get("project_id") != (source.source_report_id or source.track_id):
                     raise ValueError("source report project id does not match")
                 reused_stages = prepare_master_revision(Path(source.project_dir), out_dir, source_report)
             result = run_full_pipeline(

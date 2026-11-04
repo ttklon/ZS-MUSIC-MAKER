@@ -351,6 +351,13 @@ def run_full_pipeline(
             "stands": recipe["stands"],
         },
     }
+    from app.core.project_snapshot import snapshot_recipe
+
+    report["project_root"] = str(out_root.resolve())
+    try:
+        report["desktop_recipe_snapshot"] = snapshot_recipe(wizard_state)
+    except ValueError as exc:
+        warnings.append(f"project recipe not saved; reopening unavailable: {exc}")
     add_mix_integrity(report, mix_stage, out_root, warnings)
     if initial_integrity.get("artifact_integrity") != report.get("artifact_integrity"):
         report.pop("artifact_integrity", None)

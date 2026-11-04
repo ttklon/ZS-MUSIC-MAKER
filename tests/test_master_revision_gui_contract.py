@@ -140,3 +140,25 @@ def test_result_reports_recorded_backing_mismatch(gui_module):
     job = SimpleNamespace(result=result, track_id="test", started_at=1, finished_at=2, stage="done")
     module.StepResult.show_result(obj, job)
     assert "не совпадает с записью" in info.text or "no longer matches" in info.text
+
+
+def test_opened_project_disables_full_rebuild_and_variants(gui_module):
+    module, box = gui_module
+    class Label:
+        text = ""
+        def setText(self, text): self.text = text
+    class Button:
+        enabled = None
+        def setEnabled(self, value): self.enabled = value
+    full, variants, part, info = Button(), Button(), Button(), Label()
+    obj = SimpleNamespace(info=info, detector=Label(), btn_part=part, btn_full=full,
+                          btn_three=variants, wizard=SimpleNamespace())
+    job = SimpleNamespace(result={"pipeline": {"verdict": "PARTIAL", "stages": [],
+        "artifact_integrity": {"mix": {"sha256": "x"}}}}, master_only=True,
+        track_id="opened", started_at=0, finished_at=0, stage="opened")
+    module.StepResult.show_result(obj, job)
+    assert not full.enabled and not variants.enabled and part.enabled
+    assert "только мастеринг" in info.text or "mastering only" in info.text
+    module.StepResult.rebuild_full(obj)
+    module.StepResult.three_variants(obj)
+    assert len(box.warnings) == 2
