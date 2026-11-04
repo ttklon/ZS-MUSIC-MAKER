@@ -219,3 +219,23 @@ def test_edit_button_only_enabled_for_opened_project_with_manifest(gui_module):
     job.master_only = False
     module.StepResult.show_result(obj, job)
     assert not edit.enabled
+
+
+def test_unverified_vocal_binding_visible_after_master_revision(gui_module):
+    module, _ = gui_module
+    class Label:
+        def setText(self, text): self.text = text
+    class Button:
+        def setEnabled(self, value): pass
+    info = Label()
+    obj = SimpleNamespace(info=info, detector=Label(), btn_part=Button())
+    job = SimpleNamespace(result={'pipeline': {'verdict': 'PARTIAL', 'stages': [],
+                                               'revision': {'kind': 'master'}}},
+                          recipe={'own_vocal_wav': 'voice.wav', 'voice_mode': 'pro',
+                                  'recorded_backing_sha256': ''},
+                          track_id='test', started_at=1, finished_at=2, stage='done')
+    module.StepResult.show_result(obj, job)
+    assert 'не подтверждена' in info.text or 'unverified' in info.text
+    job.recipe['recorded_backing_sha256'] = 'a' * 64
+    module.StepResult.show_result(obj, job)
+    assert 'не подтверждена' not in info.text and 'unverified' not in info.text

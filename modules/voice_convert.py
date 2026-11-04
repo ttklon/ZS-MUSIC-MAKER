@@ -94,13 +94,24 @@ def add_recording(wav_path: str, meta: dict) -> dict:
 
 
 def recording_backing(wav_path: str) -> dict:
-    """Retrieve persisted backing metadata for a wizard recording, if indexed."""
+    """Read known binding without letting duplicate unbound entries erase it."""
     path = Path(wav_path).resolve()
+    binding = {}
     for entry in reversed(_load_index()):
-        if entry.get("path") and Path(entry["path"]).resolve() == path:
-            return {"path": str(entry.get("backing_path") or ""),
-                    "sha256": str(entry.get("backing_sha256") or "")}
-    return {}
+        if not entry.get("path") or Path(entry["path"]).resolve() != path:
+            continue
+        recorded_path = entry.get("backing_path") or ""
+        digest = entry.get("backing_sha256") or ""
+        if not recorded_path and not digest:
+            continue
+        if (not isinstance(recorded_path, str) or not recorded_path or not isinstance(digest, str)
+                or not re.fullmatch(r"[0-9a-f]{64}", digest)):
+            raise VoiceIndexError("recording archive has incomplete or invalid backing metadata")
+        if binding and binding["sha256"] != digest:
+            raise VoiceIndexError("recording archive has conflicting backing metadata")
+        if not binding:
+            binding = {"path": recorded_path, "sha256": digest}
+    return binding
 
 
 def vault_summary() -> dict:

@@ -253,6 +253,12 @@ class StepResult(StepBase):
         release_output = next((stage.get("output") or {} for stage in pipeline.get("stages", [])
                                if stage.get("name") == "_stage_release_pack"), {})
         release_notes = [t("wizard.project.full_ready" if rebuild_available else "wizard.project.master_only")] if master_only else []
+        recipe = getattr(job, "recipe", {}) or {}
+        if ((pipeline.get("rebuild") or {}).get("vocal_binding") == "UNVERIFIED"
+                or ((recipe.get("own_vocal_wav") or recipe.get("vocal_wav"))
+                    and str(recipe.get("voice_mode") or "pro").strip().lower() != "off"
+                    and not recipe.get("recorded_backing_sha256"))):
+            release_notes.append(t("wizard.inputs.unverified"))
         lyric_output = next((stage.get("output") or {} for stage in pipeline.get("stages", [])
                              if stage.get("name") == "_stage_lyrics"), {})
         asr = (lyric_output.get("creative_context") or {}).get("reference_asr") or {}

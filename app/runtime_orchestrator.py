@@ -31,6 +31,7 @@ class Job:
     revision_source_id: str | None = None
     rebuild_source_id: str | None = None
     rebuild_overrides: dict[str, Any] = field(default_factory=dict)
+    rebuild_replacements: dict[str, Any] = field(default_factory=dict)
     source_report_id: str | None = None
     source_report_sha256: str | None = None
     master_only: bool = False
@@ -205,10 +206,13 @@ class RuntimeOrchestrator:
         self._log(f"[runtime_orch] enqueued mastering revision {tid} from {source_id}")
         return tid
 
-    def enqueue_opened_rebuild(self, source_id: str, overrides: dict[str, Any] | None = None) -> str:
-        """Queue a full new render; input verification and copies run in the worker."""
+    def enqueue_opened_rebuild(self, source_id: str, overrides: dict[str, Any] | None = None,
+                               replacements: dict[str, Any] | None = None) -> str:
+        """Hash selections on the caller, then verify and copy inputs in the worker."""
         from app.core.project_edit import validate_project_overrides
+        from app.core.project_inputs import prepare_replacements
         changes = validate_project_overrides(overrides)
+        selection = prepare_replacements(replacements)
         with self._lock:
             source = self.jobs.get(source_id)
             if not source or source.status != "done" or not source.master_only:
@@ -218,7 +222,8 @@ class RuntimeOrchestrator:
                 raise ValueError("project has no input integrity manifest; full rebuild unavailable")
             tid, out_dir = self._reserve_project(source.project_dir)
             self.jobs[tid] = Job(track_id=tid, recipe={}, project_dir=str(out_dir),
-                                 rebuild_source_id=source_id, rebuild_overrides=changes)
+                                 rebuild_source_id=source_id, rebuild_overrides=changes,
+                                 rebuild_replacements=selection)
             self._queue.append(tid)
         self._ensure_worker()
         self._log(f"[runtime_orch] enqueued full rebuild {tid} from {source_id}")
@@ -280,11 +285,17 @@ class RuntimeOrchestrator:
                 from app.core.project_snapshot import restore_recipe
                 source, source_report = self._revision_source_report(job.rebuild_source_id)
                 job.stage = "verifying_inputs"
-                frozen = freeze_inputs(restore_recipe(source_report), source_report, Path(source.project_dir), out_dir)
+                details = {}
+                frozen = freeze_inputs(restore_recipe(source_report), source_report, Path(source.project_dir),
+                                       out_dir, job.rebuild_replacements, details)
                 job.recipe = apply_project_overrides(frozen, job.rebuild_overrides)
                 job.recipe.pop("only", None)
+                if ((job.recipe.get("own_vocal_wav") or job.recipe.get("vocal_wav"))
+                        and str(job.recipe.get("voice_mode") or "pro").strip().lower() != "off"
+                        and not job.recipe.get("recorded_backing_sha256")):
+                    details.setdefault("vocal_binding", "UNVERIFIED")
                 rebuild_info = {"kind": "full", "source_project": source_report["project_id"],
-                                "overridden_fields": sorted(job.rebuild_overrides)}
+                                "overridden_fields": sorted(job.rebuild_overrides), **details}
             result = run_full_pipeline(
                 job.track_id,
                 job.recipe,

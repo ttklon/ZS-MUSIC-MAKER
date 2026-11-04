@@ -122,12 +122,17 @@ def _source_path(entry: dict, source: Path, report: dict) -> Path:
     return path
 
 
-def freeze_inputs(recipe: dict, report: dict, source: Path, destination: Path) -> dict:
-    """Copy and hash every recorded input into a new project; never mutate sources."""
+def freeze_inputs(recipe: dict, report: dict, source: Path, destination: Path,
+                  replacements: dict | None = None, details: dict | None = None) -> dict:
+    """Copy verified retained and explicitly replaced inputs; never mutate sources."""
     source, destination = Path(source).resolve(strict=True), Path(destination).resolve(strict=True)
     if source == destination or source.is_relative_to(destination) or destination.is_relative_to(source):
         raise ValueError("full rebuild must use a separate project directory")
     entries = _validated_entries(recipe, report.get("input_integrity"))
+    selection = replacements or {}
+    skipped = set(selection) & {"references", "beat_input_path", "own_vocal_wav"}
+    if "own_vocal_wav" in skipped:
+        skipped.add("vocal_wav")
     result = copy.deepcopy(recipe)
     final = destination / "input_files"
     if final.exists() or final.is_symlink():
@@ -136,6 +141,8 @@ def freeze_inputs(recipe: dict, report: dict, source: Path, destination: Path) -
         temp = Path(temporary)
         cached: dict[tuple[str, int, str], str] = {}
         for entry in entries:
+            if entry["field"] in skipped:
+                continue
             path = _source_path(entry, source, report)
             key = (str(path), entry["bytes"], entry["sha256"])
             name = cached.get(key)
@@ -156,5 +163,10 @@ def freeze_inputs(recipe: dict, report: dict, source: Path, destination: Path) -
                 result[entry["field"]] = target
             else:
                 result[entry["field"]][entry["index"]] = target
+        if selection:
+            from app.core.project_inputs import apply_replacement_inputs
+            result, provenance = apply_replacement_inputs(result, recipe, entries, selection, temp, final)
+            if details is not None:
+                details.update(provenance)
         temp.rename(final)
     return result

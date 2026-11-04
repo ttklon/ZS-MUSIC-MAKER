@@ -512,7 +512,7 @@ def test_edited_rebuild_checks_original_inputs_and_records_provenance(source_pro
     assert (source / 'report.json').read_bytes() == original_report
     assert report['desktop_recipe_snapshot']['recipe'] == recipe
     new_report = json.loads((Path(job.project_dir) / 'report.json').read_text(encoding='utf-8'))
-    assert new_report['rebuild'] == {'kind': 'full', 'source_project': 'source-id',
+    assert new_report['rebuild'] == {'kind': 'full', 'source_project': 'source-id', 'vocal_binding': 'UNVERIFIED',
                                      'overridden_fields': ['artist', 'theme', 'user_lyrics_lines', 'vocal_offset_ms']}
     assert new_report['desktop_recipe_snapshot']['recipe'] == job.recipe
     assert 'input_integrity' in new_report

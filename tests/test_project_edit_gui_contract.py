@@ -20,6 +20,15 @@ def fake_qt(monkeypatch):
         def setEnabled(self, value): self.enabled = value
         def setWordWrap(self, value): pass
         def setMinimumHeight(self, value): pass
+        def setText(self, value): self.value = value
+    class Button(Widget):
+        def __init__(self, *args):
+            super().__init__(*args); self.clicked = Signal()
+    class FileDialog:
+        @staticmethod
+        def getOpenFileName(*args): return ('', '')
+        @staticmethod
+        def getOpenFileNames(*args): return ([], '')
     class Dialog(Widget):
         def setWindowTitle(self, value): pass
         def resize(self, *args): pass
@@ -44,6 +53,7 @@ def fake_qt(monkeypatch):
     class Layout:
         def __init__(self, *args): pass
         def addWidget(self, *args): pass
+        def addLayout(self, *args): pass
         def addStretch(self): pass
     class Scroll(Widget):
         def setWidgetResizable(self, value): pass
@@ -67,10 +77,15 @@ def fake_qt(monkeypatch):
         @classmethod
         def question(cls, *args): return cls.answer
     for name, cls in {'QCheckBox': Check, 'QDialog': Dialog, 'QDialogButtonBox': Buttons,
+                      'QFileDialog': FileDialog, 'QHBoxLayout': Layout, 'QPushButton': Button,
                       'QLabel': Widget, 'QLineEdit': Line, 'QMessageBox': MessageBox,
                       'QScrollArea': Scroll, 'QSpinBox': Spin, 'QTextEdit': Text,
                       'QVBoxLayout': Layout, 'QWidget': Widget}.items():
         setattr(widgets, name, cls)
+    monkeypatch.delitem(sys.modules, 'app.gui.wizard.project_input_editor', raising=False)
+    wizard = ModuleType('app.gui.wizard')
+    wizard.__path__ = [str(Path(__file__).resolve().parents[1] / 'app/gui/wizard')]
+    monkeypatch.setitem(sys.modules, 'app.gui.wizard', wizard)
     monkeypatch.setitem(sys.modules, 'PySide6', ModuleType('PySide6'))
     monkeypatch.setitem(sys.modules, 'PySide6.QtWidgets', widgets)
     return widgets, MessageBox
@@ -118,13 +133,14 @@ def test_action_confirmation_cancel_and_busy_paths(fake_qt, monkeypatch):
         def __init__(self, recipe, screen): calls.append(('dialog', recipe))
         def exec(self): return self.result
         def changes(self): return {'theme': 'new'}
+        def replacements(self): return {}
     fake = ModuleType('app.gui.wizard.project_edit_dialog')
     fake.ProjectEditDialog = EditDialog
     monkeypatch.setitem(sys.modules, fake.__name__, fake)
     job = SimpleNamespace(track_id='opened-id', master_only=True, recipe={'theme': 'old'},
                           result={'pipeline': {'input_integrity': {'version': 1}}})
     run = SimpleNamespace(current_tid=None, batch_tids=[], track_job=lambda tid: calls.append(('track', tid)))
-    orch = SimpleNamespace(enqueue_opened_rebuild=lambda source, changes: calls.append((source, changes)) or 'next')
+    orch = SimpleNamespace(enqueue_opened_rebuild=lambda source, changes, replacements: calls.append((source, changes, replacements)) or 'next')
     screen = SimpleNamespace(current_job=job, wizard=SimpleNamespace(steps=[run], orch=orch))
     EditDialog.result = 0
     module.start_project_edit(screen)
@@ -135,7 +151,7 @@ def test_action_confirmation_cancel_and_busy_paths(fake_qt, monkeypatch):
     assert len(calls) == 2
     box.answer = box.StandardButton.Yes
     module.start_project_edit(screen)
-    assert calls[-2:] == [('opened-id', {'theme': 'new'}), ('track', 'next')]
+    assert calls[-2:] == [('opened-id', {'theme': 'new'}, {}), ('track', 'next')]
     run.current_tid = 'busy'
     module.start_project_edit(screen)
     assert box.warnings and len(calls) == 5

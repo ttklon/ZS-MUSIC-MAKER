@@ -24,11 +24,16 @@ def start_project_edit(screen) -> None:
         if dialog.exec() != dialog.Accepted:
             return
         changes = dialog.changes()
-        if not changes:
+        replacements = dialog.replacements()
+        if not changes and not replacements:
             return
+        if {"beat_input_path", "own_vocal_wav"} & replacements.keys():
+            if QMessageBox.question(screen, t("wizard.edit.title"), t("wizard.inputs.pairing_confirm")) != QMessageBox.StandardButton.Yes:
+                return
+            replacements["ack_unverified_pairing"] = True
         if QMessageBox.question(screen, t("wizard.edit.title"), t("wizard.edit.confirm")) != QMessageBox.StandardButton.Yes:
             return
-        tid = screen.wizard.orch.enqueue_opened_rebuild(job.track_id, changes)
+        tid = screen.wizard.orch.enqueue_opened_rebuild(job.track_id, changes, replacements)
         run_step.track_job(tid)
     except Exception as error:  # noqa: BLE001 - invalid edits or queue failure must be shown
         QMessageBox.warning(screen, t("dialog.error"), str(error))

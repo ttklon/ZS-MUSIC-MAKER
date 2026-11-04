@@ -8,6 +8,7 @@ from PySide6.QtWidgets import (
 
 from app.core.i18n import t
 from app.core.project_edit import validate_project_overrides
+from app.gui.wizard.project_input_editor import ProjectInputEditor
 
 
 class ProjectEditDialog(QDialog):
@@ -54,6 +55,8 @@ class ProjectEditDialog(QDialog):
         text("user_lyrics_lines", t("wizard.material.lyrics"))
         text("reference_lyrics", t("wizard.material.reference_text"))
         text("trend_notes", t("wizard.material.trend_notes"))
+        self._inputs = ProjectInputEditor(self)
+        form.addWidget(self._inputs)
         for key, title, low, high, default in (
             ("bpm_override", t("wizard.tuning.bpm"), 0, 220, 0),
             ("vocal_offset_ms", t("wizard.voice.offset"), -5000, 5000, 0),
@@ -79,6 +82,7 @@ class ProjectEditDialog(QDialog):
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
         self._changes = None
+        self._replacements = None
 
     def selected_overrides(self) -> dict:
         changes = {}
@@ -102,15 +106,21 @@ class ProjectEditDialog(QDialog):
 
     def _accept_changes(self) -> None:
         self._changes = None
+        self._replacements = None
         try:
-            self._changes = self.selected_overrides()
+            changes = self.selected_overrides()
+            replacements = self._inputs.selections()
         except ValueError as error:
             QMessageBox.warning(self, t("dialog.error"), str(error))
             return
-        if not self._changes:
+        if not changes and not replacements:
             QMessageBox.information(self, t("wizard.edit.title"), t("wizard.edit.no_changes"))
             return
+        self._changes, self._replacements = changes, replacements
         self.accept()
 
     def changes(self) -> dict:
         return dict(self._changes or {})
+
+    def replacements(self) -> dict:
+        return {k: list(v) if isinstance(v, list) else v for k, v in (self._replacements or {}).items()}
