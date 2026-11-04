@@ -116,6 +116,20 @@ class Wizard(QMainWindow):
         self._sync_nav()
         self._maybe_onboarding()
 
+    def closeEvent(self, event) -> None:
+        """Do not implicitly interrupt recording or queued/active renders."""
+        dialog = getattr(self.steps[2], "_recording_dialog", None)
+        thread = getattr(dialog, "_thread", None)
+        if dialog is not None and ((thread is not None and thread.isRunning()) or dialog.isVisible()):
+            QMessageBox.warning(self, t("wizard.close.title"), t("wizard.close.recording"))
+            event.ignore()
+            return
+        if not self.orch.shutdown_if_idle():
+            QMessageBox.warning(self, t("wizard.close.title"), t("wizard.close.busy"))
+            event.ignore()
+            return
+        event.accept()
+
     # --- меню --------------------------------------------------------------
     def _build_menu(self) -> None:
         menu = self.menuBar()

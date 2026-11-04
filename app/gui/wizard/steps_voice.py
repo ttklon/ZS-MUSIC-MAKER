@@ -77,6 +77,7 @@ class StepVoice(StepBase):
         self._recorded_backing_sha256 = ""
         self._recorded_vocal_sha256 = ""
         self._recorded_binding_integrity = ""
+        self._recording_dialog = None
 
         self.use_rvc = QCheckBox(t("wizard.voice.use_rvc"))
         self.use_rvc.setChecked(False)
@@ -265,13 +266,25 @@ class StepVoice(StepBase):
     def open_karaoke(self) -> None:
         """Запись голоса в отдельном окне; удачная запись сразу становится вокалом."""
         try:
+            previous = getattr(self, "_recording_dialog", None)
+            thread = getattr(previous, "_thread", None)
+            if thread is not None and thread.isRunning():
+                QMessageBox.warning(self, t("wizard.voice.karaoke"), t("wizard.close.recording"))
+                return
             from app.gui.wizard.record_dialog import RecordDialog
 
             recipe = self.wizard.recipe
             backing = recipe.get("beat_input_path", "") if recipe.get("beat_engine") == "user_audio" else ""
             duration = recipe.get("duration_sec") or 20
             dialog = RecordDialog(self, default_backing=backing, default_duration=int(duration))
-            if dialog.exec() == dialog.Accepted and dialog.result_path:
+            self._recording_dialog = dialog
+            try:
+                accepted = dialog.exec() == dialog.Accepted
+            finally:
+                thread = getattr(dialog, "_thread", None)
+                if thread is None or not thread.isRunning():
+                    self._recording_dialog = None
+            if accepted and dialog.result_path:
                 self.set_own_vocal(dialog.result_path)
                 recording = getattr(dialog, "recording_result", {})
                 if getattr(self, "_own_vocal", None) and recording.get("recording_sha256"):

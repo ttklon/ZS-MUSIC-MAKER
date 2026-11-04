@@ -97,3 +97,25 @@ def test_back_from_result_warns_that_wizard_is_not_restored(module):
     box.answer = box.StandardButton.Yes
     window.Wizard.back(wizard)
     assert calls == [('index', 1), 'enter', ('crumb', 'step'), 'sync']
+
+
+def test_closing_main_window_waits_for_queue_and_recorder(module):
+    window, box, _ = module
+    calls = []
+    event = SimpleNamespace(ignore=lambda: calls.append('ignored'), accept=lambda: calls.append('accepted'))
+    dialog = SimpleNamespace(_thread=SimpleNamespace(isRunning=lambda: True), isVisible=lambda: True)
+    voice = SimpleNamespace(_recording_dialog=dialog)
+    orch = SimpleNamespace(shutdown_if_idle=lambda: calls.append('shutdown') or True)
+    wizard = SimpleNamespace(steps=[None, None, voice], orch=orch)
+    window.Wizard.closeEvent(wizard, event)
+    assert calls == ['ignored'] and box.warnings
+    dialog._thread.isRunning = lambda: False
+    window.Wizard.closeEvent(wizard, event)
+    assert calls == ['ignored', 'ignored']  # open recorder must close before parent
+    voice._recording_dialog = None
+    orch.shutdown_if_idle = lambda: calls.append('busy') or False
+    window.Wizard.closeEvent(wizard, event)
+    assert calls[-2:] == ['busy', 'ignored']
+    orch.shutdown_if_idle = lambda: calls.append('shutdown') or True
+    window.Wizard.closeEvent(wizard, event)
+    assert calls[-2:] == ['shutdown', 'accepted']

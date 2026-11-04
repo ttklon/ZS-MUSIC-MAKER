@@ -87,6 +87,8 @@ class RuntimeOrchestrator:
         self._lock = threading.Lock()
         self._stop = threading.Event()
         self._worker: threading.Thread | None = None
+        self._closing = False
+        self._active_job: str | None = None
         self._ensure_worker()
 
     def _log(self, msg: str) -> None:
@@ -100,11 +102,30 @@ class RuntimeOrchestrator:
             LOGGER.warning("runtime diagnostic sink failed: %s", error)
 
     def _ensure_worker(self):
-        if self._worker and self._worker.is_alive():
-            return
-        self._stop.clear()
-        self._worker = threading.Thread(target=self._run_loop, daemon=True)
-        self._worker.start()
+        with self._lock:
+            if self._closing or (self._worker and self._worker.is_alive()):
+                return
+            self._stop.clear()
+            self._worker = threading.Thread(target=self._run_loop, daemon=True)
+            self._worker.start()
+
+    def shutdown_if_idle(self) -> bool:
+        """Close admission only after every queued/active job has finished.
+
+        This is not cancellation. Forced process or OS shutdown may still
+        interrupt work and leave partial files.
+        """
+        with self._lock:
+            if self._active_job or self._queue or any(j.status in ("pending", "running") for j in self.jobs.values()):
+                return False
+            self._closing = True
+            self._stop.set()
+        return True
+
+    def _require_open(self) -> None:
+        # Called while holding _lock, so admission cannot race with shutdown.
+        if self._closing:
+            raise RuntimeError("application is shutting down; new jobs are not accepted")
 
     def stop(self, join_timeout: float = 1.0) -> None:
         """Request worker shutdown and wait briefly when it is idle."""
@@ -147,6 +168,7 @@ class RuntimeOrchestrator:
         recipe = restore_recipe(report)
         validate_master_source(source, report)
         with self._lock:
+            self._require_open()
             for _ in range(32):
                 tid = "opened-" + uuid.uuid4().hex
                 if tid not in self.jobs:
@@ -174,6 +196,7 @@ class RuntimeOrchestrator:
         if only:
             payload["only"] = sorted(only)
         with self._lock:
+            self._require_open()
             tid, out_dir = self._reserve_project()
             job = Job(track_id=tid, recipe=payload, project_dir=str(out_dir))
             self.jobs[tid] = job
@@ -185,6 +208,7 @@ class RuntimeOrchestrator:
     def enqueue_master_revision(self, source_id: str, overrides: dict[str, Any] | None = None) -> str:
         """Create a new job from a completed or explicitly opened project."""
         with self._lock:
+            self._require_open()
             source = self.jobs.get(source_id)
             if not source or source.status != "done":
                 raise ValueError("source project is not a completed or opened job")
@@ -226,6 +250,7 @@ class RuntimeOrchestrator:
 
     def _queue_opened_rebuild(self, source_id: str, changes: dict, selection: dict) -> str:
         with self._lock:
+            self._require_open()
             source = self.jobs.get(source_id)
             if not source or source.status != "done" or not source.master_only:
                 raise ValueError("source is not an opened project")
@@ -262,14 +287,25 @@ class RuntimeOrchestrator:
             with self._lock:
                 if self._queue:
                     tid = self._queue.pop(0)
+                    self._active_job = tid
             if not tid:
                 # Event.wait preserves the poll interval but wakes immediately
                 # when shutdown is requested instead of blocking on sleep.
                 self._stop.wait(0.2)
                 continue
-            job = self.jobs.get(tid)
-            if job:
-                self._process(job)
+            try:
+                job = self.jobs.get(tid)
+                if job:
+                    try:
+                        self._process(job)
+                    except BaseException as error:  # worker must not strand a pending job
+                        LOGGER.exception("runtime worker failed for %s", tid)
+                        job.status, job.stage = "error", "failed"
+                        job.error = f"{type(error).__name__}: {error}"[:500]
+                        job.progress, job.finished_at = 0.0, time.time()
+            finally:
+                with self._lock:
+                    self._active_job = None
 
     def _process(self, job: Job):
         out_dir = Path(job.project_dir)

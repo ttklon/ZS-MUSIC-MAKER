@@ -35,6 +35,9 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "wizard.step": "Шаг {index} / {total}",
         "wizard.result_step": "Результат",
         "wizard.next_disabled": "Дальше некуда — трек уже собирается",
+        "wizard.close.title": "Завершение работы",
+        "wizard.close.recording": "Сначала завершите запись и закройте окно рекордера. Принудительная остановка не поддерживается.",
+        "wizard.close.busy": "Рендер или очередь ещё выполняются. Дождитесь завершения перед закрытием. Отмена задач пока не поддерживается.",
         # --- шаг 1: жанр и тема --------------------------------------------
         "wizard.brief.title": "1. Жанр и тема",
         "wizard.brief.hint": "Этого экрана уже достаточно для запуска: жанр, тема и имя артиста. Остальное можно не трогать.",
@@ -53,7 +56,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "wizard.brief.beat_none": "Файл не выбран",
         "wizard.brief.beat_hint": "ACE-Step требует отдельной установки и запущенного API. Генерируется инструментал, не ваш голос.",
         "wizard.brief.seed": "Seed (0 — случайный)",
-        "wizard.brief.seed_hint": "Один и тот же seed + жанр + тема дают один и тот же трек — это и есть воспроизводимость.",
+        "wizard.brief.seed_hint": "Seed влияет на часть случайных решений. Одинаковый результат не гарантирован: влияют входные файлы, модели, сервисы и настройки.",
         # --- шаг 2: референсы и материал -----------------------------------
         "wizard.material.title": "2. Референсы и материал",
         "wizard.material.hint": "1–7 треков, которые тебе нравятся по звуку. Первый — главный. Их не копируют: замеряются BPM, ритм и вайб.",
@@ -209,6 +212,9 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "wizard.step": "Step {index} / {total}",
         "wizard.result_step": "Result",
         "wizard.next_disabled": "Nothing further — the track is already rendering",
+        "wizard.close.title": "Closing the application",
+        "wizard.close.recording": "Finish recording and close the recorder first. Forced cancellation is not supported.",
+        "wizard.close.busy": "A render or queued jobs are still running. Wait for completion before closing. Job cancellation is not yet supported.",
         # --- step 1: genre and theme ---------------------------------------
         "wizard.brief.title": "1. Genre and theme",
         "wizard.brief.hint": "This screen alone is enough to start: genre, theme and artist name. Everything else has sane defaults.",
@@ -227,7 +233,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "wizard.brief.beat_none": "No file selected",
         "wizard.brief.beat_hint": "ACE-Step requires a separate installation and running API. It generates instrumental audio, not your voice.",
         "wizard.brief.seed": "Seed (0 — random)",
-        "wizard.brief.seed_hint": "Same seed + genre + theme produce the same track — that is reproducibility.",
+        "wizard.brief.seed_hint": "The seed affects some random choices; identical results are not guaranteed because inputs, models, services and settings also matter.",
         # --- step 2: references and material -------------------------------
         "wizard.material.title": "2. References and material",
         "wizard.material.hint": "1–7 tracks you like sonically. The first one leads. Nothing is copied: BPM, groove and vibe are measured.",
