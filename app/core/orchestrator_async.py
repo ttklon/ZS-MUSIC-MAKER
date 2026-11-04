@@ -115,4 +115,7 @@ async def main_async() -> None:  # pragma: no cover - ручной запуск
 
 
 if __name__ == "__main__":  # pragma: no cover
-    asyncio.run(main_async())
+    from app.core.numba_cache import isolated_numba_cache
+
+    with isolated_numba_cache():
+        asyncio.run(main_async())

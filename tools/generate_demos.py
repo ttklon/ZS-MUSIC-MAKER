@@ -164,4 +164,7 @@ def main(argv: list[str] | None = None) -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    from app.core.numba_cache import isolated_numba_cache
+
+    with isolated_numba_cache():
+        raise SystemExit(main())

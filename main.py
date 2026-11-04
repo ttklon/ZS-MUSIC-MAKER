@@ -126,5 +126,13 @@ def main() -> int:
     return commands.run_console()
 
 
+def cli_entry() -> int:
+    """CLI entrypoint used by the script and installed console command."""
+    from app.core.numba_cache import isolated_numba_cache
+
+    with isolated_numba_cache():
+        return main()
+
+
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(cli_entry())

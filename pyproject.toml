@@ -48,7 +48,7 @@ dependencies = [
 ]
 
 [project.scripts]
-zs-music-maker = "main:main"
+zs-music-maker = "main:cli_entry"
 
 [tool.setuptools]
 # main.py is the stable CLI entrypoint and must be shipped with the wheel.

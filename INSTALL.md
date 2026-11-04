@@ -274,7 +274,7 @@ scripts\setup.cmd          # Windows: venv + базовые зависимост
 # Для verify сначала: .venv\Scripts\python.exe -m pip install -r requirements_dev.txt
 
 # Или вручную (кросс-платформенно):
-python -m pytest tests/                    # полный unit/regression suite
+python -m tools.pytest_isolated tests/     # полный suite с отдельным Numba-кэшем
 python tools/smoke_audio.py                  # аудио-качество
 python tools/smoke_god.py                  # God Mode E2E
 python tools/fallback_audit.py             # аудит fallback-путей
@@ -298,7 +298,7 @@ brew install ffmpeg            # macOS
 # Для тестов (нужны только разработке, на Windows для работы программы не нужны):
 pip install -r requirements_dev.txt
 
-python -m pytest tests/
+python -m tools.pytest_isolated tests/
 python main.py --health
 python main.py                 # запуск
 ```

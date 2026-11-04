@@ -26,7 +26,7 @@ jobs:
 
     - name: Run Pytest Suite
       run: |
-        python -m pytest tests/
+        python -m tools.pytest_isolated tests/
 
     - name: Smoke — audio quality
       run: python tools/smoke_audio.py
@@ -61,7 +61,7 @@ jobs:
     - name: AST dead-imports audit (ШАГ 010)
       run: python tools/ast_dead_imports.py
     - name: Pytest
-      run: python -m pytest tests/ -q
+      run: python -m tools.pytest_isolated tests/ -q
     - name: CLI version with config path (ШАГ 007)
       run: python main.py --version
 
@@ -89,7 +89,7 @@ jobs:
       run: python -m compileall -q app agents modules tools updater ui main.py
 
     - name: Pytest
-      run: python -m pytest tests/ -q -p no:cacheprovider
+      run: python -m tools.pytest_isolated tests/ -q -p no:cacheprovider
 
     - name: Smoke — audio quality
       run: python tools/smoke_audio.py

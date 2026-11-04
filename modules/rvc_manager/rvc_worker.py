@@ -79,4 +79,11 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    # -I keeps the sidecar's package environment separate. Load only this
+    # standard-library helper by path, without adding the app to sys.path.
+    from runpy import run_path
+
+    cache_helper = Path(__file__).resolve().parents[2] / "app" / "core" / "numba_cache.py"
+    isolated_numba_cache = run_path(str(cache_helper))["isolated_numba_cache"]
+    with isolated_numba_cache():
+        raise SystemExit(main())

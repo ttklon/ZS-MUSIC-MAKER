@@ -229,4 +229,7 @@ if __name__ == "__main__":
 
     if help_or_error(__doc__ or "ZS Music Maker tool"):
         raise SystemExit(0)
-    raise SystemExit(main())
+    from app.core.numba_cache import isolated_numba_cache
+
+    with isolated_numba_cache():
+        raise SystemExit(main())

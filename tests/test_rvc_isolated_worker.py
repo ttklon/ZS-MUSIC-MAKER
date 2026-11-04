@@ -24,7 +24,7 @@ def fake_rvc_env(tmp_path):
     (package / "infer.py").write_text('''import json, os, wave, struct
 class RVCInference:
     def __init__(self, **kwargs):
-        self.values = kwargs
+        self.values = dict(kwargs, numba_cache_dir=os.environ.get("NUMBA_CACHE_DIR"))
     def set_params(self, **kwargs):
         self.values.update(kwargs)
     def infer_file(self, source, target):
@@ -64,6 +64,12 @@ def test_actual_isolated_process_routes_files_and_validates_output(tmp_path, mon
     log = tmp_path / "fake.json"
     monkeypatch.setenv("FAKE_RVC_LOG", str(log))
     monkeypatch.setenv("ZSMM_RVC_PYTHON", str(python))
+    cache_base = tmp_path / 'shared numba base'
+    cache_base.mkdir()
+    sentinel = cache_base / 'preserve.txt'
+    sentinel.write_text('keep')
+    monkeypatch.setenv('NUMBA_CACHE_DIR', str(cache_base))
+    monkeypatch.delenv('ZSMM_NUMBA_CACHE_ISOLATED', raising=False)
     monkeypatch.setattr(module, "ROOT", tmp_path)
     monkeypatch.setattr(module, "detect_backend", lambda: pytest.fail("main torch must not be loaded"))
     monkeypatch.setattr("app.ai.hardware.available_memory_gib", lambda: 10.0)
@@ -72,6 +78,8 @@ def test_actual_isolated_process_routes_files_and_validates_output(tmp_path, mon
     calls = json.loads(log.read_text(encoding="utf-8"))
     assert calls["device"] == "cpu:0" and calls["model_path"] == str(weights.resolve())
     assert calls["index_path"] == str(index.resolve()) and calls["f0up_key"] == 3
+    assert Path(calls['numba_cache_dir']).parent == cache_base
+    assert not Path(calls['numba_cache_dir']).exists() and sentinel.read_text() == 'keep'
     assert sf.info(output).frames == 8000 and voice.read_bytes() == before
 
 
