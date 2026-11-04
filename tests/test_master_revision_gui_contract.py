@@ -162,3 +162,38 @@ def test_opened_project_disables_full_rebuild_and_variants(gui_module):
     module.StepResult.rebuild_full(obj)
     module.StepResult.three_variants(obj)
     assert len(box.warnings) == 2
+
+
+def test_opened_full_rebuild_requires_confirmation_and_tracks_job(gui_module):
+    module, box = gui_module
+    calls = []
+    run = SimpleNamespace(current_tid=None, batch_tids=[], track_job=lambda tid: calls.append(('track', tid)))
+    orch = SimpleNamespace(enqueue_opened_rebuild=lambda tid: calls.append(('rebuild', tid)) or 'new')
+    job = SimpleNamespace(track_id='opened', master_only=True, result={'pipeline': {'input_integrity': {'version': 1}}})
+    obj = SimpleNamespace(current_job=job, wizard=SimpleNamespace(steps=[run], orch=orch))
+    box.answer = box.StandardButton.No
+    module.StepResult.rebuild_full(obj)
+    assert calls == []
+    box.answer = box.StandardButton.Yes
+    module.StepResult.rebuild_full(obj)
+    assert calls == [('rebuild', 'opened'), ('track', 'new')]
+    run.batch_tids = ['busy']
+    module.StepResult.rebuild_full(obj)
+    assert len(calls) == 2 and box.warnings
+
+
+def test_manifest_enables_only_full_rebuild_for_opened_project(gui_module):
+    module, _ = gui_module
+    class Label:
+        def setText(self, text): self.text = text
+    class Button:
+        def setEnabled(self, value): self.enabled = value
+    full, part, variants, info = Button(), Button(), Button(), Label()
+    pipeline = {'verdict': 'PARTIAL', 'stages': [], 'artifact_integrity': {'mix': {'sha256': 'x'}},
+                'input_integrity': {'version': 1}}
+    job = SimpleNamespace(result={'pipeline': pipeline}, master_only=True, track_id='opened',
+                          started_at=0, finished_at=0, stage='opened')
+    obj = SimpleNamespace(info=info, detector=Label(), btn_part=part, btn_full=full, btn_three=variants)
+    module.StepResult.show_result(obj, job)
+    assert full.enabled and part.enabled and not variants.enabled
+    assert 'проверки и копирования' in info.text or 'verifying and copying' in info.text

@@ -94,14 +94,14 @@ def run_full_pipeline(
     recipe = build_recipe({**wizard_state, "project_id": project_id})
     if only is None and isinstance(recipe.get("only"), (list, tuple, set)):
         only = set(recipe["only"])
+    from app.core.input_integrity import begin_input_capture, finish_input_capture
+    input_capture = begin_input_capture(wizard_state, not dry_run and not only and not reused_stages)
     _apply_seed(recipe.get("seed"))
     stages: list[StageResult] = []
     warnings: list[str] = []
     prior = _output(reused_stages.get("_stage_mix_and_sidechain")) if reused_stages.get("_stage_mix_and_sidechain") else {}
     warnings.extend(f"prior run: {w}" for w in prior.get("reused_source_warnings", []))
-    # Пайплайн всегда добавляет одно и то же число записей: пропущенные стадии
-    # попадают в список как BLOCKED, а не исчезают. Поэтому «всего» известно
-    # заранее и прогресс в GUI не врёт.
+    # Skipped stages remain BLOCKED records so progress uses a stable total.
     total_stages = len(STAGE_RECORDS)
 
     def add(*new_stages: StageResult) -> None:
@@ -358,11 +358,11 @@ def run_full_pipeline(
         report["desktop_recipe_snapshot"] = snapshot_recipe(wizard_state)
     except ValueError as exc:
         warnings.append(f"project recipe not saved; reopening unavailable: {exc}")
+    finish_input_capture(report, wizard_state, input_capture, warnings)
     add_mix_integrity(report, mix_stage, out_root, warnings)
     if initial_integrity.get("artifact_integrity") != report.get("artifact_integrity"):
         report.pop("artifact_integrity", None)
         warnings.append("mix changed during render; master revision is unavailable")
-    # Отчёт всегда ложится рядом с артефактами: он же — точка возобновления.
     try:
         (out_root / "report.json").write_text(
             json.dumps(report, ensure_ascii=False, indent=2, default=str),

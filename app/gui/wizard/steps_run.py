@@ -240,13 +240,14 @@ class StepResult(StepBase):
                                  and not pipeline.get("only") and not pipeline.get("resume")
                                  and not pipeline.get("dry_run"))
         master_only = getattr(job, "master_only", False)
+        rebuild_available = isinstance(pipeline.get("input_integrity"), dict)
         if hasattr(self, "btn_full"):
-            self.btn_full.setEnabled(not master_only)
+            self.btn_full.setEnabled(not master_only or rebuild_available)
             self.btn_three.setEnabled(not master_only)
         verdict = pipeline.get("verdict") or job.stage
         release_output = next((stage.get("output") or {} for stage in pipeline.get("stages", [])
                                if stage.get("name") == "_stage_release_pack"), {})
-        release_notes = [t("wizard.project.master_only")] if master_only else []
+        release_notes = [t("wizard.project.full_ready" if rebuild_available else "wizard.project.master_only")] if master_only else []
         lyric_output = next((stage.get("output") or {} for stage in pipeline.get("stages", [])
                              if stage.get("name") == "_stage_lyrics"), {})
         asr = (lyric_output.get("creative_context") or {}).get("reference_asr") or {}
@@ -306,17 +307,25 @@ class StepResult(StepBase):
     def rebuild_full(self) -> None:
         if not self.current_job:
             return
-        if getattr(self.current_job, "master_only", False):
+        opened = getattr(self.current_job, "master_only", False)
+        pipeline = ((self.current_job.result or {}).get("pipeline") or {}) if opened else {}
+        if opened and not isinstance(pipeline.get("input_integrity"), dict):
             QMessageBox.warning(self, t("dialog.error"), t("wizard.project.master_only"))
             return
         run_step = self.wizard.steps[-1]
         if run_step.current_tid or getattr(run_step, "batch_tids", []):
             QMessageBox.warning(self, t("dialog.error"), t("wizard.result.job_busy"))
             return
-        recipe = dict(self.current_job.recipe)
-        recipe.pop("only", None)
+        if opened and QMessageBox.question(self, t("wizard.result.rebuild_all"),
+                t("wizard.project.full_confirm")) != QMessageBox.StandardButton.Yes:
+            return
         try:
-            tid = self.wizard.orch.enqueue(recipe)
+            if opened:
+                tid = self.wizard.orch.enqueue_opened_rebuild(self.current_job.track_id)
+            else:
+                recipe = dict(self.current_job.recipe)
+                recipe.pop("only", None)
+                tid = self.wizard.orch.enqueue(recipe)
             run_step.track_job(tid)
         except Exception as error:  # noqa: BLE001 - enqueue may fail
             QMessageBox.warning(self, t("dialog.error"), str(error))

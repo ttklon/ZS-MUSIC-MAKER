@@ -357,3 +357,124 @@ def test_reopened_revision_can_itself_be_reopened(source_project, monkeypatch, t
     other._process(other.jobs[next_id])
     assert other.jobs[next_id].status == 'done', other.jobs[next_id].error
     assert other.jobs[next_id].result['pipeline']['revision']['source_project'] == first
+
+
+def test_full_rebuild_after_reopen_freezes_verified_inputs(source_project, monkeypatch, tmp_path):
+    import app.runtime_orchestrator as runtime_module
+    _, _, _, calls = source_project
+    monkeypatch.setattr(runtime_module, 'ROOT', tmp_path)
+    monkeypatch.setattr(orchestrator, '_stage_ai_beat', lambda recipe, plan, out, style, dry: {
+        'ok': True, 'path': _tone(out / 'beat.wav'), 'bpm': 100})
+    files = [tmp_path / name for name in ('ref-a.wav', 'ref-b.wav', 'backing.wav', 'voice.wav', 'model.pth', 'voice.index')]
+    for index, file in enumerate(files):
+        file.write_bytes(('input' + str(index)).encode())
+    recipe = {'genre': 'house', 'theme': 'сохранённая тема', 'artist': 'автор',
+              'references': [str(files[0]), str(files[1])], 'beat_engine': 'user_audio',
+              'beat_input_path': str(files[2]), 'own_vocal_wav': str(files[3]),
+              'voice_mode': 'pro', 'use_rvc': True, 'rvc_model_path': str(files[4]),
+              'rvc_index_path': str(files[5]), 'reference_lyrics': 'личный текст',
+              'user_lyrics_lines': ['строка'], 'trend_notes': 'заметка', 'export_stems': False}
+    source = tmp_path / 'source-full'
+    report = orchestrator.run_full_pipeline('full-source', recipe, out_root=source)
+    assert len(report['input_integrity']['files']) == 6
+    original_report = (source / 'report.json').read_bytes()
+    original_mix = (source / 'mix.wav').read_bytes()
+    runtime = RuntimeOrchestrator()
+    runtime.stop()
+    monkeypatch.setattr(runtime, '_ensure_worker', lambda: None)
+    opened = runtime.open_project(source)
+    tid = runtime.enqueue_opened_rebuild(opened)
+    job = runtime.jobs[tid]
+    runtime._process(job)
+    assert job.status == 'done', job.error
+    assert not job.master_only and job.recipe['theme'] == recipe['theme']
+    assert job.recipe['reference_lyrics'] == 'личный текст'
+    new_paths = [*job.recipe['references'], job.recipe['beat_input_path'], job.recipe['own_vocal_wav'],
+                 job.recipe['rvc_model_path'], job.recipe['rvc_index_path']]
+    for original, copied in zip(files, new_paths):
+        assert Path(copied).is_relative_to(Path(job.project_dir) / 'input_files')
+        assert Path(copied).read_bytes() == original.read_bytes()
+    assert job.result['pipeline']['desktop_recipe_snapshot']['recipe'] == job.recipe
+    assert len(job.result['pipeline']['input_integrity']['files']) == 6
+    assert (source / 'report.json').read_bytes() == original_report
+    assert (source / 'mix.wav').read_bytes() == original_mix
+    assert len([item for item in calls if item == 'analyze']) >= 3
+
+
+@pytest.mark.parametrize('change', ['modified', 'missing', 'report'])
+def test_full_rebuild_blocks_modified_input_or_report(source_project, monkeypatch, tmp_path, change):
+    import app.runtime_orchestrator as runtime_module
+    _, _, _, calls = source_project
+    monkeypatch.setattr(runtime_module, 'ROOT', tmp_path)
+    source_input = tmp_path / 'input.wav'
+    source_input.write_bytes(b'original')
+    source = tmp_path / 'original'
+    orchestrator.run_full_pipeline('src', {'references': [str(source_input)], 'voice_mode': 'off'}, out_root=source)
+    runtime = RuntimeOrchestrator()
+    runtime.stop()
+    monkeypatch.setattr(runtime, '_ensure_worker', lambda: None)
+    opened = runtime.open_project(source)
+    if change == 'modified': source_input.write_bytes(b'changed!')
+    if change == 'missing': source_input.unlink()
+    if change == 'report':
+        path = source / 'report.json'
+        path.write_bytes(path.read_bytes() + b' ')
+    count = calls.count('analyze')
+    tid = runtime.enqueue_opened_rebuild(opened)
+    runtime._process(runtime.jobs[tid])
+    job = runtime.jobs[tid]
+    assert job.status == 'error'
+    assert calls.count('analyze') == count
+    assert not (Path(job.project_dir) / 'input_files').exists()
+    assert not list(Path(job.project_dir).glob('.inputs-*'))
+
+
+def test_manifest_requires_unchanged_inputs_across_original_render(source_project, monkeypatch, tmp_path):
+    _, _, _, _ = source_project
+    audio = tmp_path / 'ref.wav'
+    audio.write_bytes(b'original')
+    def changed(*args, **kwargs):
+        audio.write_bytes(b'modified')
+        return {'ok': True, 'analysis': {'bpm': 100}}
+    monkeypatch.setattr(orchestrator, '_stage_analyze', changed)
+    report = orchestrator.run_full_pipeline('source', {'references': [str(audio)]}, out_root=tmp_path/'source')
+    assert 'input_integrity' not in report
+    assert any('inputs or recipe changed' in warning for warning in report['warnings'])
+
+
+def test_legacy_snapshot_is_master_only_and_cannot_be_fully_rebuilt(source_project, monkeypatch, tmp_path):
+    import app.runtime_orchestrator as runtime_module
+    source, _, report, _ = source_project
+    report.pop('input_integrity')
+    (source / 'report.json').write_text(json.dumps(report), encoding='utf-8')
+    monkeypatch.setattr(runtime_module, 'ROOT', tmp_path)
+    runtime = RuntimeOrchestrator()
+    runtime.stop()
+    monkeypatch.setattr(runtime, '_ensure_worker', lambda: None)
+    opened = runtime.open_project(source)
+    with pytest.raises(ValueError, match='no input integrity'):
+        runtime.enqueue_opened_rebuild(opened)
+
+
+def test_frozen_inputs_relocate_with_the_project(source_project, monkeypatch, tmp_path):
+    import shutil
+    import app.runtime_orchestrator as runtime_module
+    _, _, _, _ = source_project
+    monkeypatch.setattr(runtime_module, 'ROOT', tmp_path)
+    source = tmp_path / 'original-project'
+    source.mkdir()
+    input_path = source / 'my-input.wav'
+    input_path.write_bytes(b'content')
+    report = orchestrator.run_full_pipeline('src', {'references': [str(input_path)]}, out_root=source)
+    assert 'input_integrity' in report
+    moved = tmp_path/'moved-project'
+    shutil.move(source, moved)
+    runtime = RuntimeOrchestrator()
+    runtime.stop()
+    monkeypatch.setattr(runtime, '_ensure_worker', lambda: None)
+    opened = runtime.open_project(moved)
+    tid = runtime.enqueue_opened_rebuild(opened)
+    runtime._process(runtime.jobs[tid])
+    job = runtime.jobs[tid]
+    assert job.status == 'done', job.error
+    assert Path(job.recipe['references'][0]).read_bytes() == b'content'

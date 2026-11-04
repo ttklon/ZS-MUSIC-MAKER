@@ -29,6 +29,7 @@ class Job:
     finished_at: float = 0.0
     result: dict[str, Any] = field(default_factory=dict)
     revision_source_id: str | None = None
+    rebuild_source_id: str | None = None
     source_report_id: str | None = None
     source_report_sha256: str | None = None
     master_only: bool = False
@@ -203,6 +204,34 @@ class RuntimeOrchestrator:
         self._log(f"[runtime_orch] enqueued mastering revision {tid} from {source_id}")
         return tid
 
+    def enqueue_opened_rebuild(self, source_id: str) -> str:
+        """Queue a full new render; input verification and copies run in the worker."""
+        with self._lock:
+            source = self.jobs.get(source_id)
+            if not source or source.status != "done" or not source.master_only:
+                raise ValueError("source is not an opened project")
+            report = source.result.get("pipeline") or {}
+            if not isinstance(report.get("input_integrity"), dict):
+                raise ValueError("project has no input integrity manifest; full rebuild unavailable")
+            tid, out_dir = self._reserve_project(source.project_dir)
+            self.jobs[tid] = Job(track_id=tid, recipe={}, project_dir=str(out_dir), rebuild_source_id=source_id)
+            self._queue.append(tid)
+        self._ensure_worker()
+        self._log(f"[runtime_orch] enqueued full rebuild {tid} from {source_id}")
+        return tid
+
+    def _revision_source_report(self, source_id: str) -> tuple[Job, dict]:
+        from app.core.project_snapshot import read_project_report
+        source = self.jobs.get(source_id)
+        if not source or source.status != "done":
+            raise ValueError("source job is no longer available")
+        report, raw = read_project_report(Path(source.project_dir))
+        if source.source_report_sha256 and hashlib.sha256(raw).hexdigest() != source.source_report_sha256:
+            raise ValueError("source report changed since opening; open it again")
+        if report.get("project_id") != (source.source_report_id or source.track_id):
+            raise ValueError("source report project id does not match")
+        return source, report
+
     def enqueue_batch(self, recipes: list[dict[str, Any]]) -> list[str]:
         return [self.enqueue(r) for r in (recipes or [])]
 
@@ -237,18 +266,16 @@ class RuntimeOrchestrator:
 
             reused_stages = None
             if job.revision_source_id:
-                from app.core.project_snapshot import read_project_report
                 from app.core.revision import prepare_master_revision
-
-                source = self.jobs.get(job.revision_source_id)
-                if not source or source.status != "done":
-                    raise ValueError("source job is no longer available")
-                source_report, raw = read_project_report(Path(source.project_dir))
-                if source.source_report_sha256 and hashlib.sha256(raw).hexdigest() != source.source_report_sha256:
-                    raise ValueError("source report changed since opening; open it again")
-                if source_report.get("project_id") != (source.source_report_id or source.track_id):
-                    raise ValueError("source report project id does not match")
+                source, source_report = self._revision_source_report(job.revision_source_id)
                 reused_stages = prepare_master_revision(Path(source.project_dir), out_dir, source_report)
+            elif job.rebuild_source_id:
+                from app.core.input_integrity import freeze_inputs
+                from app.core.project_snapshot import restore_recipe
+                source, source_report = self._revision_source_report(job.rebuild_source_id)
+                job.stage = "verifying_inputs"
+                job.recipe = freeze_inputs(restore_recipe(source_report), source_report, Path(source.project_dir), out_dir)
+                job.recipe.pop("only", None)
             result = run_full_pipeline(
                 job.track_id,
                 job.recipe,
