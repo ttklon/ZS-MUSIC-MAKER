@@ -80,7 +80,7 @@ def test_same_backing_copy_retains_binding_even_when_original_missing(project, t
     Path(recipe['beat_input_path']).unlink()
     result, detail = execute(project, {'beat_input_path': str(replacement)})
     assert result['recorded_backing_sha256'] == digest(replacement)
-    assert detail['vocal_binding'] == 'PRESERVED'
+    assert detail['vocal_binding'] == 'UNVERIFIED'  # legacy project had no recorded vocal fingerprint
 
 
 def test_unbound_new_take_needs_confirmation_and_clears_old_binding(project, tmp_path):
@@ -111,7 +111,9 @@ def test_indexed_recording_pair_matches_or_fails(project, tmp_path, monkeypatch)
     _, dest, _, _ = project
     take = wave(tmp_path/'take.wav', 600)
     beat = wave(tmp_path/'newbeat.wav', 500)
-    monkeypatch.setattr(voice_convert, 'recording_backing', lambda _: {'path': str(beat), 'sha256': digest(beat)})
+    monkeypatch.setattr(voice_convert, 'recording_backing', lambda _: {
+        'path': str(beat), 'sha256': digest(beat), 'recording_sha256': digest(take),
+        'binding_integrity': 'RECORDED_HASH'})
     with pytest.raises(ValueError, match='does not match'):
         execute(project, {'own_vocal_wav': str(take), 'ack_unverified_pairing': True})
     assert not list(dest.iterdir())
@@ -194,3 +196,43 @@ def test_disk_full_during_new_copy_cleans_temporary_and_preserves_sources(projec
 def test_invalid_selection_is_rejected(bad):
     with pytest.raises((ValueError, OSError)):
         prepare_replacements(bad)
+
+
+def test_changed_archived_voice_is_blocked_even_if_confirmed(project, tmp_path, monkeypatch):
+    _, dest, _, _ = project
+    take = wave(tmp_path/'changed.wav', 600)
+    beat = wave(tmp_path/'beat.wav', 500)
+    monkeypatch.setattr(voice_convert, 'recording_backing', lambda _: {
+        'path': str(beat), 'sha256': digest(beat), 'recording_sha256': 'a'*64,
+        'binding_integrity': 'RECORDED_HASH'})
+    with pytest.raises(ValueError, match='archive SHA-256'):
+        execute(project, {'own_vocal_wav': str(take), 'beat_input_path': str(beat), 'ack_unverified_pairing': True})
+    assert not list(dest.iterdir())
+
+
+def test_legacy_archive_pair_requires_confirmation_and_stays_unverified(project, tmp_path, monkeypatch):
+    _, dest, _, _ = project
+    take = wave(tmp_path/'legacy.wav', 600)
+    beat = wave(tmp_path/'beat.wav', 500)
+    monkeypatch.setattr(voice_convert, 'recording_backing', lambda _: {
+        'path': str(beat), 'sha256': digest(beat), 'binding_integrity': 'LEGACY_UNVERIFIED'})
+    replacements = {'own_vocal_wav': str(take), 'beat_input_path': str(beat)}
+    with pytest.raises(ValueError, match='explicit confirmation'):
+        execute(project, replacements)
+    assert not list(dest.iterdir())
+    result, detail = execute(project, {**replacements, 'ack_unverified_pairing': True})
+    assert detail['vocal_binding'] == 'UNVERIFIED'
+    assert result['recorded_vocal_sha256'] == digest(take)
+    assert result['recorded_binding_integrity'] == 'LEGACY_UNVERIFIED'
+
+
+def test_missing_original_vocal_fingerprint_cannot_be_retroactively_verified(project, tmp_path):
+    _, _, recipe, report = project
+    recipe['recorded_binding_integrity'] = 'RECORDED_HASH'  # incomplete/inconsistent old snapshot
+    report['input_integrity'] = capture_inputs(recipe)
+    take = tmp_path/'same.wav'
+    shutil.copyfile(recipe['own_vocal_wav'], take)
+    result, detail = execute(project, {'own_vocal_wav': str(take)})
+    assert detail['vocal_binding'] == 'UNVERIFIED'
+    assert result['recorded_vocal_sha256'] == digest(take)
+    assert result['recorded_binding_integrity'] == 'LEGACY_UNVERIFIED'

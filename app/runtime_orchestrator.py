@@ -304,7 +304,9 @@ class RuntimeOrchestrator:
                 job.recipe.pop("only", None)
                 if ((job.recipe.get("own_vocal_wav") or job.recipe.get("vocal_wav"))
                         and str(job.recipe.get("voice_mode") or "pro").strip().lower() != "off"
-                        and not job.recipe.get("recorded_backing_sha256")):
+                        and (not job.recipe.get("recorded_backing_sha256")
+                             or job.recipe.get("recorded_binding_integrity") != "RECORDED_HASH"
+                             or not job.recipe.get("recorded_vocal_sha256"))):
                     details.setdefault("vocal_binding", "UNVERIFIED")
                 rebuild_info = {"kind": "full", "source_project": source_report["project_id"],
                                 "overridden_fields": sorted(job.rebuild_overrides), **details}

@@ -67,11 +67,19 @@ def add_recording(wav_path: str, meta: dict) -> dict:
         _ensure_dirs()
         with lock_index(VOICE_INDEX):
             idx = _load_index()
+            from app.core.input_integrity import _file_info
+            source_info = _file_info(source)
+            expected_voice = meta.get("recording_sha256") or ""
+            if expected_voice and (not isinstance(expected_voice, str) or not re.fullmatch(r"[0-9a-f]{64}", expected_voice)
+                                   or expected_voice != source_info[1]):
+                raise ValueError("saved recording changed before archive indexing")
             if source.resolve().parent != VAULT_DIR.resolve():
                 dst = VAULT_DIR / f"rec_{uuid.uuid4().hex}_{safe_style}.wav"
                 # Exclusive create: do not overwrite pre-existing or concurrent takes.
                 with source.open("rb") as src, dst.open("xb") as target:
                     shutil.copyfileobj(src, target)
+                if _file_info(dst) != source_info or _file_info(source) != source_info:
+                    raise ValueError("recording changed or archive copy failed integrity check")
             else:
                 dst = source.resolve()
             copy_complete = True
@@ -81,6 +89,7 @@ def add_recording(wav_path: str, meta: dict) -> dict:
                 "quality_score": meta.get("quality_score"), "timestamp": meta.get("timestamp"),
                 "backing_path": str(meta.get("backing_path") or ""),
                 "backing_sha256": str(meta.get("backing_sha256") or ""),
+                "recording_sha256": source_info[1],
             }
             idx.append(entry)
             _save_index(idx)
@@ -97,11 +106,26 @@ def recording_backing(wav_path: str) -> dict:
     """Read known binding without letting duplicate unbound entries erase it."""
     path = Path(wav_path).resolve()
     binding = {}
+    voice_hash = ""
+    bound_voice_hash = ""
     for entry in reversed(_load_index()):
         if not entry.get("path") or Path(entry["path"]).resolve() != path:
             continue
-        recorded_path = entry.get("backing_path") or ""
-        digest = entry.get("backing_sha256") or ""
+        recorded_voice = entry.get("recording_sha256", "")
+        if recorded_voice is not None and recorded_voice != "":
+            if not isinstance(recorded_voice, str) or not re.fullmatch(r"[0-9a-f]{64}", recorded_voice):
+                raise VoiceIndexError("recording archive has invalid vocal fingerprint")
+            if voice_hash and voice_hash != recorded_voice:
+                raise VoiceIndexError("recording archive has conflicting vocal fingerprints")
+            voice_hash = recorded_voice
+        recorded_path = entry.get("backing_path")
+        digest = entry.get("backing_sha256")
+        if recorded_path is None:
+            recorded_path = ""
+        if digest is None:
+            digest = ""
+        if not isinstance(recorded_path, str) or not isinstance(digest, str):
+            raise VoiceIndexError("recording archive has incomplete or invalid backing metadata")
         if not recorded_path and not digest:
             continue
         if (not isinstance(recorded_path, str) or not recorded_path or not isinstance(digest, str)
@@ -111,6 +135,12 @@ def recording_backing(wav_path: str) -> dict:
             raise VoiceIndexError("recording archive has conflicting backing metadata")
         if not binding:
             binding = {"path": recorded_path, "sha256": digest}
+        if recorded_voice:
+            bound_voice_hash = recorded_voice
+    if voice_hash:
+        binding["recording_sha256"] = voice_hash
+    if binding.get("sha256"):
+        binding["binding_integrity"] = "RECORDED_HASH" if bound_voice_hash else "LEGACY_UNVERIFIED"
     return binding
 
 

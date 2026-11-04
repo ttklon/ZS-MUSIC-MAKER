@@ -46,9 +46,9 @@ def _run_vocal_chain(
     if own_vocal:
         validation_started = time.monotonic()
         try:
-            from app.core.user_vocal import inspect_user_vocal
+            from app.core.user_vocal import prepare_user_vocal
 
-            info = inspect_user_vocal(str(own_vocal))
+            own_vocal, info = prepare_user_vocal(str(own_vocal), recipe.get("recorded_vocal_sha256") or "", out_root)
         except Exception as exc:  # noqa: BLE001 - explicit input must not silently become TTS
             reason = f"recording unavailable or unreadable: {type(exc).__name__}: {exc}"
             return [
@@ -57,6 +57,9 @@ def _run_vocal_chain(
                 _blocked("_stage_rvc", "recording unavailable"),
                 _blocked("_stage_vocal_fx", "recording unavailable"),
             ], None, [reason]
+        if recipe.get("recorded_backing_sha256") and (recipe.get("recorded_binding_integrity") != "RECORDED_HASH"
+                                                      or not recipe.get("recorded_vocal_sha256")):
+            warnings.append("recording-to-backing association is unverified: original recording fingerprint unavailable")
         if info["near_clipping_warning"]:
             warnings.append("vocal recording has samples near full scale; check for clipping and lower microphone gain")
         synth = StageResult(

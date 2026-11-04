@@ -13,7 +13,8 @@ MAX_SNAPSHOT_BYTES = 1024 * 1024
 # Unknown top-level inputs are rejected; known fields can still contain private data.
 RECIPE_KEYS = frozenset({
     "project_id", "references", "theme", "beat_engine", "beat_input_path",
-    "recorded_backing_sha256", "genre", "artist", "artist_name", "preset",
+    "recorded_backing_sha256", "recorded_vocal_sha256", "recorded_binding_integrity",
+    "genre", "artist", "artist_name", "preset",
     "bpm_override", "aggression", "duration_sec", "user_lyrics_lines",
     "reference_lyrics", "transcribe_references", "trend_notes", "voice_mode",
     "stands", "n_verses", "quality_mode", "user_extra_prompt", "seed",

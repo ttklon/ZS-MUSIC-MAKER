@@ -175,13 +175,17 @@ def record_with_backing(
 
     # A saved take remains usable even if indexing fails; report the distinction.
     warning = ""
+    recording_sha256 = ""
     try:
+        from app.core.input_integrity import _file_info
         from modules.voice_convert import add_recording
 
+        recording_sha256 = _file_info(out)[1]
         entry = add_recording(str(out), {"style": style, "text": text,
                                         "duration_sec": len(audio) / actual_sr, "timestamp": ts / 1e9,
                                         "backing_path": str(path.resolve()) if backing_path else "",
-                                        "backing_sha256": backing_sha256})
+                                        "backing_sha256": backing_sha256,
+                                        "recording_sha256": recording_sha256})
         if entry.get("error"):
             warning = f"Recording saved but Voice Vault indexing failed: {entry['error']}"
     except Exception as exc:
@@ -197,7 +201,9 @@ def record_with_backing(
         warning = (warning + " " if warning else "") + "Recording may be clipped; lower microphone gain."
     return {"ok": True, "path": str(out), "style": style, "duration_sec": len(audio) / actual_sr, "sample_rate": actual_sr,
             "backing_used": bool(backing_path), "backing_path": str(path.resolve()) if backing_path else "",
-            "backing_sha256": backing_sha256, "playback_channels": output_channels,
+            "backing_sha256": backing_sha256, "recording_sha256": recording_sha256,
+            "binding_integrity": "RECORDED_HASH" if recording_sha256 and backing_sha256 else "",
+            "playback_channels": output_channels,
             "device_format_checked": format_checked, "backing_shorter": short_backing,
             "peak": peak, "warning": warning}
 

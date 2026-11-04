@@ -238,4 +238,7 @@ def test_unverified_vocal_binding_visible_after_master_revision(gui_module):
     assert 'не подтверждена' in info.text or 'unverified' in info.text
     job.recipe['recorded_backing_sha256'] = 'a' * 64
     module.StepResult.show_result(obj, job)
+    assert 'не подтверждена' in info.text or 'unverified' in info.text  # legacy pairing
+    job.recipe.update(recorded_vocal_sha256='b' * 64, recorded_binding_integrity='RECORDED_HASH')
+    module.StepResult.show_result(obj, job)
     assert 'не подтверждена' not in info.text and 'unverified' not in info.text

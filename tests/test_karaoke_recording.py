@@ -1,5 +1,6 @@
 """Simulate devices to test routing and indexing; not a physical microphone test."""
 import sys
+from pathlib import Path
 from types import SimpleNamespace
 
 import numpy as np
@@ -162,7 +163,9 @@ def test_backing_fingerprint_and_path_persist_with_recording(tmp_path, monkeypat
     assert result["ok"] and result["backing_path"] == str(backing.resolve())
     assert result["backing_sha256"] == sha256_file(backing)
     assert voice_convert.recording_backing(result["path"]) == {
-        "path": str(backing.resolve()), "sha256": sha256_file(backing)}
+        "path": str(backing.resolve()), "sha256": sha256_file(backing),
+        "recording_sha256": sha256_file(Path(result["path"])), "binding_integrity": "RECORDED_HASH"}
+    assert result["recording_sha256"] == sha256_file(Path(result["path"]))
 
 
 def test_changed_backing_during_preparation_does_not_start_recording(tmp_path, monkeypatch):

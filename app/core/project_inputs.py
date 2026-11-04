@@ -101,16 +101,18 @@ def _copy_selection(selection: dict, temp: Path, final: Path, number: int, field
     return str(final / name), digest
 
 
-def _archive_binding(path: str) -> str:
+def _archive_binding(path: str, selected_sha256: str) -> dict:
     from modules.voice_convert import recording_backing
     binding = recording_backing(path)
+    voice_hash = binding.get("recording_sha256") or ""
+    if voice_hash and voice_hash != selected_sha256:
+        raise ValueError("selected recording does not match its archive SHA-256")
     expected = binding.get("sha256") or ""
     recorded_path = binding.get("path") or ""
-    if not expected and not recorded_path:
-        return ""
-    if not recorded_path or not isinstance(expected, str) or not re.fullmatch(r"[0-9a-f]{64}", expected):
-        raise ValueError("recording archive has incomplete or invalid backing metadata")
-    return expected
+    if expected or recorded_path:
+        if not recorded_path or not isinstance(expected, str) or not re.fullmatch(r"[0-9a-f]{64}", expected):
+            raise ValueError("recording archive has incomplete or invalid backing metadata")
+    return binding
 
 
 def apply_replacement_inputs(recipe: dict, original: dict, entries: list[dict], selection: dict,
@@ -136,16 +138,31 @@ def apply_replacement_inputs(recipe: dict, original: dict, entries: list[dict], 
     if "beat_input_path" in changed:
         result["beat_engine"] = "user_audio"
     expected = str(original.get("recorded_backing_sha256") or "")
-    label = "PRESERVED" if expected else "UNVERIFIED"
+    integrity = original.get("recorded_binding_integrity") or ""
+    old_voice_entry = next((e for e in entries if e["field"] in {"own_vocal_wav", "vocal_wav"}), None)
+    original_voice_hash = original.get("recorded_vocal_sha256") or ""
+    label = ("PRESERVED" if expected and integrity == "RECORDED_HASH" and old_voice_entry
+             and original_voice_hash == old_voice_entry["sha256"] else "UNVERIFIED")
+    if label == "UNVERIFIED" and integrity == "RECORDED_HASH":
+        integrity = "LEGACY_UNVERIFIED"
+        result["recorded_binding_integrity"] = integrity
     if "own_vocal_wav" in changed:
         old_key = "own_vocal_wav" if original.get("own_vocal_wav") else "vocal_wav"
         old = next((e for e in entries if e["field"] == old_key), None)
+        binding = _archive_binding(selection["own_vocal_wav"]["path"], hashes["own_vocal_wav"])
         if expected and old and old["sha256"] == hashes["own_vocal_wav"]:
-            label = "PRESERVED"
+            old_vocal_hash = original.get("recorded_vocal_sha256") or ""
+            if old_vocal_hash and old_vocal_hash != old["sha256"]:
+                raise ValueError("preserved recording does not match its saved SHA-256")
+            if binding.get("sha256") and binding["sha256"] != expected:
+                raise ValueError("recording archive conflicts with the preserved backing")
         else:
-            expected = _archive_binding(selection["own_vocal_wav"]["path"])
-            label = "ARCHIVE_BACKING_MATCH" if expected else "UNVERIFIED"
+            expected = binding.get("sha256") or ""
+            integrity = binding.get("binding_integrity") or ""
+            label = "ARCHIVE_BACKING_MATCH" if expected and integrity == "RECORDED_HASH" else "UNVERIFIED"
         result["recorded_backing_sha256"] = expected
+        result["recorded_vocal_sha256"] = hashes["own_vocal_wav"]
+        result["recorded_binding_integrity"] = integrity
         result.pop("vocal_wav", None)
         if str(result.get("voice_mode") or "pro").strip().lower() == "off":
             result["voice_mode"] = "pro"
@@ -160,8 +177,15 @@ def apply_replacement_inputs(recipe: dict, original: dict, entries: list[dict], 
         local_backing = temp / Path(backing).name
         if _file_info(local_backing)[1] != expected:
             raise ValueError("selected backing does not match the recording's saved SHA-256")
-    elif pair_changed and active_vocal and not selection.get("ack_unverified_pairing"):
-        raise ValueError("voice/backing pairing is unverified; explicit confirmation is required")
+    if pair_changed and active_vocal and label == "UNVERIFIED" and not selection.get("ack_unverified_pairing"):
+        # Retaining the same legacy pair, including a byte-identical backing copy,
+        # does not create a new pairing; it is still reported as unverified.
+        old_voice = next((e for e in entries if e["field"] in {"own_vocal_wav", "vocal_wav"}), None)
+        old_backing = next((e for e in entries if e["field"] == "beat_input_path"), None)
+        same_voice = "own_vocal_wav" not in changed or (old_voice and hashes["own_vocal_wav"] == old_voice["sha256"])
+        same_backing = "beat_input_path" not in changed or (old_backing and hashes["beat_input_path"] == old_backing["sha256"])
+        if not (expected and same_voice and same_backing):
+            raise ValueError("voice/backing pairing is unverified; explicit confirmation is required")
     details = {"replaced_fields": changed}
     if pair_changed and active_vocal:
         details["vocal_binding"] = label

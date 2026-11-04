@@ -207,3 +207,32 @@ def test_interrupted_copy_reports_original_not_partial_as_saved_take(tmp_path, m
     assert source.read_bytes() == b"original voice bytes"
     partial = Path(result["partial_copy_path"])
     assert partial.read_bytes() == b"ori" and partial != source
+
+
+def test_recording_index_checks_source_copy_and_expected_hash(tmp_path, monkeypatch):
+    vault = set_up_archive(tmp_path, monkeypatch)
+    source = tmp_path / 'singer.wav'
+    source.write_bytes(b'original take')
+    expected = hashlib.sha256(source.read_bytes()).hexdigest()
+    result = voice_convert.add_recording(str(source), {'recording_sha256': expected, 'style': 'singing'})
+    assert result['recording_sha256'] == expected
+    assert hashlib.sha256(Path(result['path']).read_bytes()).hexdigest() == expected
+    source.write_bytes(b'changed take')
+    failed = voice_convert.add_recording(str(source), {'recording_sha256': expected})
+    assert 'changed' in failed['error']
+    assert len(json.loads((vault / 'vault_index.json').read_text())) == 1
+    assert source.read_bytes() == b'changed take'
+
+
+def test_corrupted_archive_copy_is_not_indexed_or_deleted(tmp_path, monkeypatch):
+    vault = set_up_archive(tmp_path, monkeypatch)
+    source = tmp_path / 'singer.wav'
+    source.write_bytes(b'original take')
+    def corrupt(src, dest):
+        dest.write(b'corrupt copy')
+    monkeypatch.setattr(voice_convert.shutil, 'copyfileobj', corrupt)
+    result = voice_convert.add_recording(str(source), {})
+    assert 'integrity' in result['error']
+    assert Path(result['partial_copy_path']).read_bytes() == b'corrupt copy'
+    assert source.read_bytes() == b'original take'
+    assert not (vault / 'vault_index.json').exists()

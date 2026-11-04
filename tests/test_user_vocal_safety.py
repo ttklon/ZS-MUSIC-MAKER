@@ -101,3 +101,70 @@ def test_pitch_correction_is_explicitly_forwarded(tmp_path, monkeypatch):
         recipe = build_recipe({"own_vocal_wav": str(path), "tune": tune})
         vocal_chain._run_vocal_chain(recipe, "", tmp_path)
     assert [call["tune"] for call in kwargs] == [False, True]
+
+
+def test_verified_vocal_copy_and_changed_source_fail_closed(tmp_path):
+    import hashlib
+    from app.core.user_vocal import prepare_user_vocal
+    source = tmp_path / 'voice.wav'
+    import numpy as np
+    import soundfile as sf
+    sf.write(source, np.full(8000, 0.2, dtype='float32'), 8000)
+    expected = hashlib.sha256(source.read_bytes()).hexdigest()
+    output = tmp_path / 'out'
+    copy, info = prepare_user_vocal(str(source), expected, output)
+    assert Path(copy) != source and Path(copy).read_bytes() == source.read_bytes()
+    assert info['duration_sec'] == 1.0
+    source.write_bytes(b'changed')
+    with pytest.raises(ValueError, match='saved SHA-256'):
+        prepare_user_vocal(str(source), expected, output)
+    assert source.read_bytes() == b'changed' and len(list(output.iterdir())) == 1
+
+
+def test_verified_vocal_copy_failure_cleans_only_its_own_partial(tmp_path, monkeypatch):
+    import hashlib
+    from app.core import user_vocal
+    source = tmp_path/'source.wav'
+    source.write_bytes(b'unchanged')
+    output = tmp_path/'out'
+    output.mkdir()
+    existing = output/'vocal-source-existing.wav'
+    existing.write_bytes(b'do not touch')
+    def fail(src, dst):
+        dst.write(b'partial')
+        raise OSError('disk full')
+    monkeypatch.setattr(user_vocal.shutil, 'copyfileobj', fail)
+    with pytest.raises(OSError, match='disk full'):
+        user_vocal.prepare_user_vocal(str(source), hashlib.sha256(source.read_bytes()).hexdigest(), output)
+    assert list(output.iterdir()) == [existing]
+    assert source.read_bytes() == b'unchanged' and existing.read_bytes() == b'do not touch'
+
+
+def test_vocal_chain_uses_verified_copy_and_rejects_modified_recording(tmp_path):
+    import hashlib
+    path = tmp_path/'voice.wav'
+    write_audio(path, 0.2 * np.sin(np.arange(8000) / 10))
+    expected = hashlib.sha256(path.read_bytes()).hexdigest()
+    state = {'own_vocal_wav': str(path), 'recorded_vocal_sha256': expected,
+             'recorded_backing_sha256': 'a'*64, 'recorded_binding_integrity': 'RECORDED_HASH',
+             'use_vocal_fx': False}
+    stages, vocal, warnings = vocal_chain._run_vocal_chain(build_recipe(state), '', tmp_path/'run')
+    assert stages[0].status.value == 'OK' and Path(vocal) != path
+    assert Path(vocal).read_bytes() == path.read_bytes()
+    assert not any('association is unverified' in w for w in warnings)
+    write_audio(path, 0.3 * np.sin(np.arange(8000) / 10))
+    stages, vocal, warnings = vocal_chain._run_vocal_chain(build_recipe(state), '', tmp_path/'other')
+    assert stages[0].status.value == 'FAILED' and vocal is None
+    assert 'saved SHA-256' in stages[0].reason and warnings
+
+
+def test_legacy_backing_binding_stays_unverified_after_new_vocal_hash(tmp_path):
+    import hashlib
+    path = tmp_path/'legacy.wav'
+    write_audio(path, 0.2 * np.sin(np.arange(8000) / 10))
+    state = {'own_vocal_wav': str(path), 'recorded_vocal_sha256': hashlib.sha256(path.read_bytes()).hexdigest(),
+             'recorded_backing_sha256': 'a'*64, 'recorded_binding_integrity': 'LEGACY_UNVERIFIED',
+             'use_vocal_fx': False}
+    stages, _, warnings = vocal_chain._run_vocal_chain(build_recipe(state), '', tmp_path/'out')
+    assert stages[0].status.value == 'OK'
+    assert any('association is unverified' in w for w in warnings)

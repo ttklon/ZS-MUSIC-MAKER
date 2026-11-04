@@ -160,3 +160,35 @@ def test_selecting_indexed_take_restores_original_backing(gui_modules, monkeypat
     module.StepVoice.set_own_vocal(obj, str(vocal))
     assert wizard.recipe["beat_input_path"] == "original.wav" and obj._recorded_backing_sha256 == "a" * 64
     assert "будет проверен" in messages[-1]
+
+
+def test_corrupt_archive_does_not_allow_gui_to_bypass_binding(gui_modules, monkeypatch, tmp_path):
+    from modules import voice_convert
+    module, _, _ = gui_modules
+    vocal = tmp_path / 'voice.wav'
+    vocal.write_bytes(b'audio')
+    def fail(_):
+        raise voice_convert.VoiceIndexError('conflicting metadata')
+    monkeypatch.setattr(voice_convert, 'recording_backing', fail)
+    messages = []
+    obj = SimpleNamespace(own_label=SimpleNamespace(setText=messages.append))
+    module.StepVoice.set_own_vocal(obj, str(vocal))
+    assert obj._own_vocal is None and 'Выбор записи отменён' in messages[-1]
+    assert obj._recorded_vocal_sha256 == '' and obj._recorded_backing_sha256 == ''
+
+
+def test_gui_passes_archive_vocal_fingerprint_to_recipe(gui_modules, monkeypatch, tmp_path):
+    from modules import voice_convert
+    module, _, _ = gui_modules
+    vocal = tmp_path / 'voice.wav'
+    vocal.write_bytes(b'audio')
+    monkeypatch.setattr(voice_convert, 'recording_backing', lambda _: {
+        'path': '/beat.wav', 'sha256': 'a'*64, 'recording_sha256': 'b'*64,
+        'binding_integrity': 'RECORDED_HASH'})
+    messages = []
+    wizard = SimpleNamespace(recipe={}, steps=[SimpleNamespace(set_instrumental=lambda _: None)])
+    obj = SimpleNamespace(wizard=wizard, own_label=SimpleNamespace(setText=messages.append))
+    obj._bind_recording_backing = lambda path, sha: module.StepVoice._bind_recording_backing(obj, path, sha)
+    module.StepVoice.set_own_vocal(obj, str(vocal))
+    assert obj._recorded_vocal_sha256 == 'b'*64 and obj._recorded_binding_integrity == 'RECORDED_HASH'
+    assert 'записи и минуса' in messages[-1]

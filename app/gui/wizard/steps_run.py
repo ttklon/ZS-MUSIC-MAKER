@@ -257,7 +257,9 @@ class StepResult(StepBase):
         if ((pipeline.get("rebuild") or {}).get("vocal_binding") == "UNVERIFIED"
                 or ((recipe.get("own_vocal_wav") or recipe.get("vocal_wav"))
                     and str(recipe.get("voice_mode") or "pro").strip().lower() != "off"
-                    and not recipe.get("recorded_backing_sha256"))):
+                    and (not recipe.get("recorded_backing_sha256")
+                         or recipe.get("recorded_binding_integrity") != "RECORDED_HASH"
+                         or not recipe.get("recorded_vocal_sha256")))):
             release_notes.append(t("wizard.inputs.unverified"))
         lyric_output = next((stage.get("output") or {} for stage in pipeline.get("stages", [])
                              if stage.get("name") == "_stage_lyrics"), {})
