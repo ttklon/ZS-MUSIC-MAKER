@@ -2,6 +2,8 @@
 """MusicGen beat adapter: чанки до 30 секунд, continuation и проверяемый handle contract."""
 from __future__ import annotations
 
+import logging
+
 import math
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -33,7 +35,7 @@ def _render_with_handle(handle: Any, prompt: str, *, bpm: int, duration_sec: int
         )
     except Exception:
         # Совместимые fake/minimal handles могут не предоставлять parameters API.
-        pass
+        logging.getLogger(__name__).debug("ignored exception", exc_info=True)
     sample_rate = int(getattr(handle, "sample_rate", 32000))
     chunks = [_tensor_to_numpy(handle.generate([prompt], progress=False)[0])]
     chunk_count = max(1, math.ceil(duration_sec / chunk_sec))

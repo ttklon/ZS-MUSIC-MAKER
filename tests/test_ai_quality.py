@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 
 import numpy as np
+import pytest
 import soundfile as sf
 
 from app.ai.quality import validate_audio_artifact, validate_metadata_json
@@ -319,7 +320,7 @@ def test_rvc_quality_requires_duration_preservation(tmp_path) -> None:
     short_output = tmp_path / "short.wav"
     signal = 0.1 * np.sin(2 * np.pi * 180 * np.arange(sample_rate) / sample_rate)
     sf.write(input_path, signal, sample_rate)
-    sf.write(valid_output, signal, sample_rate)
+    sf.write(valid_output, signal * 0.8, sample_rate)
     sf.write(short_output, signal[:4_000], sample_rate)
 
     assert validate_rvc_artifact(input_path, valid_output)["ok"] is True
@@ -439,7 +440,7 @@ def test_cover_quality_requires_readable_large_rgb_artifact(tmp_path) -> None:
 
 
 def test_matchering_handle_processes_reference_without_registry_reload(tmp_path) -> None:
-    from modules.mastering_ai import master_with_matchering
+    from modules.mastering_reference import master_with_matchering
 
     class FakeMatchering:
         def __init__(self):
@@ -472,7 +473,7 @@ def test_matchering_handle_processes_reference_without_registry_reload(tmp_path)
 
 
 def test_matchering_handle_rejects_missing_output(tmp_path) -> None:
-    from modules.mastering_ai import master_with_matchering
+    from modules.mastering_reference import master_with_matchering
 
     class SilentMatchering:
         def pcm16(self, path):
@@ -625,7 +626,7 @@ def test_song_lyrics_quality_rejects_missing_structure_or_ai_filler() -> None:
 
 
 def test_punch_library_fallback_meets_release_lyrics_contract(monkeypatch) -> None:
-    import modules.lyrics_gen as lyrics_gen
+    import modules.lyrics.generate as lyrics_gen
     from app.ai.quality import validate_song_lyrics
 
     monkeypatch.setattr(lyrics_gen, "_try_ollama", lambda _prompt: None)
@@ -768,3 +769,44 @@ def test_pil_cover_fallback_meets_production_1024px_and_byte_contract(tmp_path, 
     quality = validate_cover_artifact(output, min_size=1024, min_bytes=100_000)
     assert quality["ok"] is True
     assert quality["metrics"]["bytes"] >= 100_000
+
+
+def test_rvc_rejects_exact_passthrough_even_in_a_different_container(tmp_path):
+    from app.ai.quality import validate_rvc_artifact
+    source = tmp_path / "source.wav"
+    result = tmp_path / "copy.wav"
+    signal = .2 * np.sin(np.arange(8000) * .1)
+    sf.write(source, signal, 8000, subtype="PCM_16")
+    decoded, sr = sf.read(source)
+    sf.write(result, decoded, sr, subtype="FLOAT")
+    validation = validate_rvc_artifact(source, result)
+    assert not validation["ok"] and "identical to input" in validation["reason"]
+
+
+@pytest.mark.parametrize("bad", [float("nan"), float("inf"), -float("inf")])
+def test_audio_quality_rejects_nonfinite_samples(tmp_path, bad):
+    from app.ai.quality import audio_metrics, validate_audio_artifact, validate_rvc_artifact
+    src = tmp_path / "valid.wav"
+    dst = tmp_path / "invalid.wav"
+    data = (.2 * np.sin(np.arange(8000) * .1)).astype("float32")
+    sf.write(src, data, 8000, subtype="FLOAT")
+    data[150] = bad
+    sf.write(dst, data, 8000, subtype="FLOAT")
+    assert not audio_metrics(dst)["readable"]
+    assert not validate_audio_artifact(dst)["ok"]
+    assert not validate_rvc_artifact(src, dst)["ok"]
+    assert not validate_rvc_artifact(dst, src)["ok"]
+
+
+def test_streaming_audio_metrics_match_numpy_for_long_stereo(tmp_path):
+    from app.ai.quality import audio_metrics
+    rng = np.random.default_rng(7)
+    audio = rng.uniform(-.4, .4, size=(200_000, 2))
+    path = tmp_path / "stereo.wav"
+    sf.write(path, audio, 48000, subtype="DOUBLE")
+    metrics = audio_metrics(path)
+    assert metrics["readable"] and metrics["channels"] == 2
+    assert metrics["rms"] == round(float(np.sqrt(np.mean(audio**2))), 6)
+    assert metrics["stereo_correlation"] == round(float(np.dot(audio[:, 0], audio[:, 1]) /
+        (np.linalg.norm(audio[:, 0]) * np.linalg.norm(audio[:, 1]))), 6)
+    assert metrics["stereo_side_rms"] == round(float(np.sqrt(np.mean(((audio[:, 0] - audio[:, 1]) / 2)**2))), 6)

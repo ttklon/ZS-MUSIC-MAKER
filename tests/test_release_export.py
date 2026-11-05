@@ -6,7 +6,7 @@ from pathlib import Path
 import numpy as np
 import soundfile as sf
 
-import modules.release_export as release_export
+from modules.release import export as release_export
 
 
 def test_release_export_writes_fingerprinted_manifest_and_zip(tmp_path, monkeypatch) -> None:
@@ -29,7 +29,8 @@ def test_release_export_writes_fingerprinted_manifest_and_zip(tmp_path, monkeypa
     assert Path(result["files"]["release.zip"]).is_file()
     assert "master.wav" in manifest["artifacts_sha256"]
     assert len(manifest["artifacts_sha256"]["master.wav"]) == 64
-    assert metadata["isrc"]
+    assert metadata["isrc"] == ""
+    assert metadata["isrc_status"] == "UNREGISTERED"
     assert {"lyrics.txt", "recipe.json", "metadata.csv", "release_notes.txt"} <= set(result["files"])
     assert "Test Artist" in (release_dir / "release_notes.txt").read_text(encoding="utf-8")
     assert (release_dir / "metadata.csv").is_file()

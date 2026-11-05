@@ -103,6 +103,88 @@ def _drop_intensity(kick_steps: list[float], steps_per_bar: int) -> float:
     return min(1.0, max(energies) / (np.mean(energies) + 1e-9) - 1.0) if energies else 0.0
 
 
+def _attack_envelope(samples: np.ndarray, sample_rate: int, hop_ms: float = 1.0, win_ms: float = 3.0):
+    """Огибающая атак: RMS первой разности (клик удара), шаг 1 мс.
+
+    Низкочастотная огибающая для микротайминга не годится: у 49-герцового
+    кика RMS «набирается» 10–20 мс, и смещение уезжает вместе с ней. Первая
+    разность подчёркивает транзиент, поэтому позиция атаки совпадает с ударом
+    с точностью ~2 мс.
+    """
+    data = np.asarray(samples, dtype=np.float64)
+    if len(data) < 64:
+        return np.zeros(0), hop_ms / 1000.0
+    diff = np.diff(data)
+    hop = max(1, int(sample_rate * hop_ms / 1000.0))
+    window = max(hop, int(sample_rate * win_ms / 1000.0))
+    frames = max(1, (len(diff) - window) // hop)
+    offsets = np.arange(frames) * hop
+    cumulative = np.concatenate([[0.0], np.cumsum(diff * diff)])
+    energy = np.sqrt(
+        np.maximum(cumulative[offsets + window] - cumulative[offsets], 0.0) / window
+    )
+    return energy, hop / float(sample_rate)
+
+
+def _kick_attack_offsets_ms(
+    samples: np.ndarray,
+    sample_rate: int,
+    bpm: float,
+    steps_per_bar: int = 16,
+    bars: int = 8,
+) -> tuple[list[float], float]:
+    """Смещения атак от сетки (мс), измеренные по самому аудио.
+
+    Для каждой шестнадцатой и каждого такта берём окно ±35 % шага, находим
+    пик огибающей атак и считаем смещение точки, где огибающая достигает
+    половины пика. По тактам берём медиану: одиночный выброс (например, хэт
+    поверх бочки) результат не портит. Пики у краёв окна и «плоские» окна
+    отбрасываются — это хвосты предыдущих ударов, а не атаки.
+    """
+    if samples is None or bpm <= 0 or len(samples) < sample_rate // 2:
+        return [], 0.0
+    energy, hop_sec = _attack_envelope(samples, sample_rate)
+    if len(energy) < 16:
+        return [], 0.0
+
+    step_sec = (60.0 / float(bpm)) / 4.0
+    search = int(round(step_sec * 0.35 / hop_sec))
+    if search < 4:
+        return [], 0.0
+    gate = float(np.median(energy) + 3.0 * np.std(energy))
+
+    offsets: list[float] = []
+    hits = 0
+    for step in range(steps_per_bar):
+        per_bar: list[float] = []
+        for bar in range(bars):
+            grid = (bar * steps_per_bar + step) * step_sec
+            center = int(round(grid / hop_sec))
+            low_index = max(0, center - search)
+            high_index = min(len(energy), center + search + 1)
+            if high_index - low_index < 6:
+                continue
+            segment = energy[low_index:high_index]
+            peak_index = int(np.argmax(segment))
+            peak = float(segment[peak_index])
+            if peak < gate:
+                continue
+            edge = max(1, int(len(segment) * 0.15))
+            if peak_index < edge or peak_index >= len(segment) - edge:
+                continue
+            before = float(energy[max(0, low_index - 3)])
+            if peak < before * 1.5:
+                continue
+            attack = low_index + int(np.argmax(segment >= peak * 0.5))
+            per_bar.append((attack * hop_sec - grid) * 1000.0)
+        if per_bar:
+            offsets.append(round(float(np.median(per_bar)), 2))
+            hits += 1
+        else:
+            offsets.append(0.0)
+    return offsets, round(hits / max(1, steps_per_bar), 3)
+
+
 def extract_groove(audio_path: str, bpm: float = None) -> dict:
     """
     Извлекает ритмический шаблон из трека.
@@ -153,6 +235,7 @@ def extract_groove(audio_path: str, bpm: float = None) -> dict:
 
     n_bars = len(kick_pattern) // steps_per_bar
     swing = _swing_value(kick_pattern, steps_per_bar)
+    timing_offsets_ms, timing_confidence = _kick_attack_offsets_ms(y, sr, bpm, steps_per_bar)
     triplet_rolls = _has_triplet_rolls(kick_binary, steps_per_bar)
     pattern_changes = _pattern_changes(kick_binary, steps_per_bar, bar_sec)
     drop_intensity = _drop_intensity(kick_pattern, steps_per_bar)
@@ -167,6 +250,8 @@ def extract_groove(audio_path: str, bpm: float = None) -> dict:
         "snare_pattern_full": snare_binary,
         "hihat_density": round(hihat_density, 3),
         "swing": round(swing, 3),
+        "timing_offsets_ms": timing_offsets_ms,
+        "timing_confidence": timing_confidence,
         "triplet_rolls": triplet_rolls,
         "pattern_changes": pattern_changes,
         "drop_intensity": round(drop_intensity, 3),

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 
-import modules.hit_scorer as scorer
+import modules.hit_scorer.audio as scorer
 
 
 def test_hit_scorer_audio_cache_uses_path_sample_rate_and_mtime(monkeypatch) -> None:

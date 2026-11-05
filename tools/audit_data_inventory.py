@@ -28,10 +28,14 @@ MANAGED_DIRECTORIES = {
     "prompts": "prompt catalog",
     "reference_cache": "reference-analysis cache fixture",
     "sample_manifests": "sample manifest fixture",
+    "samples": "licensed sample bank (manifest + one-shots)",
 }
 # Runtime weights и их integrity manifests создаются pull-инструментом, находятся
 # под .gitignore и не входят в инвентарь versioned data-assets.
 RUNTIME_DIRECTORIES = {"ai_models", "artist_dossier"}
+# Точные runtime-артефакты: их пишут прогоны (health-снимок, KPI, профиль), они
+# перечислены в .gitignore и по определению не являются versioned-данными.
+RUNTIME_FILES = {"health.json", "kpi_dashboard.json", "user_profile.json", "history.json"}
 
 MANAGED_FILES = {
     "README.md": "data catalog documentation",
@@ -51,6 +55,30 @@ def classify_data_file(path: Path, data_dir: Path = DATA_DIR) -> str | None:
     return None
 
 
+# Заголовки аудиоформатов: файл бинарный, читать его как текст нельзя,
+# но убедиться, что это действительно звук, а не обрезанный огрызок — нужно.
+AUDIO_MAGIC = {
+    ".wav": (b"RIFF",),
+    ".flac": (b"fLaC",),
+    ".mp3": (b"ID3", b"\xff\xfb", b"\xff\xf3", b"\xff\xf2"),
+    ".ogg": (b"OggS",),
+}
+
+AUDIO_MIN_BYTES = 44  # меньше — это уже не заголовок WAV, а мусор
+
+
+def _validate_audio(path: Path) -> tuple[bool, str | None]:
+    """Аудио проверяется по магии заголовка и минимальному размеру."""
+    magic = AUDIO_MAGIC[path.suffix.lower()]
+    if path.stat().st_size < AUDIO_MIN_BYTES:
+        return False, f"audio file is too small ({path.stat().st_size} bytes)"
+    with open(path, "rb") as handle:
+        head = handle.read(16)
+    if not any(head.startswith(prefix) for prefix in magic):
+        return False, f"not a valid {path.suffix.lstrip('.')} file (bad header)"
+    return True, None
+
+
 def _validate_jsonl(path: Path) -> tuple[bool, str | None]:
     for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
         if not line.strip():
@@ -67,6 +95,8 @@ def validate_data_file(path: Path) -> tuple[bool, str | None]:
     try:
         if path.name == ".gitkeep":
             return True, None
+        if path.suffix.lower() in AUDIO_MAGIC:
+            return _validate_audio(path)
         if path.suffix == ".json":
             json.loads(path.read_text(encoding="utf-8"))
         elif path.suffix == ".jsonl":
@@ -91,6 +121,8 @@ def scan_data(data_dir: Path = DATA_DIR) -> dict[str, Any]:
     for path in sorted(item for item in data_dir.rglob("*") if item.is_file()):
         relative = path.relative_to(data_dir)
         if relative.parts and relative.parts[0] in RUNTIME_DIRECTORIES:
+            continue
+        if relative.name in RUNTIME_FILES:
             continue
         purpose = classify_data_file(path, data_dir)
         valid, error = validate_data_file(path)

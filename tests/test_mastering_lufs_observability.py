@@ -1,44 +1,66 @@
-"""Regression coverage for optional LUFS measurement diagnostics."""
+"""LUFS-диагностика: честный статус вместо тихой подмены метрики.
+
+Гейты громкости не имеют права притворяться: если измеритель недоступен или
+падает, результат помечается `dbfs_estimate` + статус, а не «настоящий LUFS».
+"""
+
+from __future__ import annotations
 
 import types
 
 import numpy as np
 
-from modules import mastering
+from modules.dsp import metrics
 
 
 class _FailingMeter:
     def __init__(self, sample_rate):
         assert sample_rate == 48_000
 
-    def integrated_loudness(self, mono):
+    def integrated_loudness(self, audio):
         raise RuntimeError("meter input rejected")
 
 
-def test_lufs_measurement_reports_failed_optional_backend(monkeypatch, caplog):
+def test_lufs_measurement_reports_failed_optional_backend(monkeypatch):
     samples = np.full((48, 2), 0.1, dtype=np.float64)
-    monkeypatch.setattr(mastering, "_HAS_PYLN", True)
-    monkeypatch.setattr(mastering, "pyln", types.SimpleNamespace(Meter=_FailingMeter))
+    fake_pyln = types.SimpleNamespace(Meter=_FailingMeter)
+    monkeypatch.setitem(__import__("sys").modules, "pyloudnorm", fake_pyln)
 
-    level, info = mastering._measure_lufs(samples, 48_000)
+    level, info = metrics.integrated_lufs(samples, 48_000)
 
-    assert level == mastering._loudness_dbfs(samples) - 3.0
-    assert info == {
-        "lufs_engine": "dbfs_estimate",
-        "lufs_status": "failed",
-        "lufs_error": "RuntimeError: meter input rejected",
-    }
-    assert "pyloudnorm measurement failed" in caplog.text
-
-
-def test_numpy_mastering_returns_explicit_unavailable_lufs_status(monkeypatch):
-    samples = np.full((96, 2), 0.05, dtype=np.float64)
-    monkeypatch.setattr(mastering, "_HAS_PYLN", False)
-
-    processed, info = mastering._try_numpy_dsp(samples, 48_000, "streaming")
-
-    assert processed.shape == samples.shape
-    assert np.isfinite(processed).all()
     assert info["lufs_engine"] == "dbfs_estimate"
-    assert info["lufs_status"] == "unavailable"
-    assert "lufs_error" not in info
+    assert info["lufs_status"] == "failed"
+    assert "meter input rejected" in info["lufs_error"]
+    assert level == metrics.rms_dbfs(samples) - 3.0
+
+
+def test_lufs_reports_unavailable_without_pyloudnorm(monkeypatch):
+    samples = np.full((96, 2), 0.05, dtype=np.float64)
+    import builtins
+
+    real_import = builtins.__import__
+
+    def _no_pyloudnorm(name, *args, **kwargs):
+        if name == "pyloudnorm":
+            raise ImportError("pyloudnorm is not installed")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", _no_pyloudnorm)
+
+    level, info = metrics.integrated_lufs(samples, 48_000)
+
+    assert info == {"lufs_engine": "dbfs_estimate", "lufs_status": "unavailable"}
+    assert level == metrics.rms_dbfs(samples) - 3.0
+
+
+def test_stereo_lufs_is_three_db_louder_than_mono_downmix():
+    """BS.1770 суммирует каналы: моно-даункмикс систематически занижает LUFS."""
+    sample_rate = 44_100
+    time = np.arange(sample_rate * 3) / sample_rate
+    mono = 0.2 * np.sin(2 * np.pi * 440 * time)
+    stereo = np.stack([mono, mono], axis=1)
+
+    stereo_lufs, _ = metrics.integrated_lufs(stereo, sample_rate)
+    mono_lufs, _ = metrics.integrated_lufs(mono, sample_rate)
+
+    assert 2.5 <= stereo_lufs - mono_lufs <= 3.5

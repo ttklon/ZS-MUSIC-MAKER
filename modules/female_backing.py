@@ -14,6 +14,8 @@
 
 from __future__ import annotations
 
+import logging
+
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -38,7 +40,7 @@ def _synth_silero(text: str, out_wav: Path, speaker: str = "kseniya") -> bool:
             try:
                 torch.save(model, model_path)
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("ignored exception", exc_info=True)
         else:
             model = torch.load(model_path, map_location="cpu", weights_only=False)
         audio = model.apply_tts(text=text or "мм", speaker=speaker, sample_rate=48000)
@@ -129,7 +131,7 @@ def sweeten_backing(
             )  # noqa: ZSMM_NOT_RVC
             y = np.stack([shifted, shifted], axis=-1)
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("ignored exception", exc_info=True)
 
         # High-pass ~120 Гц
         try:
@@ -139,7 +141,7 @@ def sweeten_backing(
             for ch in range(y.shape[1]):
                 y[:, ch] = sosfilt(sos, y[:, ch])
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("ignored exception", exc_info=True)
 
         # Стерео-разъезд + gain
         y[:, 0] *= 10 ** (gain_db / 20)
@@ -209,7 +211,7 @@ def mix_backing_into_vocal(
 
                 b = librosa.resample(b.T, orig_sr=sr2, target_sr=sr).T
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("ignored exception", exc_info=True)
         n = max(len(v), len(b))
         if len(v) < n:
             v = np.pad(v, ((0, n - len(v)), (0, 0)))

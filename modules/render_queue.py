@@ -190,7 +190,7 @@ class RenderQueue:
                 # Ленивый импорт, чтобы модуль работал автономно.
                 from app.core.orchestrator import Orchestrator
                 from app.hw_probe import probe_hw
-                from app.logger import make_logger
+                from app.core.logger import make_logger
 
                 self.orchestrator = Orchestrator(probe_hw(), make_logger())
 

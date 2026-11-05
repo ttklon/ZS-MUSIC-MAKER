@@ -119,6 +119,8 @@ def verify(key: str) -> bool:
         records = manifest.get("files", [])
         if not isinstance(records, list):
             raise ValueError("files is not a list")
+        if not records and manifest.get("status") != "pip_only":
+            raise ValueError("no model files recorded; external or user-supplied weights not verified")
         for record in records:
             path = target_dir / str(record["path"])
             if not path.is_file():
@@ -264,11 +266,10 @@ def pull(key: str) -> bool:
     if engine in {"audiocraft_musicgen", "xtts_v2", "faster_whisper", "clap", "diffusers"}:
         return _pull_hf_snapshot(key)
     if engine == "rvc":
-        return _record_non_download_role(
-            key,
-            "user_supplied",
-            "Place a licensed user-supplied .pth/.index under data/ai_models/vocal_rvc/; no public voice weights are downloaded.",
-        )
+        note = ("Provide a licensed user-trained model at models/rvc/my_voice/my_voice.pth; "
+                "this downloader does not install or verify user voice models.")
+        _record_non_download_role(key, "user_supplied", note)
+        return False
     if engine in {"matchering_plus", "essentia_or_librosa"}:
         return _record_non_download_role(
             key,
@@ -304,8 +305,10 @@ def main(argv: list[str] | None = None) -> int:
         parser.print_help()
         return 2
     if args.verify:
-        return 0 if all(verify(key) if key in MODEL_REGISTRY else False for key in keys) else 1
-    return 0 if all(pull(key) for key in keys) else 1
+        results = [verify(key) if key in MODEL_REGISTRY else False for key in keys]
+        return 0 if all(results) else 1
+    results = [pull(key) for key in keys]
+    return 0 if all(results) else 1
 
 
 if __name__ == "__main__":

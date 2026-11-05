@@ -4,7 +4,7 @@ import types
 
 import numpy as np
 
-from modules import hit_scorer
+from modules.hit_scorer import mix_metrics as hit_scorer
 
 
 class _FailingMeter:

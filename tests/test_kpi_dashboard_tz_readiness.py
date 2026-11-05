@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import modules.kpi_dashboard_v12 as kpi
+from modules.kpi_dashboard import checklist as kpi
 
 
 def test_tz_percent_applies_health_constraints_to_filesystem_evidence(monkeypatch) -> None:
@@ -22,9 +22,9 @@ def test_tz_percent_applies_health_constraints_to_filesystem_evidence(monkeypatc
     health = {
         "internals": [
             {"name": "modules.rvc_manager", "ok": False},
-            {"name": "modules.rvc_trainer_v9", "ok": True},
+            {"name": "modules.rvc_trainer", "ok": True},
             {"name": "app.core.musicgen_texture", "ok": False},
-            {"name": "modules.hit_kpi_monitor_v11", "ok": True},
+            {"name": "modules.kpi_monitor", "ok": True},
         ]
     }
 

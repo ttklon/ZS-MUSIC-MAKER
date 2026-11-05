@@ -8,7 +8,7 @@
   • last_settings — последние настройки Wizard
   • favorite_themes, favorite_presets
   • history — последние 100 треков
-  • voice_training_hours — сколько всего часов обучения RVC
+  • устаревшие voice_training_* — исторические поля без подтверждения обучения
 """
 
 import json
@@ -225,19 +225,23 @@ def add_favorite_preset(preset_key: str) -> dict:
 
 
 def sync_voice_progress() -> dict:
-    """Обновляет прогресс обучения голоса из voice_convert.vault_summary()."""
+    """Report archive duration; do not mistake recording time for model training.
+
+    Historical voice_training_* profile values are left untouched and are not
+    used as proof. This read-only call cannot verify an external RVC trainer.
+    """
     try:
         from modules.voice_convert import vault_summary
 
         v = vault_summary()
-        p = get_profile()
-        p["voice_training_hours"] = round(v.get("total_minutes", 0) / 60, 2)
-        p["voice_training_completed"] = v.get("ready_for_training", False)
-        save_profile(p)
         return {
             "ok": True,
-            "hours": p["voice_training_hours"],
-            "ready": p["voice_training_completed"],
+            "hours": round(v.get("total_minutes", 0) / 60, 2),
+            "hours_kind": "recorded_audio_not_training",
+            "ready": False,
+            "minimum_duration_met": bool(v.get("minimum_duration_met")),
+            "training_status": "UNVERIFIED",
+            "profile_updated": False,
             "detail": v,
         }
     except Exception as e:

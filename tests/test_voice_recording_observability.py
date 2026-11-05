@@ -2,7 +2,10 @@ from __future__ import annotations
 
 import numpy as np
 
-import modules.voice_recording as recording
+from modules.voice_recording import capability as capability_mod
+from modules.voice_recording import recorder as recording
+from modules.voice_recording import state as state_mod
+from modules.voice_recording import takes as takes_mod
 
 
 class _BrokenStream:
@@ -39,11 +42,11 @@ class _BrokenDeviceBackend:
 
 
 def test_capability_report_discloses_device_query_failure(monkeypatch) -> None:
-    monkeypatch.setattr(recording, "SD_OK", True)
-    monkeypatch.setattr(recording, "_sd", _BrokenDeviceBackend())
-    monkeypatch.setattr(recording, "_np", np)
+    monkeypatch.setattr(capability_mod, "SD_OK", True)
+    monkeypatch.setattr(capability_mod, "_sd", _BrokenDeviceBackend())
+    monkeypatch.setattr(capability_mod, "_np", np)
 
-    report = recording.capability_report()
+    report = capability_mod.capability_report()
 
     assert report["input_devices_found"] == 0
     assert report["real_recording_possible"] is False
@@ -66,8 +69,30 @@ def test_split_keeps_takes_and_logs_when_manifest_write_fails(tmp_path, monkeypa
         return original_write_text(self, *args, **kwargs)
 
     monkeypatch.setattr(Path, "write_text", fail_only_manifest)
-    with caplog.at_level(logging.WARNING, logger=recording.LOGGER.name):
-        takes = recording.split_wav_into_takes(str(source), min_take_ms=800)
+    with caplog.at_level(logging.WARNING, logger=state_mod.LOGGER.name):
+        takes = takes_mod.split_wav_into_takes(str(source), min_take_ms=800)
 
     assert len(takes) == 1
     assert "voice take manifest was not written: disk full" in caplog.text
+
+
+def test_recorded_audio_writes_valid_wav_and_can_be_split(monkeypatch, tmp_path):
+    import wave
+    monkeypatch.setattr(recording, "_np", np)
+    monkeypatch.setattr(recording, "VAULT_DIR", tmp_path)
+    recorder = recording.RealMicRecorder(sample_rate=8000, style="sing")
+    recorder._active = True
+    recorder._start_ts = 1234
+    recorder._buf = [np.full((8000, 1), 0.1, dtype=np.float32)]
+    class Stream:
+        def stop(self): pass
+        def close(self): pass
+    recorder._stream = Stream()
+    result = recorder.stop()
+    assert result["ok"] is True
+    with wave.open(result["path"], "rb") as audio:
+        assert audio.getnframes() == 8000
+        assert audio.getframerate() == 8000
+    monkeypatch.setattr(recorder, "stop", lambda: result)
+    takes = recorder.stop_and_split(min_take_ms=500)
+    assert len(takes) == 1 and takes[0].style == "sing"

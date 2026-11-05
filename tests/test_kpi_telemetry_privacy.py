@@ -3,8 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from modules.hit_kpi_monitor_v11 import KpiSession, finalize_session
-from modules.kpi_dashboard_v12 import _latest_telemetry, _telemetry_section
+from modules.kpi_monitor import KpiSession, finalize_session
+from modules.kpi_dashboard.sources import _latest_telemetry, _telemetry_section
 
 
 def test_kpi_history_persists_only_allowlisted_non_pii_stage_metrics(tmp_path: Path) -> None:

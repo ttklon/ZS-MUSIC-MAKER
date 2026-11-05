@@ -35,7 +35,7 @@ def test_install_rolls_back_when_smoke_process_cannot_start(tmp_path, monkeypatc
     """A launch failure must not report the replaced installation as accepted."""
     import zipfile
 
-    from updater import updater
+    from updater import install
 
     program = tmp_path / "program"
     program.mkdir()
@@ -47,20 +47,20 @@ def test_install_rolls_back_when_smoke_process_cannot_start(tmp_path, monkeypatc
         archive.writestr("main.py", "print('new')\n")
         archive.writestr("version.json", '{"version": "test"}')
 
-    monkeypatch.setattr(updater, "program_dir", lambda: program)
-    monkeypatch.setattr(updater, "staging_dir", lambda: staging)
-    monkeypatch.setattr(updater, "verify_zip", lambda *_args: {"ok": True})
-    monkeypatch.setattr(updater, "make_backup", lambda **_kwargs: backup)
-    monkeypatch.setattr(updater, "_stash_user_data", lambda *_args: {})
-    monkeypatch.setattr(updater, "_restore_user_data", lambda *_args: [])
-    monkeypatch.setattr(updater, "rollback_last", lambda: {"ok": True})
+    monkeypatch.setattr(install, "program_dir", lambda: program)
+    monkeypatch.setattr(install, "staging_dir", lambda: staging)
+    monkeypatch.setattr(install, "verify_zip", lambda *_args: {"ok": True})
+    monkeypatch.setattr(install, "make_backup", lambda **_kwargs: backup)
+    monkeypatch.setattr(install, "_stash_user_data", lambda *_args: {})
+    monkeypatch.setattr(install, "_restore_user_data", lambda *_args: [])
+    monkeypatch.setattr(install, "rollback_last", lambda: {"ok": True})
 
     def fail_to_start(*_args, **_kwargs):
         raise OSError("launcher unavailable")
 
-    monkeypatch.setattr(updater.subprocess, "run", fail_to_start)
+    monkeypatch.setattr(install.subprocess, "run", fail_to_start)
 
-    result = updater.install_from_zip(str(package), smoke_test=True)
+    result = install.install_from_zip(str(package), smoke_test=True)
 
     assert result["ok"] is False
     assert result["stage"] == "smoke_test"
@@ -70,7 +70,7 @@ def test_install_rolls_back_when_smoke_process_cannot_start(tmp_path, monkeypatc
 
 def test_stash_user_data_fails_closed_when_preserved_file_cannot_move(tmp_path, monkeypatch) -> None:
     """A protected file must never be left for the destructive replacement loop."""
-    from updater import updater
+    from updater import userdata
 
     program = tmp_path / "program"
     staging = tmp_path / "staging"
@@ -78,14 +78,14 @@ def test_stash_user_data_fails_closed_when_preserved_file_cannot_move(tmp_path, 
     staging.mkdir()
     settings = program / "settings.json"
     settings.write_text('{"theme": "dark"}', encoding="utf-8")
-    monkeypatch.setattr(updater, "USER_PRESERVED", ["settings.json"])
+    monkeypatch.setattr(userdata, "USER_PRESERVED", ["settings.json"])
 
     def fail_move(*_args, **_kwargs):
         raise PermissionError("settings is locked")
 
-    monkeypatch.setattr(updater.shutil, "move", fail_move)
+    monkeypatch.setattr(userdata.shutil, "move", fail_move)
 
     with pytest.raises(RuntimeError, match="user data preservation failed: settings.json: PermissionError: settings is locked"):
-        updater._stash_user_data(program, staging)
+        userdata._stash_user_data(program, staging)
 
     assert settings.read_text(encoding="utf-8") == '{"theme": "dark"}'

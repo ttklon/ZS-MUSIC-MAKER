@@ -55,11 +55,11 @@ def test_snapshot_respects_size_ceiling_and_retention(tmp_path: Path) -> None:
 
 
 def test_main_preflight_backup_reports_snapshot(monkeypatch, capsys) -> None:
-    import main
+    from app.cli import backup
 
     monkeypatch.setattr("app.core.auto_backup.create_snapshot", lambda mode: {"ok": True, "files": 2, "total_bytes": 3, "path": f"/tmp/{mode}"})
 
-    report = main._preflight_backup("ai_dry_run")
+    report = backup.preflight_backup("ai_dry_run")
 
     assert report["ok"] is True
     assert "[backup] files=2 bytes=3 path=/tmp/ai_dry_run" in capsys.readouterr().out

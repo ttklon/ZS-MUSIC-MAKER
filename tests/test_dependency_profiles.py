@@ -46,5 +46,7 @@ def test_torch_heavy_dependencies_are_optional_only() -> None:
     heavy = {"torch", "torchaudio", "audiocraft", "demucs", "tts", "faster-whisper", "diffusers", "xformers", "torch-directml"}
 
     assert base.isdisjoint(heavy)
-    assert {"torch", "torchaudio", "audiocraft", "demucs", "tts", "faster-whisper", "diffusers", "xformers"}.issubset(ai)
+    assert "faster-whisper" in ai
+    assert ai.isdisjoint(heavy - {"faster-whisper"})
+    assert "rvc-python" not in ai
     assert amd == {"torch-directml"}

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import copy
+import hashlib
 import logging
 import threading
 import time
@@ -26,19 +28,26 @@ class Job:
     started_at: float = 0.0
     finished_at: float = 0.0
     result: dict[str, Any] = field(default_factory=dict)
+    revision_source_id: str | None = None
+    rebuild_source_id: str | None = None
+    rebuild_overrides: dict[str, Any] = field(default_factory=dict)
+    rebuild_replacements: dict[str, Any] = field(default_factory=dict)
+    source_report_id: str | None = None
+    source_report_sha256: str | None = None
+    master_only: bool = False
 
 
 def _summarize_pipeline_result(result: dict[str, Any]) -> dict[str, Any]:
     """Extract desktop job fields from the stable full-pipeline result contract."""
     release_dir = None
-    master_path = None
+    master_path = result.get("master_path")
     hit: dict[str, Any] = {}
     for stage in result.get("stages") or []:
         name = stage.get("name")
         output = stage.get("output") or {}
         if name == "_stage_release_pack":
             release_dir = output.get("path") or release_dir
-        elif name == "_stage_polish":
+        elif name == "_stage_polish" and not result.get("master_path"):
             master_path = output.get("path") or output.get("out_wav") or master_path
         elif name == "_stage_mastering" and not master_path:
             master_path = (output.get("stands", {}) or {}).get("streaming", {}).get("out_wav")
@@ -78,6 +87,8 @@ class RuntimeOrchestrator:
         self._lock = threading.Lock()
         self._stop = threading.Event()
         self._worker: threading.Thread | None = None
+        self._closing = False
+        self._active_job: str | None = None
         self._ensure_worker()
 
     def _log(self, msg: str) -> None:
@@ -91,11 +102,30 @@ class RuntimeOrchestrator:
             LOGGER.warning("runtime diagnostic sink failed: %s", error)
 
     def _ensure_worker(self):
-        if self._worker and self._worker.is_alive():
-            return
-        self._stop.clear()
-        self._worker = threading.Thread(target=self._run_loop, daemon=True)
-        self._worker.start()
+        with self._lock:
+            if self._closing or (self._worker and self._worker.is_alive()):
+                return
+            self._stop.clear()
+            self._worker = threading.Thread(target=self._run_loop, daemon=True)
+            self._worker.start()
+
+    def shutdown_if_idle(self) -> bool:
+        """Close admission only after every queued/active job has finished.
+
+        This is not cancellation. Forced process or OS shutdown may still
+        interrupt work and leave partial files.
+        """
+        with self._lock:
+            if self._active_job or self._queue or any(j.status in ("pending", "running") for j in self.jobs.values()):
+                return False
+            self._closing = True
+            self._stop.set()
+        return True
+
+    def _require_open(self) -> None:
+        # Called while holding _lock, so admission cannot race with shutdown.
+        if self._closing:
+            raise RuntimeError("application is shutting down; new jobs are not accepted")
 
     def stop(self, join_timeout: float = 1.0) -> None:
         """Request worker shutdown and wait briefly when it is idle."""
@@ -104,16 +134,149 @@ class RuntimeOrchestrator:
         if worker and worker is not threading.current_thread():
             worker.join(timeout=max(0.0, float(join_timeout)))
 
-    def enqueue(self, recipe: dict[str, Any]) -> str:
-        tid = uuid.uuid4().hex[:10]
-        out_dir = ROOT / "output" / "desktop_runs" / tid
-        job = Job(track_id=tid, recipe=dict(recipe or {}), project_dir=str(out_dir))
+    def _reserve_project(self, source_dir: str | None = None) -> tuple[str, Path]:
+        base = ROOT / "output" / "desktop_runs"
+        if source_dir:
+            source = Path(source_dir).resolve()
+            if base.resolve() == source or base.resolve().is_relative_to(source):
+                raise ValueError("revision destination would be inside the source project")
+        base.mkdir(parents=True, exist_ok=True)
+        for _ in range(32):
+            tid = uuid.uuid4().hex
+            if tid in self.jobs:
+                continue
+            path = base / tid
+            try:
+                path.mkdir()
+            except FileExistsError:
+                continue
+            return tid, path
+        raise RuntimeError("could not reserve a unique project directory")
+
+    def open_project(self, project_dir: str | Path) -> str:
+        """Open an explicitly selected project for re-mastering, never a full resume."""
+        from app.core.project_snapshot import read_project_report, restore_recipe
+        from app.core.revision import validate_master_source
+
+        source = Path(project_dir).resolve(strict=True)
+        if not source.is_dir():
+            raise ValueError("select a project directory")
+        report, raw = read_project_report(source)
+        project_id = report.get("project_id")
+        if not isinstance(project_id, str) or not project_id or len(project_id) > 200:
+            raise ValueError("invalid project id")
+        recipe = restore_recipe(report)
+        validate_master_source(source, report)
         with self._lock:
+            self._require_open()
+            for _ in range(32):
+                tid = "opened-" + uuid.uuid4().hex
+                if tid not in self.jobs:
+                    break
+            else:
+                raise RuntimeError("could not allocate a unique job id")
+            summary = _summarize_pipeline_result(report)
+            # Old master/release paths may be stale after a project was moved.
+            summary.update(master=None, master_path=None, release={"release_dir": None})
+            self.jobs[tid] = Job(
+                track_id=tid, recipe=recipe, status="done", stage="opened",
+                project_dir=str(source), result=summary,
+                source_report_id=project_id, source_report_sha256=hashlib.sha256(raw).hexdigest(),
+                master_only=True,
+            )
+        return tid
+
+    def enqueue(self, recipe: dict[str, Any], only: set[str] | None = None) -> str:
+        """Поставить трек в очередь.
+
+        `only` — подмножество стадий (`STAGE_KEYS`) в новой директории.
+        Переиспользование предыдущего проекта здесь не реализовано.
+        """
+        payload = copy.deepcopy(recipe or {})
+        if only:
+            payload["only"] = sorted(only)
+        with self._lock:
+            self._require_open()
+            tid, out_dir = self._reserve_project()
+            job = Job(track_id=tid, recipe=payload, project_dir=str(out_dir))
             self.jobs[tid] = job
             self._queue.append(tid)
         self._ensure_worker()
         self._log(f"[runtime_orch] enqueued {tid}")
         return tid
+
+    def enqueue_master_revision(self, source_id: str, overrides: dict[str, Any] | None = None) -> str:
+        """Create a new job from a completed or explicitly opened project."""
+        with self._lock:
+            self._require_open()
+            source = self.jobs.get(source_id)
+            if not source or source.status != "done":
+                raise ValueError("source project is not a completed or opened job")
+            source_report = source.result.get("pipeline") or {}
+            if (source_report.get("only") or source_report.get("resume") or source_report.get("dry_run")
+                    or not (source_report.get("artifact_integrity") or {}).get("mix")):
+                raise ValueError("source has no verified full-run mix manifest; run a new full render first")
+            payload = copy.deepcopy(source.recipe)
+            payload.pop("only", None)
+            for key in ("stands", "export_stems"):
+                if key in (overrides or {}):
+                    payload[key] = copy.deepcopy(overrides[key])
+            tid, out_dir = self._reserve_project(source.project_dir)
+            job = Job(track_id=tid, recipe=payload, project_dir=str(out_dir),
+                      revision_source_id=source_id, master_only=source.master_only)
+            self.jobs[tid] = job
+            self._queue.append(tid)
+        self._ensure_worker()
+        self._log(f"[runtime_orch] enqueued mastering revision {tid} from {source_id}")
+        return tid
+
+    def enqueue_opened_rebuild(self, source_id: str, overrides: dict[str, Any] | None = None,
+                               replacements: dict[str, Any] | None = None) -> str:
+        """Hash selections on the caller, then verify and copy inputs in the worker."""
+        from app.core.project_edit import validate_project_overrides
+        from app.core.project_inputs import prepare_replacements
+        changes = validate_project_overrides(overrides)
+        selection = prepare_replacements(replacements)
+        return self._queue_opened_rebuild(source_id, changes, selection)
+
+    def enqueue_prepared_opened_rebuild(self, source_id: str, overrides: dict[str, Any] | None, task) -> str:
+        """Queue one completed background preparation; never trust arbitrary path overrides."""
+        from app.core.input_prepare_task import InputPreparationTask
+        from app.core.project_edit import validate_project_overrides
+        if not isinstance(task, InputPreparationTask):
+            raise ValueError("a completed input preparation task is required")
+        changes = validate_project_overrides(overrides)
+        return self._queue_opened_rebuild(source_id, changes, task.take_result())
+
+    def _queue_opened_rebuild(self, source_id: str, changes: dict, selection: dict) -> str:
+        with self._lock:
+            self._require_open()
+            source = self.jobs.get(source_id)
+            if not source or source.status != "done" or not source.master_only:
+                raise ValueError("source is not an opened project")
+            report = source.result.get("pipeline") or {}
+            if not isinstance(report.get("input_integrity"), dict):
+                raise ValueError("project has no input integrity manifest; full rebuild unavailable")
+            tid, out_dir = self._reserve_project(source.project_dir)
+            self.jobs[tid] = Job(track_id=tid, recipe={}, project_dir=str(out_dir),
+                                 rebuild_source_id=source_id, rebuild_overrides=changes,
+                                 rebuild_replacements=selection)
+            self._queue.append(tid)
+        self._ensure_worker()
+        self._log(f"[runtime_orch] enqueued full rebuild {tid} from {source_id}")
+        return tid
+
+    def _revision_source_report(self, source_id: str) -> tuple[Job, dict]:
+        from app.core.project_snapshot import read_project_report
+        source = self.jobs.get(source_id)
+        if not source or source.status != "done":
+            raise ValueError("source job is no longer available")
+        report, raw = read_project_report(Path(source.project_dir))
+        if source.source_report_sha256 and hashlib.sha256(raw).hexdigest() != source.source_report_sha256:
+            raise ValueError("source report changed since opening; open it again")
+        if report.get("project_id") != (source.source_report_id or source.track_id):
+            raise ValueError("source report project id does not match")
+        return source, report
 
     def enqueue_batch(self, recipes: list[dict[str, Any]]) -> list[str]:
         return [self.enqueue(r) for r in (recipes or [])]
@@ -124,14 +287,25 @@ class RuntimeOrchestrator:
             with self._lock:
                 if self._queue:
                     tid = self._queue.pop(0)
+                    self._active_job = tid
             if not tid:
                 # Event.wait preserves the poll interval but wakes immediately
                 # when shutdown is requested instead of blocking on sleep.
                 self._stop.wait(0.2)
                 continue
-            job = self.jobs.get(tid)
-            if job:
-                self._process(job)
+            try:
+                job = self.jobs.get(tid)
+                if job:
+                    try:
+                        self._process(job)
+                    except BaseException as error:  # worker must not strand a pending job
+                        LOGGER.exception("runtime worker failed for %s", tid)
+                        job.status, job.stage = "error", "failed"
+                        job.error = f"{type(error).__name__}: {error}"[:500]
+                        job.progress, job.finished_at = 0.0, time.time()
+            finally:
+                with self._lock:
+                    self._active_job = None
 
     def _process(self, job: Job):
         out_dir = Path(job.project_dir)
@@ -141,8 +315,45 @@ class RuntimeOrchestrator:
         job.progress = 0.1
         job.started_at = time.time()
         try:
+            def on_stage(name: str, status: str, index: int, total: int) -> None:
+                """Прогресс по факту: имя стадии и её статус из пайплайна."""
+                job.stage = f"{name}:{status}".lower()
+                # 5 % — старт, 95 % — конец: полоска не «прыгает» в 100 % заранее
+                job.progress = min(0.95, 0.05 + 0.9 * index / max(total, 1))
+
+            reused_stages = None
+            rebuild_info = None
+            if job.revision_source_id:
+                from app.core.revision import prepare_master_revision
+                source, source_report = self._revision_source_report(job.revision_source_id)
+                reused_stages = prepare_master_revision(Path(source.project_dir), out_dir, source_report)
+            elif job.rebuild_source_id:
+                from app.core.input_integrity import freeze_inputs
+                from app.core.project_edit import apply_project_overrides
+                from app.core.project_snapshot import restore_recipe
+                source, source_report = self._revision_source_report(job.rebuild_source_id)
+                job.stage = "verifying_inputs"
+                details = {}
+                frozen = freeze_inputs(restore_recipe(source_report), source_report, Path(source.project_dir),
+                                       out_dir, job.rebuild_replacements, details)
+                job.recipe = apply_project_overrides(frozen, job.rebuild_overrides)
+                job.recipe.pop("only", None)
+                if ((job.recipe.get("own_vocal_wav") or job.recipe.get("vocal_wav"))
+                        and str(job.recipe.get("voice_mode") or "pro").strip().lower() != "off"
+                        and (not job.recipe.get("recorded_backing_sha256")
+                             or job.recipe.get("recorded_binding_integrity") != "RECORDED_HASH"
+                             or not job.recipe.get("recorded_vocal_sha256"))):
+                    details.setdefault("vocal_binding", "UNVERIFIED")
+                rebuild_info = {"kind": "full", "source_project": source_report["project_id"],
+                                "overridden_fields": sorted(job.rebuild_overrides), **details}
             result = run_full_pipeline(
-                job.track_id, job.recipe, dry_run=False, out_root=out_dir
+                job.track_id,
+                job.recipe,
+                dry_run=False,
+                out_root=out_dir,
+                on_stage=on_stage,
+                reused_stages=reused_stages,
+                rebuild_info=rebuild_info,
             )
             job.progress = 0.92
             job.result = _summarize_pipeline_result(result)

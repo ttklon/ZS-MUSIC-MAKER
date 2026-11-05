@@ -1,6 +1,6 @@
 """Regression coverage for observable KPI AI-detector score coercion."""
 
-from modules.hit_kpi_monitor_v11 import (
+from modules.kpi_monitor import (
     check_ai_detector,
     check_ai_detector_with_diagnostics,
 )

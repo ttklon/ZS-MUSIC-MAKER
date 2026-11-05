@@ -1,185 +1,385 @@
-# PROJECT_STATE — ZS Music Maker
+# PROJECT_STATE
 
-> **Канонический snapshot:** v39.9.0, PLAN_v39 ШАГ 069. Этот файл фиксирует состояние versioned дерева на момент приёмки; воспроизводимый источник матрицы — `python tools/readiness.py --inventory-markdown`.
->
-> **Метод:** Git перечисляет только versioned `.py` в `main.py`, `app/`, `agents/`, `modules/`, `tools/`, `ui/`, `updater/`. Для каждого файла readiness проверяет AST syntax и статические references в production/test sources. Он **не запускает** optional model weights и не переводит absence dependency в успех.
+> Состояние репозитория `ZS-MUSIC-MAKER` на 2026-11-03 (версия 41.0.0-alpha.16).
+> Сгенерировано `python -m tools.readiness --json`.
 
-## Сводка фактической инвентаризации
+## Готовность по внутреннему счётчику: 65.0 %
 
-| Показатель | Значение |
+Это технический индикатор наличия компонентов, а не процент реализации
+пользовательского сценария и не подтверждение качества музыки.
+
+## Модули
+
+- отслеживается: **276**
+- REAL_PASS: **273**, REAL_FAIL: **0**, PLANNED: **3**
+
+## Блоки
+
+| Блок | % |
 |---|---:|
-| Versioned production Python modules | 147 |
-| `REAL_PASS` — parseable с production или test static signal | 140 |
-| `REAL_FAIL` — syntax error | 0 |
-| `PLANNED` — parseable, без static signal | 7 |
-| Versioned test files | 26 |
-| Полный pytest suite на приёмке | 141 passed |
-| AST dead imports на приёмке | 0 |
+| architecture | 100.0 |
+| core_modules | 95.45 |
+| audio_pipeline | 75.0 |
+| voice_recording | 71.43 |
+| release | 100.0 |
+| testing | 100.0 |
 
-> `REAL_PASS` в этой matrix означает **статически проверяемую связность**, а не утверждение о real AI inference. Runtime с optional packages/weights имеет отдельные честные статусы ниже.
+## Гейты
 
-## Runtime и acceptance status
+- `python -m tools.pytest_isolated tests/` — 841 passed, 1 skipped (Linux; тесты моделей используют фальшивые backend-контракты); Windows 11 отдельно не проверен
+- `tools/smoke_audio.py` — 6/6 PASS (без MusicGen и вокальных движков)
+- `tools/smoke_god.py` — 8/8 PASS (120 с DSP fallback, без тяжёлого AI и живого вокала)
+- `tools/ast_dead_imports.py` — CLEAN (0)
+- `python -m compileall` — 0 ошибок
+- `tools/audit_honesty.py` — CLEAN (257 файлов, 0 находок)
+- `tools/gitignore_guard.py` — CLEAN
 
-| Область | Статус | Основание и граница |
-|---|---|---|
-| Core CLI, orchestrators, adapters | REAL_PASS (static) | Parseable/import-referenced inventory, pytest coverage; фактические команды проходят отдельные regression tests. |
-| Audio core (librosa + soundfile) | REAL_PASS | В среде доступны `librosa` и `soundfile`; audio tests выполняются. |
-| MusicGen, Demucs, Matchering, Pedalboard, pyloudnorm | BLOCKED | Optional runtime packages отсутствуют в sandbox; adapters/gates и fake-handle contracts тестируются, но real engine run не заявляется. |
-| XTTS/RVC/SDXL/CLAP/ASR/LLM weights | BLOCKED | Нет соответствующих heavy runtime/weights; pipeline фиксирует skipped/fallback, не fake-success. |
-| AI sequential runner / manifest / quality gates | REAL_PASS (contract) | Regression suite покрывает timeout/OOM lifecycle, artifact validation и manifest contracts. |
-| Windows EXE build / desktop GUI | NOT_TESTED | Выполняется только Windows GitHub runner/целевой Windows host. Build workflow хранит artifact 30 дней; `v*` tag release job не исполнялся в sandbox. |
-| Release export | REAL_PASS (contract) | ZIP/fingerprint tests существуют; external store/distribution не выполнялись. |
+## Штатное закрытие во время работы (2026-11-04)
 
-## Формальная matrix versioned модулей
+Главное окно отклоняет закрытие при открытом рекордере, активном рендере или
+непустой очереди. Проверка и отключение приёма новых задач выполняются под
+одной блокировкой; неожиданная ошибка рабочего потока отмечается в задаче.
+Безопасная отмена и возобновление очереди не реализованы: зависший процесс,
+принудительное завершение, сбой питания и завершение внешнего AI-сервера это
+не решает. Проверены реальные потоки очереди и GUI-контракты со стабами; реальный
+QtWidgets, Windows и физический микрофон не проверены. CPU-прогон
+`output/close_guard_check/result.json` подтвердил отказ закрытия во время
+реального рендера и допуск после него; вокал из короткой CC0 ноты попал в микс,
+но результат **PARTIAL** по аудиогейтам. Входные файлы не изменились; GUI,
+реальный микрофон, Windows и нейросетевые модели в этом прогоне не участвовали.
 
-Следующая таблица сгенерирована при приёмке командой `python tools/readiness.py --inventory-markdown`. При изменении production `.py` её необходимо регенерировать в том же коммите; число строк должно совпадать с `tracked_modules` в обычном `python tools/readiness.py` JSON.
+## Целостность вокального дубля (2026-11-04)
 
-| Versioned module | Status | AST syntax | Production refs | Test refs |
-|---|---|---:|---:|---:|
-| agents/__init__.py | REAL_PASS | PASS | 76 | 14 |
-| agents/sample_hunter.py | REAL_PASS | PASS | 21 | 0 |
-| agents/sample_hunter_v9.py | REAL_PASS | PASS | 10 | 0 |
-| agents/training_texts.py | PLANNED | PASS | 0 | 0 |
-| agents/trend_scout.py | REAL_PASS | PASS | 9 | 0 |
-| agents/trend_scout_v3.py | REAL_PASS | PASS | 7 | 0 |
-| app/__init__.py | REAL_PASS | PASS | 76 | 14 |
-| app/ai/__init__.py | REAL_PASS | PASS | 76 | 14 |
-| app/ai/llm_service.py | REAL_PASS | PASS | 3 | 0 |
-| app/ai/prompts.py | REAL_PASS | PASS | 17 | 4 |
-| app/ai/quality.py | REAL_PASS | PASS | 190 | 87 |
-| app/ai/registry.py | REAL_PASS | PASS | 82 | 28 |
-| app/ai/sequential_runner.py | REAL_PASS | PASS | 5 | 12 |
-| app/core/__init__.py | REAL_PASS | PASS | 76 | 14 |
-| app/core/cover_gen.py | REAL_PASS | PASS | 4 | 0 |
-| app/core/font_utils.py | REAL_PASS | PASS | 11 | 2 |
-| app/core/hw_autodetect.py | REAL_PASS | PASS | 18 | 0 |
-| app/core/isrc.py | REAL_PASS | PASS | 76 | 38 |
-| app/core/license_manager.py | REAL_PASS | PASS | 8 | 0 |
-| app/core/logger.py | REAL_PASS | PASS | 74 | 0 |
-| app/core/model_manager.py | REAL_PASS | PASS | 2 | 0 |
-| app/core/musicgen_texture.py | REAL_PASS | PASS | 17 | 0 |
-| app/core/orchestrator.py | REAL_PASS | PASS | 109 | 30 |
-| app/core/orchestrator_ai.py | REAL_PASS | PASS | 11 | 22 |
-| app/core/orchestrator_async.py | REAL_PASS | PASS | 2 | 0 |
-| app/core/orchestrator_god.py | REAL_PASS | PASS | 10 | 0 |
-| app/core/orchestrator_v10_patch.py | REAL_PASS | PASS | 2 | 0 |
-| app/core/orchestrator_v11_patch.py | REAL_PASS | PASS | 9 | 0 |
-| app/core/orchestrator_v12_patch.py | REAL_PASS | PASS | 7 | 0 |
-| app/core/orchestrator_v8_patch.py | REAL_PASS | PASS | 3 | 0 |
-| app/core/orchestrator_v9_patch.py | REAL_PASS | PASS | 3 | 0 |
-| app/core/pipeline_core.py | REAL_PASS | PASS | 2 | 2 |
-| app/core/security_utils.py | REAL_PASS | PASS | 8 | 2 |
-| app/gui/__init__.py | REAL_PASS | PASS | 76 | 14 |
-| app/gui/onboarding.py | REAL_PASS | PASS | 40 | 0 |
-| app/gui/theme.py | REAL_PASS | PASS | 152 | 15 |
-| app/gui/theme_v12.py | REAL_PASS | PASS | 3 | 0 |
-| app/gui/wizard.py | REAL_PASS | PASS | 179 | 1 |
-| app/gui/wizard_v8_extensions.py | PLANNED | PASS | 0 | 0 |
-| app/hw_probe.py | REAL_PASS | PASS | 6 | 0 |
-| app/logger.py | REAL_PASS | PASS | 72 | 0 |
-| app/plugins/advanced.py | REAL_PASS | PASS | 6 | 0 |
-| app/plugins/base.py | REAL_PASS | PASS | 120 | 11 |
-| app/runtime_orchestrator.py | REAL_PASS | PASS | 1 | 0 |
-| app/version_info.py | REAL_PASS | PASS | 2 | 3 |
-| main.py | REAL_PASS | PASS | 493 | 64 |
-| modules/__init__.py | REAL_PASS | PASS | 76 | 14 |
-| modules/ai_arranger.py | REAL_PASS | PASS | 2 | 0 |
-| modules/ai_detector_pro.py | REAL_PASS | PASS | 4 | 2 |
-| modules/analyzer.py | REAL_PASS | PASS | 19 | 0 |
-| modules/anti_ai_polish.py | REAL_PASS | PASS | 15 | 0 |
-| modules/anti_neuro_v10.py | REAL_PASS | PASS | 20 | 4 |
-| modules/arrangement_engine.py | REAL_PASS | PASS | 13 | 0 |
-| modules/artist_dossier/__init__.py | REAL_PASS | PASS | 76 | 14 |
-| modules/artist_dossier/collectors.py | REAL_PASS | PASS | 2 | 2 |
-| modules/artist_dossier/manager.py | REAL_PASS | PASS | 48 | 23 |
-| modules/author_ref_lyrics.py | REAL_PASS | PASS | 20 | 0 |
-| modules/auto_qa.py | REAL_PASS | PASS | 16 | 0 |
-| modules/beat_constructor.py | REAL_PASS | PASS | 25 | 4 |
-| modules/beat_gen.py | REAL_PASS | PASS | 5 | 6 |
-| modules/beat_gen_ai.py | REAL_PASS | PASS | 1 | 6 |
-| modules/chanson_engine.py | REAL_PASS | PASS | 1 | 0 |
-| modules/cover_art_ai.py | REAL_PASS | PASS | 2 | 9 |
-| modules/cover_art_gen.py | REAL_PASS | PASS | 8 | 0 |
-| modules/cyber_synth.py | REAL_PASS | PASS | 4 | 0 |
-| modules/distribution_export_v11.py | REAL_PASS | PASS | 15 | 0 |
-| modules/essentia_analyzer.py | REAL_PASS | PASS | 3 | 0 |
-| modules/expert_mode_v11.py | REAL_PASS | PASS | 9 | 0 |
-| modules/female_backing.py | REAL_PASS | PASS | 33 | 0 |
-| modules/freesound_client.py | REAL_PASS | PASS | 3 | 0 |
-| modules/genre_engine.py | REAL_PASS | PASS | 9 | 0 |
-| modules/genre_expansion_100.py | REAL_PASS | PASS | 0 | 2 |
-| modules/global_audit_fixer.py | REAL_PASS | PASS | 0 | 2 |
-| modules/groove_extractor.py | REAL_PASS | PASS | 16 | 0 |
-| modules/health_v12.py | REAL_PASS | PASS | 32 | 0 |
-| modules/hit_kpi_monitor_v11.py | REAL_PASS | PASS | 14 | 0 |
-| modules/hit_scorer.py | REAL_PASS | PASS | 40 | 6 |
-| modules/hw_directml.py | REAL_PASS | PASS | 9 | 0 |
-| modules/karaoke_engine.py | REAL_PASS | PASS | 5 | 0 |
-| modules/kpi_dashboard_v12.py | REAL_PASS | PASS | 18 | 0 |
-| modules/llm_clients_v15.py | REAL_PASS | PASS | 3 | 0 |
-| modules/lyric_vault_v10.py | REAL_PASS | PASS | 6 | 0 |
-| modules/lyrics_gen.py | REAL_PASS | PASS | 29 | 7 |
-| modules/lyrics_gen_ai.py | REAL_PASS | PASS | 2 | 0 |
-| modules/lyrics_gen_v8.py | REAL_PASS | PASS | 7 | 0 |
-| modules/master_pipeline_v12.py | REAL_PASS | PASS | 24 | 0 |
-| modules/mastering.py | REAL_PASS | PASS | 151 | 15 |
-| modules/mastering_ai.py | REAL_PASS | PASS | 9 | 9 |
-| modules/mastering_pro.py | REAL_PASS | PASS | 26 | 0 |
-| modules/mastering_v9.py | REAL_PASS | PASS | 10 | 0 |
-| modules/matchering_master.py | REAL_PASS | PASS | 10 | 0 |
-| modules/midi_generator.py | REAL_PASS | PASS | 16 | 0 |
-| modules/mixdown.py | REAL_PASS | PASS | 20 | 0 |
-| modules/musical_intelligence.py | REAL_PASS | PASS | 2 | 0 |
-| modules/onboarding_tour.py | REAL_PASS | PASS | 6 | 0 |
-| modules/phoneme_coverage.py | REAL_PASS | PASS | 15 | 0 |
-| modules/phonk_engine.py | REAL_PASS | PASS | 4 | 2 |
-| modules/phonk_engine_v2.py | PLANNED | PASS | 0 | 0 |
-| modules/presets.py | REAL_PASS | PASS | 37 | 6 |
-| modules/pro_audio_dsp.py | REAL_PASS | PASS | 0 | 4 |
-| modules/provenance.py | REAL_PASS | PASS | 15 | 0 |
-| modules/reference_ingest.py | REAL_PASS | PASS | 14 | 0 |
-| modules/release_export.py | REAL_PASS | PASS | 11 | 6 |
-| modules/release_pack_full.py | REAL_PASS | PASS | 5 | 0 |
-| modules/release_pack_v9.py | REAL_PASS | PASS | 15 | 0 |
-| modules/remix.py | REAL_PASS | PASS | 4 | 8 |
-| modules/render_queue.py | REAL_PASS | PASS | 9 | 6 |
-| modules/rvc_manager.py | REAL_PASS | PASS | 36 | 0 |
-| modules/rvc_trainer_v9.py | REAL_PASS | PASS | 12 | 2 |
-| modules/self_diag_v13.py | REAL_PASS | PASS | 8 | 0 |
-| modules/sidechain.py | REAL_PASS | PASS | 30 | 0 |
-| modules/stem_splitter.py | REAL_PASS | PASS | 17 | 2 |
-| modules/tiktok_edit_v9.py | REAL_PASS | PASS | 8 | 0 |
-| modules/track_templates.py | REAL_PASS | PASS | 7 | 0 |
-| modules/user_profile.py | REAL_PASS | PASS | 15 | 0 |
-| modules/video_edit_v11.py | REAL_PASS | PASS | 20 | 0 |
-| modules/vocal_fx.py | REAL_PASS | PASS | 12 | 0 |
-| modules/voice_cleaner.py | REAL_PASS | PASS | 4 | 0 |
-| modules/voice_convert.py | REAL_PASS | PASS | 19 | 0 |
-| modules/voice_onboarding.py | REAL_PASS | PASS | 8 | 0 |
-| modules/voice_recording.py | REAL_PASS | PASS | 7 | 0 |
-| modules/voice_synth.py | REAL_PASS | PASS | 37 | 10 |
-| modules/voice_synth_ai.py | REAL_PASS | PASS | 1 | 3 |
-| modules/voice_vault_v9.py | REAL_PASS | PASS | 17 | 2 |
-| modules/wizard_v12_integration.py | REAL_PASS | PASS | 3 | 0 |
-| tools/__init__.py | REAL_PASS | PASS | 76 | 14 |
-| tools/ab_compare.py | REAL_PASS | PASS | 3 | 0 |
-| tools/ast_dead_imports.py | REAL_PASS | PASS | 3 | 2 |
-| tools/audit_data_inventory.py | REAL_PASS | PASS | 1 | 2 |
-| tools/deep_audit_v40.py | REAL_PASS | PASS | 2 | 0 |
-| tools/deep_audit_v40_expand.py | PLANNED | PASS | 0 | 0 |
-| tools/deep_audit_v40_report.py | PLANNED | PASS | 0 | 0 |
-| tools/fallback_audit.py | REAL_PASS | PASS | 7 | 0 |
-| tools/genre_validator.py | REAL_PASS | PASS | 0 | 2 |
-| tools/lazy_dirs_patch.py | PLANNED | PASS | 0 | 0 |
-| tools/p0_truth_test.py | PLANNED | PASS | 0 | 0 |
-| tools/pull_ai_models.py | REAL_PASS | PASS | 6 | 1 |
-| tools/readiness.py | REAL_PASS | PASS | 20 | 13 |
-| tools/real_e2e_v14.py | REAL_PASS | PASS | 5 | 0 |
-| tools/smoke_v26.py | REAL_PASS | PASS | 22 | 0 |
-| tools/smoke_v29.py | REAL_PASS | PASS | 24 | 0 |
-| tools/validate_final_track.py | REAL_PASS | PASS | 1 | 0 |
-| ui/__init__.py | REAL_PASS | PASS | 76 | 14 |
-| ui/karaoke_recorder.py | REAL_PASS | PASS | 4 | 0 |
-| ui/tutorial.py | REAL_PASS | PASS | 22 | 0 |
-| updater/__init__.py | REAL_PASS | PASS | 76 | 14 |
-| updater/updater.py | REAL_PASS | PASS | 29 | 3 |
+Новые записи сохраняют SHA-256 вокала в архиве вместе с отпечатком минуса;
+при рендере проверенная отдельная копия используется вместо исходного файла.
+Изменённый дубль блокирует вокал и микс. Старые привязки без хеша вокала и
+независимые пары остаются непроверенными. Повреждённый индекс и конфликтующие
+отпечатки не обходятся через GUI; хеши и отчёт не доказывают синхронизацию,
+права или защиту от злонамеренной гонки файлов. Неиндексированные старые записи
+без исходного хеша не могут быть проверены задним числом.
+
+CPU-прогон `output/vocal_binding_check/result.json`: три синтетических
+референса, синтетический минус и CC0 спетая нота длительностью 1,401 с —
+**PARTIAL**, вокал использован, проверенная копия совпала, подмена вокала по
+старому пути заблокировала микс, исходные файлы не изменились. Не прошли гейты
+correlation микса, отклонения профиля референсов и correlation мастеринга.
+Это не тест живого микрофона, Windows, реальных моделей или полноценной песни.
+`smoke_audio` — 6/6 только DSP/fallback.
+
+## Раздельные окружения и RVC (2026-11-03)
+
+Проверка метаданных PyPI выявила несовместимость старого общего AI-профиля:
+`rvc-python==0.1.5` требует NumPy ≤1.23.5, ядро — ≥1.26; AudioCraft 1.3.0
+требует PyTorch 2.1.0, torch-directml 0.2.5 — PyTorch 2.4.1. Общий профиль
+заменён на опциональный faster-whisper без весов. На Linux в установленной
+среде установка этого профиля и `pip check` прошли; Windows, свежая установка
+и полный AI-стек не проверены. Linux pip `--only-binary` для RVC не нашёл
+wheel fairseq; обычная установка из исходников отдельно не проверялась.
+
+Экспериментальный адаптер вызывает rvc-python 0.1.5 в явно заданном отдельном
+Python, проверяет наличие вспомогательных весов и валидирует выход до замены.
+Тест с реальным изолированным процессом использует **фиктивный backend**, а не
+нейросеть. Если вспомогательные файлы отсутствуют или процесс завершился с
+ошибкой, RVC BLOCKED, исходная запись остаётся в миксе. На Windows, GPU, с
+реальными весами и RVC inference работа не подтверждена. Проверка отклоняет
+нечисловые сэмплы и точную копию входного сигнала, но не подтверждает качество
+или подлинность конверсии. Аудиометрики рассчитываются блоками.
+
+## Связь записи с выбранным минусом (2026-11-03)
+
+Минус, выбранный в окне записи, синхронизируется с проектом. Для записей под
+минус файл хешируется при подготовке проигрывания и повторно при импорте;
+изменившийся или другой минус и выбор генератора вместо него блокируются.
+Связь сохраняется в индексе архива при успешной регистрации и восстанавливается
+при повторном выборе этого пути дубля. Старые, скопированные вне архива и
+неиндексированные записи могут не иметь такой связи. Проверка не блокирует
+файл и не гарантирует защиту от намеренной одновременной подмены; resampling,
+сведение в моно и обработка микшера меняют аудио. GUI и устройства тестируются
+заглушками, физическое оборудование и Windows не проверены. Сценарий с CC0
+нотой повторён с привязкой SHA-256; качество остаётся PARTIAL.
+
+## Собственный вокал и сохранность голосового архива (2026-11-03)
+
+Временный Linux CPU сценарий `output/voice_recording_check/result.json`:
+20-секундный синтетический минус, 3 синтетических референса и CC0 спетая нота
+Bart Massey длительностью 1,401 с (см. `output/voice_recording_check/CREDITS.md`).
+Данные ноты переданы через симулированное sounddevice-устройство в 5-секундный
+дубль и обработаны полным пайплайном. Это не запись микрофона, не голос
+пользователя и не полноценная вокальная партия. Исходная нота не изменена.
+
+Бит, приём записи, мастер и релиз **OK**, RVC и вокальные эффекты намеренно
+выключены (**BLOCKED**), голос передан в микс, а коррекция референсов уменьшена
+до 0,125 (**FALLBACK**). Результат **PARTIAL**: не прошли гейты профиля и
+покрытия частот референсов. 15 событий прогресса, релиз без ISRC и таймингов
+текста. Реальные модели, Windows, железный микрофон, задержка и субъективное
+качество не проверены.
+
+Индексы двух существующих архивов защищены от затирания повреждённого JSON,
+применяется атомарная замена и кооперативная межпроцессная блокировка. При
+ошибке индексирования дубль остаётся на диске; попытка молча выпустить
+инструментал вместо ошибочного выбранного вокала блокируется. При частичном
+обрезании вокального сигнала из-за длины минуса или сдвига возникает
+предупреждение, исходная запись не меняется. Метаданные длительности и введённых
+фраз не являются подтверждением обучения или распознавания фонем. Интеграция и
+физическая надёжность Windows-файловой системы ещё требуют проверки.
+
+## Локальное распознавание референсов (2026-11-03)
+
+Новая опция по умолчанию выключена; локальный faster-whisper не скачивает веса
+во время обработки. Проект `output/reference_asr_check/result.json`: исходный
+и пересобранный мастер **PARTIAL**, 3 синтетических аудиореференса и открытая
+английская запись речи; ASR **BLOCKED** — весов нет, текстовый этап FALLBACK.
+Детали распознавания и ограничения сохраняются в `report.json`.
+
+Дополнительно настоящий PocketSphinx распознал короткую CC0 английскую речь в
+два прохода через тестовый адаптер; этап текста использовал фиктивный LLM.
+Вызов ограничен `only=lyrics`, verdict `PASS_BLOCKED` не является полным E2E.
+Сводка содержит слова, но полные строки расшифровки в отчёт или prompt не
+переданы. Это не подтверждение faster-whisper, русского языка или пения. На
+Windows и реальном GPU модель не проверена; VAD может пропускать пение и
+галлюцинировать. Слова и заметки могут уйти в облачную LLM.
+
+## Матчинг нескольких референсов (2026-11-03)
+
+Linux CPU E2E `output/reference_match_verified/result.json`: 20 с, три
+синтетических референса 22 050 Гц, открытая английская речь 4.95 с, RVC off.
+Все три референса переданы в матчинг. Полная коррекция и 0.5 отклонены из-за
+гейтов; безопасный вариант 0.25 применён со статусом FALLBACK. На последней
+проверке сам микс и мастер проходят свои аудиогейты, однако результат всего
+конвейера **PARTIAL**: профиль референсов и покрытие полосы не прошли. Это не
+подтверждение звучания на слух, применения настоящих моделей, Windows или GUI.
+Сравнение спектра ограничено общей частотой, фильтры перекрываются, а zero-phase
+EQ может внести предзвон. После пересборки мастер использует идентичный микс.
+
+## Диагностика параллельного Numba-кэша (2026-11-04)
+
+На Linux с librosa 0.11.0 и Numba 0.68.1 три процесса одновременно запускали
+одинаковый реальный `beat_track` с общим пустым кэшем: результаты 0, 0, -11.
+После этого из того же кэша дважды упали все три процесса и один отдельный
+процесс (SIGSEGV); раздельные пустые кэши прошли 3/3, заранее прогретый общий
+кэш — 3/3 в двух повторах. Повреждение/несогласованность общего кэша — сильное
+наблюдаемое подозрение, но внутренний дефект Numba и все причины падений не
+доказаны. Никакие данные пользователя или старый кэш не удалялись.
+
+Новый запуск создаёт отдельный временный кэш Numba на процесс: `main.py`,
+установленная команда, RVC-sidecar, перечисленные аудиоинструменты и новый
+`tools.pytest_isolated`. Три процесса Librosa с защитой прошли 3/3 в двух
+повторах; три параллельных `main.py --score` на разных синтетических WAV
+завершились с кодом 0, входы не изменились. Каталоги после штатного выхода
+удалились. Установленная в editable-окружение команда `zs-music-maker --version`
+прошла на Linux, её временный каталог удалился. Полный pytest через защищённый
+вход: **816 passed, 1 skipped**;
+`smoke_audio` — 6/6, `smoke_god` — 8/8 DSP/fallback. Отдельный CPU E2E с тремя синтетическими
+референсами, синтетическим минусом и CC0 нотой 1,401 с — **PARTIAL**: вокал
+использован, input hashes не изменены, кэш удалён; не прошли mix correlation,
+reference profile и mastering correlation. После аварии кэши могут остаться,
+повторная JIT-компиляция медленнее. Прямые импорты, Numba, уже импортированная
+до защиты, и дочерние/сторонние процессы без собственной инициализации не
+защищены автоматически. Реальные Windows, GUI, пользовательский микрофон и
+модели не проверены.
+
+## Фоновая подготовка входов (2026-11-04)
+
+При подтверждённой замене входов SHA-256 вычисляется вне GUI-потока. Окно с
+неопределённым индикатором можно отменить до постановки задачи: фоновый поток
+только читает файлы и сам никогда не резервирует каталог и не запускает рендер.
+Отмена проверяется между чтениями; зависшее сетевое или системное чтение может
+продолжаться после закрытия окна. Готовый результат одноразовый и повторно
+проверяется при копировании; файл, изменённый после подготовки, блокируется.
+Проверка микса при открытии проекта по-прежнему синхронная. Хеши не защищают
+от злонамеренной гонки и не подтверждают авторство или синхронизацию записи.
+
+Linux: реальные таймер и цикл QtCore оставались активными при искусственно
+задержанном хешировании; окна QtWidgets проверялись только стабами. CPU E2E
+`output/background_input_check/result.json` в новом процессе: отменённая
+подготовка не создала задачу, затем новый голос — CC0 спетая нота 1,401 с —
+попал в микс, исходные отчёт и микс не изменились; результат **PARTIAL**,
+не прошли mix bus RMS/correlation, reference profile и mastering correlation.
+Тяжёлые AI-модели, микрофон, Windows и реальный интерфейс не проверены.
+
+При параллельном запуске трёх аудиопроверок процессы упали с segmentation fault
+в Numba/librosa; точная причина не установлена. Последовательный запуск с
+отдельным Numba-кэшем завершил pytest (**811 passed, 1 skipped**) и CPU E2E,
+`smoke_audio` — 6/6 DSP/fallback. Это не подтверждает устойчивость параллельных
+запусков или работу AI.
+
+## Замена входов открытого проекта (2026-11-04)
+
+Linux CPU E2E `output/input_replacement_check/result.json`: проект создан в одном
+процессе, затем в новом заменены три синтетических референса, синтетический
+минус и синтетический исходный вокал на CC0 спетую ноту Bart Massey 1,401 с.
+Вокал попал в микс; копии совпали с выбранными файлами по SHA-256. Неизвестная
+привязка отмечена `UNVERIFIED` и остаётся такой после повторного открытия и
+пересборки. Попытка подставить другой минус к старому связанному голосу
+отклонена; исходные отчёт и микс не изменились. Все три прогона — **PARTIAL**;
+в новых версиях не пройдены mix correlation, reference profile и mastering
+correlation. Полный pytest: **803 passed, 1 skipped**; UI-контракты — со
+стабами. Настоящая партия пользователя, Qt/Windows, микрофон, ASR и AI не
+проверены; прослушивания тоже не было.
+
+Новые входы явно выбираются и фиксируются при запуске, а не в момент выбора в
+диалоге; позднее хеширование вынесено в фон. Отдельно проверяются копирование,
+формат, ограничения аудио и неизменённые входы. Нет защиты от
+подделки отчётов, злонамеренных гонок и подтверждения авторства, синхронизации
+или качества голоса. Архив хранит хеш минуса, но не хеш вокального файла.
+
+## Точечная правка открытого проекта (2026-11-04)
+
+Linux CPU E2E `output/project_edit_check/result.json`: открытие в отдельном
+процессе, изменение темы, артиста, текста и сдвига вокала на +200 мс. Исходный
+проект не изменился; пять входных файлов совпали по SHA-256; в новом отчёте
+зафиксированы источник и выбранные поля. Запись попала в оба микса и осталась
+той же CC0 спетой нотой Bart Massey (1,401 с), а не новым исполнением текста.
+Три референса и минус синтетические; RVC/FX выключены. Результат **PARTIAL**:
+mix correlation, reference profile и mastering correlation. Реальные модели,
+пение пользователя, Windows и Qt GUI не проверены. Полный pytest на Linux:
+**774 passed, 1 skipped**; UI-контракты проверялись со стабами Qt.
+
+На момент этого прогона разрешалась только явная правка непутевых полей;
+референсы, минус, голос и RVC-файлы проверялись и копировались. С тех пор
+добавлена замена входов (см. раздел выше). Визуальное восстановление мастера и
+редактирование отдельного аудио не реализованы; новые слова не перепевают
+голос. Защита не удостоверяет отчёт и не фиксирует версии моделей и ПО.
+
+## Полный прогон после открытия проекта (2026-11-04)
+
+Linux CPU E2E `output/full_rebuild_check/result.json`: 5 с синтетического
+минуса, три синтетических референса, русская тема/свои строки и CC0 спетая
+нота Bart Massey (1,401 с); запись устройства не проверялась, RVC/FX выключены.
+Проект создан и затем полностью пересобран в отдельном процессе Python. Оба
+результата **PARTIAL**: mix correlation, reference profile, mastering correlation.
+Вокал попал в оба микса; 5 входных файлов скопированы с совпадающими SHA-256,
+связь вокала с минусом сохранена, исходные отчёт и микс не изменились. Это не
+проверка полной партии пользователя, тяжёлых AI-моделей, Windows или GUI.
+Полный pytest на Linux: **736 passed, 1 skipped**; дополнительный тест нехватки
+места при копировании пройден отдельно.
+
+Новый манифест фиксирует только явно выбранные файлы до и после прогона. Он не
+закрепляет внешние модели, ПО, пресеты, сэмплы или сервисы и не удостоверяет
+отчёт; результат может отличаться. Проверка и копирование требуют времени и
+дополнительного диска. Старые проекты без манифеста доступны только для мастера.
+
+## Открытие проекта после перезапуска (2026-11-04)
+
+Linux CPU E2E `output/reopen_check/result.json` и `fresh_process_result.json`:
+два экземпляра runtime и повторное открытие в отдельном новом процессе Python,
+5 с, три синтетических тона, вокал выключен, без AI-моделей. Исходный
+проект и новые версии — **PARTIAL**: mix correlation, reference profile и
+mastering correlation. Рецепт восстановлен; старые отчёт и микс не изменены,
+копия микса побайтно идентична, SHA-256
+`8b4298dd5b8437df9da780d6bcbce70d028874d207e5dffc4a8aa19039ce3b50`.
+Это не проверка песни, микрофона, Windows или реального GUI. Новый отчёт
+содержит личный текст и пути; на момент проверки после открытия был доступен
+только мастеринг. Полный pytest на Linux: 714 passed, 1 skipped; отдельно проверены новые сценарии
+открытия, повреждений, коллизии ID и GUI-обработчики со стабами. QtWidgets здесь
+не импортируется без libGL, PortAudio отсутствует.
+
+## Пересборка мастера и исправление релизных метаданных (2026-11-03)
+
+Отдельный Linux E2E `output/master_revision_verified/result.json`: 20 секунд,
+3 синтетических референса, 4.95 с CC0 речи, RVC выключен. Полный прогон и
+пересборка мастера — **PARTIAL**: mix bus RMS/correlation, reference profile
+и mastering correlation. Исходный микс и копия совпадают по SHA-256
+`4f1850048613c8205fbeb05a3003d096046139016d839ccb4c4aefebf63bde57`;
+15 событий прогресса, старый отчёт не меняется. Это не тест настоящих моделей,
+пения, Windows или GUI. На момент этой проверки пересборка была доступна только
+в текущей сессии. Теперь новые проекты можно открыть вручную после перезапуска;
+по-прежнему копируется лишь микс, исходные статусы и гейты сохраняются.
+
+Ранее приложение выдумывало похожие на ISRC коды и равномерные таймкоды
+LRC/SRT. Старые релизы требуют проверки; в новых такие данные не генерируются.
+`--resume` отключён до безопасной реализации. GUI проверен только моками.
+
+## Сквозная проверка сценария (2026-11-03)
+
+На Linux: 3 локальных тестовых музыкальных референса (собственные демо, не
+треки артиста), тема про пуэр и 4.95 с открытой записи голоса Bart Massey
+([CC0](https://github.com/pdx-cs-sound/wavs)). 25 секунд, один streaming-стенд.
+Три аудиофайла проанализированы; BPM 137 и тональность A minor переданы биту;
+запись прошла вокальные эффекты и попала в микс; создан мастер и релиз-пакет.
+Это тест обработки существующей короткой речи, не проверка пения и не генерация
+нового вокала на заданные слова.
+
+Результат **PARTIAL**: MusicGen и RVC недоступны, стемы отключены, текст —
+шаблонный fallback, hit-score 66.63 (needs_work). Финальный микс после
+референс-матчинга не прошёл bus RMS, матчинг — profile deviation, мастер —
+crest 14.15 дБ при пределе 14.0; LUFS −14.0, true peak −1.37 dBTP.
+Программа не проводила распознавание текста референсов, исследование
+исполнителя или трендов; подтверждения качества прослушиванием нет.
+Отчёт этого локального прогона: `output/user_journey/verified/report.json`
+(каталог output в git не входит).
+
+## Попытка установки моделей (2026-11-03)
+
+Текущая Linux-среда: 3.85 GiB RAM, 2 доступных логических CPU, NVIDIA GPU
+не обнаружен. Hugging Face недоступен по TLS, реальная загрузка
+`lyrics_llm` (Qwen2.5-14B Q4, около 9 GB) завершилась ошибкой. Модель не
+скачана и inference не проверен. Локально установлен CPU-движок
+`llama-cpp-python` и пакет `faster-whisper`, но это не модельные веса.
+`--ai-status` не подтверждает inference или наличие весов у большинства ролей.
+
+Отдельный эксперимент: PocketSphinx распознал английскую речь из CC0
+`voice.wav` как “this is a test of me your recording my voice”. Это не
+интеграционный тест приложения, не русский ASR и не распознавание пения.
+На пользовательском Windows данные пакеты не установлены этим экспериментом.
+
+## Проверка после добавления ACE-Step (2026-11-03)
+
+На Linux повторён 20-секундный сценарий: 3 синтетических сигнала-референса,
+тема «пуэр и ночной город», 4,95 с открытой записи речи
+[Bart Massey (CC0)](https://github.com/pdx-cs-sound/wavs). Процедурный
+бит 135 BPM, E minor; запись речи действительно обработана и добавлена в микс.
+Итог **PARTIAL**: шаблон текста, MusicGen и RVC BLOCKED, стемы отключены;
+не прошли mix bus RMS/correlation, reference profile deviation и mastering
+correlation. Это не исполнение текста, не проверка вокального пения, новых
+моделей, популярных артистов или коммерческого качества.
+Локальный отчёт — `output/real_scenario/result.json` (output вне git).
+
+ACE-Step HTTP-путь и RVC API проверены тестовыми серверами/заглушками, не
+нейросетевым inference. На тестовой Linux-машине нет GPU и весов, а GUI не
+запустился из-за отсутствия libGL; Windows 11 и пользовательская Radeon не
+проверялись. Собственная модель голоса не создана; встроенное обучение RVC
+заблокировано до подключения настоящего обучающего backend.
+
+## Проверка выбора модели и ручного смещения (2026-11-03)
+
+Добавлен выбор своей модели RVC `.pth` и необязательного `.index`, а также
+ручное смещение вокала относительно минуса. Прогон на Linux с теми же тремя
+синтетическими референсами и открытой речью CC0: RVC выключен, вокал попал в
+микс со сдвигом −125 мс. Стадия текста использовала шаблон, поэтому введённые
+вручную сведения о тексте и темах генератору не передавались. Итог **PARTIAL**:
+не прошли mix bus RMS/correlation, reference profile deviation и mastering
+correlation. Локальный отчёт: `output/current_scenario/result.json`.
+Это проверка пути обработки, не проверка пения, реального RVC или AI-лирики.
+Выбор файлов RVC тестирован только с фиктивным backend. GUI, Windows,
+микрофон и аппаратную задержку проверить в этой среде не удалось.
+
+## Адаптация к оборудованию (2026-11-03)
+
+Детектор показывает обнаруженные GPU отдельно от доступного бэкенда PyTorch,
+свободную RAM и диск проекта. Выбор установленной модели Ollama учитывает
+оценку свободной памяти, GGUF/MusicGen/RVC имеют предварительные пороги.
+DXGI Windows, NVIDIA, AMD и низкая память проверены моделированием, а не на
+физической карте. В текущем Linux без GPU измерено 3.85 GiB RAM и около 3.5 GiB
+доступной RAM; успешного AI inference этот тест не подтверждает. Повторный
+прогон с CC0 речью завершился PARTIAL с теми же аудиогейтами; MusicGen был
+заблокирован проверкой памяти, RVC выключен. Для RX 580
+нет подтверждённого ROCm на Windows, отдельные движки/сервер ACE-Step не
+настраиваются автоматически. Оценки памяти не гарантируют отсутствие OOM.
+
+## Ограничения
+
+- Экспериментальные пять демо созданы до последнего исправления клэпа и атаки 808.
+  Повторный расчёт строгих гейтов показал у trap crest 14.02 дБ (предел 14.0)
+  в streaming и monitors. Нужен повторный рендер текущего кода и прослушивание.
+- Новые проекты можно открыть вручную после перезапуска. Полный прогон доступен
+  только с новым манифестом исходных файлов; он не закрепляет версии программ
+  и моделей, а поля интерфейса не восстанавливаются. Старые отчёты без
+  сохранённого рецепта не открываются.
+  ASR референсов опционален и без весов BLOCKED; автоматический поиск актуальных
+  трендов к основному пайплайну не подключён.
+- Микрофонная запись и полноценная проверка на Windows 11 ещё не проведены;
+  тяжёлые движки MusicGen и Demucs недоступны в текущей среде.
+
+План работ: `docs/ROADMAP.md`, архитектура: `docs/ARCHITECTURE.md`.
+История изменений: `CHANGELOG.md`.

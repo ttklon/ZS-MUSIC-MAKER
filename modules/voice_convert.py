@@ -1,16 +1,16 @@
-"""
-[v7] voice_convert.py — тонкая обёртка над rvc_manager.
+"""Voice archive used by the wizard and thin delegation to the RVC manager.
 
-Изменения относительно v6:
-  • RVC теперь ОСНОВНОЙ путь (см. 20.1 ТЗ).
-  • Offline pitch-shift оставлен только как аварийный fallback с WARNING.
-  • Тренировку и инференс полностью делегируем rvc_manager.
-  • Voice Vault (записи по 8 стилям + phoneme coverage) сохранён.
+The user's recording is retained on disk even if indexing fails. RVC training
+and inference require their own verified backend; no pitch shift is presented
+as voice conversion.
 """
 
-import json
+import re
 import shutil
+import uuid
 from pathlib import Path
+
+from modules.voice_index_store import VoiceIndexError, lock_index, read_index, write_index
 
 ROOT = Path(__file__).resolve().parents[1]
 VAULT_DIR = ROOT / "voice_vault"
@@ -47,48 +47,105 @@ STYLES = [
 
 # ---------- Voice Vault ----------
 def _load_index() -> list:
-    if VOICE_INDEX.exists():
-        try:
-            return json.load(open(VOICE_INDEX, "r", encoding="utf-8"))
-        except Exception:
-            return []
-    return []
+    return read_index(VOICE_INDEX, list, lambda data: isinstance(data, list) and
+                      all(isinstance(item, dict) for item in data))
 
 
-def _save_index(idx: list):
-    _ensure_dirs()
-    json.dump(
-        idx, open(VOICE_INDEX, "w", encoding="utf-8"), ensure_ascii=False, indent=2
-    )
+def _save_index(idx: list) -> None:
+    write_index(VOICE_INDEX, idx)
 
 
 def add_recording(wav_path: str, meta: dict) -> dict:
-    """Добавить запись в Voice Vault."""
-    _ensure_dirs()
-    idx = _load_index()
-    style = meta.get("style", "unk")
-    fname = f"rec_{len(idx):04d}_{style}.wav"
-    dst = VAULT_DIR / fname
+    """Register a take without replacing a damaged index or an existing recording."""
+    source = Path(wav_path)
+    if not source.is_file():
+        return {"error": f"copy failed: source not found: {source}"}
+    safe_style = re.sub(r"[^\w-]", "_", str(meta.get("style", "unk")))[:40] or "voice"
+    dst = source
+    copy_complete = False
     try:
-        shutil.copy(wav_path, dst)
-    except Exception as e:
-        return {"error": f"copy failed: {e}"}
-    entry = {
-        "file": fname,
-        "path": str(dst),
-        "style": style,
-        "text": meta.get("text", ""),
-        "duration_sec": float(meta.get("duration_sec", 0)),
-        "quality_score": meta.get("quality_score"),
-        "timestamp": meta.get("timestamp"),
-    }
-    idx.append(entry)
-    _save_index(idx)
-    return entry
+        _ensure_dirs()
+        with lock_index(VOICE_INDEX):
+            idx = _load_index()
+            from app.core.input_integrity import _file_info
+            source_info = _file_info(source)
+            expected_voice = meta.get("recording_sha256") or ""
+            if expected_voice and (not isinstance(expected_voice, str) or not re.fullmatch(r"[0-9a-f]{64}", expected_voice)
+                                   or expected_voice != source_info[1]):
+                raise ValueError("saved recording changed before archive indexing")
+            if source.resolve().parent != VAULT_DIR.resolve():
+                dst = VAULT_DIR / f"rec_{uuid.uuid4().hex}_{safe_style}.wav"
+                # Exclusive create: do not overwrite pre-existing or concurrent takes.
+                with source.open("rb") as src, dst.open("xb") as target:
+                    shutil.copyfileobj(src, target)
+                if _file_info(dst) != source_info or _file_info(source) != source_info:
+                    raise ValueError("recording changed or archive copy failed integrity check")
+            else:
+                dst = source.resolve()
+            copy_complete = True
+            entry = {
+                "file": dst.name, "path": str(dst), "style": meta.get("style", "unk"),
+                "text": meta.get("text", ""), "duration_sec": float(meta.get("duration_sec", 0)),
+                "quality_score": meta.get("quality_score"), "timestamp": meta.get("timestamp"),
+                "backing_path": str(meta.get("backing_path") or ""),
+                "backing_sha256": str(meta.get("backing_sha256") or ""),
+                "recording_sha256": source_info[1],
+            }
+            idx.append(entry)
+            _save_index(idx)
+        return entry
+    except (OSError, ValueError, TypeError, VoiceIndexError) as exc:
+        failure = {"error": f"voice archive update failed: {type(exc).__name__}: {exc}",
+                   "unindexed_path": str(dst) if copy_complete and dst.is_file() else str(source)}
+        if not copy_complete and dst != source and dst.is_file():
+            failure["partial_copy_path"] = str(dst)
+        return failure
+
+
+def recording_backing(wav_path: str) -> dict:
+    """Read known binding without letting duplicate unbound entries erase it."""
+    path = Path(wav_path).resolve()
+    binding = {}
+    voice_hash = ""
+    bound_voice_hash = ""
+    for entry in reversed(_load_index()):
+        if not entry.get("path") or Path(entry["path"]).resolve() != path:
+            continue
+        recorded_voice = entry.get("recording_sha256", "")
+        if recorded_voice is not None and recorded_voice != "":
+            if not isinstance(recorded_voice, str) or not re.fullmatch(r"[0-9a-f]{64}", recorded_voice):
+                raise VoiceIndexError("recording archive has invalid vocal fingerprint")
+            if voice_hash and voice_hash != recorded_voice:
+                raise VoiceIndexError("recording archive has conflicting vocal fingerprints")
+            voice_hash = recorded_voice
+        recorded_path = entry.get("backing_path")
+        digest = entry.get("backing_sha256")
+        if recorded_path is None:
+            recorded_path = ""
+        if digest is None:
+            digest = ""
+        if not isinstance(recorded_path, str) or not isinstance(digest, str):
+            raise VoiceIndexError("recording archive has incomplete or invalid backing metadata")
+        if not recorded_path and not digest:
+            continue
+        if (not isinstance(recorded_path, str) or not recorded_path or not isinstance(digest, str)
+                or not re.fullmatch(r"[0-9a-f]{64}", digest)):
+            raise VoiceIndexError("recording archive has incomplete or invalid backing metadata")
+        if binding and binding["sha256"] != digest:
+            raise VoiceIndexError("recording archive has conflicting backing metadata")
+        if not binding:
+            binding = {"path": recorded_path, "sha256": digest}
+        if recorded_voice:
+            bound_voice_hash = recorded_voice
+    if voice_hash:
+        binding["recording_sha256"] = voice_hash
+    if binding.get("sha256"):
+        binding["binding_integrity"] = "RECORDED_HASH" if bound_voice_hash else "LEGACY_UNVERIFIED"
+    return binding
 
 
 def vault_summary() -> dict:
-    """Сводка по vault: сколько минут, покрытие фонем, рекомендации."""
+    """Duration and entered-letter counts; not ASR, phoneme coverage or training proof."""
     idx = _load_index()
     by_style = {}
     total_sec = 0
@@ -104,8 +161,13 @@ def vault_summary() -> dict:
         "recordings": len(idx),
         "total_minutes": round(total_sec / 60, 2),
         "by_style": by_style,
-        "ready_for_training": total_sec >= 300,  # 5 минут — минимум
-        "recommended_for_full": total_sec >= 600,  # 10 минут — идеал
+        "minimum_duration_met": total_sec >= 300,
+        "duration_kind": "index_metadata_unverified",
+        "ready_for_training": False,  # no integrated trainer has been verified
+        "training_status": "UNVERIFIED",
+        "recommended_for_full": False,  # duration does not establish dataset quality
+        "coverage_kind": "entered_letters_not_asr",
+        "audio_coverage_verified": False,
         "phoneme_coverage_pct": round(len(covered) / len(PHONEMES) * 100, 1),
         "missing_phonemes": missing,
         "recommended_next_styles": [s for s in STYLES if by_style.get(s, 0) < 3],
@@ -113,33 +175,37 @@ def vault_summary() -> dict:
 
 
 def rate_recording(index: int, quality_score: int) -> dict:
-    idx = _load_index()
-    if index < 0 or index >= len(idx):
-        return {"error": "индекс вне диапазона"}
-    idx[index]["quality_score"] = quality_score
-    _save_index(idx)
-    return {"ok": True, "entry": idx[index]}
+    try:
+        with lock_index(VOICE_INDEX):
+            idx = _load_index()
+            if index < 0 or index >= len(idx):
+                return {"error": "индекс вне диапазона"}
+            idx[index]["quality_score"] = quality_score
+            _save_index(idx)
+        return {"ok": True, "entry": idx[index]}
+    except (OSError, ValueError, TypeError, VoiceIndexError) as exc:
+        return {"error": f"voice archive update failed: {type(exc).__name__}: {exc}"}
 
 
 # ---------- Training (делегируем rvc_manager) ----------
 def train_rvc_model(
     voice_name: str = "my_voice", epochs: int = 100, night_mode: bool = False
 ) -> dict:
-    """Обучение RVC-модели. В v7 — через rvc_manager (фоново, с прогрессом)."""
+    """Запрос обучения RVC; возвращает blocked, пока нет проверенного backend."""
     from modules import rvc_manager
 
     trainer = rvc_manager.RVCTrainer()
     job = trainer.train(voice_name=voice_name, epochs=epochs, night_mode=night_mode)
-    # ждать НЕ надо в UI — прогресс отдаётся через колбэки
     return {
-        "ok": True,
-        "job_started": True,
+        "ok": job.status not in {"blocked_backend", "error"},
+        "job_started": job.status not in {"blocked_backend", "error"},
+        "reason": job.error,
         "voice_name": voice_name,
         "backend": trainer.backend.kind,
         "fork": trainer.backend.fork,
         "epochs": job.epochs,
         "device": job.device,
-        "note": "Обучение идёт в фоне. Смотри voice_convert.get_training_status()",
+        "note": job.stage,
     }
 
 

@@ -1,9 +1,8 @@
 """
 [v7] MusicGen Texture Engine — полноценный хайпер-инструмент.
 
-По разделу 20.1 ТЗ:
-  • VRAM-aware routing: CPU-only → small; DirectML 6-8 GB → medium;
-    CUDA 12 GB+ → large / large-stereo.
+При запуске из основного пайплайна выбирает CPU или PyTorch CUDA/ROCm
+по измеренной свободной памяти; DirectML не является поддержкой MusicGen.
   • Генерирует атмосферы, FX, альтернативные хуки, пэды, мелодические затравки.
   • Батч-режим: несколько окон по 20-30 сек с разными промтами.
   • Ленивая загрузка модели, unload после использования (освобождение VRAM).
@@ -14,6 +13,8 @@
 """
 
 from __future__ import annotations
+
+import logging
 
 import hashlib
 from pathlib import Path
@@ -35,8 +36,8 @@ def choose_size(vram_gb: float, quality_mode: str = "quality") -> str:
     if vram_gb >= 12:
         # 12+ GB — можем large или large-stereo
         return "large" if quality_mode != "fast" else "medium"
-    if vram_gb >= 6:
-        # 6-11 GB — medium сбалансированно
+    if vram_gb >= 8:
+        # 8-11 GiB доступного бюджета — оценка, не гарантия
         return "medium" if quality_mode != "fast" else "small"
     # ≤ 4 GB / CPU — только small
     return "small"
@@ -46,15 +47,16 @@ def choose_size(vram_gb: float, quality_mode: str = "quality") -> str:
 _MODEL_CACHE: dict[str, Any] = {}
 
 
-def _load_musicgen(size: str):
+def _load_musicgen(size: str, device: str):
     """Ленивая загрузка модели MusicGen. Кэшируется в памяти."""
-    if size in _MODEL_CACHE:
-        return _MODEL_CACHE[size]
+    cache_key = f"{size}:{device}"
+    if cache_key in _MODEL_CACHE:
+        return _MODEL_CACHE[cache_key]
     try:
         from audiocraft.models import MusicGen
 
-        model = MusicGen.get_pretrained(f"facebook/musicgen-{size}")
-        _MODEL_CACHE[size] = model
+        model = MusicGen.get_pretrained(f"facebook/musicgen-{size}", device=device)
+        _MODEL_CACHE[cache_key] = model
         return model
     except Exception as e:
         print(f"[musicgen_texture] audiocraft недоступен: {e}")
@@ -69,7 +71,7 @@ def unload_all() -> None:
 
         torch.cuda.empty_cache()
     except Exception:
-        pass
+        logging.getLogger(__name__).debug("ignored exception", exc_info=True)
 
 
 # --------------------------------------------------------------- v35: honest status
@@ -81,7 +83,7 @@ def detect_availability() -> dict:
 
     Возвращает dict:
       available  — True только если audiocraft+torch реально импортируются
-      status     — REAL_PASS | BLOCKED
+      status     — PREFLIGHT | BLOCKED
       reason     — человекочитаемая причина (для UI/health)
       install_hint — как включить (для INSTALL/health)
     """
@@ -105,8 +107,8 @@ def detect_availability() -> dict:
         }
     return {
         "available": True,
-        "status": "REAL_PASS",
-        "reason": "audiocraft + torch доступны",
+        "status": "PREFLIGHT",
+        "reason": "audiocraft + torch импортируются; веса и inference не проверены",
         "install_hint": "",
     }
 
@@ -138,12 +140,15 @@ def generate_texture(
     vram_gb: float = 4.0,
     quality_mode: str = "quality",
     out_name: str | None = None,
+    device: str = "cpu",
 ) -> dict:
     """
     Генерирует одну текстуру (атмосфера/FX/пэд/хук).
     Возвращает dict с путём к WAV.
     """
-    size = choose_size(vram_gb, quality_mode)
+    if device not in ("cpu", "cuda"):
+        raise ValueError("MusicGen backend must be cpu or torch cuda/rocm")
+    size = choose_size(vram_gb if device == "cuda" else 0.0, quality_mode)
     key = _cache_key(prompt, size, duration_sec)
     cached = CACHE / f"tex_{key}.wav"
 
@@ -158,7 +163,7 @@ def generate_texture(
         }
 
     # 2) Реальная генерация через audiocraft
-    model = _load_musicgen(size)
+    model = _load_musicgen(size, device)
     if model is None:
         # v35: честный лог причины один раз на вызов (не молчаливо)
         avail = detect_availability()

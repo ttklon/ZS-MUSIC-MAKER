@@ -1,7 +1,7 @@
 from types import SimpleNamespace
 
 import modules
-from app.core import orchestrator
+from app.core.stages import vocal as vocal_stage
 
 
 def test_voice_fallback_preserves_primary_synth_failure_and_invalid_secondary_output(monkeypatch, tmp_path):
@@ -11,12 +11,12 @@ def test_voice_fallback_preserves_primary_synth_failure_and_invalid_secondary_ou
     module = SimpleNamespace(synth=fail_synth, synthesize=lambda *_args: None)
     monkeypatch.setattr(modules, "voice_synth", module, raising=False)
     monkeypatch.setattr(
-        orchestrator,
+        vocal_stage,
         "_pyttsx3_speak",
         lambda *_args: {"ok": True, "engine": "pyttsx3", "fallback_used": True},
     )
 
-    result = orchestrator._stage_voice_synth("test lyrics", tmp_path)
+    result = vocal_stage._stage_voice_synth("test lyrics", tmp_path)
 
     assert result["ok"] is True
     assert result["engine"] == "pyttsx3"

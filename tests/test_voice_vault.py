@@ -3,7 +3,7 @@ from __future__ import annotations
 import numpy as np
 import soundfile as sf
 
-import modules.voice_vault_v9 as vault
+import modules.voice_vault as vault
 
 
 def test_voice_vault_intake_and_speaker_selection(tmp_path, monkeypatch) -> None:

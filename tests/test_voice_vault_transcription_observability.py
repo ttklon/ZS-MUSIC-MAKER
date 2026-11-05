@@ -3,7 +3,7 @@
 import sys
 import types
 
-from modules import voice_vault_v9 as vault
+from modules import voice_vault as vault
 
 
 def test_transcription_reports_each_unavailable_backend(monkeypatch, tmp_path, caplog):

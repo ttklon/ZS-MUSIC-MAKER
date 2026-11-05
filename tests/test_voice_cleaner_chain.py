@@ -61,10 +61,66 @@ def test_vocal_fx_runs_clean_stage_before_optional_polish(tmp_path) -> None:
     output = tmp_path / "voice_fx.wav"
     _synthetic_vocal(source)
 
-    result = process_vocal(source, output, use_double=False, use_throw=False, genre="phonk")
+    result = process_vocal(
+        source,
+        output,
+        use_double=False,
+        use_throw=False,
+        genre="phonk",
+        use_tune=False,
+        use_deess=False,
+        use_prosody=False,
+    )
 
     assert result["ok"] is True
     assert result["stages"] == ["clean"]
     assert result["clean_used"] is True
     assert result["cleaner"]["preset"]["deesser_db"] == 3.0
     assert output.exists()
+
+
+def test_vocal_fx_reports_tune_deess_prosody_stages(tmp_path) -> None:
+    from modules.vocal_fx import process_vocal
+
+    source = tmp_path / "input.wav"
+    output = tmp_path / "voice_fx.wav"
+    _synthetic_vocal(source)
+
+    result = process_vocal(source, output, use_double=False, use_throw=False, genre="phonk")
+
+    assert result["ok"] is True
+    assert {"clean", "tune", "deess", "prosody"} <= set(result["stages"])
+    assert result["tune"]["engine"] == "phase_vocoder"
+    assert result["deess"]["engine"] == "dynamic_band_deesser"
+    assert result["prosody"]["engine"] == "phrase_prosody"
+
+
+def test_spectral_denoise_reduces_hiss_and_keeps_the_voice_tone(tmp_path) -> None:
+    """Де-нойз обязан убирать шипение, но не «съедать» тон голоса."""
+    from modules.voice_cleaner import _spectral_denoise
+
+    sample_rate = 16_000
+    time_vec = np.arange(sample_rate * 2) / sample_rate
+    voiced = (time_vec >= 0.5) & (time_vec < 1.5)  # фраза с паузами до и после
+    tone = 0.10 * np.sin(2 * np.pi * 440 * time_vec) * voiced
+    rng = np.random.default_rng(11)
+    hiss = rng.normal(0.0, 0.01, tone.size)
+    noisy = (tone + hiss).astype("float32")
+
+    cleaned, report = _spectral_denoise(noisy, sample_rate)
+    assert report["applied"] is True
+    assert report["length_preserved"] is True
+    cleaned = np.asarray(cleaned).reshape(-1)
+    assert cleaned.shape[0] == noisy.shape[0]
+
+    def level(x: np.ndarray, lo: float, hi: float) -> float:
+        return 20.0 * np.log10(_band_rms(x, sample_rate, lo, hi))
+
+    phrase = slice(int(0.6 * sample_rate), int(0.9 * sample_rate))
+    pause = slice(int(1.6 * sample_rate), int(1.9 * sample_rate))
+    # тон 440 Гц остался на месте (в пределах 1 дБ)
+    assert abs(level(cleaned[phrase], 420, 460) - level(noisy[phrase], 420, 460)) < 1.0
+    # шипение в паузе прижато (не «выключено в ноль» — это не гейт)
+    pause_before = level(noisy[pause], 200, 3_000)
+    pause_after = level(cleaned[pause], 200, 3_000)
+    assert pause_after < pause_before - 4.0

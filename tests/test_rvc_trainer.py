@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 
-import modules.rvc_trainer_v9 as trainer
+import modules.rvc_trainer as trainer
 
 
 def test_rvc_trainer_dry_run_persists_honest_no_model_status(tmp_path, monkeypatch) -> None:

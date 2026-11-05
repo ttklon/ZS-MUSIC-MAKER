@@ -2,18 +2,17 @@
 [v7] karaoke_recorder v4 — караоке-запись с 8 стилями и прогрессом покрытия.
 
 Возможности:
-  • Показ фразы с подсветкой слова (по времени)
-  • Проигрывание бита в наушниках при записи (Pro mode)
-  • Метроном по BPM
-  • Автосохранение в voice_vault/ с меткой стиля
-  • Прогресс: сколько записей по каждому стилю, покрытие фонем
+  • Синхронное воспроизведение выбранного бита при записи через sounddevice
+  • Сохранение в voice_vault/ с меткой стиля и диагностикой индекса
 """
 
 from __future__ import annotations
 
 import json
-import os
+import logging
+import re
 import time
+import uuid
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -46,31 +45,40 @@ def build_metronome(bpm: int, duration_sec: int = 8, sr: int = 44100) -> str:
         return ""
 
 
-def play_backing_track(track_path: str, in_headphones: bool = True) -> bool:
-    """
-    Стартует проигрывание бита в наушниках. На Windows — через winsound
-    (playAsync), на других системах — через subprocess.
-    """
-    if not track_path or not os.path.exists(track_path):
-        return False
-    try:
-        import platform
-
-        if platform.system() == "Windows":
-            import winsound
-
-            winsound.PlaySound(
-                track_path,
-                winsound.SND_FILENAME | winsound.SND_ASYNC | winsound.SND_LOOP,
-            )
-        else:
-            import subprocess
-
-            subprocess.Popen(["aplay", track_path], stderr=subprocess.DEVNULL)
-        return True
-    except Exception as e:
-        print(f"[karaoke.play_backing_track] {e}")
-        return False
+def _select_device_format(sd, preferred_sr: int, backing_channels: int) -> tuple[int, int, bool]:
+    """Probe the default input/output devices; never silently drop requested playback."""
+    if not hasattr(sd, "check_input_settings") or (backing_channels and not hasattr(sd, "check_output_settings")):
+        return preferred_sr, backing_channels, False
+    candidates = [preferred_sr]
+    if hasattr(sd, "query_devices"):
+        for kind in (("input", "output") if backing_channels else ("input",)):
+            try:
+                value = sd.query_devices(kind=kind).get("default_samplerate")
+                if value is not None:
+                    candidates.append(int(round(float(value))))
+            except Exception:
+                logging.getLogger(__name__).debug("default %s device not reported", kind, exc_info=True)
+    candidates.extend((48000, 44100, 32000))
+    input_rates = []
+    for rate in dict.fromkeys(candidates):
+        if not 8000 <= rate <= 192000:
+            continue
+        try:
+            sd.check_input_settings(channels=1, samplerate=rate, dtype="float32")
+            input_rates.append(rate)
+        except Exception:
+            logging.getLogger(__name__).debug("input rate %s unavailable", rate, exc_info=True)
+    if input_rates and not backing_channels:
+        return input_rates[0], 0, True
+    # Preserve stereo when any mutually supported rate can do it; only then try mono.
+    for channels in dict.fromkeys((backing_channels, 1)):
+        for rate in input_rates:
+            try:
+                sd.check_output_settings(channels=channels, samplerate=rate, dtype="float32")
+                return rate, channels, True
+            except Exception:
+                logging.getLogger(__name__).debug("output format unavailable", exc_info=True)
+    raise RuntimeError("No compatible input/output sample rate; check default devices and full-duplex support")
 
 
 def record_with_backing(
@@ -88,37 +96,116 @@ def record_with_backing(
         import numpy as np
         import sounddevice as sd
         import soundfile as sf
-    except ImportError:
-        return {"error": "sounddevice не установлен"}
+    except (ImportError, OSError) as exc:
+        return {"error": f"audio recording backend unavailable: {type(exc).__name__}: {exc}"}
 
-    if backing_path and os.path.exists(backing_path):
-        play_backing_track(backing_path, in_headphones=True)
-
-    print(f"[karaoke] Запись {duration_sec} сек в стиле '{style}' — ПОЕХАЛИ!")
-    audio = sd.rec(int(duration_sec * sr), samplerate=sr, channels=1, dtype="float32")
-    sd.wait()
-
-    ts = int(time.time())
-    out = VAULT / f"rec_{ts}_{style}.wav"
-    sf.write(str(out), audio.squeeze(), sr)
-
-    # Регистрируем в vault_index через voice_convert
     try:
+        if not 0 < float(duration_sec) <= 600 or not 8000 <= int(sr) <= 192000:
+            raise ValueError("duration must be 0–600 seconds and sample rate 8–192 kHz")
+        backing = None
+        backing_sr = None
+        backing_sha256 = ""
+        channels = 0
+        if backing_path:
+            path = Path(backing_path)
+            if not path.is_file():
+                raise FileNotFoundError(f"backing track not found: {backing_path}")
+            from modules.release.export import sha256_file
+
+            backing_sha256 = sha256_file(path)
+            with sf.SoundFile(str(path)) as source:
+                backing_sr = source.samplerate
+                channels = source.channels
+                if channels not in (1, 2) or not 8000 <= backing_sr <= 192000:
+                    raise ValueError("backing must be mono/stereo and 8–192 kHz")
+                if not 0.25 <= len(source) / backing_sr <= 600:
+                    raise ValueError("backing must be 0.25–600 seconds for the mix")
+        actual_sr, output_channels, format_checked = _select_device_format(sd, int(sr), channels)
+        frames = int(float(duration_sec) * actual_sr)
+        if frames < 1:
+            raise ValueError("recording is shorter than one sample")
+        short_backing = False
+        if backing_path:
+            with sf.SoundFile(str(path)) as source:
+                if source.samplerate != backing_sr or source.channels != channels:
+                    raise ValueError("backing format changed before recording")
+                wanted = min(len(source), int(np.ceil(frames * backing_sr / actual_sr)) + 4)
+                backing = source.read(wanted, dtype="float32", always_2d=True)
+            if sha256_file(path) != backing_sha256:
+                raise ValueError("backing changed while preparing playback; select it again")
+            if not len(backing) or not np.isfinite(backing).all():
+                raise ValueError("backing track is empty or invalid")
+            if float(np.max(np.abs(backing))) > 1.0001:
+                raise ValueError("backing contains clipped samples and cannot be imported")
+            if backing_sr != actual_sr:
+                from math import gcd
+                from scipy.signal import resample_poly
+
+                factor = gcd(backing_sr, actual_sr)
+                backing = resample_poly(backing, actual_sr // factor, backing_sr // factor, axis=0).astype("float32")
+            if output_channels == 1 and backing.shape[1] == 2:
+                backing = backing.mean(axis=1, keepdims=True)
+            # Pad with silence instead of looping unexpectedly.
+            playback = np.zeros((frames, output_channels), dtype="float32")
+            n = min(frames, len(backing))
+            playback[:n] = backing[:n]
+            short_backing = n < frames
+            audio = sd.playrec(playback, samplerate=actual_sr, channels=1, dtype="float32", blocking=True)
+        else:
+            audio = sd.rec(frames, samplerate=actual_sr, channels=1, dtype="float32")
+            sd.wait()
+        audio = np.asarray(audio, dtype="float32").reshape(-1)
+        if len(audio) != frames or not np.isfinite(audio).all():
+            raise ValueError("microphone returned incomplete or invalid audio")
+        peak = float(np.max(np.abs(audio)))
+        if peak < 1e-5:
+            raise ValueError("microphone recording is silent; check input device and level")
+        safe_style = re.sub(r"[^\w-]", "_", style)[:40] or "voice"
+        ts = time.time_ns()
+        VAULT.mkdir(parents=True, exist_ok=True)
+        out = VAULT / f"rec_{ts}_{uuid.uuid4().hex}_{safe_style}.wav"
+        # Exclusive, lossless float WAV: never overwrite another take or quantize it.
+        try:
+            with out.open("xb") as target:
+                sf.write(target, audio, actual_sr, format="WAV", subtype="FLOAT")
+        except Exception as exc:
+            raise RuntimeError(f"take could not be fully saved; partial file may remain at {out}: {exc}") from exc
+    except Exception as exc:
+        return {"error": f"recording failed: {type(exc).__name__}: {exc}"}
+
+    # A saved take remains usable even if indexing fails; report the distinction.
+    warning = ""
+    recording_sha256 = ""
+    try:
+        from app.core.input_integrity import _file_info
         from modules.voice_convert import add_recording
 
-        add_recording(
-            str(out),
-            {
-                "style": style,
-                "text": text,
-                "duration_sec": duration_sec,
-                "timestamp": ts,
-            },
-        )
-    except Exception:
-        pass
-
-    return {"ok": True, "path": str(out), "style": style, "duration_sec": duration_sec}
+        recording_sha256 = _file_info(out)[1]
+        entry = add_recording(str(out), {"style": style, "text": text,
+                                        "duration_sec": len(audio) / actual_sr, "timestamp": ts / 1e9,
+                                        "backing_path": str(path.resolve()) if backing_path else "",
+                                        "backing_sha256": backing_sha256,
+                                        "recording_sha256": recording_sha256})
+        if entry.get("error"):
+            warning = f"Recording saved but Voice Vault indexing failed: {entry['error']}"
+    except Exception as exc:
+        warning = f"Recording saved but Voice Vault indexing failed: {type(exc).__name__}: {exc}"
+        logging.getLogger(__name__).warning(warning)
+    if actual_sr != int(sr):
+        warning = (warning + " " if warning else "") + f"Device sample rate selected: {actual_sr} Hz instead of {int(sr)} Hz."
+    if backing_path and channels == 2 and output_channels == 1:
+        warning = (warning + " " if warning else "") + "Stereo backing was downmixed to mono for the output device."
+    if short_backing:
+        warning = (warning + " " if warning else "") + "Backing ended before recording; remaining playback was silence."
+    if peak >= 0.98:
+        warning = (warning + " " if warning else "") + "Recording may be clipped; lower microphone gain."
+    return {"ok": True, "path": str(out), "style": style, "duration_sec": len(audio) / actual_sr, "sample_rate": actual_sr,
+            "backing_used": bool(backing_path), "backing_path": str(path.resolve()) if backing_path else "",
+            "backing_sha256": backing_sha256, "recording_sha256": recording_sha256,
+            "binding_integrity": "RECORDED_HASH" if recording_sha256 and backing_sha256 else "",
+            "playback_channels": output_channels,
+            "device_format_checked": format_checked, "backing_shorter": short_backing,
+            "peak": peak, "warning": warning}
 
 
 def karaoke_ui(

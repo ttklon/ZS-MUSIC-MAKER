@@ -1,0 +1,244 @@
+"""Exercise result-screen callbacks with Qt stubs; this is not a GUI/Windows test."""
+from importlib.util import module_from_spec, spec_from_file_location
+from pathlib import Path
+from types import ModuleType, SimpleNamespace
+import sys
+
+import pytest
+
+
+@pytest.fixture
+def gui_module(monkeypatch):
+    qtwidgets = ModuleType("PySide6.QtWidgets")
+    class MessageBox:
+        class StandardButton:
+            Yes = 1
+            No = 0
+        answer = 1
+        warnings = []
+        @classmethod
+        def question(cls, *args): return cls.answer
+        @classmethod
+        def warning(cls, *args): cls.warnings.append(args)
+        @classmethod
+        def information(cls, *args): pass
+    qtwidgets.QMessageBox = MessageBox
+    for name in ("QHBoxLayout", "QLabel", "QProgressBar", "QPushButton", "QTextEdit"):
+        setattr(qtwidgets, name, type(name, (), {}))
+    qtcore = ModuleType("PySide6.QtCore")
+    qtcore.Qt, qtcore.QTimer = type("Qt", (), {}), type("QTimer", (), {})
+    pyside = ModuleType("PySide6")
+    monkeypatch.setitem(sys.modules, "PySide6", pyside)
+    monkeypatch.setitem(sys.modules, "PySide6.QtWidgets", qtwidgets)
+    monkeypatch.setitem(sys.modules, "PySide6.QtCore", qtcore)
+    ui = ModuleType("app.gui.wizard.ui")
+    ui.DIM = ui.H1 = ui.H2 = ui.HR = lambda *a: None
+    ui.StepBase = type("StepBase", (), {})
+    monkeypatch.setitem(sys.modules, "app.gui.wizard.ui", ui)
+    path = Path(__file__).resolve().parents[1] / "app/gui/wizard/steps_run.py"
+    spec = spec_from_file_location("test_isolated_gui_callbacks", path)
+    module = module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module, MessageBox
+
+
+def test_revision_button_forwards_only_allowed_settings_and_tracks_job(gui_module):
+    module, box = gui_module
+    calls = []
+    run = SimpleNamespace(current_tid=None, track_job=lambda tid: calls.append(("track", tid)))
+    orch = SimpleNamespace(enqueue_master_revision=lambda source, settings: calls.append((source, settings)) or "new-id")
+    wizard = SimpleNamespace(steps=[run], orch=orch,
+                             current_recipe=lambda: {"stands": ["car"], "export_stems": False, "theme": "changed"})
+    obj = SimpleNamespace(current_job=SimpleNamespace(track_id="old-id"), wizard=wizard)
+    module.StepResult.rebuild_part(obj)
+    assert calls == [("old-id", {"stands": ["car"], "export_stems": False}), ("track", "new-id")]
+    box.answer = box.StandardButton.No
+    module.StepResult.rebuild_part(obj)
+    assert len(calls) == 2
+    run.current_tid = "busy"
+    module.StepResult.rebuild_part(obj)
+    assert len(calls) == 2 and box.warnings
+
+
+def test_full_and_batch_are_attached_to_progress(gui_module):
+    module, _ = gui_module
+    calls = []
+    run = SimpleNamespace(current_tid=None, track_job=lambda tid: calls.append(("track", tid)),
+                          track_batch=lambda tids: calls.append(("batch", tids)))
+    orch = SimpleNamespace(enqueue=lambda recipe: calls.append(("full", recipe)) or "full-id",
+                           enqueue_batch=lambda recipes: calls.append(("recipes", recipes)) or ["a", "b", "c"])
+    wizard = SimpleNamespace(steps=[run], orch=orch)
+    obj = SimpleNamespace(current_job=SimpleNamespace(recipe={"theme": "x", "only": ["beat"]}), wizard=wizard)
+    module.StepResult.rebuild_full(obj)
+    module.StepResult.three_variants(obj)
+    assert calls[0] == ("full", {"theme": "x"})
+    assert calls[1] == ("track", "full-id")
+    assert calls[-1] == ("batch", ["a", "b", "c"])
+    assert all("only" not in recipe for recipe in calls[2][1])
+
+
+def test_result_shows_reference_asr_status(gui_module):
+    module, _ = gui_module
+    class Label:
+        text = ""
+        def setText(self, text): self.text = text
+    class Button:
+        def setEnabled(self, enabled): pass
+    info, detector = Label(), Label()
+    obj = SimpleNamespace(info=info, detector=detector, btn_part=Button())
+    asr = {"requested": True, "status": "BLOCKED", "reason": "local weights missing"}
+    result = {"pipeline": {"verdict": "PARTIAL", "stages": [{"name": "_stage_lyrics", "output": {
+        "creative_context": {"reference_asr": asr}}}]}}
+    job = SimpleNamespace(result=result, track_id="test", started_at=1, finished_at=2, stage="done")
+    module.StepResult.show_result(obj, job)
+    assert "BLOCKED" in info.text and "local weights missing" in info.text
+
+
+def test_result_displays_vocal_clipping_warning(gui_module):
+    module, _ = gui_module
+    class Label:
+        text = ""
+        def setText(self, text): self.text = text
+    class Button:
+        def setEnabled(self, enabled): pass
+    info = Label()
+    obj = SimpleNamespace(info=info, detector=Label(), btn_part=Button())
+    result = {"pipeline": {"verdict": "PARTIAL", "stages": [{"name": "_stage_voice_synth", "output": {
+        "recording_quality": {"near_clipping_warning": True}}}]}}
+    job = SimpleNamespace(result=result, track_id="test", started_at=1, finished_at=2, stage="done")
+    module.StepResult.show_result(obj, job)
+    assert "клиппинг" in info.text or "clipping" in info.text
+
+
+def test_result_displays_lost_vocal_warning(gui_module):
+    module, _ = gui_module
+    class Label:
+        text = ""
+        def setText(self, text): self.text = text
+    class Button:
+        def setEnabled(self, enabled): pass
+    info = Label()
+    obj = SimpleNamespace(info=info, detector=Label(), btn_part=Button())
+    result = {"pipeline": {"verdict": "PARTIAL", "stages": [{"name": "_stage_mix_and_sidechain", "output": {
+        "vocal_placement": {"trimmed_non_silent": True}}}]}}
+    job = SimpleNamespace(result=result, track_id="test", started_at=1, finished_at=2, stage="done")
+    module.StepResult.show_result(obj, job)
+    assert "не попала в микс" in info.text or "outside the mix" in info.text
+
+
+def test_result_reports_recorded_backing_mismatch(gui_module):
+    module, _ = gui_module
+    class Label:
+        text = ""
+        def setText(self, text): self.text = text
+    class Button:
+        def setEnabled(self, enabled): pass
+    info = Label()
+    obj = SimpleNamespace(info=info, detector=Label(), btn_part=Button())
+    result = {"pipeline": {"verdict": "PARTIAL", "stages": [{"name": "_stage_beat", "status": "FAILED",
+        "reason": "recorded backing changed"}]}}
+    job = SimpleNamespace(result=result, track_id="test", started_at=1, finished_at=2, stage="done")
+    module.StepResult.show_result(obj, job)
+    assert "не совпадает с записью" in info.text or "no longer matches" in info.text
+
+
+def test_opened_project_disables_full_rebuild_and_variants(gui_module):
+    module, box = gui_module
+    class Label:
+        text = ""
+        def setText(self, text): self.text = text
+    class Button:
+        enabled = None
+        def setEnabled(self, value): self.enabled = value
+    full, variants, part, info = Button(), Button(), Button(), Label()
+    obj = SimpleNamespace(info=info, detector=Label(), btn_part=part, btn_full=full,
+                          btn_three=variants, wizard=SimpleNamespace())
+    job = SimpleNamespace(result={"pipeline": {"verdict": "PARTIAL", "stages": [],
+        "artifact_integrity": {"mix": {"sha256": "x"}}}}, master_only=True,
+        track_id="opened", started_at=0, finished_at=0, stage="opened")
+    module.StepResult.show_result(obj, job)
+    assert not full.enabled and not variants.enabled and part.enabled
+    assert "только мастеринг" in info.text or "mastering only" in info.text
+    module.StepResult.rebuild_full(obj)
+    module.StepResult.three_variants(obj)
+    assert len(box.warnings) == 2
+
+
+def test_opened_full_rebuild_requires_confirmation_and_tracks_job(gui_module):
+    module, box = gui_module
+    calls = []
+    run = SimpleNamespace(current_tid=None, batch_tids=[], track_job=lambda tid: calls.append(('track', tid)))
+    orch = SimpleNamespace(enqueue_opened_rebuild=lambda tid: calls.append(('rebuild', tid)) or 'new')
+    job = SimpleNamespace(track_id='opened', master_only=True, result={'pipeline': {'input_integrity': {'version': 1}}})
+    obj = SimpleNamespace(current_job=job, wizard=SimpleNamespace(steps=[run], orch=orch))
+    box.answer = box.StandardButton.No
+    module.StepResult.rebuild_full(obj)
+    assert calls == []
+    box.answer = box.StandardButton.Yes
+    module.StepResult.rebuild_full(obj)
+    assert calls == [('rebuild', 'opened'), ('track', 'new')]
+    run.batch_tids = ['busy']
+    module.StepResult.rebuild_full(obj)
+    assert len(calls) == 2 and box.warnings
+
+
+def test_manifest_enables_only_full_rebuild_for_opened_project(gui_module):
+    module, _ = gui_module
+    class Label:
+        def setText(self, text): self.text = text
+    class Button:
+        def setEnabled(self, value): self.enabled = value
+    full, part, variants, info = Button(), Button(), Button(), Label()
+    pipeline = {'verdict': 'PARTIAL', 'stages': [], 'artifact_integrity': {'mix': {'sha256': 'x'}},
+                'input_integrity': {'version': 1}}
+    job = SimpleNamespace(result={'pipeline': pipeline}, master_only=True, track_id='opened',
+                          started_at=0, finished_at=0, stage='opened')
+    obj = SimpleNamespace(info=info, detector=Label(), btn_part=part, btn_full=full, btn_three=variants)
+    module.StepResult.show_result(obj, job)
+    assert full.enabled and part.enabled and not variants.enabled
+    assert 'проверены и скопированы' in info.text or 'verified and copied' in info.text
+
+
+def test_edit_button_only_enabled_for_opened_project_with_manifest(gui_module):
+    module, _ = gui_module
+    class Label:
+        def setText(self, text): pass
+    class Button:
+        def setEnabled(self, value): self.enabled = value
+    part, full, variants, edit = Button(), Button(), Button(), Button()
+    obj = SimpleNamespace(info=Label(), detector=Label(), btn_part=part, btn_full=full,
+                          btn_three=variants, btn_edit=edit)
+    pipeline = {'verdict': 'PARTIAL', 'stages': [], 'artifact_integrity': {'mix': {'sha256': 'x'}}}
+    job = SimpleNamespace(result={'pipeline': pipeline}, master_only=True, track_id='opened',
+                          started_at=0, finished_at=0, stage='opened')
+    module.StepResult.show_result(obj, job)
+    assert not edit.enabled
+    pipeline['input_integrity'] = {'version': 1}
+    module.StepResult.show_result(obj, job)
+    assert edit.enabled
+    job.master_only = False
+    module.StepResult.show_result(obj, job)
+    assert not edit.enabled
+
+
+def test_unverified_vocal_binding_visible_after_master_revision(gui_module):
+    module, _ = gui_module
+    class Label:
+        def setText(self, text): self.text = text
+    class Button:
+        def setEnabled(self, value): pass
+    info = Label()
+    obj = SimpleNamespace(info=info, detector=Label(), btn_part=Button())
+    job = SimpleNamespace(result={'pipeline': {'verdict': 'PARTIAL', 'stages': [],
+                                               'revision': {'kind': 'master'}}},
+                          recipe={'own_vocal_wav': 'voice.wav', 'voice_mode': 'pro',
+                                  'recorded_backing_sha256': ''},
+                          track_id='test', started_at=1, finished_at=2, stage='done')
+    module.StepResult.show_result(obj, job)
+    assert 'не подтверждена' in info.text or 'unverified' in info.text
+    job.recipe['recorded_backing_sha256'] = 'a' * 64
+    module.StepResult.show_result(obj, job)
+    assert 'не подтверждена' in info.text or 'unverified' in info.text  # legacy pairing
+    job.recipe.update(recorded_vocal_sha256='b' * 64, recorded_binding_integrity='RECORDED_HASH')
+    module.StepResult.show_result(obj, job)
+    assert 'не подтверждена' not in info.text and 'unverified' not in info.text

@@ -188,7 +188,7 @@ class TestRegistry(unittest.TestCase):
                "music_stereo","tts_vocal","vocal_rvc","stem_splitter","asr",
                "audio_tagger","essentia","cover_art","mastering_ai"}
         self.assertTrue(exp.issubset(set(MODEL_REGISTRY.keys())))
-        self.assertGreaterEqual(registry.hw.vram_gb, 8.0)
+        self.assertGreaterEqual(registry.hw.vram_gb, 0.0)
 
     def test_status(self):
         from app.ai.registry import registry
@@ -280,64 +280,40 @@ class TestOrchestrator(unittest.TestCase):
                 msg=f"stage {st['name']} unexpected fail: {st}")
 
 
-def test_legacy_off_skips_patch_imports(monkeypatch) -> None:
-    """--legacy-off не должен импортировать или регистрировать v8–v12 патчи."""
-    import builtins
-    from unittest.mock import patch
-
-    import main
-
-    imported_legacy_modules: list[str] = []
-    original_import = builtins.__import__
-
-    def guarded_import(name, *args, **kwargs):
-        if name.startswith("app.core.orchestrator_v"):
-            imported_legacy_modules.append(name)
-        return original_import(name, *args, **kwargs)
-
-    with patch("builtins.__import__", side_effect=guarded_import):
-        report = main._register_patches(enabled=False)
-
-    assert report["enabled"] is False
-    assert report["loaded"] == []
-    assert report["skipped"] == list(main.LEGACY_PATCH_MODULES)
-    assert imported_legacy_modules == []
-
-
-def test_main_wires_legacy_off_to_patch_loader(monkeypatch) -> None:
-    """CLI флаг передаёт False в loader до запуска runtime-пайплайна."""
-    import main
-
-    calls: list[bool] = []
-    monkeypatch.setattr(main.sys, "argv", ["main.py", "--legacy-off", "--dry-run"])
-    monkeypatch.setattr(
-        main, "_register_patches", lambda enabled: calls.append(enabled) or {}
-    )
-    monkeypatch.setattr(main, "_cli_dry_run", lambda: 0)
-
-    assert main.main() == 0
-    assert calls == [False]
-
-
-def test_stage_polish_marks_successful_legacy_v10(monkeypatch, tmp_path: Path) -> None:
-    """Успешная compatibility-ветка возвращает явный LEGACY marker."""
+def test_stage_polish_reports_engine_and_falls_back_honestly(monkeypatch, tmp_path: Path) -> None:
+    """Полировка мастера идёт одной канонической веткой anti_neuro."""
     import sys
     import types
 
     import modules
     from app.core import orchestrator
 
-    legacy_module = types.SimpleNamespace(
+    fake = types.SimpleNamespace(
         polish_vocal=lambda source, output, preset: {"ok": True, "path": output}
     )
-    monkeypatch.setitem(sys.modules, "modules.anti_neuro_v10", legacy_module)
-    monkeypatch.setattr(modules, "anti_neuro_v10", legacy_module, raising=False)
+    monkeypatch.setitem(sys.modules, "modules.anti_neuro", fake)
+    monkeypatch.setattr(modules, "anti_neuro", fake, raising=False)
 
     result = orchestrator._stage_polish("input.wav", tmp_path)
 
     assert result["ok"] is True
-    assert result["stage_marker"] == "LEGACY"
-    assert result["legacy_stage"] == "anti_neuro_v10"
+    assert result["engine"] == "anti_neuro.polish_vocal"
+
+
+def test_stage_polish_falls_back_to_copy_when_engines_missing(monkeypatch, tmp_path: Path) -> None:
+    import sys
+
+    from app.core import orchestrator
+
+    source = tmp_path / "in.wav"
+    source.write_bytes(b"RIFF0000WAVE")
+    monkeypatch.setitem(sys.modules, "modules.anti_neuro", None)
+
+    result = orchestrator._stage_polish(str(source), tmp_path)
+
+    assert result["ok"] is True
+    assert result["fallback_used"] is True
+    assert Path(result["path"]).exists()
 
 
 def test_pipeline_uses_explicit_checkpoint_directory(tmp_path: Path) -> None:
@@ -635,7 +611,6 @@ def test_main_score_cli_wires_hit_scorer(monkeypatch, capsys) -> None:
         "hit_score": 71.5, "verdict": "solid", "metrics": {"energy": {"score": 80}},
         "actions": ["refine hook"], "meta": {"file": path},
     })
-    monkeypatch.setattr(main, "_register_patches", lambda enabled: {})
 
     assert main.main() == 0
     assert '"hit_score": 71.5' in capsys.readouterr().out

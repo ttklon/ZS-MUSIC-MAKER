@@ -54,3 +54,12 @@ def test_runtime_log_reports_broken_optional_sink(caplog) -> None:
         assert "runtime diagnostic sink failed: sink offline" in caplog.text
     finally:
         runtime.stop(join_timeout=0.5)
+
+
+def test_summary_prefers_master_actually_packaged_over_unselected_polish():
+    result = {"master_path": "released.wav", "stages": [
+        {"name": "_stage_polish", "output": {"path": "alternate-polish.wav"}},
+        {"name": "_stage_release_pack", "output": {"path": "release"}},
+    ]}
+    summary = _summarize_pipeline_result(result)
+    assert summary["master"] == "released.wav"

@@ -95,7 +95,7 @@ TOUR_STEPS = [
             "  • master.wav (24-bit) + mp3 320 + flac\n"
             "  • instrumental + acapella\n"
             "  • стемы (drums/bass/vocals/other)\n"
-            "  • lyrics.txt + lyrics.lrc (караоке)\n"
+            "  • lyrics.txt (синхронизация караоке пока недоступна)\n"
             "  • cover.png (обложка)\n"
             "  • tiktok.mp4 + reels.mp4 (15-30 сек, вертикально)\n"
             "  • car/club/streaming мастера\n"

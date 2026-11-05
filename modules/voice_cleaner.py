@@ -9,13 +9,9 @@ from typing import Any
 
 import soundfile as sf
 
-try:
-    import noisereduce as nr  # type: ignore
-
-    _HAS_NR = True
-except Exception:  # pragma: no cover - optional runtime dependency
-    nr = None
-    _HAS_NR = False
+DENOISE_MAX_REDUCTION_DB = 12.0
+DENOISE_FRAME = 1024
+DENOISE_HOP = 256
 
 CLEANING_PRESETS: dict[str, dict[str, float]] = {
     "default": {"highpass_hz": 80.0, "deesser_low_hz": 4500.0, "deesser_high_hz": 9500.0, "deesser_db": 3.0, "gate_db": -38.0, "gate_floor_db": -80.0},
@@ -40,43 +36,121 @@ def _as_2d(data):
     return array[:, None] if array.ndim == 1 else array
 
 
-def _fallback_clean(data, samplerate: int, highpass_hz: float):
-    """Remove DC and low-frequency rumble without rolling off high vocal air."""
+def _remove_rumble(data, samplerate: int, highpass_hz: float):
+    """Убрать DC и инфраниз, не задевая воздух вокала.
+
+    Однополюсный хайпасс через `lfilter` (рекурсия, но вектором): пошаговый
+    цикл на 4-минутном вокале — это секунды впустую.
+    """
     import numpy as np
+    from scipy.signal import lfilter
 
     x = _as_2d(data)
     x = x - np.mean(x, axis=0, keepdims=True)
     rc = 1.0 / (2.0 * np.pi * max(20.0, highpass_hz))
     coefficient = rc / (rc + 1.0 / float(samplerate))
-    output = np.zeros_like(x)
-    previous_x = x[0].copy()
-    previous_y = np.zeros(x.shape[1], dtype=np.float32)
-    for index in range(len(x)):
-        current = coefficient * (previous_y + x[index] - previous_x)
-        output[index] = current
-        previous_y = current
-        previous_x = x[index]
-    return output
+    output = lfilter([coefficient, -coefficient], [1.0, -coefficient], x, axis=0)
+    return output.astype("float32")
+
+
+def _stft(padded, frame: int, hop: int):
+    import numpy as np
+
+    window = np.hanning(frame).astype(np.float64)
+    count = 1 + (padded.shape[0] - frame) // hop
+    index = np.arange(frame)[None, :] + hop * np.arange(count)[:, None]
+    return padded[index] * window, window, count
+
+
+def _spectral_denoise(data, samplerate: int, prop_decrease: float = 1.0):
+    """Спектральные воротца против шипения — детерминированно, на numpy.
+
+    Профиль шума берётся из самых тихих 20 % кадров (средняя мощность по
+    каждому бину), а не «на слух»: так шипение убирается, а устойчивые тоны
+    голоса (и сибилянты) остаются, потому что они заметно выше профиля.
+    Подавление ограничено `DENOISE_MAX_REDUCTION_DB`, окна перекрываются с
+    нормировкой суммы — уровень и длина не меняются.
+
+    Ограничение честно: если в записи вообще нет паузы, а шум стационарен,
+    отличить его от тона по самому сигналу невозможно — для вокала это
+    нереальный случай (дыхание и паузы есть всегда).
+    """
+    import numpy as np
+    from scipy.ndimage import uniform_filter1d
+
+    x = _as_2d(data).astype(np.float64)
+    n = x.shape[0]
+    frame, hop = DENOISE_FRAME, DENOISE_HOP
+    if n < frame * 2:
+        return x.astype("float32"), {"applied": False, "reason": "signal shorter than 2 frames"}
+    pad = frame
+    padded = np.pad(x, ((pad, pad + frame), (0, 0)), mode="edge")
+    out = np.zeros_like(padded)
+    weight = np.zeros(padded.shape[0])
+    # нижняя граница амплитудного усиления: -12 дБ, а не «в ноль»
+    gain_floor = 10.0 ** (-float(DENOISE_MAX_REDUCTION_DB) / 20.0)
+    reduction_sum = 0.0
+    active_frames = 0.0
+    frames_total = 0
+    for channel in range(x.shape[1]):
+        frames, window, count = _stft(padded[:, channel], frame, hop)
+        power = np.abs(np.fft.rfft(frames, axis=1)) ** 2
+        # профиль шума = средняя мощность самых тихих 20 % кадров:
+        # процентиль по каждому бину занижен (нижний хвост флуктуаций),
+        # и шипение проходило бы насквозь
+        frame_energy = power.sum(axis=1)
+        quiet = frame_energy <= np.percentile(frame_energy, 20)
+        noise = power[quiet].mean(axis=0)
+        # сглаживание профиля по частоте: одиночные пики не считаем шумом
+        noise = uniform_filter1d(noise, size=5, mode="nearest")
+        gain = 1.0 - float(prop_decrease) * np.minimum(1.0, noise / np.maximum(power, 1e-20))
+        # сглаживание маски по времени, чтобы не было «музыкального» шипения
+        gain = uniform_filter1d(gain, size=3, axis=0, mode="nearest")
+        gain = np.clip(gain, gain_floor, 1.0)
+        gain_db = 20.0 * np.log10(gain)
+        reduction_sum += float(np.mean(gain_db))
+        active_frames += float(np.mean(gain_db < -0.5) * 100.0)
+        frames_total += 1
+        spec = np.fft.rfft(frames, axis=1) * gain
+        restored = np.fft.irfft(spec, frame, axis=1) * window
+        for index in range(count):
+            start = index * hop
+            out[start : start + frame, channel] += restored[index]
+            if channel == 0:
+                weight[start : start + frame] += window**2
+    safe = weight > 1e-9
+    for channel in range(x.shape[1]):
+        out[safe, channel] = out[safe, channel] / weight[safe]
+    result = out[pad : pad + n].astype("float32")
+    report = {
+        "applied": True,
+        "engine": "numpy_spectral_gate",
+        "max_reduction_db": round(float(DENOISE_MAX_REDUCTION_DB), 2),
+        "mean_reduction_db": round(reduction_sum / max(1, frames_total), 2),
+        "reduction_active_pct": round(active_frames / max(1, frames_total), 1),
+        "length_preserved": result.shape[0] == n,
+    }
+    return result, report
 
 
 def _de_ess(data, samplerate: int, low_hz: float, high_hz: float, reduction_db: float):
-    """Attenuate only the sibilance band; content above 10 kHz is left intact."""
-    import numpy as np
-    from scipy.signal import butter, sosfilt, sosfiltfilt
+    """Де-эссинг через единственную реализацию — `modules.vocal_fx.desser`.
 
-    x = _as_2d(data)
-    nyquist = samplerate / 2.0
-    high = min(high_hz, nyquist * 0.95)
-    low = min(low_hz, high * 0.8)
-    if low <= 0.0 or high <= low:
-        return x
-    sos = butter(4, [low / nyquist, high / nyquist], btype="bandpass", output="sos")
+    Статический срез полосы глушит воздух там, где сибилянтов нет, поэтому
+    чистящая стадия использует тот же динамический де-эссер, что и вокальная
+    цепочка, только с пределом подавления из пресета очистки.
+    """
+    import numpy as np
+
+    from modules.vocal_fx.desser import dynamic_deess
+
     try:
-        band = sosfiltfilt(sos, x, axis=0).astype("float32")
-    except ValueError:  # very short clips cannot satisfy filtfilt padding
-        band = sosfilt(sos, x, axis=0).astype("float32")
-    retain = 10.0 ** (-max(0.0, reduction_db) / 20.0)
-    return x - band * (1.0 - retain)
+        processed, _report = dynamic_deess(
+            np.asarray(data, dtype="float64"), samplerate, reduction_db=float(reduction_db)
+        )
+        return processed.astype("float32")
+    except Exception:  # noqa: BLE001 - очистка не должна падать из-за де-эссера
+        return _as_2d(data)
 
 
 def _soft_silence_gate(data, samplerate: int, threshold_db: float, floor_db: float):
@@ -120,12 +194,12 @@ def clean_vocal_chain(
         data, samplerate = sf.read(str(input_wav), always_2d=False)
         values = cleaning_preset(genre)
         values.update(preset or {})
-        if _HAS_NR:
-            denoised = nr.reduce_noise(y=data, sr=samplerate, prop_decrease=prop_decrease)
-            denoise_engine = "noisereduce_v3"
-        else:
-            denoised = _fallback_clean(data, samplerate, values["highpass_hz"])
-            denoise_engine = "fallback_highpass_dc"
+        denoised, denoise_report = _spectral_denoise(
+            _remove_rumble(data, samplerate, values["highpass_hz"]),
+            samplerate,
+            prop_decrease=prop_decrease,
+        )
+        denoise_engine = denoise_report["engine"] if denoise_report["applied"] else "highpass_only"
         deessed = _de_ess(
             denoised,
             samplerate,
@@ -139,17 +213,18 @@ def clean_vocal_chain(
             gated = gated * (0.98 / peak)
         target = Path(output_wav)
         target.parent.mkdir(parents=True, exist_ok=True)
-        sf.write(str(target), gated, samplerate, subtype="PCM_16")
+        sf.write(str(target), gated, samplerate, subtype="FLOAT")
         pause_dbfs = _pause_noise_dbfs(gated, envelope, values["gate_db"])
         return {
             "ok": True,
             "path": str(target),
-            "engine": denoise_engine + "+band_deesser+silence_gate",
-            "fallback_used": not _HAS_NR,
+            "engine": denoise_engine + "+dynamic_deesser+silence_gate",
+            "fallback_used": not denoise_report["applied"],
+            "denoise": denoise_report,
             "preset": values,
             "pause_noise_dbfs": pause_dbfs,
             "deesser_reduction_db": values["deesser_db"],
-            "reason": None if _HAS_NR else "noisereduce not installed; deterministic DC/highpass fallback used",
+            "reason": denoise_report.get("reason"),
         }
     except Exception as exc:
         return {"ok": False, "path": "", "reason": f"vocal clean chain failed: {exc}"}

@@ -21,20 +21,18 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
-        pip install pytest pyloudnorm pedalboard
+        pip install -r requirements_dev.txt
+        pip install pyloudnorm pedalboard
 
     - name: Run Pytest Suite
       run: |
-        python -m pytest tests/
+        python -m tools.pytest_isolated tests/
 
-    # v33 FIX (P1, SESSION_LOG v32.10): раньше CI гонял ТОЛЬКО pytest (7 тестов
-    # из 4 файлов) — пуш, ломающий God Mode / аудио-качество / fallback-честность,
-    # проходил зелёным. Теперь CI прогоняет реальные регрессионные проверки.
-    - name: Smoke — audio quality (v26)
-      run: python tools/smoke_v26.py
+    - name: Smoke — audio quality
+      run: python tools/smoke_audio.py
 
-    - name: Smoke — God Mode E2E (v29)
-      run: python tools/smoke_v29.py
+    - name: Smoke — God Mode E2E
+      run: python tools/smoke_god.py
 
     - name: Fallback honesty audit
       run: python tools/fallback_audit.py
@@ -56,12 +54,48 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -r requirements.txt pytest
+        pip install -r requirements.txt
+        pip install -r requirements_dev.txt
     - name: Compile all sources
       run: python -m compileall -q app agents modules tools updater ui main.py
     - name: AST dead-imports audit (ШАГ 010)
       run: python tools/ast_dead_imports.py
     - name: Pytest
-      run: python -m pytest tests/ -q
+      run: python -m tools.pytest_isolated tests/ -q
     - name: CLI version with config path (ШАГ 007)
       run: python main.py --version
+
+  windows:
+    # Цель проекта — Windows 11. Поэтому тесты и полный CPU-прогон идут не только
+    # на Ubuntu: проверяем ровно ту платформу, на которой работает владелец.
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install -r requirements_dev.txt
+
+    - name: Compile all sources
+      run: python -m compileall -q app agents modules tools updater ui main.py
+
+    - name: Pytest
+      run: python -m tools.pytest_isolated tests/ -q -p no:cacheprovider
+
+    - name: Smoke — audio quality
+      run: python tools/smoke_audio.py
+
+    - name: CLI sanity (version / list-genres / readiness)
+      run: |
+        python main.py --version
+        python main.py --list-genres
+        python main.py --readiness

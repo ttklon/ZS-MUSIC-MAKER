@@ -1,182 +1,49 @@
 # -*- coding: utf-8 -*-
-"""ZS Music Maker - modules/artist_dossier/manager.py (v38)
-Последовательный AI-пайплайн на трек: demucs -> whisper -> librosa -> CLAP -> LLM."""
+"""
+modules/artist_dossier/manager.py — `DossierManager`: жизненный цикл досье.
+
+Пайплайн на трек: demucs → whisper (ASR) → librosa/DSP → CLAP → analysis_llm.
+Результат всегда пишется на диск (трек и артист — отдельные JSON), а недоступная
+модель честно помечается в статусе, а не подменяется шаблоном.
+"""
+
 from __future__ import annotations
-import json, re, time, hashlib, shutil
-from dataclasses import dataclass, field, asdict
+
+import shutil
+import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
-from app.ai.registry import registry
-from app.ai.sequential_runner import SequentialAIRunner, AIStage
-from app.ai import prompts as P
+
 from app.ai import llm_service as LLM
+from app.ai import prompts as P
 from app.ai.quality import (
     validate_analysis_json,
-    validate_asr_transcript,
     validate_audio_tags,
     validate_dsp_features,
     validate_stem_artifact,
 )
-
-ROOT = Path(__file__).resolve().parents[2]
-DOSSIER_ROOT = ROOT / "data" / "artist_dossier"
-DOSSIER_SCHEMA_PATH = DOSSIER_ROOT / "schema.json"
-DOSSIER_ROOT.mkdir(parents=True, exist_ok=True)
-
-
-def _slug(name: str) -> str:
-    s = re.sub(r"[^A-Za-z0-9а-яА-ЯёЁ_-]+", "_", (name or "unknown").strip()).strip("_")
-    return s.lower() or "unknown"
-
-
-def _track_id(title: str, url: str = "") -> str:
-    base = (title or "") + "|" + (url or "")
-    return _slug(title)[:32] + "_" + hashlib.md5(base.encode("utf-8")).hexdigest()[:8]
-
-
-def artist_dossier_schema() -> Dict[str, Any]:
-    """Load the versioned schema so persisted content and schema drift together."""
-    return json.loads(DOSSIER_SCHEMA_PATH.read_text(encoding="utf-8"))
-
-
-def normalize_artist_dossier(payload: Dict[str, Any]) -> Dict[str, Any]:
-    """Migrate compatible pre-v1 aliases without fabricating required content."""
-    dossier = dict(payload)
-    dossier["schema_version"] = 1
-    dossier.setdefault("themes", list(dossier.get("core_themes") or []))
-    dossier.setdefault("slang", list(dossier.get("lexicon") or []))
-    dossier.setdefault("core_themes", list(dossier.get("themes") or []))
-    dossier.setdefault("lexicon", list(dossier.get("slang") or []))
-    dossier.setdefault("signature_tricks", [])
-    dossier.setdefault("avoid", [])
-    return dossier
-
-
-def is_deferred_artist_dossier(payload: Dict[str, Any]) -> bool:
-    """Deferred/no-model metadata is not misclassified as a completed dossier."""
-    return bool(payload.get("note") or payload.get("deferred")) and not payload.get("bio")
-
-
-def validate_artist_dossier(payload: Any) -> Dict[str, Any]:
-    """Validate a complete artist dossier against the versioned v1 contract."""
-    if not isinstance(payload, dict):
-        return {"ok": False, "reason": "artist dossier is not an object", "metrics": {}}
-    schema = artist_dossier_schema()
-    required = tuple(schema.get("required", ()))
-    missing = [key for key in required if key not in payload]
-    if missing:
-        return {"ok": False, "reason": "missing artist dossier fields: " + ", ".join(missing), "metrics": {"missing": len(missing)}}
-    if payload.get("schema_version") != 1:
-        return {"ok": False, "reason": "unsupported artist dossier schema_version", "metrics": {}}
-    text_fields = ("bio", "flow")
-    list_fields = ("themes", "slang", "analogs", "core_themes", "lexicon", "signature_tricks", "avoid")
-    invalid = [key for key in text_fields if not isinstance(payload.get(key), str) or not payload[key].strip()]
-    invalid.extend(key for key in list_fields if not isinstance(payload.get(key), list) or not all(isinstance(item, str) for item in payload[key]))
-    for key in ("themes", "analogs", "core_themes"):
-        if not payload.get(key):
-            invalid.append(key)
-    if invalid:
-        return {"ok": False, "reason": "invalid artist dossier fields: " + ", ".join(sorted(set(invalid))), "metrics": {"invalid": len(set(invalid))}}
-    return {"ok": True, "reason": None, "metrics": {"required": len(required), "keys": len(payload)}}
-
-
-def resolve_vocal_source_index(model: Any) -> int:
-    """Вернуть индекс stem ``vocals`` из порядка источников фактической Demucs-модели."""
-    sources = tuple(getattr(model, "sources", ()) or ())
-    if "vocals" not in sources:
-        raise ValueError("Demucs model does not expose a 'vocals' source")
-    return sources.index("vocals")
-
-
-def extract_dsp_features(audio_path: str, engine: str = "librosa_dsp") -> dict:
-    """Извлечь BPM, key, длительность и RMS через зарегистрированный DSP-движок."""
-    try:
-        import librosa
-        import numpy as np
-
-        y, sr = librosa.load(audio_path, sr=22050, mono=True, duration=180)
-        if len(y) == 0:
-            return {"ok": False, "reason": "DSP input audio is empty"}
-        tempo, _ = librosa.beat.beat_track(y=y, sr=sr)
-        chroma = librosa.feature.chroma_cqt(y=y, sr=sr).mean(axis=1)
-        keys = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
-        return {
-            "ok": True,
-            "engine": engine,
-            "bpm": float(np.asarray(tempo).reshape(-1)[0]),
-            "key": keys[int(np.argmax(chroma))],
-            "duration_sec": float(len(y) / sr),
-            "loudness_rms": float(np.sqrt(np.mean(y ** 2)) + 1e-9),
-        }
-    except Exception as exc:
-        return {"ok": False, "reason": f"DSP feature extraction failed: {exc}"}
-
-
-def rank_clap_tags(candidates: list[str], logits: Any, limit: int = 6) -> list[str]:
-    """Отсортировать CLAP logits и вернуть уникальные top-N labels из переданного словаря."""
-    import numpy as np
-
-    scores = np.asarray(logits).reshape(-1)
-    if len(scores) != len(candidates):
-        raise ValueError("CLAP scores do not match the candidate vocabulary")
-    return [candidates[index] for index in np.argsort(-scores)[:max(1, limit)]]
-
-
-def transcribe_reference_audio(model: Any, audio_path: str, output_path: str) -> dict:
-    """Распознать reference-аудио совместимым faster-whisper handle и сохранить transcript."""
-    try:
-        segments, info = model.transcribe(audio_path, language="ru", beam_size=5)
-        text = "\n".join(
-            str(getattr(segment, "text", "")).strip() for segment in segments
-        ).strip()
-        quality = validate_asr_transcript(text)
-        if not quality["ok"]:
-            return {
-                "ok": False,
-                "reason": quality["reason"],
-                "quality": quality,
-                "fallback": "reference audio retained; transcript is not used",
-            }
-        target = Path(output_path)
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(text, encoding="utf-8")
-        return {
-            "ok": True,
-            "lyrics": text,
-            "language": str(getattr(info, "language", "")),
-            "source": "faster_whisper",
-            "transcript_path": str(target),
-            "quality": quality,
-            "reason": None,
-        }
-    except Exception as exc:
-        return {"ok": False, "reason": f"ASR transcription failed: {exc}"}
-
-
-@dataclass
-class TrackEntry:
-    track_id: str
-    title: str
-    artist: str
-    audio_path: Optional[str] = None
-    external_url: Optional[str] = None
-    lyrics: Optional[str] = None
-    audio_copy: Dict[str, Any] = field(default_factory=dict)
-    features: Dict[str, Any] = field(default_factory=dict)
-    dossier: Dict[str, Any] = field(default_factory=dict)
-    status: str = "pending"
-    added_at: float = 0.0
-
-
-@dataclass
-class ArtistEntry:
-    artist: str
-    slug: str
-    tracks: List[str] = field(default_factory=list)
-    dossier: Dict[str, Any] = field(default_factory=dict)
-    added_at: float = 0.0
-    updated_at: float = 0.0
-
+from app.ai.registry import registry
+from app.ai.sequential_runner import AIStage, SequentialAIRunner
+from modules.artist_dossier.features import (
+    extract_dsp_features,
+    rank_clap_tags,
+    resolve_vocal_source_index,
+    transcribe_reference_audio,
+)
+from modules.artist_dossier.models import ArtistEntry, TrackEntry
+from modules.artist_dossier.schema import (
+    DOSSIER_ROOT,
+    _slug,
+    _track_id,
+    normalize_artist_dossier,
+    validate_artist_dossier,
+)
+from modules.artist_dossier.storage import (
+    load_artist,
+    load_track,
+    save_artist,
+    save_track,
+)
 
 class DossierManager:
     def __init__(self, root: Optional[Path] = None):
@@ -498,42 +365,13 @@ class DossierManager:
         return out
 
     def _save_artist(self, a: ArtistEntry) -> None:
-        if a.dossier and not is_deferred_artist_dossier(a.dossier):
-            a.dossier = normalize_artist_dossier(a.dossier)
-            quality = validate_artist_dossier(a.dossier)
-            if not quality["ok"]:
-                raise ValueError("artist dossier save rejected: " + str(quality["reason"]))
-        p = self.root / a.slug / "artist.json"
-        p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_text(json.dumps(asdict(a), ensure_ascii=False, indent=2), encoding="utf-8")
+        save_artist(self.root, a)
 
     def _load_artist(self, slug: str) -> Optional[ArtistEntry]:
-        p = self.root / slug / "artist.json"
-        if not p.exists():
-            return None
-        payload = json.loads(p.read_text(encoding="utf-8"))
-        payload.setdefault("tracks", [])
-        payload.setdefault("dossier", {})
-        payload.setdefault("added_at", 0.0)
-        payload.setdefault("updated_at", 0.0)
-        if payload["dossier"] and not is_deferred_artist_dossier(payload["dossier"]):
-            payload["dossier"] = normalize_artist_dossier(payload["dossier"])
-            quality = validate_artist_dossier(payload["dossier"])
-            if not quality["ok"]:
-                payload["dossier"] = {
-                    "note": "legacy artist dossier deferred: " + str(quality["reason"]),
-                    "deferred": True,
-                    "migration_from_schema": payload["dossier"].get("schema_version", 0),
-                }
-        return ArtistEntry(**payload)
+        return load_artist(self.root, slug)
 
     def _save_track(self, slug: str, tr: TrackEntry) -> None:
-        p = self.root / slug / "tracks" / f"{tr.track_id}.json"
-        p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_text(json.dumps(asdict(tr), ensure_ascii=False, indent=2), encoding="utf-8")
+        save_track(self.root, slug, tr)
 
     def _load_track(self, slug: str, tid: str) -> Optional[TrackEntry]:
-        p = self.root / slug / "tracks" / f"{tid}.json"
-        if not p.exists():
-            return None
-        return TrackEntry(**json.loads(p.read_text(encoding="utf-8")))
+        return load_track(self.root, slug, tid)

@@ -3,7 +3,7 @@
 ZS Music Maker — app/core/font_utils.py (v39.4, ШАГ 002)
 ========================================================================
 Единый источник TTF-fallback для PIL. Раньше пути к шрифтам были жёстко
-зашиты в трёх местах (cover_art_gen, video_edit_v11, cover_gen) с
+зашиты в трёх местах (cover_art_gen, video_edit, cover_gen) с
 C:\\Windows\\Fonts\\arialbd.ttf — на Linux всё падало на fallback default.
 
 Теперь: единый список кандидатов (Linux/macOS/Windows) + опциональный

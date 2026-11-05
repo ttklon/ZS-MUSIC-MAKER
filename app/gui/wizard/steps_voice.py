@@ -1,0 +1,334 @@
+# -*- coding: utf-8 -*-
+"""
+app/gui/wizard/steps_voice.py — шаг 3: голос.
+
+Своя запись с микрофона — основной путь (`own_vocal_wav`): стадия вокала берёт
+её как есть и честно помечает `engine="user_recording"`. Синтез и RVC остаются
+FALLBACK-ветками и в интерфейсе названы именно так — никакого «как будто спел
+нейросетью» под видом живого вокала.
+
+Таймер статуса обучения RVC стартует лениво (только когда шаг реально открыт):
+раньше `QTimer` создавался в конструкторе без импорта и мастер падал на старте.
+"""
+
+from __future__ import annotations
+
+import logging
+from pathlib import Path
+
+from PySide6.QtCore import QTimer
+from PySide6.QtWidgets import (
+    QCheckBox,
+    QComboBox,
+    QFileDialog,
+    QHBoxLayout,
+    QLabel,
+    QMessageBox,
+    QPushButton,
+    QSpinBox,
+)
+
+from app.core.i18n import t
+from app.gui.wizard.ui import DIM, H1, H2, StepBase
+
+LOGGER = logging.getLogger(__name__)
+
+VOICE_MODES = ("pro", "lazy", "off")
+AUDIO_SUFFIXES = (".wav", ".flac", ".mp3", ".m4a", ".ogg")
+
+# раз в 2 секунды смотреть прогресс обучения RVC — этого достаточно и не грузит диск
+STATUS_INTERVAL_MS = 2000
+
+
+class StepVoice(StepBase):
+    """Режим вокала + своя запись + караоке/RVC + голосовой архив."""
+
+    def __init__(self, wizard):
+        super().__init__(wizard)
+        self.root.addWidget(H1(t("wizard.voice.title")))
+        self.root.addWidget(DIM(t("wizard.voice.hint")))
+
+        self.root.addWidget(H2(t("wizard.voice.mode")))
+        self.mode = QComboBox()
+        self.mode.addItems(
+            [
+                t("wizard.voice.mode_pro"),
+                t("wizard.voice.mode_lazy"),
+                t("wizard.voice.mode_off"),
+            ]
+        )
+        self.mode.setCurrentIndex(0)
+        self.root.addWidget(self.mode)
+
+        self.root.addWidget(H2(t("wizard.voice.own")))
+        own_row = QHBoxLayout()
+        self.own_label = QLabel(t("wizard.voice.none"))
+        self.own_label.setWordWrap(True)
+        pick = QPushButton(t("wizard.voice.choose"))
+        pick.clicked.connect(self.pick_own_vocal)
+        drop = QPushButton("✕")
+        drop.setToolTip(t("wizard.material.clear"))
+        drop.clicked.connect(self.clear_own_vocal)
+        own_row.addWidget(self.own_label, 1)
+        own_row.addWidget(pick)
+        own_row.addWidget(drop)
+        self.root.addLayout(own_row)
+        self._own_vocal: str | None = None
+        self._recorded_backing_sha256 = ""
+        self._recorded_vocal_sha256 = ""
+        self._recorded_binding_integrity = ""
+        self._recording_dialog = None
+
+        self.use_rvc = QCheckBox(t("wizard.voice.use_rvc"))
+        self.use_rvc.setChecked(False)
+        self.root.addWidget(self.use_rvc)
+        self._rvc_model_path = ""
+        self._rvc_index_path = ""
+        self.model_label = self._file_row("model")
+        self.index_label = self._file_row("index")
+        pitch_row = QHBoxLayout()
+        pitch_row.addWidget(QLabel(t("wizard.voice.rvc_pitch")))
+        self.rvc_pitch = QSpinBox()
+        self.rvc_pitch.setRange(-12, 12)
+        pitch_row.addWidget(self.rvc_pitch)
+        pitch_row.addStretch()
+        self.root.addLayout(pitch_row)
+        self.root.addWidget(DIM(t("wizard.voice.rvc_hint")))
+        self.use_vocal_fx = QCheckBox(t("wizard.voice.use_fx"))
+        self.use_vocal_fx.setChecked(True)
+        self.root.addWidget(self.use_vocal_fx)
+        self.use_tune = QCheckBox(t("wizard.voice.use_tune"))
+        self.use_tune.setChecked(False)
+        self.root.addWidget(self.use_tune)
+        self.root.addWidget(DIM(t("wizard.voice.fx_hint")))
+        offset_row = QHBoxLayout()
+        offset_row.addWidget(QLabel(t("wizard.voice.offset")))
+        self.vocal_offset = QSpinBox()
+        self.vocal_offset.setRange(-5000, 5000)
+        self.vocal_offset.setSuffix(" ms")
+        offset_row.addWidget(self.vocal_offset)
+        offset_row.addStretch()
+        self.root.addLayout(offset_row)
+        self.root.addWidget(DIM(t("wizard.voice.offset_hint")))
+        self.root.addWidget(H2(t("wizard.voice.vault")))
+        self.vault_label = QLabel("…")
+        self.vault_label.setWordWrap(True)
+        self.root.addWidget(self.vault_label)
+
+        actions = QHBoxLayout()
+        karaoke = QPushButton(t("wizard.voice.karaoke"))
+        karaoke.clicked.connect(self.open_karaoke)
+        train = QPushButton(t("wizard.voice.rvc"))
+        train.clicked.connect(lambda: self.train_rvc(night=False))
+        night = QPushButton(t("wizard.voice.night"))
+        night.clicked.connect(lambda: self.train_rvc(night=True))
+        actions.addWidget(karaoke)
+        actions.addWidget(train)
+        actions.addWidget(night)
+        actions.addStretch()
+        self.root.addLayout(actions)
+
+        self.training_label = QLabel("")
+        self.training_label.setStyleSheet("color:#9a9aa4;")
+        self.root.addWidget(self.training_label)
+
+        self._timer = QTimer(self)
+        self._timer.timeout.connect(self.refresh_training)
+        self._timer_started = False
+
+    def _file_row(self, kind: str) -> QLabel:
+        row = QHBoxLayout()
+        row.addWidget(QLabel(t(f"wizard.voice.{kind}_label")))
+        label = QLabel(t(f"wizard.voice.{kind}_default"))
+        label.setWordWrap(True)
+        row.addWidget(label, 1)
+        choose = QPushButton(t("wizard.voice.choose"))
+        choose.clicked.connect(lambda: self._pick_rvc_file(kind, label))
+        clear = QPushButton("✕")
+        clear.setToolTip(t("wizard.material.clear"))
+        clear.clicked.connect(lambda: self._clear_rvc_file(kind, label))
+        row.addWidget(choose)
+        row.addWidget(clear)
+        self.root.addLayout(row)
+        return label
+
+    def _pick_rvc_file(self, kind: str, label: QLabel) -> None:
+        extension = "pth" if kind == "model" else "index"
+        path, _ = QFileDialog.getOpenFileName(
+            self, t(f"wizard.voice.{kind}_label"), "", f"RVC (*.{extension})"
+        )
+        if path:
+            setattr(self, f"_rvc_{kind}_path", path)
+            label.setText(path)
+
+    def _clear_rvc_file(self, kind: str, label: QLabel) -> None:
+        setattr(self, f"_rvc_{kind}_path", "")
+        label.setText(t(f"wizard.voice.{kind}_default"))
+
+    # --- вход на шаг -------------------------------------------------------
+    def enter(self) -> None:
+        self.refresh_vault()
+        if not self._timer_started:
+            self._timer.start(STATUS_INTERVAL_MS)
+            self._timer_started = True
+
+    def refresh_vault(self) -> None:
+        try:
+            from modules.voice_convert import vault_summary
+
+            summary = vault_summary()
+            duration_met = "да" if summary["minimum_duration_met"] else "нет"
+            missing = ", ".join(summary["recommended_next_styles"][:3]) or "все ок"
+            self.vault_label.setText(
+                f"Записей: {summary['recordings']}, минут: {summary['total_minutes']:.1f}, "
+                f"буквы во введённых фразах: {summary['phoneme_coverage_pct']}% (не распознавание аудио).\n"
+                f"По индексу ≥ 5 мин: {duration_met}; обучение RVC не подтверждено. "
+                f"Мало записей стилей: {missing}"
+            )
+        except Exception as error:  # noqa: BLE001 - архив может отсутствовать
+            LOGGER.warning("voice vault unavailable: %s", error)
+            self.vault_label.setText(f"Voice Vault недоступен: {error}")
+
+    def refresh_training(self) -> None:
+        try:
+            from modules.voice_convert import get_training_status
+
+            status = get_training_status("my_voice")
+            if not status:
+                return
+            self.training_label.setText(
+                f"[RVC] {status.get('status', '?')} | {status.get('stage', '')} "
+                f"| {int(float(status.get('progress', 0.0)) * 100)}%"
+            )
+        except Exception:  # noqa: BLE001 - статус обучения не критичен
+            LOGGER.debug("training status unavailable", exc_info=True)
+
+    # --- своя запись -------------------------------------------------------
+    def pick_own_vocal(self) -> None:
+        path, _ = QFileDialog.getOpenFileName(
+            self,
+            t("wizard.voice.own"),
+            "",
+            "Audio (*.wav *.flac *.mp3 *.m4a *.ogg)",
+        )
+        if path:
+            self.set_own_vocal(path)
+
+    def set_own_vocal(self, path: str) -> None:
+        """Принять запись пользователя; несуществующий файл не принимаем молча."""
+        if not path:
+            return
+        self._recorded_backing_sha256 = ""
+        self._recorded_vocal_sha256 = ""
+        self._recorded_binding_integrity = ""
+        file = Path(path)
+        if not file.is_file() or file.suffix.lower() not in AUDIO_SUFFIXES:
+            self._own_vocal = None
+            self.own_label.setText(f"{t('dialog.error')}: {path}")
+            return
+        self._own_vocal = str(file)
+        size_mb = file.stat().st_size / (1024 * 1024)
+        self.own_label.setText(f"{file.name}  ({size_mb:.1f} MB)\nСвязь с минусом не подтверждена.")
+        try:
+            from modules.voice_convert import recording_backing
+
+            binding = recording_backing(str(file))
+            self._recorded_vocal_sha256 = binding.get("recording_sha256", "")
+            self._recorded_binding_integrity = binding.get("binding_integrity", "")
+            if binding.get("path") and binding.get("sha256"):
+                self._bind_recording_backing(binding["path"], binding["sha256"])
+        except Exception as error:  # noqa: BLE001 - do not bypass damaged archive metadata
+            LOGGER.warning("recording backing metadata unavailable: %s", error)
+            self._own_vocal = None
+            self._recorded_backing_sha256 = self._recorded_vocal_sha256 = self._recorded_binding_integrity = ""
+            self.own_label.setText(f"Архив недоступен или повреждён: {error}. Выбор записи отменён.")
+
+    def _bind_recording_backing(self, path: str, sha256: str) -> None:
+        self._recorded_backing_sha256 = sha256
+        self.wizard.steps[0].set_instrumental(path)
+        self.wizard.recipe["beat_engine"] = "user_audio"
+        self.wizard.recipe["beat_input_path"] = path
+        status = ("SHA-256 записи и минуса будут проверены" if getattr(self, "_recorded_binding_integrity", "") == "RECORDED_HASH"
+                  else "будет проверен SHA-256 минуса; связь старого дубля непроверена")
+        self.own_label.setText(f"{Path(self._own_vocal).name}\nМинус для дубля: {path} ({status})")
+
+    def clear_own_vocal(self) -> None:
+        self._own_vocal = None
+        self._recorded_backing_sha256 = ""
+        self._recorded_vocal_sha256 = ""
+        self._recorded_binding_integrity = ""
+        self.own_label.setText(t("wizard.voice.none"))
+
+    def own_vocal(self) -> str | None:
+        return self._own_vocal
+
+    # --- караоке и RVC -----------------------------------------------------
+    def open_karaoke(self) -> None:
+        """Запись голоса в отдельном окне; удачная запись сразу становится вокалом."""
+        try:
+            previous = getattr(self, "_recording_dialog", None)
+            thread = getattr(previous, "_thread", None)
+            if thread is not None and thread.isRunning():
+                QMessageBox.warning(self, t("wizard.voice.karaoke"), t("wizard.close.recording"))
+                return
+            from app.gui.wizard.record_dialog import RecordDialog
+
+            recipe = self.wizard.recipe
+            backing = recipe.get("beat_input_path", "") if recipe.get("beat_engine") == "user_audio" else ""
+            duration = recipe.get("duration_sec") or 20
+            dialog = RecordDialog(self, default_backing=backing, default_duration=int(duration))
+            self._recording_dialog = dialog
+            try:
+                accepted = dialog.exec() == dialog.Accepted
+            finally:
+                thread = getattr(dialog, "_thread", None)
+                if thread is None or not thread.isRunning():
+                    self._recording_dialog = None
+            if accepted and dialog.result_path:
+                self.set_own_vocal(dialog.result_path)
+                recording = getattr(dialog, "recording_result", {})
+                if getattr(self, "_own_vocal", None) and recording.get("recording_sha256"):
+                    self._recorded_vocal_sha256 = recording["recording_sha256"]
+                    self._recorded_binding_integrity = recording.get("binding_integrity", "")
+                if (getattr(self, "_own_vocal", None) and recording.get("backing_used")
+                        and recording.get("backing_path") and recording.get("backing_sha256")):
+                    self._bind_recording_backing(recording["backing_path"], recording["backing_sha256"])
+            self.refresh_vault()
+        except Exception as error:  # noqa: BLE001 - рекордер опционален
+            QMessageBox.warning(self, t("wizard.voice.karaoke"), str(error))
+
+    def train_rvc(self, night: bool = False) -> None:
+        try:
+            from modules.voice_convert import train_rvc_model
+
+            result = train_rvc_model(voice_name="my_voice", epochs=100, night_mode=night)
+            if not result.get("job_started"):
+                QMessageBox.warning(self, t("wizard.voice.rvc"), result.get("reason") or "RVC training unavailable")
+                return
+            QMessageBox.information(
+                self,
+                t("wizard.voice.rvc"),
+                f"Обучение запущено в фоне.\nБэкенд: {result.get('backend')}, "
+                f"устройство: {result.get('device')}, эпох: {result.get('epochs')}.",
+            )
+        except Exception as error:  # noqa: BLE001 - обучение опционально
+            QMessageBox.warning(self, t("wizard.voice.rvc"), str(error))
+
+    # --- шаг ---------------------------------------------------------------
+    def commit(self, recipe: dict) -> None:
+        index = max(0, min(self.mode.currentIndex(), len(VOICE_MODES) - 1))
+        recipe["voice_mode"] = VOICE_MODES[index]
+        recipe["own_vocal_wav"] = self._own_vocal
+        recipe["recorded_backing_sha256"] = getattr(self, "_recorded_backing_sha256", "") if self._own_vocal and index != 2 else ""
+        recipe["recorded_vocal_sha256"] = getattr(self, "_recorded_vocal_sha256", "") if self._own_vocal and index != 2 else ""
+        recipe["recorded_binding_integrity"] = getattr(self, "_recorded_binding_integrity", "") if self._own_vocal and index != 2 else ""
+        recipe["use_rvc"] = self.use_rvc.isChecked()
+        recipe["use_vocal_fx"] = self.use_vocal_fx.isChecked()
+        recipe["tune"] = self.use_tune.isChecked()
+        recipe["rvc_model_path"] = self._rvc_model_path
+        recipe["rvc_index_path"] = self._rvc_index_path
+        recipe["rvc_pitch_shift"] = self.rvc_pitch.value()
+        recipe["vocal_offset_ms"] = self.vocal_offset.value()
+
+    def help_text(self) -> str:
+        return t("wizard.voice.hint")

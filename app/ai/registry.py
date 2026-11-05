@@ -1,12 +1,16 @@
 # -*- coding: utf-8 -*-
 """ZS Music Maker - app/ai/registry.py (v38)
-Реестр локальных AI-моделей. Одна тяжёлая модель в VRAM за раз.
-Бюджет: VRAM<=12GB, RAM<=32GB, CPU 2xXeon(40 threads). Только серьёзные модели (>=8B)."""
+Реестр локальных AI-моделей. Одна тяжёлая модель реестра за раз.
+Аппаратные параметры определяются на текущем компьютере."""
 from __future__ import annotations
+
+import logging
 import gc, os, time, threading
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional
+
+from app.ai.model_catalog import MODEL_REGISTRY  # noqa: F401 - existing public registry contract
 
 ROOT = Path(__file__).resolve().parents[2]
 MODELS_DIR = ROOT / "data" / "ai_models"
@@ -15,95 +19,24 @@ MODELS_DIR.mkdir(parents=True, exist_ok=True)
 
 @dataclass
 class HardwareBudget:
-    vram_gb: float = 12.0
-    ram_gb: float = 32.0
-    cpu_threads: int = 40
-    cpu_cores: int = 20
+    vram_gb: float = 0.0
+    ram_gb: float = 0.0
+    cpu_threads: int = 1
+    cpu_cores: int = 1
     prefer_gpu: bool = True
 
     @classmethod
     def from_env(cls) -> "HardwareBudget":
+        from app.ai.hardware import detect_budget
+
+        detected = detect_budget()
         return cls(
-            vram_gb=float(os.environ.get("ZSMM_VRAM_GB", "12")),
-            ram_gb=float(os.environ.get("ZSMM_RAM_GB", "32")),
-            cpu_threads=int(os.environ.get("ZSMM_CPU_THREADS", "40")),
-            cpu_cores=int(os.environ.get("ZSMM_CPU_CORES", "20")),
+            vram_gb=float(os.environ.get("ZSMM_VRAM_GB", detected["vram_gb"])),
+            ram_gb=float(os.environ.get("ZSMM_RAM_GB", detected["ram_gb"])),
+            cpu_threads=int(os.environ.get("ZSMM_CPU_THREADS", detected["cpu_threads"])),
+            cpu_cores=int(os.environ.get("ZSMM_CPU_CORES", detected["cpu_cores"])),
             prefer_gpu=os.environ.get("ZSMM_PREFER_GPU", "1") == "1",
         )
-
-
-MODEL_REGISTRY: Dict[str, Dict[str, Any]] = {
-    "lyrics_llm": {
-        "role": "Генерация текстов (сильная RU/EN LLM, никаких 1B-игрушек)",
-        "engine": "llama_cpp",
-        "hf_repo": "bartowski/Qwen2.5-14B-Instruct-GGUF",
-        "file": "Qwen2.5-14B-Instruct-Q4_K_M.gguf",
-        "sha256": "e47ad95dad6ff848b431053b375adb5d39321290ea2c638682577dafca87c008",
-        "expected_size_bytes": 8988110976,
-        "context": 8192, "vram_est_gb": 9.5, "ram_est_gb": 12.0, "device_pref": "auto"},
-    "analysis_llm": {
-        "role": "Досье на артистов/треки (длинный контекст 32k)",
-        "engine": "llama_cpp",
-        "hf_repo": "bartowski/Qwen2.5-14B-Instruct-GGUF",
-        "file": "Qwen2.5-14B-Instruct-Q4_K_M.gguf",
-        "sha256": "e47ad95dad6ff848b431053b375adb5d39321290ea2c638682577dafca87c008",
-        "expected_size_bytes": 8988110976,
-        "context": 32768, "vram_est_gb": 9.5, "ram_est_gb": 14.0, "device_pref": "auto"},
-    "metadata_llm": {
-        "role": "Названия/описания/хэштеги (Llama-3.1-8B)",
-        "engine": "llama_cpp",
-        "hf_repo": "bartowski/Meta-Llama-3.1-8B-Instruct-GGUF",
-        "file": "Meta-Llama-3.1-8B-Instruct-Q5_K_M.gguf",
-        "sha256": "14e10feba0c82a55da198dcd69d137206ad22d116a809926d27fa5f2398c69c7",
-        "expected_size_bytes": 5732992416,
-        "context": 8192, "vram_est_gb": 7.0, "ram_est_gb": 10.0, "device_pref": "auto"},
-    "music_generation": {
-        "role": "Генерация бита (MusicGen-large 3.3B)",
-        "engine": "audiocraft_musicgen", "hf_repo": "facebook/musicgen-large",
-        "file": "musicgen-large", "vram_est_gb": 11.0, "ram_est_gb": 14.0,
-        "device_pref": "cuda", "cpu_fallback": "facebook/musicgen-medium"},
-    "music_stereo": {
-        "role": "Стерео-текстуры (переходы, интро, пэды)",
-        "engine": "audiocraft_musicgen", "hf_repo": "facebook/musicgen-stereo-medium",
-        "file": "musicgen-stereo-medium", "vram_est_gb": 8.0, "ram_est_gb": 10.0,
-        "device_pref": "auto"},
-    "tts_vocal": {
-        "role": "Основной вокал (XTTS-v2, клонирование голоса)",
-        "engine": "xtts_v2", "hf_repo": "coqui/XTTS-v2", "file": "XTTS-v2",
-        "vram_est_gb": 4.0, "ram_est_gb": 6.0, "device_pref": "cuda"},
-    "vocal_rvc": {
-        "role": "Voice-conversion под голос артиста (.pth кладёт юзер)",
-        "engine": "rvc", "hf_repo": "user_supplied", "file": "data/ai_models/vocal_rvc/*.pth",
-        "vram_est_gb": 3.0, "ram_est_gb": 4.0, "device_pref": "cuda"},
-    "stem_splitter": {
-        "role": "Демиксинг референса (Demucs htdemucs)",
-        "engine": "demucs", "hf_repo": "facebook/demucs-htdemucs",
-        "file": "htdemucs.th", "vram_est_gb": 6.0, "ram_est_gb": 10.0,
-        "device_pref": "cuda"},
-    "asr": {
-        "role": "Распознавание речи референса (faster-whisper large-v3)",
-        "engine": "faster_whisper", "hf_repo": "Systran/faster-whisper-large-v3",
-        "file": "faster-whisper-large-v3", "vram_est_gb": 6.0, "ram_est_gb": 8.0,
-        "device_pref": "cuda", "cpu_fallback": "Systran/faster-whisper-medium"},
-    "audio_tagger": {
-        "role": "Автотегирование (CLAP HTSAT-fused)",
-        "engine": "clap", "hf_repo": "laion/clap-htsat-fused",
-        "file": "clap-htsat-fused", "vram_est_gb": 2.5, "ram_est_gb": 4.0,
-        "device_pref": "auto"},
-    "essentia": {
-        "role": "BPM/key/loudness (librosa DSP)",
-        "engine": "essentia_or_librosa", "hf_repo": "", "file": "",
-        "vram_est_gb": 0.0, "ram_est_gb": 2.0, "device_pref": "cpu"},
-    "cover_art": {
-        "role": "Обложка (SDXL Base 1.0 fp16)",
-        "engine": "diffusers", "hf_repo": "stabilityai/stable-diffusion-xl-base-1.0",
-        "file": "sdxl-base-1.0", "vram_est_gb": 10.0, "ram_est_gb": 8.0,
-        "device_pref": "cuda", "cpu_fallback": "stabilityai/sd-turbo"},
-    "mastering_ai": {
-        "role": "AI-мастеринг (matchering под референс)",
-        "engine": "matchering_plus", "hf_repo": "", "file": "",
-        "vram_est_gb": 0.0, "ram_est_gb": 4.0, "device_pref": "cpu"},
-}
 
 
 @dataclass
@@ -150,14 +83,23 @@ class ModelRegistry:
                 from TTS.api import TTS  # noqa
                 return True
             if eng == "rvc":
-                d = MODELS_DIR / "vocal_rvc"
-                return d.exists() and any(d.glob("*.pth"))
+                from modules.rvc_manager import is_trained
+                from modules.rvc_manager.rvc_worker import require_base_assets
+                if not is_trained("my_voice"):
+                    return False
+                external = os.environ.get("ZSMM_RVC_PYTHON", "").strip()
+                if external:
+                    interpreter = Path(external)
+                    return interpreter.is_absolute() and interpreter.is_file()
+                require_base_assets()
+                return True
             if eng == "demucs":
                 import demucs  # noqa
                 return True
             if eng == "faster_whisper":
                 from faster_whisper import WhisperModel  # noqa
-                return True
+                from app.ai.hardware import whisper_weights_available
+                return whisper_weights_available(MODELS_DIR / key, self._whisper_device() == "cuda")
             if eng == "clap":
                 import transformers  # noqa
                 return True
@@ -176,6 +118,10 @@ class ModelRegistry:
 
     def load(self, key: str) -> LoadedModel:
         with self._lock:
+            if self._current:
+                from app.ai.llm_service import is_handle_busy
+                if is_handle_busy(self._current.handle):
+                    raise RuntimeError("Model inference is still running after timeout")
             if self._current and self._current.key == key:
                 return self._current
             if self._current is not None:
@@ -197,10 +143,14 @@ class ModelRegistry:
         with self._lock:
             if self._current is None:
                 return
+            from app.ai.llm_service import is_handle_busy
+            if is_handle_busy(self._current.handle):
+                logging.getLogger(__name__).warning("Deferring model unload: inference is still running")
+                return
             try:
                 del self._current.handle
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("ignored exception", exc_info=True)
             self._current = None
             gc.collect()
             try:
@@ -209,7 +159,7 @@ class ModelRegistry:
                     torch.cuda.empty_cache()
                     torch.cuda.ipc_collect()
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("ignored exception", exc_info=True)
 
     class _UseCtx:
         def __init__(self, reg, key, unload_after):
@@ -217,40 +167,62 @@ class ModelRegistry:
             self.unload_after = unload_after; self.model = None
 
         def __enter__(self):
-            self.model = self.reg.load(self.key)
-            return self.model
+            # Keep the registry lease for the whole inference, not just load().
+            self.reg._lock.acquire()
+            try:
+                self.model = self.reg.load(self.key)
+                return self.model
+            except BaseException:
+                self.reg._lock.release()
+                raise
 
         def __exit__(self, et, ex, tb):
-            if self.unload_after:
-                self.reg.unload()
+            try:
+                if self.unload_after:
+                    self.reg.unload()
+            finally:
+                self.reg._lock.release()
             return False
 
     def use(self, key: str, unload_after: bool = True):
         return ModelRegistry._UseCtx(self, key, unload_after)
 
     def pick_device(self, spec: Dict[str, Any]) -> str:
+        """Use CUDA/ROCm only if measured *free* VRAM leaves a 1 GiB reserve."""
         pref = spec.get("device_pref", "auto")
         need = float(spec.get("vram_est_gb", 0.0))
-        if pref == "cpu":
+        if pref == "cpu" or not self.hw.prefer_gpu:
             return "cpu"
         try:
             import torch
             if pref in ("cuda", "auto") and torch.cuda.is_available():
-                if need <= self.hw.vram_gb:
+                free_bytes, _ = torch.cuda.mem_get_info()
+                free_gb = min(self.hw.vram_gb, free_bytes / (1024 ** 3))
+                if need <= max(0.0, free_gb - 1.0):
                     return "cuda"
         except Exception:
-            pass
-        try:
-            import torch_directml  # noqa
-            if pref in ("dml", "auto") and need <= self.hw.vram_gb:
-                return "dml"
-        except Exception:
-            pass
+            logging.getLogger(__name__).debug("GPU free memory unavailable", exc_info=True)
+        # Generic loaders cannot safely use torch-directml as a CUDA device.
         return "cpu"
+
+    def _whisper_device(self) -> str:
+        """CTranslate2 CUDA is not PyTorch ROCm or DirectML support."""
+        if self.pick_device(MODEL_REGISTRY["asr"]) != "cuda":
+            return "cpu"
+        try:
+            import torch
+            import ctranslate2
+            if getattr(getattr(torch, "version", None), "hip", None):
+                return "cpu"
+            return "cuda" if "float16" in ctranslate2.get_supported_compute_types("cuda") else "cpu"
+        except Exception:
+            logging.getLogger(__name__).debug("CTranslate2 CUDA unavailable", exc_info=True)
+            return "cpu"
 
     def _register_default_loaders(self) -> None:
         def _llama(key):
             def _do():
+                import llama_cpp
                 from llama_cpp import Llama
                 spec = MODEL_REGISTRY[key]
                 mp = MODELS_DIR / key / spec["file"]
@@ -260,10 +232,20 @@ class ModelRegistry:
                         f"[{key}] not found at {mp}. "
                         f"Run: python tools/pull_ai_models.py --model {key}")
                 device = self.pick_device(spec)
+                supports_gpu = bool(getattr(llama_cpp, "llama_supports_gpu_offload", lambda: False)())
+                override = os.environ.get("ZSMM_LLAMA_GPU_LAYERS")
+                layers = int(override) if override is not None else (999 if device == "cuda" and supports_gpu else 0)
+                if layers < -1:
+                    raise ValueError("ZSMM_LLAMA_GPU_LAYERS must be -1, 0 or a positive integer")
+                if layers and not supports_gpu:
+                    raise RuntimeError("llama-cpp-python has no GPU offload backend; install a compatible build or use CPU")
+                from app.ai.hardware import assert_llama_memory
+                assert_llama_memory(key, spec, layers)
+                device = "gpu_offload_requested" if layers else "cpu"
                 llm = Llama(model_path=str(mp),
                             n_ctx=spec.get("context", 4096),
                             n_threads=min(self.hw.cpu_threads, 20),
-                            n_gpu_layers=999 if device in ("cuda", "dml") else 0,
+                            n_gpu_layers=layers,
                             verbose=False)
                 return llm, device
             return _do
@@ -292,7 +274,7 @@ class ModelRegistry:
                 try:
                     t.to("cuda")
                 except Exception:
-                    pass
+                    logging.getLogger(__name__).debug("ignored exception", exc_info=True)
             return t, device
         self._loaders["tts_vocal"] = _xtts
 
@@ -311,18 +293,27 @@ class ModelRegistry:
                 try:
                     m.to("cuda")
                 except Exception:
-                    pass
+                    logging.getLogger(__name__).debug("ignored exception", exc_info=True)
             return m, device
         self._loaders["stem_splitter"] = _demucs
 
         def _wh():
             from faster_whisper import WhisperModel
             spec = MODEL_REGISTRY["asr"]
-            device = self.pick_device(spec)
-            size = "large-v3" if device != "cpu" else "medium"
+            device = self._whisper_device()
+            from app.ai.hardware import assert_whisper_memory, whisper_model_source
+            source = whisper_model_source(MODELS_DIR / "asr", device == "cuda")
+            if source is None:
+                raise FileNotFoundError("local Whisper weights not found")
+            size, model_bin = source
+            if device == "cuda" and model_bin.is_file():
+                estimated_vram = max(float(spec.get("vram_est_gb", 6)), model_bin.stat().st_size / (1024 ** 3) * 1.5)
+                if self.pick_device({**spec, "vram_est_gb": estimated_vram}) != "cuda":
+                    device = "cpu"
+            assert_whisper_memory(spec, device, model_bin)
             compute = "float16" if device == "cuda" else "int8"
-            return WhisperModel(size, device=device if device != "dml" else "cpu",
-                                compute_type=compute), device
+            return WhisperModel(size, device=device, compute_type=compute,
+                                local_files_only=True, cpu_threads=max(1, self.hw.cpu_threads)), device
         self._loaders["asr"] = _wh
 
         def _clap():
@@ -335,7 +326,7 @@ class ModelRegistry:
                 try:
                     m = m.to("cuda")
                 except Exception:
-                    pass
+                    logging.getLogger(__name__).debug("ignored exception", exc_info=True)
             return (m, p), device
         self._loaders["audio_tagger"] = _clap
 
@@ -358,7 +349,7 @@ class ModelRegistry:
                     pipe.enable_attention_slicing()
                     pipe.enable_vae_tiling()
                 except Exception:
-                    pass
+                    logging.getLogger(__name__).debug("ignored exception", exc_info=True)
             return pipe, device
         self._loaders["cover_art"] = _sdxl
 

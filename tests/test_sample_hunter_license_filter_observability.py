@@ -3,7 +3,7 @@
 import sys
 import types
 
-from agents import sample_hunter
+from agents.sample_hunter import hunter as sample_hunter
 
 
 def test_hunt_reports_applied_license_filter(monkeypatch):
