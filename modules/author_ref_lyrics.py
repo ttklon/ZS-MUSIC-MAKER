@@ -123,15 +123,20 @@ def ingest_lyrics_text(text: str, author: str, title: str = "") -> dict:
     (dst / f"{fname}.txt").write_text(text, encoding="utf-8")
 
     idx = _load_index()
-    idx.setdefault(author_slug, {"display_name": author, "files": []})
-    idx[author_slug]["files"].append(
-        {
-            "id": fname,
-            "title": title,
-            "chars": len(text),
-            "ts": time.time(),
-        }
-    )
+    entry = idx.setdefault(author_slug, {"display_name": author, "files": []})
+    # Файл дедуплицируется по хешу (fname), поэтому повторная индексация того же
+    # текста не должна добавлять вторую запись: иначе `list_authors()` обещает
+    # «файлов: 2» при одном файле на диске.
+    known_ids = {item.get("id") for item in entry.get("files", [])}
+    if fname not in known_ids:
+        entry.setdefault("files", []).append(
+            {
+                "id": fname,
+                "title": title,
+                "chars": len(text),
+                "ts": time.time(),
+            }
+        )
     _save_index(idx)
     return {"ok": True, "author": author_slug, "id": fname}
 
@@ -234,14 +239,27 @@ def get_style_profile(author: str) -> dict | None:
 
 
 # ------------------------------------------------------------- online search
-def search_author_online(author: str, max_tracks: int = 20) -> list[dict]:
+def search_author_online(
+    author: str, max_tracks: int = 20, allow_online: bool = False
+) -> list[dict]:
     """
     Пытаемся найти в интернете тексты треков автора.
     Использует DuckDuckGo html endpoint (без API-ключа).
-    Возвращает список {title, url, snippet}.
+    Возвращает список {title, url, snippet} или [{"error": ...}].
+
+    Сеть по умолчанию выключена (`app/core/net_policy.py`, T15): запрос уходит
+    только при явном `allow_online=True` или настройке `network.online` = true.
     """
     import urllib.parse
     import urllib.request
+
+    from app.core.net_policy import network_allowed
+
+    if not network_allowed(allow_online=allow_online):
+        return [{
+            "error": "offline: сеть выключена (T15). Включите network.online в "
+                     "data/settings.json или передайте allow_online=True"
+        }]
 
     q = urllib.parse.quote(f"{author} lyrics текст песни")
     url = f"https://html.duckduckgo.com/html/?q={q}"
@@ -340,7 +358,10 @@ def scan_library(
             if r.get("ok"):
                 added_audio += 1
     for f in vault_dir.rglob("*.txt"):
-        if "author_corpus" in str(f) or "slang" in f.name:
+        # Корпус автора не переиндексируется как «неизвестный автор»: раньше
+        # проверялся литерал "author_corpus", и после переноса/подмены каталога
+        # файлы корпуса попадали в vault.
+        if "author_corpus" in str(f) or f.is_relative_to(CORPUS_DIR) or "slang" in f.name:
             continue
         r = ingest_lyrics_file(f, author=f.parent.name or "unknown", title=f.stem)
         if r.get("ok"):
@@ -356,14 +377,19 @@ def list_authors() -> list[dict]:
     ]
 
 
-if __name__ == "__main__":
+def main(argv: list[str] | None = None) -> int:
+    """CLI модуля: `scan` | `profile <автор>` | без аргументов — список авторов."""
     import sys
 
-    if len(sys.argv) > 1 and sys.argv[1] == "scan":
+    args = list(sys.argv[1:] if argv is None else argv)
+    if args and args[0] == "scan":
         print(json.dumps(scan_library(), ensure_ascii=False, indent=2))
-    elif len(sys.argv) > 2 and sys.argv[1] == "profile":
-        print(
-            json.dumps(build_style_profile(sys.argv[2]), ensure_ascii=False, indent=2)
-        )
+    elif len(args) > 1 and args[0] == "profile":
+        print(json.dumps(build_style_profile(args[1]), ensure_ascii=False, indent=2))
     else:
         print(json.dumps(list_authors(), ensure_ascii=False, indent=2))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
