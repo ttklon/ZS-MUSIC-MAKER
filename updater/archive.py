@@ -9,6 +9,7 @@ updater/archive.py — проверка пакета и резервные ко�
 from __future__ import annotations
 
 import hashlib
+import logging
 import os
 import time
 import zipfile
@@ -16,6 +17,8 @@ from pathlib import Path
 from typing import Any
 
 from updater.paths import backup_dir, program_dir
+
+LOG = logging.getLogger(__name__)
 
 
 def compute_sha256(path: Path) -> str:
@@ -88,8 +91,10 @@ def make_backup(reason: str = "pre_update") -> Path | None:
                 fp = Path(root) / f
                 try:
                     z.write(str(fp), fp.relative_to(src))
-                except Exception:
-                    pass
+                except Exception as exc:  # noqa: BLE001 - файл в бэкап не попал
+                    # Молча пропустить нельзя: бэкап без файла — это неполный
+                    # откат, о котором пользователь узнает уже после беды.
+                    LOG.warning("backup skipped %s: %s: %s", fp, type(exc).__name__, exc)
     prune_old_backups(keep=3)
     return dst
 
@@ -104,8 +109,8 @@ def prune_old_backups(keep: int = 3) -> list[Path]:
         try:
             old.unlink()
             removed.append(old)
-        except Exception:
-            pass
+        except OSError as exc:  # noqa: BLE001 - файл занят или нет прав
+            LOG.warning("old backup not removed %s: %s", old, exc)
     return removed
 
 

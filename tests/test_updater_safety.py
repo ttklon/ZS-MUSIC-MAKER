@@ -10,6 +10,7 @@
 
 from __future__ import annotations
 
+import json
 import zipfile
 from pathlib import Path
 
@@ -118,3 +119,57 @@ def test_stash_and_restore_keep_nested_secrets(tmp_path) -> None:
     assert "data/secrets.enc" in restored
     assert (prog / "data" / "secrets.enc").read_bytes() == b"KEY"
     assert (prog / "data" / "defaults.json").exists(), "новые дефолты не должны теряться"
+
+
+# --------------------------------------------------- откат: та же защита, что и установка
+def test_rollback_does_not_use_raw_extractall() -> None:
+    """T14 закрыл установку, но `rollback_last` продолжал звать `extractall`.
+
+    Откат запускается по тому же принципу «архив из папки бэкапов», и если
+    туда попал подменённый файл, путь `../` уводил запись за пределы установки.
+    """
+    source = Path(install.__file__).read_text(encoding="utf-8")
+
+    assert "extractall" not in source.replace(
+        "`zipfile.extractall()`", ""
+    ).replace("extractall() сам по себе", ""), "raw extractall вернулся в updater/install.py"
+
+
+def test_rollback_refuses_unsafe_backup_archive(tmp_path, monkeypatch) -> None:
+    program = tmp_path / "program"
+    program.mkdir()
+    (program / "main.py").write_text("print('old')\n", encoding="utf-8")
+    backups = tmp_path / "backups"
+    backups.mkdir()
+    evil = _make_zip(
+        backups / "backup_20260101_120000_pre_update.zip",
+        {"../escaped.txt": b"pwned", "main.py": b"print('new')\n"},
+    )
+    monkeypatch.setenv("ZSMM_PROGRAM_DIR", str(program))
+    monkeypatch.setenv("ZSMM_BACKUP_DIR", str(backups))
+
+    result = install.rollback_last()
+
+    assert result["ok"] is False
+    assert "unsafe" in json.dumps(result).lower() or "rejected" in json.dumps(result).lower()
+    assert not (tmp_path / "escaped.txt").exists(), "файл записан вне каталога установки"
+    assert (program / "main.py").read_text(encoding="utf-8") == "print('old')\n"
+
+
+def test_rollback_restores_safe_archive(tmp_path, monkeypatch) -> None:
+    program = tmp_path / "program"
+    program.mkdir()
+    (program / "main.py").write_text("print('current')\n", encoding="utf-8")
+    backups = tmp_path / "backups"
+    backups.mkdir()
+    _make_zip(
+        backups / "backup_20260101_120000_pre_update.zip",
+        {"main.py": b"print('restored')\n", "version.json": b'{"version": "0.9.0"}'},
+    )
+    monkeypatch.setenv("ZSMM_PROGRAM_DIR", str(program))
+    monkeypatch.setenv("ZSMM_BACKUP_DIR", str(backups))
+
+    result = install.rollback_last()
+
+    assert result["ok"] is True, result
+    assert (program / "main.py").read_text(encoding="utf-8") == "print('restored')\n"
