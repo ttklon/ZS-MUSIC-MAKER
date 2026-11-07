@@ -62,6 +62,9 @@ class BeatConstructor(SampleBankMixin, VoicesMixin, ArrangementMixin, HarmonyMix
                 self.slot_patterns[slot] = [int(bool(value)) for value in self.groove[groove_key]]
         self.samples = samples or []  # список путей к wav-файлам сэмплов
         self.sr = 44100
+        # Отказы загрузки сэмплов: пустой список означает «все прочитались».
+        # Раньше неудача молча возвращала секунду тишины и нигде не отмечалась.
+        self.sample_load_errors: list[dict] = []
 
         # Классифицируем сэмплы по типу
         self.kick_samples = []
@@ -78,6 +81,10 @@ class BeatConstructor(SampleBankMixin, VoicesMixin, ArrangementMixin, HarmonyMix
     def _drum_engine_report(self) -> dict:
         """REAL_PASS, если инструменты берутся из банка, иначе FALLBACK с деталями."""
         report = dict(DRUM_ENGINE)
+        # Отказы загрузки пользовательских сэмплов видны в отчёте: иначе
+        # трек звучит синтезом, хотя сэмплы были переданы и «приняты».
+        if getattr(self, "sample_load_errors", None):
+            report["sample_load_errors"] = list(self.sample_load_errors)
         try:
             from app.audio.samples import capability
 

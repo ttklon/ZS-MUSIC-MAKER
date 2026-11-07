@@ -64,15 +64,21 @@ class SampleBankMixin:
 
 
     def _bank(self):
-        """Ленивая загрузка манифеста банка (один раз на конструктор)."""
-        if getattr(self, "_sample_bank", None) is None:
+        """Ленивая загрузка манифеста банка (один раз на конструктор).
+
+        Кэшируется и НЕУДАЧА: `_sample_bank` остаётся None, но отдельный флаг
+        `_sample_bank_tried` не даёт читать манифест с диска на каждый удар —
+        иначе бит из 16 слотов парсит отсутствующий файл десятки раз за такт.
+        """
+        if not getattr(self, "_sample_bank_tried", False):
+            self._sample_bank_tried = True
             try:
                 from app.audio.samples import load_bank
 
                 self._sample_bank = load_bank()
             except Exception:
                 self._sample_bank = None
-        return self._sample_bank
+        return getattr(self, "_sample_bank", None)
 
     def _bank_audio(self, instrument: str, velocity: float = 1.0):
         """Сэмпл из банка (mono float32) или None, если банк пуст/не разрешён."""
@@ -99,7 +105,35 @@ class SampleBankMixin:
         return audio
 
     def _load_audio(self, path: str) -> np.ndarray:
-        """Загружает wav/mp3 в numpy массив (mono)."""
+        """Загружает wav/flac/ogg/mp3 в mono numpy.
+
+        Раньше здесь был только pydub, и при его отсутствии (а `pydub` без
+        ffmpeg не читает почти ничего) ЛЮБОЙ сэмпл молча заменялся секундой
+        тишины — пользователь слышал пропавшую бочку и не видел причины.
+        Теперь сначала soundfile (wav/flac/ogg читаются без ffmpeg), затем
+        pydub для mp3, и в отказе названа причина.
+        """
+        path = str(path)
+        try:
+            import soundfile as sf
+
+            audio, sr = sf.read(path, always_2d=True, dtype="float32")
+            if audio.size:
+                mono = audio.mean(axis=1)
+                if int(sr) != int(self.sr) and len(mono) > 1:
+                    # Линейная передискретизация: сэмпл нужен для ритма, а не
+                    # для мастеринга, инструментальная точность здесь не нужна.
+                    n = max(1, int(round(len(mono) * float(self.sr) / float(sr))))
+                    mono = np.interp(
+                        np.linspace(0.0, len(mono) - 1, n), np.arange(len(mono)), mono
+                    ).astype(np.float32)
+                return np.ascontiguousarray(mono, dtype=np.float32)
+        except Exception as sf_error:
+            # soundfile не прочитал (mp3/битый файл) — пробуем pydub, но
+            # причину сохраняем: она попадёт в отчёт, если и pydub не поможет.
+            first_error = f"soundfile: {type(sf_error).__name__}: {sf_error}"
+        else:
+            first_error = "soundfile: пустое аудио"
         try:
             from pydub import AudioSegment
 
@@ -108,8 +142,9 @@ class SampleBankMixin:
                 seg = seg.set_channels(1)
             seg = seg.set_frame_rate(self.sr)
             samples = np.array(seg.get_array_of_samples(), dtype=np.float32)
-            samples = samples / (2**15)  # normalize to -1..1
-            return samples
+            return samples / (2**15)  # normalize to -1..1
         except Exception as e:
-            print(f"[beat_constructor] load fail {path}: {e}")
-            return np.zeros(self.sr, dtype=np.float32)
+            self.sample_load_errors.append(
+                {"path": path, "error": f"{first_error}; pydub: {type(e).__name__}: {e}"}
+            )
+            return np.zeros(0, dtype=np.float32)

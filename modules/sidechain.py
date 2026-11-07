@@ -5,12 +5,22 @@ ZS Music Maker v14 — sidechain.py (настоящий sidechain, TZ 19.5, P0.0
 Реализация sidechain-компрессии:
   — numpy DSP: envelope-follower на кик-канале, ratio-компрессор,
     time-varying gain применяется к bus;
-  — pedalboard (если доступен) как препроцессор;
   — метрика ducking: RMS bus в момент кика vs между киками (по ТЗ
     должна быть минимум 3 dB).
 
 НЕ имитация volume-envelope по сетке — реальный расчёт envelope
 от кик-канала.
+
+ВАЖНО о границах этого модуля (было обещано лишнее):
+
+  • pedalboard здесь НЕ используется. Раньше в докстринге стояло «pedalboard
+    как препроцессор», но `_pb` ни разу не вызывался: обработка целиком на
+    numpy, а `PB_OK` — только строка в `capability_report()`. Строка убрана.
+  • В рабочем пайплайне сайдчейн делает `modules/mix/ducking.py`
+    (`duck_low_band`, только низ шины < 120 Гц, отчёт с измеренной глубиной).
+    Этот модуль достижимости не имеет и помечен DEPRECATED в инвентаре
+    (`tools/readiness.py`); он остаётся как самостоятельная реализация и как
+    регресс-страж `tools/fallback_audit.py` против «бит дакает сам себя».
 """
 
 from __future__ import annotations
