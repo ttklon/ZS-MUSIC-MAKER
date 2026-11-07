@@ -16,7 +16,7 @@ app/core/pipeline_blocks.py — именованные блоки пайплай
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from app.pipeline import StageResult
 

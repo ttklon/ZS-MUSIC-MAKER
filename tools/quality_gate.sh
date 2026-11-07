@@ -10,6 +10,7 @@
 #   python -m pytest tests/ -q          # полный набор
 #   python tools/fallback_audit.py      # честность fallback
 #   python tools/ast_dead_imports.py    # мёртвые импорты
+#   python tools/ast_undefined_names.py # имена без определения (NameError)
 #   python -m tools.audit_honesty       # фейковые успехи и немые except
 #   python -m tools.readiness           # процент готовности и матрица модулей
 #
@@ -25,6 +26,7 @@ Use instead:
   python -m pytest tests/ -q
   python tools/fallback_audit.py
   python tools/ast_dead_imports.py
+  python tools/ast_undefined_names.py
   python -m tools.audit_honesty
   python -m tools.readiness
 MSG

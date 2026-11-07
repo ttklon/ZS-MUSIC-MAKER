@@ -12,6 +12,7 @@ python -m pytest tests/ -q          # должно быть зелёно ДО и
 python tools/smoke_audio.py         # аудио-гейты
 python tools/fallback_audit.py      # честность fallback
 python tools/ast_dead_imports.py    # мёртвые импорты
+python tools/ast_undefined_names.py # имена без определения (NameError)
 python main.py --run --seed 42 --only beat,lyrics   # воспроизводимый частичный прогон
 ```
 

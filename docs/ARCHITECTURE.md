@@ -187,11 +187,12 @@ loop, и отдаёт стадии списком `AsyncStage`. Раньше у 
 
 | Команда | Что ловит |
 |---|---|
-| `python -m pytest tests/` | 1143 тестов: unit, аудио, e2e, property, контракты GUI/CLI |
+| `python -m pytest tests/` | 1155 тестов: unit, аудио, e2e, property, контракты GUI/CLI |
 | `python tools/smoke_audio.py` | стерео, громкость, drop (6 проверок) |
 | `python tools/smoke_god.py` | God Mode E2E, master 120 с, true-peak (8 проверок) |
 | `python tools/fallback_audit.py` | fallback-пути и маркеры заглушек |
 | `python -m tools.audit_honesty` | фейковые успехи и немые `except` |
 | `python tools/gitignore_guard.py` | код, случайно попавший под `.gitignore` |
 | `python tools/ast_dead_imports.py` | мёртвые импорты |
+| `python tools/ast_undefined_names.py` | имена, использующиеся без определения (`NameError`) |
 | `python -m tools.readiness` | честный процент готовности + матрица модулей |

@@ -140,6 +140,7 @@ def master_ai(
         fallback_reason = "no reference"
 
     from modules import mastering
+    from modules.mastering import normalize_master_loudness
 
     res = mastering.master_one(input_wav, out_wav, stand="streaming")
     res = res if isinstance(res, dict) else {"ok": True, "path": out_wav}

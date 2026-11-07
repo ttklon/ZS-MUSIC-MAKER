@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import re
 from collections import Counter
+from typing import Any
 
 TOKEN_RE = re.compile(r"[A-Za-zА-Яа-яЁё0-9']+")
 
