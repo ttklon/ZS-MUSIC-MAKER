@@ -87,12 +87,16 @@ def test_quality_failures_are_not_hidden_by_successful_execution():
     from app.core.orchestrator import _quality_gate_failures
     from app.pipeline import StageResult, StageStatus
 
+    # Стадии OK обязаны нести свой результат (контракт T1), иначе к прод-гейтам
+    # примешиваются нарушения контракта и счёт перестаёт быть про качество.
     stages = [
         StageResult(name="_stage_mix_and_sidechain", status=StageStatus.OK,
-                    output={"gates_passed": False, "gates": {"bus_rms": False},
+                    output={"out_wav": "mix.wav",
+                            "gates_passed": False, "gates": {"bus_rms": False},
                             "reference": {"gates_passed": False, "gates": {"profile": False}}}),
         StageResult(name="_stage_mastering", status=StageStatus.OK,
-                    output={"summary": {"gates_passed": False, "failed_gates": {"streaming": ["crest"]}}}),
+                    output={"masters": {"streaming": "master_streaming.wav"},
+                            "summary": {"gates_passed": False, "failed_gates": {"streaming": ["crest"]}}}),
     ]
     failures = _quality_gate_failures(stages)
     assert len(failures) == 3

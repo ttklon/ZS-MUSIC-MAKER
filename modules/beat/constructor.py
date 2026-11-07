@@ -16,7 +16,7 @@ import random
 import numpy as np
 
 from modules.beat.arrangement import ArrangementMixin
-from modules.beat.dramaturgy import plan_sections, structure_report
+from modules.beat.dramaturgy import plan_sections, sections_from_arrangement, structure_report
 from modules.beat.drums import CAPABILITIES as DRUM_ENGINE
 from modules.beat.harmony import HarmonyMixin
 from modules.beat.paths import output_dir
@@ -137,23 +137,32 @@ class BeatConstructor(SampleBankMixin, VoicesMixin, ArrangementMixin, HarmonyMix
         include_intro: bool = True,
         include_outro: bool = True,
         out_name: str = "constructed_beat.wav",
+        sections: list | None = None,
     ) -> dict:
         """
         Полная сборка трека.
         Структура: intro → verse1 → pre_chorus → chorus1 → verse2 → pre_chorus → chorus2 → outro
+
+        `sections` — готовый план секций (из планировщика аранжировки). Если он
+        передан, бит следует ему, а не строит собственную сетку; `None`
+        сохраняет прежнее поведение бит-в-бит.
         """
         beat_sec = 60.0 / self.bpm
         bar_sec = beat_sec * 4
 
         # Структуру задаёт драматургия: энергия секций, потолок плотности и
         # правило «хук в первые 15 секунд» вместо жёстких 8/4/8 тактов.
-        plans = plan_sections(
-            bpm=self.bpm,
-            duration_sec=duration_sec,
-            include_intro=include_intro,
-            include_outro=include_outro,
-            n_verses=n_verses,
-            n_choruses=n_choruses,
+        plans = (
+            sections_from_arrangement(sections, self.bpm)
+            if sections
+            else plan_sections(
+                bpm=self.bpm,
+                duration_sec=duration_sec,
+                include_intro=include_intro,
+                include_outro=include_outro,
+                n_verses=n_verses,
+                n_choruses=n_choruses,
+            )
         )
         self.dramaturgy = structure_report(plans, self.bpm)
 
@@ -165,6 +174,7 @@ class BeatConstructor(SampleBankMixin, VoicesMixin, ArrangementMixin, HarmonyMix
             section_info.append(
                 {
                     "name": plan.name,
+                    "arrangement_name": plan.source_name or plan.name,
                     "bars": plan.bars,
                     "start_sec": round(sum(item.bars for item in plans[: len(section_info)]) * bar_sec, 2),
                     "duration_sec": round(plan.bars * bar_sec, 2),

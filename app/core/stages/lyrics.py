@@ -6,11 +6,13 @@ app/core/stages/lyrics.py — Текст: структура куплет/при
 from __future__ import annotations
 
 import os
+import re
 import time
 from typing import Any
 
 from app.core.lyric_context import MAX_REFERENCE_CHARS, build_lyric_context
 from app.core.pipeline_runtime import _output, _timed
+from app.core.stages.lyrics_templates import LYRICS_TEMPLATES
 from app.pipeline import StageResult, StageStatus
 
 try:  # локальный LLM-роутер опционален: без него работает шаблонный текст
@@ -22,161 +24,117 @@ except Exception:  # noqa: BLE001
 def _text_to_struct(text: str, genre: str) -> dict[str, Any]:
     lines = [ln.strip() for ln in (text or "").splitlines() if ln.strip()]
     title = ""
-    verse1: list[str] = []
     chorus: list[str] = []
-    verse2: list[str] = []
+    verses: dict[str, list[str]] = {}
     current = "verse1"
     for ln in lines:
         low = ln.lower()
         if low.startswith("[") and low.endswith("]"):
             if "hook" in low or "chorus" in low or "припев" in low:
                 current = "chorus"
-            elif "verse 2" in low or "куплет 2" in low or "verse2" in low:
-                current = "verse2"
             elif "intro" in low:
                 current = "intro"
             else:
-                current = "verse1"
+                # Номер куплета любой: `[verse 3]`, `[куплет 3]`, `[verse3]`.
+                # Раньше распознавался только второй, и третий куплет
+                # молча приклеивался к первому.
+                match = re.search(r"(?:verse|куплет)\s*(\d+)", low)
+                number = int(match.group(1)) if match else 1
+                current = f"verse{max(1, number)}"
+                verses.setdefault(current, [])
             continue
         if not title and len(ln) <= 60 and ln[0] not in "[(":
             title = ln
-        if current == "verse1":
-            verse1.append(ln)
-        elif current == "chorus":
+        if current == "chorus":
             chorus.append(ln)
-        elif current == "verse2":
-            verse2.append(ln)
+        elif current.startswith("verse"):
+            verses.setdefault(current, []).append(ln)
     if not title:
         title = f"ZS Track ({genre})"
+    ordered = [verses[key][:8] for key in _verse_keys(verses)]
     return {
         "title": title,
-        "verse1": verse1[:8] or [],
+        # legacy-ключи остаются: их читают отчёт и старые потребители
+        "verse1": verses.get("verse1", [])[:8] or [],
         "chorus": chorus[:6] or [],
-        "verse2": verse2[:8] or [],
+        "verse2": verses.get("verse2", [])[:8] or [],
+        "verses": [block for block in ordered if block],
         "language": "ru+en",
     }
+
+
+def _verse_keys(source: dict[str, Any]) -> list[str]:
+    """Ключи куплетов в порядке номеров: `verse1`, `verse2`, … `verse10`.
+
+    Сортировка строкой поставила бы `verse10` перед `verse2`.
+    """
+    keys = [key for key in source if re.fullmatch(r"verse\d+", str(key))]
+    return sorted(keys, key=lambda key: int(str(key)[5:]))
 
 
 def _struct_to_text(struct: dict[str, Any]) -> str:
+    """Отрендерить структуру в текст: любой набор куплетов в порядке номеров."""
     parts: list[str] = []
     if struct.get("title"):
         parts.append(str(struct["title"]))
-    if struct.get("verse1"):
-        parts.append("[verse 1]")
-        parts.extend(struct["verse1"])
-    if struct.get("chorus"):
+    blocks: list[tuple[str, list[str]]] = []
+    verses = struct.get("verses")
+    if isinstance(verses, list) and verses:
+        blocks.extend((f"verse {index}", list(lines)) for index, lines in enumerate(verses, 1))
+    else:
+        blocks.extend(
+            (key.replace("verse", "verse "), list(struct[key]))
+            for key in _verse_keys(struct)
+        )
+    chorus = struct.get("chorus") or []
+    # Припев ставится после первого куплета (так строится и шаблон, и LLM-текст).
+    for index, (label, lines) in enumerate(blocks):
+        if not lines:
+            continue
+        parts.append(f"[{label}]")
+        parts.extend(lines)
+        if index == 0 and chorus:
+            parts.append("[hook]")
+            parts.extend(chorus)
+    if chorus and not blocks:
         parts.append("[hook]")
-        parts.extend(struct["chorus"])
-    if struct.get("verse2"):
-        parts.append("[verse 2]")
-        parts.extend(struct["verse2"])
+        parts.extend(chorus)
     return "\n".join(parts)
 
 
-_LYRICS_TEMPLATES = {
-    "drift_phonk": {
-        "title": "Ночь горит ({genre})",
-        "verse1": [
-            "Ночь горит, я в дороге",
-            "Город спит, а мы на пороге",
-            "Тачки, движ, лето внутри",
-            "Мы не сдадимся, ты только смотри",
-        ],
-        "chorus": [
-            "Money over everything",
-            "Мы летим, ночь горит",
-            "Turkish beat, sea and me",
-            "Всё, что есть — это мы",
-        ],
-        "verse2": [
-            "Дым в окно, асфальт поёт",
-            "Ночь не спит, двигатель не ждёт",
-            "Всё что было — было вчера",
-            "Сегодня новая игра",
-        ],
-    },
-    "trap": {
-        "title": "Тёмный неон ({genre})",
-        "verse1": [
-            "Тёмный неон, город дымит",
-            "Толку в словах нет, движ горит",
-            "Пацаны рядом, басы в пол",
-            "Ночь длинная, мы на взлёт",
-        ],
-        "chorus": [
-            "Trap trap, на районе шум",
-            "Басы как гром, мы на подъём",
-            "Trap trap, не остановишь",
-            "Тёмный неон в наших крови",
-        ],
-        "verse2": [
-            "Дым из окон, свет фонарей",
-            "Мы в этой ночи все сильней",
-            "Кто не с нами — тот в стороне",
-            "Наш звук гремит на всю стране",
-        ],
-    },
-    "pop": {
-        "title": "Лето внутри ({genre})",
-        "verse1": [
-            "Солнце в глазах, ветер в волосах",
-            "Мы летим по трассе вдвоём",
-            "Радио орёт, сердце бьётся",
-            "Это лето будет вечным",
-        ],
-        "chorus": [
-            "Лето внутри, свет внутри",
-            "Мы горим, мы горим",
-            "Пой со мной, лети со мной",
-            "Эта ночь — только моя",
-        ],
-        "verse2": [
-            "Город засыпает, мы не спим",
-            "По крышам гуляем, по мостам",
-            "Каждый миг как последний",
-            "И никогда не будет скучным",
-        ],
-    },
-    "lo_fi": {
-        "title": "Дождь за окном ({genre})",
-        "verse1": [
-            "Дождь за окном, чай на столе",
-            "Старый плейлист и тишина",
-            "Мысли плывут по течению",
-            "И время стало не спеша",
-        ],
-        "chorus": [
-            "Lo-fi, lo-fi, медленный бит",
-            "Пусть весь мир подождёт",
-            "Lo-fi, lo-fi, душа дремлет",
-            "В этом звуке я живу",
-        ],
-        "verse2": [
-            "Книга открыта, страница белеет",
-            "Винил крутится в полумраке",
-            "Дождь рисует на стекле",
-            "Картины из моей тоски",
-        ],
-    },
-}
+def _fallback_lyrics(theme: str, genre: str, n_verses: int = 2) -> dict[str, Any]:
+    """v22: выбираем жанровый шаблон, подмешиваем тему. Не выдаём за LLM.
 
-
-def _fallback_lyrics(theme: str, genre: str) -> dict[str, Any]:
-    """v22: выбираем жанровый шаблон, подмешиваем тему. Не выдаём за LLM."""
+    `n_verses` уважается: сколько куплетов выбрал пользователь, столько блоков
+    и будет. Шаблон содержит два куплета; дальше они переиспользуются
+    циклически, но не копируются буквально — строки сдвигаются.
+    """
     g = (genre or "").lower().strip().replace("-", "_").replace(" ", "_")
-    tpl = _LYRICS_TEMPLATES.get(g, _LYRICS_TEMPLATES["drift_phonk"])
-    out = {
+    tpl = LYRICS_TEMPLATES.get(g, LYRICS_TEMPLATES["drift_phonk"])
+    # `0` — это осознанный выбор «один куплет», а не «не задано»: значение по
+    # умолчанию подставляется только при None/пустом.
+    count = max(1, min(4, 2 if n_verses in (None, "") else int(n_verses)))
+    base_verses = [list(tpl["verse1"]), list(tpl["verse2"])]
+    out: dict[str, Any] = {
         "title": tpl["title"].format(genre=genre),
-        "verse1": list(tpl["verse1"]),
         "chorus": list(tpl["chorus"]),
-        "verse2": list(tpl["verse2"]),
         "language": "ru+en",
     }
+    for index in range(count):
+        block = list(base_verses[index % len(base_verses)])
+        # Сдвиг внутри шаблона: повторный куплет не выглядит копией предыдущего.
+        shift = index // len(base_verses)
+        if shift:
+            block = block[shift:] + block[:shift]
+        out[f"verse{index + 1}"] = block
+    out["verses"] = [out[f"verse{index + 1}"] for index in range(count)]
     # Подмешиваем тему в первую строку куплета, если тема нестандартная
     if theme and theme not in ("лето, тачки, движ", "ночь", "движ"):
         topic = theme.split(",")[0].strip()
         if topic and len(topic) <= 40:
-            out["verse1"][0] = f"{topic.capitalize()} — вот наша тема"
+            first = f"{topic.capitalize()} — вот наша тема"
+            out["verse1"][0] = first
+            out["verses"][0][0] = first
     return out
 
 
@@ -272,7 +230,7 @@ def _stage_lyrics(
                 "status": "failed",
                 "error": f"{type(exc).__name__}: {exc}",
             })
-    fb = _fallback_lyrics(theme, genre)
+    fb = _fallback_lyrics(theme, genre, n_verses)
     fallback = {
         "ok": True,
         "text": _struct_to_text(fb),

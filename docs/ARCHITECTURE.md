@@ -6,7 +6,7 @@
 ## 1. Слои
 
 ```
-main.py                     точка входа: маршрутизация флагов + запуск GUI (111 строк)
+main.py                     точка входа: маршрутизация флагов + запуск GUI (138 строк)
 app/cli/                    CLI-слой: env (версия/кодировка), parser, commands, gui, backup, probes
 config/settings.py          конфиг: env > .env > дефолты (ZSMM_*)
 app/core/                   инфраструктура: логи, контракты, безопасность, бэкапы
@@ -15,7 +15,7 @@ app/pipeline/               контракт стадии: StageStatus, StageRes
 app/core/recipe.py          состояние визарда → нормализованный рецепт трека
 app/core/stages/            стадии классического пайплайна (prep/beat/texture/lyrics/vocal/mix/master/release)
 app/core/ai/                стадии AI-пайплайна (meta/music/vocal/final) + render-хелперы
-app/core/orchestrator.py    склейка классического DSP-пайплайна (15 стадий, 339 строк)
+app/core/orchestrator.py    склейка классического DSP-пайплайна (15 стадий, 384 строки)
 app/core/pipeline_runtime.py тайминг/статусы стадий, seed, --only/--resume
 app/core/stages/vocal_chain.py вокальная ветка: своя запись → TTS → RVC → FX
 app/core/orchestrator_god.py  God Mode (5 стадий, чекпоинты)
@@ -23,7 +23,7 @@ app/core/orchestrator_ai.py   AI-пайплайн: только проводка
 modules/                    аудио/текст/релиз/диагностика — прикладные модули
   beat/ llm/ lyrics/ hit_scorer/ release/ artist_dossier/  — пакеты по ответственности
 agents/                     источники: сэмплы, тренды, сленг
-app/gui/                    PySide6: wizard (9 шагов), тема, онбординг
+app/gui/                    PySide6: wizard (5 шагов), тема, онбординг
 tools/                      обслуживание: readiness, аудиты, smoke, e2e
 tests/                      pytest: unit / audio / e2e
 ```
@@ -112,13 +112,21 @@ loop, и отдаёт стадии списком `AsyncStage`. Раньше у 
 ближе к линейному. `main.py` вызывает `multiprocessing.freeze_support()`,
 иначе собранный exe при порождении процессов перезапускал бы сам себя.
 
+### Переключатели, влияющие на звук
+
+| Переменная | По умолчанию | Что меняет |
+|---|---|---|
+| `ZSMM_ARRANGEMENT_DRIVES_BEAT` | `1` | структура трека решается в аранжировке и передаётся биту; `0` — прежнее независимое планирование бита, бит-в-бит |
+| `ZSMM_MASTER_WORKERS` | `0` (авто) | число процессов мастеринга; `1` — последовательно, результат побитово тот же |
+| `quality_mode` (визард) | `quality` | `fast`/`quality`/`max`: размер MusicGen и число итераций доводки громкости (`1`/`3`/`5`) |
+
 ## 3. AI-слой
 
 - `app/ai/registry.py` — 13 ролей: engine, hf_repo, файл, SHA-256, VRAM/RAM.
   Одна тяжёлая модель в памяти; `registry.use(key)` — контекст-менеджер.
 - `app/ai/sequential_runner.py` — последовательный запуск стадий, watchdog
   по таймауту (SIGALRM на POSIX), VRAM-ceiling (OOM), телеметрия.
-- `app/ai/quality.py` — валидаторы артефактов. Стадия не отдаёт `ok=True`,
+- `app/ai/quality/` — валидаторы артефактов. Стадия не отдаёт `ok=True`,
   пока файл не прошёл гейт (мастер: true-peak ≤ −1 dBTP; обложка ≥ 512 px RGB;
   текст: длина/уникальность/структура; аудио: длительность/каналы/пик/RMS).
 - `app/ai/prompts.py` + `data/prompts/*.txt` — каталог промптов по ролям.
@@ -127,9 +135,9 @@ loop, и отдаёт стадии списком `AsyncStage`. Раньше у 
 
 | Путь | Что | Версионируется |
 |---|---|---|
-| `data/genres/`, `data/genre_presets/` | жанры и пресеты (JSON) | да |
+| `data/genre_presets/`, `config/genres_100.json` | пресеты жанров (50 JSON) и каталог 100 жанров | да |
 | `data/prompts/` | промпт-ассеты ролей | да |
-| `data/schema/` | схемы (досье артиста и т.п.) | да |
+| `data/artist_dossier/` | схема досье артиста (`schema.json`) | да |
 | `data/samples/` | 32 CC0 one-shot'а TR-808 и трёх наборов BOOCHI44 + `manifest.json` (лицензия, источник, SHA-256, tuning_hz) и `ATTRIBUTION.md`; собирается `tools/import_samples.py`, проверяется `tools/samples_audit.py` | да (только CC0/лицензионно чистое) |
 | `data/ai_models/` | веса моделей | **нет** (тянутся локально) |
 | `output/`, `logs/` | результаты рендера и логи | нет |
@@ -175,7 +183,7 @@ loop, и отдаёт стадии списком `AsyncStage`. Раньше у 
 
 | Команда | Что ловит |
 |---|---|
-| `python -m pytest tests/` | 526 тестов: unit, аудио, e2e, property, контракты GUI/CLI |
+| `python -m pytest tests/` | 940 тестов: unit, аудио, e2e, property, контракты GUI/CLI |
 | `python tools/smoke_audio.py` | стерео, громкость, drop (6 проверок) |
 | `python tools/smoke_god.py` | God Mode E2E, master 120 с, true-peak (8 проверок) |
 | `python tools/fallback_audit.py` | fallback-пути и маркеры заглушек |

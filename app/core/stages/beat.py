@@ -8,6 +8,12 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+# `_arrangement_drives_beat` реэкспортируется: его проверяют тесты и отчёты
+# через этот модуль, а живёт он рядом с разбором плана.
+from app.core.stages.beat_arrangement import (  # noqa: F401
+    _arrangement_drives_beat,
+    _arrangement_sections,
+)
 
 def _stage_ai_beat(recipe: dict[str, Any], plan: Any, out_dir: Path,
                    style: dict[str, Any], dry_run: bool = False) -> dict[str, Any]:
@@ -53,6 +59,7 @@ def _stage_beat(
         from modules import beat_constructor as bc
 
         style = style_vector or {"target_bpm": 128, "target_mode": "minor"}
+        sections, arrangement_note = _arrangement_sections(plan)
         if hasattr(bc, "construct_beat"):
             r = bc.construct_beat(
                 groove or {},
@@ -62,6 +69,7 @@ def _stage_beat(
                 n_verses=int((plan or {}).get("n_verses", 2)),
                 aggression=float((plan or {}).get("aggression", 0.7)),
                 out_name=Path(beat_wav).name,
+                sections=sections,
             )
             if isinstance(r, dict) and r.get("beat_path"):
                 src = Path(r["beat_path"])
@@ -81,6 +89,8 @@ def _stage_beat(
                     "sections": r.get("sections"),
                     "duration_sec": r.get("duration_sec"),
                     "engine": "beat_constructor.construct_beat",
+                    "arrangement_driven": bool(sections),
+                    **({"arrangement_note": arrangement_note} if arrangement_note else {}),
                 }
         # v22: fallback — полный structured synth beat, не 8с тупые kicks
         _bpm = int(style.get("target_bpm", 128) or 128)

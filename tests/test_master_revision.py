@@ -37,7 +37,7 @@ def source_project(monkeypatch, tmp_path):
     monkeypatch.setattr(orchestrator, "_stage_mix_and_sidechain", lambda beat, voice, out, *a, **kw: {
         "ok": True, "out_wav": _tone(out / "mix.wav"), "vocal_used": True,
         "gates_passed": False, "gates": {"correlation": False}})
-    def master(mix, out, stands=None):
+    def master(mix, out, stands=None, iterations=None):
         calls.append(("master", mix, stands))
         return {"ok": True, "masters": {"streaming": _tone(out / "masters/streaming.wav")},
                 "summary": {"gates_passed": True}}
@@ -180,7 +180,7 @@ def test_a_revision_can_be_revised_again(source_project, tmp_path):
 
 def test_mix_changed_during_mastering_is_not_offered_for_revision(source_project, monkeypatch, tmp_path):
     _, recipe, _, _ = source_project
-    def modify_mix(mix, out, stands=None):
+    def modify_mix(mix, out, stands=None, iterations=None):
         _tone(Path(mix), value=.2)
         return {"ok": True, "masters": {"streaming": _tone(out / "masters/streaming.wav")}}
     monkeypatch.setattr(orchestrator, "_stage_mastering", modify_mix)

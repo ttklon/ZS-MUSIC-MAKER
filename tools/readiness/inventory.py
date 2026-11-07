@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any
 
 from tools.readiness.paths import INVENTORY_ROOTS, ROOT, TEST_ROOT
+from tools.readiness.reachability import module_name, reachable_modules
 
 
 def _tracked_candidates() -> list[str]:
@@ -64,50 +65,116 @@ def tracked_python_modules() -> list[str]:
     return [path for path in _tracked_candidates() if (ROOT / path).is_file()]
 
 
-def _source_texts() -> tuple[str, str]:
-    production = "\n".join(
-        (ROOT / path).read_text(encoding="utf-8", errors="replace")
+def _production_texts() -> dict[str, str]:
+    """Текст каждого прод-модуля отдельно: упоминание в самом себе не считается."""
+    return {
+        path: (ROOT / path).read_text(encoding="utf-8", errors="replace")
         for path in tracked_python_modules()
-    )
+    }
+
+
+def _imported_by(texts: dict[str, str]) -> dict[str, int]:
+    """Сколько прод-модулей импортируют модуль (AST, включая ленивые импорты).
+
+    Текстовый поиск учитывал строковые литералы: `"modules.expert_mode"` в
+    списке health-проб делал мёртвый модуль «используемым». Импорт — это
+    единственная надёжная ссылка.
+    """
+    known = {module_name(path) for path in texts}
+    counts: dict[str, int] = {name: 0 for name in known}
+    for path, source in texts.items():
+        try:
+            tree = ast.parse(source)
+        except SyntaxError:
+            continue
+        current = module_name(path)
+        imported: set[str] = set()
+        for node in ast.walk(tree):
+            if not isinstance(node, (ast.Import, ast.ImportFrom)):
+                continue
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    candidate = alias.name
+                    while candidate:
+                        if candidate in known:
+                            imported.add(candidate)
+                            break
+                        candidate = candidate.rpartition(".")[0]
+            else:
+                base = node.module or ""
+                if node.level:
+                    package = current.rpartition(".")[0]
+                    for _ in range(node.level - 1):
+                        package = package.rpartition(".")[0]
+                    base = f"{package}.{base}" if base else package
+                for alias in node.names:
+                    for candidate in (f"{base}.{alias.name}", base):
+                        if candidate in known:
+                            imported.add(candidate)
+                            break
+        imported.discard(current)
+        for name in imported:
+            counts[name] += 1
+    return counts
+
+
+def _tests_text() -> str:
     tests_dir = ROOT / TEST_ROOT
-    tests = (
-        "\n".join(
-            p.read_text(encoding="utf-8", errors="replace")
-            for p in tests_dir.glob("test_*.py")
-        )
-        if tests_dir.exists()
-        else ""
+    if not tests_dir.exists():
+        return ""
+    return "\n".join(
+        p.read_text(encoding="utf-8", errors="replace") for p in tests_dir.glob("test_*.py")
     )
-    return production, tests
 
 
 def module_inventory() -> list[dict[str, Any]]:
-    """Одна аудиторская строка на каждый версионированный production-модуль."""
-    production, tests = _source_texts()
+    """Одна аудиторская строка на каждый версионированный production-модуль.
+
+    Статусы:
+      * `REAL_FAIL` — файл не парсится;
+      * `PLANNED`   — на модуль нет ссылок ни в проде, ни в тестах;
+      * `DEPRECATED`— код есть, но из точек входа он недостижим (помечен в
+                      `docs/IMPROVEMENT_PLAN.md` §5.16; удаление — отдельно);
+      * `REAL_PASS` — достижим и на него есть ссылки.
+
+    `production_references` считается без текста самого файла и без `tools/`:
+    иначе модуль «ссылается сам на себя» и всегда выглядит используемым.
+    """
+    texts = _production_texts()
+    tests = _tests_text()
+    files = list(texts)
+    reachable = reachable_modules(files, ROOT)
+    import_counts = _imported_by(texts)
+
     rows: list[dict[str, Any]] = []
-    for path in tracked_python_modules():
-        source = (ROOT / path).read_text(encoding="utf-8", errors="replace")
-        module_dot = path[:-3].replace("/", ".")
+    for path in files:
+        source = texts[path]
+        module_dot = module_name(path)
         basename = Path(path).stem
         try:
             ast.parse(source, filename=path)
             syntax_ok = True
         except SyntaxError:
             syntax_ok = False
-        production_refs = max(0, production.count(module_dot) + production.count(basename) - 1)
+
+        production_refs = import_counts.get(module_dot, 0)
         test_refs = tests.count(module_dot) + tests.count(basename)
-        status = (
-            "REAL_FAIL"
-            if not syntax_ok
-            else "REAL_PASS"
-            if (production_refs or test_refs)
-            else "PLANNED"
-        )
+        is_reachable = module_dot in reachable
+
+        if not syntax_ok:
+            status = "REAL_FAIL"
+        elif not is_reachable:
+            status = "DEPRECATED"
+        elif production_refs or test_refs:
+            status = "REAL_PASS"
+        else:
+            status = "PLANNED"
         rows.append(
             {
                 "path": path,
                 "status": status,
                 "syntax_ok": syntax_ok,
+                "reachable": is_reachable,
                 "production_references": production_refs,
                 "test_references": test_refs,
             }
@@ -122,6 +189,7 @@ def module_inventory_summary() -> dict[str, int]:
         "REAL_PASS": sum(row["status"] == "REAL_PASS" for row in rows),
         "REAL_FAIL": sum(row["status"] == "REAL_FAIL" for row in rows),
         "PLANNED": sum(row["status"] == "PLANNED" for row in rows),
+        "DEPRECATED": sum(row["status"] == "DEPRECATED" for row in rows),
     }
 
 

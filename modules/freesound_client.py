@@ -40,22 +40,16 @@ DEFAULT_CACHE = Path("samples_cache")
 DEFAULT_MANIFEST = Path("data/sample_manifests/freesound_cache.json")
 DEFAULT_SETTINGS = Path("data/settings.json")
 
+from app.core.net_policy import network_allowed  # noqa: E402 - после констант
+
 
 def online_enabled(allow_online: bool = False, settings_path: Path = DEFAULT_SETTINGS) -> bool:
     """Return whether a remote request is explicitly permitted.
 
-    Network access is disabled by default. A caller may opt in for one request
-    with ``allow_online=True`` or a user may persist ``{"network":
-    {"online": true}}`` in settings. Invalid settings are treated as offline.
+    Политика живёт в `app.core.net_policy`; здесь остаётся совместимая обёртка,
+    чтобы код и тесты, знающие это имя, продолжали работать.
     """
-    if allow_online:
-        return True
-    try:
-        settings = json.loads(Path(settings_path).read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError, TypeError):
-        return False
-    network = settings.get("network", {}) if isinstance(settings, dict) else {}
-    return isinstance(network, dict) and network.get("online") is True
+    return network_allowed(allow_online, settings_path)
 
 
 def _load_key() -> str | None:

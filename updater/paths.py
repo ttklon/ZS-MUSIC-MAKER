@@ -8,7 +8,6 @@ updater/paths.py — где лежит программа, пользовате�
 
 from __future__ import annotations
 
-import json
 import os
 import sys
 from pathlib import Path
@@ -59,13 +58,11 @@ def staging_dir() -> Path:
 
 
 def online_enabled(allow_online: bool = False, settings_path: Path | None = None) -> bool:
-    """Allow remote updater traffic only after an explicit user opt-in."""
-    if allow_online:
-        return True
+    """Allow remote updater traffic only after an explicit user opt-in.
+
+    Та же политика, что и у остального приложения: `app.core.net_policy`.
+    """
+    from app.core.net_policy import network_allowed
+
     path = Path(settings_path) if settings_path else program_dir() / "data" / "settings.json"
-    try:
-        settings = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError, TypeError):
-        return False
-    network = settings.get("network", {}) if isinstance(settings, dict) else {}
-    return isinstance(network, dict) and network.get("online") is True
+    return network_allowed(allow_online, path)

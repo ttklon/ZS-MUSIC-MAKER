@@ -10,7 +10,10 @@ from typing import Any
 
 
 def _stage_mastering(
-    mix_wav: str, out_dir: Path, stands: list[str] | None = None
+    mix_wav: str,
+    out_dir: Path,
+    stands: list[str] | None = None,
+    iterations: int | None = None,
 ) -> dict[str, Any]:
     """v25 (P1): stands из wizard-recipe реально пробрасываются —
     раньше всегда мастерились все 8, игнорируя выбор пользователя
@@ -35,7 +38,8 @@ def _stage_mastering(
             _stands = [s for s in stands if s in _valid]
             if "streaming" not in _stands:
                 _stands.insert(0, "streaming")
-        r = mastering.master_all_stands(mix_wav, out, stands=_stands)
+        # режим качества из визарда: сколько доводок громкости делает мастеринг
+        r = mastering.master_all_stands(mix_wav, out, stands=_stands, iterations=iterations)
         fb = r.get("summary", {}).get("fallback", 0) > 0
         r["fallback_used"] = fb
         return r

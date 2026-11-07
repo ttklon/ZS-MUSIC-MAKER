@@ -11,6 +11,7 @@ updater/install.py — установка обновления из ZIP и от�
 from __future__ import annotations
 
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -21,6 +22,61 @@ from typing import Any
 from updater.archive import make_backup, verify_zip
 from updater.paths import backup_dir, program_dir, staging_dir
 from updater.userdata import USER_PRESERVED, _restore_user_data, _stash_user_data
+
+
+def _is_safe_entry(name: str) -> bool:
+    """Имя записи архива не выводит за пределы каталога установки.
+
+    Отклоняются абсолютные пути (`/abs/x`, `C:/windows/x`), подъём по `..`,
+    пустые имена и любые буквы диска. Проверка не зависит от ОС: архив может
+    быть собран на другой платформе.
+    """
+    raw = str(name or "").replace("\\", "/")
+    if not raw or raw.endswith("/"):
+        return not raw
+    if raw.startswith("/") or re.match(r"^[A-Za-z]:", raw):
+        return False
+    return ".." not in raw.split("/")
+
+
+def _safe_extract(zip_path: Path, target: Path) -> dict[str, Any]:
+    """Распаковать архив, отказавшись от небезопасных записей.
+
+    `zipfile.extractall()` сам по себе нормализует имена, но молча пропускает
+    опасные записи — установка «проходит», а часть файлов просто не появляется.
+    Здесь такие записи сначала отсеиваются, а результат сообщается вызывающей
+    стороне: обновление с `../` в архиве считается неудачным, а не частичным.
+    """
+    target = Path(target)
+    target.mkdir(parents=True, exist_ok=True)
+    rejected: list[str] = []
+    extracted = 0
+    with zipfile.ZipFile(str(zip_path), "r") as archive:
+        for info in archive.infolist():
+            name = info.filename
+            if info.is_dir():
+                if _is_safe_entry(name + "x"):  # каталог безопасен, если безопасен путь внутри
+                    (target / name).mkdir(parents=True, exist_ok=True)
+                continue
+            if not _is_safe_entry(name):
+                rejected.append(name)
+                continue
+            destination = (target / name).resolve()
+            try:
+                destination.relative_to(target.resolve())
+            except ValueError:
+                rejected.append(name)
+                continue
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            with archive.open(info, "r") as source, open(destination, "wb") as sink:
+                shutil.copyfileobj(source, sink)
+            extracted += 1
+    return {
+        "ok": not rejected,
+        "extracted": extracted,
+        "rejected": rejected,
+        "reason": ("unsafe archive entries: " + ", ".join(rejected)) if rejected else "",
+    }
 
 
 def install_from_zip(
@@ -47,10 +103,18 @@ def install_from_zip(
         shutil.rmtree(stg)
     stg.mkdir(parents=True, exist_ok=True)
     try:
-        with zipfile.ZipFile(str(zip_p), "r") as z:
-            z.extractall(str(stg))
+        extraction = _safe_extract(zip_p, stg)
     except Exception as e:
         return {"ok": False, "stage": "extract", "error": str(e), "backup": str(bak)}
+    if not extraction["ok"]:
+        # Небезопасный архив отвергается целиком: ничего не заменяем.
+        return {
+            "ok": False,
+            "stage": "extract",
+            "error": extraction["reason"],
+            "rejected": extraction["rejected"],
+            "backup": str(bak),
+        }
 
     try:
         # v37 FIX: сохраняем пользовательские данные ДО очистки каталога.

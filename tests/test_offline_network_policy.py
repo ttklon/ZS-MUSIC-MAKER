@@ -95,3 +95,67 @@ def test_network_settings_require_exact_true(tmp_path: Path) -> None:
     settings.write_text('{"network": {"online": true}}', encoding="utf-8")
     assert freesound_client.online_enabled(settings_path=settings) is True
     assert updater.online_enabled(settings_path=settings) is True
+
+
+# --------------------------------------------------------------- единая политика
+def test_net_policy_is_the_single_source_of_truth(tmp_path: Path) -> None:
+    """Все три потребителя делегируют в один хелпер и согласны между собой."""
+    from agents.sample_hunter import hunter
+    from app.core.net_policy import network_allowed
+
+    settings = tmp_path / "settings.json"
+    settings.write_text(json.dumps({"network": {"online": True}}), encoding="utf-8")
+
+    assert network_allowed(False, settings) is True
+    assert freesound_client.online_enabled(settings_path=settings) is True
+    assert updater.online_enabled(settings_path=settings) is True
+    assert network_allowed in (hunter.network_allowed,)
+
+
+def test_hunt_is_offline_by_default_and_does_not_touch_network(monkeypatch, tmp_path) -> None:
+    from agents.sample_hunter import hunter, web
+
+    monkeypatch.chdir(tmp_path)  # нет data/settings.json → нет согласия
+    called: list[str] = []
+
+    def forbidden(url, timeout: float = 6.0):
+        called.append(url)
+        raise AssertionError("сеть вызвана без явного согласия")
+
+    monkeypatch.setattr(web, "_http_get", forbidden)
+    monkeypatch.setattr(hunter, "list_local", lambda *a, **k: [])
+
+    result = hunter.hunt("kick")
+
+    assert result["offline"] is True
+    assert result["online"] == []
+    assert called == []
+
+
+def test_hunt_goes_online_when_explicitly_allowed(monkeypatch, tmp_path) -> None:
+    from agents.sample_hunter import hunter, web
+
+    monkeypatch.chdir(tmp_path)
+    called: list[str] = []
+
+    def fake_get(url, timeout: float = 6.0):
+        called.append(url)
+        return None
+
+    monkeypatch.setattr(web, "_http_get", fake_get)
+    monkeypatch.setattr(web, "HAS_REQ", True)
+    monkeypatch.setattr(hunter, "list_local", lambda *a, **k: [])
+
+    result = hunter.hunt("kick", allow_online=True)
+
+    assert result["offline"] is False
+    assert called, "онлайн-поиск разрешён, но сеть не использована"
+
+
+def test_string_true_in_settings_does_not_enable_network(tmp_path: Path) -> None:
+    from app.core.net_policy import network_allowed
+
+    settings = tmp_path / "settings.json"
+    for payload in ('{"network": {"online": "true"}}', '{"network": {"online": 1}}', '{"online": true}'):
+        settings.write_text(payload, encoding="utf-8")
+        assert network_allowed(settings_path=settings) is False, payload

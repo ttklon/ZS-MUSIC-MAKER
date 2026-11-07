@@ -40,10 +40,16 @@ def _current_master_one():
     return overridden or master_one
 
 
-def _master_stand_job(job: tuple[str, str, str]) -> tuple[str, dict[str, Any]]:
-    """Один стенд в отдельном процессе (аргументы должны быть picklable)."""
-    mix_wav, out_wav, stand = job
-    return stand, _current_master_one()(mix_wav, out_wav, stand=stand)
+def _master_stand_job(job: tuple) -> tuple[str, dict[str, Any]]:
+    """Один стенд в отдельном процессе (аргументы должны быть picklable).
+
+    Кортеж допускает обе формы: `(mix, out, stand)` — как раньше, и
+    `(mix, out, stand, iterations)` — когда режим качества задаёт число
+    итераций. Оба варианта picklable, поэтому пул процессов не ломается.
+    """
+    mix_wav, out_wav, stand, *rest = job
+    iterations = rest[0] if rest else None
+    return stand, _current_master_one()(mix_wav, out_wav, stand=stand, iterations=iterations)
 
 
 def _stand_workers(count: int) -> int:
@@ -69,9 +75,12 @@ def _run_stands(
     mix_wav: str,
     out: Path,
     chosen: list[str],
+    iterations: int | None = None,
 ) -> list[tuple[str, dict[str, Any]]]:
     """Посчитать стенды; при любой проблеме с процессами — честный фолбэк."""
-    jobs = [(mix_wav, str(out / f"master_{stand}.wav"), stand) for stand in chosen]
+    jobs = [
+        (mix_wav, str(out / f"master_{stand}.wav"), stand, iterations) for stand in chosen
+    ]
     workers = 1 if _current_master_one() is not _MASTER_ONE_IMPL else _stand_workers(len(jobs))
     if workers > 1:
         try:
@@ -88,15 +97,20 @@ def master_all_stands(
     mix_wav: str,
     out_dir: str,
     stands: list[str] | None = None,
+    iterations: int | None = None,
 ) -> dict[str, Any]:
-    """Мастеринг под все запрошенные стенды + сводный отчёт по гейтам."""
+    """Мастеринг под все запрошенные стенды + сводный отчёт по гейтам.
+
+    `iterations` — число доводок громкости на стенд (профиль качества).
+    `None` сохраняет прежнее поведение.
+    """
     chosen = stands or ALL_STANDS
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
     masters: dict[str, str] = {}
     reports: dict[str, dict[str, Any]] = {}
     errors: dict[str, str] = {}
-    for stand, result in _run_stands(mix_wav, out, list(chosen)):
+    for stand, result in _run_stands(mix_wav, out, list(chosen), iterations):
         if result.get("ok"):
             masters[stand] = str(result["path"])
             reports[stand] = result
@@ -109,6 +123,7 @@ def master_all_stands(
         if not data["gates_passed"]
     }
     summary = {
+        "iterations": iterations,
         "total": len(chosen),
         "done": len(masters),
         "fallback": 0,

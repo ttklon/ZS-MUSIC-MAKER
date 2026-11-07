@@ -21,6 +21,14 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+try:  # тегирование — необязательная зависимость, отказ обязан быть виден
+    from mutagen.wave import WAVE
+
+    HAS_MUTAGEN = True
+except Exception:  # pragma: no cover - окружение без mutagen
+    WAVE = None
+    HAS_MUTAGEN = False
+
 ROOT = Path(__file__).resolve().parents[2]
 RELEASES_DIR = ROOT / "output" / "releases"
 
@@ -114,6 +122,78 @@ def refresh_zip(release_dir: str | Path) -> bool:
     return _archive_release(release_dir, zip_path)
 
 
+def tag_release_master(path: str | Path, meta: dict[str, Any]) -> dict[str, Any]:
+    """Проставить ID3-теги файлу релизного пакета (никогда — мастеру проекта).
+
+    WAV-теги пишутся через `mutagen.wave.WAVE` + ID3-кадры: `EasyID3` работает
+    с файлами, у которых уже есть контейнер ID3, поэтому «с нуля» используется
+    `WAVE.add_tags()`. Ошибка или отсутствие `mutagen` — честный
+    `{"ok": False, "reason": ...}`, а не тихий пропуск.
+    """
+    target = Path(path)
+    if not HAS_MUTAGEN:
+        return {
+            "ok": False,
+            "reason": "mutagen is not installed; release master has no ID3 tags",
+            "engine": "mutagen",
+        }
+    if target.suffix.lower() != ".wav":
+        return {
+            "ok": False,
+            "reason": f"ID3 tagging is only wired for WAV, got {target.suffix or 'no suffix'}",
+            "engine": "mutagen",
+        }
+
+    values = {
+        "title": str(meta.get("title") or "").strip(),
+        "artist": str(meta.get("artist") or "").strip(),
+        "album": str(meta.get("album") or meta.get("title") or "").strip(),
+        "genre": str(meta.get("genre") or "").strip(),
+        "date": str(meta.get("year") or datetime.now(timezone.utc).year),
+        "tracknumber": str(meta.get("track_number") or 1),
+    }
+    frames = {
+        "title": "TIT2",
+        "artist": "TPE1",
+        "album": "TALB",
+        "genre": "TCON",
+        "date": "TDRC",
+        "tracknumber": "TRCK",
+    }
+    try:
+        audio = WAVE(str(target))
+        try:
+            audio.add_tags()
+        except Exception:
+            # контейнер уже есть — перезаписываем существующие кадры
+            pass
+        written: dict[str, str] = {}
+        for key, frame in frames.items():
+            value = values[key]
+            if not value:
+                continue
+            from mutagen import id3 as id3_frames
+
+            audio.tags.delall(frame)
+            audio.tags.add(id3_frames.__dict__[frame](encoding=3, text=[value]))
+            written[key] = value
+        audio.save()
+        return {
+            "ok": True,
+            "engine": "mutagen.wave",
+            "tags": written,
+            "file": str(target),
+            "note": "tags are written to the release copy only",
+        }
+    except Exception as exc:  # noqa: BLE001 - причина важнее стека
+        return {
+            "ok": False,
+            "engine": "mutagen.wave",
+            "reason": f"{type(exc).__name__}: {exc}",
+            "file": str(target),
+        }
+
+
 def export_release(
     beat_path: str,
     vocal_path: str,
@@ -158,6 +238,14 @@ def export_release(
             files[name] = str(destination)
             artifacts[name] = sha256_file(destination)
 
+        # Теги ставим только на копию в релизном пакете: мастер проекта
+        # остаётся бит-в-бит тем же (это проверяется тестом по SHA-256).
+        id3_report: dict[str, Any] = {"ok": False, "reason": "no master in release package"}
+        if "master.wav" in files:
+            id3_report = tag_release_master(release_dir / "master.wav", meta)
+            if id3_report.get("ok"):
+                artifacts["master.wav"] = sha256_file(release_dir / "master.wav")
+
         lyrics_text = lyrics or ""
         (release_dir / "lyrics.txt").write_text(lyrics_text, encoding="utf-8")
         files["lyrics.txt"] = str(release_dir / "lyrics.txt")
@@ -184,6 +272,7 @@ def export_release(
             "created_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
             "metadata": meta,
             "artifacts_sha256": artifacts,
+            "id3": id3_report,
         }
         # SHA-256 остальных текстовых артефактов: манифест должен покрывать всё.
         for name in ("lyrics.txt", "recipe.json", "metadata.json", "metadata.csv"):
@@ -214,6 +303,7 @@ def export_release(
             "manifest": manifest,
             "isrc": isrc,
             "isrc_status": isrc_status,
+            "id3": id3_report,
             "zip": archived,
         }
     except Exception as exc:  # noqa: BLE001 - отчёт о сбое важнее стека

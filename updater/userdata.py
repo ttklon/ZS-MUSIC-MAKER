@@ -26,6 +26,10 @@ USER_PRESERVED = [
     "data/genre_presets",
     "data/prompts",
     "data/tutorial_settings.json",
+    # реальный layout: ключи и настройки лежат внутри data/
+    "data/secrets.enc",
+    "data/settings.json",
+    # старые имена оставлены для миграции: у части установок файлы в корне
     "secrets.enc",
     "settings.json",
     "output",
@@ -64,6 +68,7 @@ def _stash_user_data(prog: Path, stg: Path) -> dict[str, Path]:
 
 
 def _restore_user_data(prog: Path, moved: dict[str, Path]) -> list[str]:
+    """Вернуть сохранённые данные поверх новой версии (merge, не затирание)."""
     """После распаковки новой версии: возвращаем сохранённые данные на место.
 
     v37: MERGE-семантика вместо затирания. Если новая версия принесла свой

@@ -32,14 +32,12 @@ def test_trend_scout_reports_failed_sources_and_builtin_fallback(monkeypatch):
         "_duckduckgo_search",
         lambda query: (_ for _ in ()).throw(ConnectionError("offline")),
     )
-    def fail_local_dictionary():
+    def fail_local_dictionary(*args, **kwargs):
         raise RuntimeError("dictionary unreadable")
 
-    monkeypatch.setitem(
-        sys.modules,
-        "modules.lyrics_gen",
-        types.SimpleNamespace(load_slang_dictionary=fail_local_dictionary),
-    )
+    # Источник сленга — локальный файл `lyric_vault/slang.txt`, а не модуль
+    # `modules.lyrics_gen` (его не существует): подменяем именно читатель файла.
+    monkeypatch.setattr(trend_scout, "_load_local_slang", fail_local_dictionary)
     monkeypatch.setattr(trend_scout, "_fallback_trends", lambda query: ["local fallback"])
 
     result = trend_scout.scout_trends_with_diagnostics("phonk")

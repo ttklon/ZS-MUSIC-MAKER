@@ -380,8 +380,10 @@ class StepResult(StepBase):
         for index in range(3):
             recipe = dict(self.current_job.recipe)
             recipe.pop("only", None)
+            # Три варианта — три аранжировки (энергия секций, переходы), а не
+            # три громкости: агрессию пользователя не переписываем, иначе
+            # отсутствие вариантов маскировалось бы изменением агрессии.
             recipe["variant"] = index + 1
-            recipe["aggression"] = 0.4 + index * 0.2
             recipes.append(recipe)
         try:
             tids = self.wizard.orch.enqueue_batch(recipes)

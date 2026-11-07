@@ -32,8 +32,11 @@ from app.core.pipeline_runtime import (
     _apply_seed,
     _blocked,
     _normalize_path_map,
+    _run_arrangement_stage,
     _output,
     _quality_gate_failures,
+    _run_mastering_stage,
+    _run_texture_stage,
     _timed,
     _wanted,
 )
@@ -42,14 +45,18 @@ from app.core.stages.beat import _stage_beat, _stage_ai_beat
 from app.core.stages.lyrics import _run_lyrics_stage
 from app.core.stages.master import (
     _stage_hit_score,
-    _stage_mastering,
     _stage_polish,
     _stage_stems,
 )
+# реэкспорт: `pipeline_runtime._stage_callable` берёт реализацию из этого модуля,
+# поэтому подмена стадии в тестах и экспериментах остаётся рабочей
+from app.core.stages.master import _stage_mastering  # noqa: F401
 from app.core.stages.mix import _stage_mix_and_sidechain
-from app.core.stages.prep import _stage_analyze, _stage_arrangement, _stage_groove
+from app.core.stages.prep import _stage_analyze, _stage_arrangement, _stage_groove  # noqa: F401
 from app.core.stages.release import _stage_release_pack
-from app.core.stages.texture import _stage_texture
+# реэкспорт: `pipeline_runtime._stage_callable` ищет реализацию в этом модуле,
+# чтобы подмена стадии в тестах/экспериментах продолжала работать
+from app.core.stages.texture import _stage_texture  # noqa: F401
 from app.core.stages.vocal_chain import _run_vocal_chain
 from app.pipeline import summarize
 
@@ -141,15 +148,12 @@ def run_full_pipeline(
     add(groove_stage)
     groove = _output(groove_stage).get("groove")
 
-    if "_stage_arrangement" in reused_stages:
-        arrangement_stage = reused_stages["_stage_arrangement"]
-    elif _wanted(only, "arrangement"):
-        arrangement_stage = _timed("_stage_arrangement", lambda: _stage_arrangement(analysis))
-    else:
-        arrangement_stage = _blocked("_stage_arrangement", "skipped by --only")
+    # Стилевой вектор нужен аранжировке как вход, а не как побочный результат:
+    # раньше стадия получала только анализ и отдавала пустой план.
+    style_vector = resolve_style_vector(recipe, analysis)
+    arrangement_stage = _run_arrangement_stage(recipe, analysis, style_vector, reused_stages, only)
     add(arrangement_stage)
 
-    style_vector = resolve_style_vector(recipe, analysis)
     plan = build_arrangement_plan(recipe, _output(arrangement_stage).get("plan"), analysis)
 
     if "_stage_beat" in reused_stages:
@@ -165,19 +169,7 @@ def run_full_pipeline(
     # Earlier audio paths in reused stage records are historical metadata only.
     beat_wav = None if reused_stages else _output(beat_stage).get("path")
 
-    if "_stage_texture" in reused_stages:
-        add(reused_stages["_stage_texture"])
-    elif _wanted(only, "texture"):
-        add(
-            _timed(
-                "_stage_texture",
-                lambda: _stage_texture(
-                    f"{recipe['genre']} atmosphere with {recipe['theme']}", out_root
-                ),
-            )
-        )
-    else:
-        add(_blocked("_stage_texture", "skipped by --only"))
+    add(_run_texture_stage(recipe, out_root, reused_stages, only))
 
     if "_stage_lyrics" in reused_stages:
         lyrics_stage = reused_stages["_stage_lyrics"]
@@ -234,15 +226,7 @@ def run_full_pipeline(
     add_mix_integrity(initial_integrity, mix_stage, out_root, warnings)
     mix_wav = _output(mix_stage).get("out_wav")
 
-    if not _wanted(only, "master"):
-        master_stage = _blocked("_stage_mastering", "skipped by --only")
-    elif mix_wav:
-        master_stage = _timed(
-            "_stage_mastering",
-            lambda: _stage_mastering(mix_wav, out_root, stands=recipe["stands"] or None),
-        )
-    else:
-        master_stage = _blocked("_stage_mastering", "no mix")
+    master_stage = _run_mastering_stage(recipe, mix_wav, out_root, only)
     add(master_stage)
 
     master_out = _output(master_stage)

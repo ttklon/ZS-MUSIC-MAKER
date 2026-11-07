@@ -10,10 +10,12 @@ ffmpeg-командой: пользователь получает резуль�
 from __future__ import annotations
 
 import logging
+import struct
+import wave
 
 import os
 
-from modules.video_edit.audio import detect_hook
+from modules.video_edit.audio import _read_wav_mono, detect_hook
 from modules.video_edit.console import safe_print as _safe_print
 from modules.video_edit.models import VideoEditRequest, VideoEditResult
 
@@ -225,12 +227,19 @@ def _build_fallback(req, hook_start, hook_end) -> VideoEditResult:
             )
     except Exception as e:
         _safe_print(f"[video_edit] fallback txt write failed: {e}")
+    # `ok` отражает реально созданный артефакт: если WAV-хук записан, пользователь
+    # получил рабочий кусок трека, а не только инструкцию. Видео при этом нет —
+    # это видно по backend="fallback_wav" и reason.
     return VideoEditResult(
-        ok=False,
+        ok=bool(wav_out),
         output_path=wav_out or txt_path,
         duration_sec=hook_end - hook_start,
         resolution=req.resolution(),
         backend=backend,
         hook_start_sec=hook_start,
-        reason="moviepy/ffmpeg unavailable",
+        reason=(
+            "moviepy/ffmpeg unavailable; hook WAV written, video not rendered"
+            if wav_out
+            else "moviepy/ffmpeg unavailable; hook WAV could not be written"
+        ),
     )
