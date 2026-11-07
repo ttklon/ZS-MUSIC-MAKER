@@ -249,7 +249,10 @@ def stereoize(y: Any, np: Any, sr: int) -> Any:
         low_mid = y - mid_hi
         delay_samples = int(sr * 0.010)
         mid_hi_r = np.concatenate([np.zeros(delay_samples, dtype="float32"), mid_hi[:-delay_samples]])
-        hp5k = _butter(2, 5000, btype="high", fs=sr, output="sos")
+        # Срез не может быть выше Найквиста: при малом sr фильтр 5 кГц
+        # бросал исключение, и весь стерео-путь падал в аварийный Haas —
+        # низ переставал быть моно-основой. Ограничиваем срез по sr.
+        hp5k = _butter(2, min(5000, sr * 0.45), btype="high", fs=sr, output="sos")
         hi = _sosfilt(hp5k, y)
         d2 = int(sr * 0.007)
         hi_r = np.concatenate([np.zeros(d2, dtype="float32"), hi[:-d2]])

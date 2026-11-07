@@ -17,6 +17,7 @@ import os
 
 from modules.video_edit.audio import _read_wav_mono, detect_hook
 from modules.video_edit.console import safe_print as _safe_print
+from modules.video_edit.lrc import _parse_lrc
 from modules.video_edit.models import VideoEditRequest, VideoEditResult
 
 
