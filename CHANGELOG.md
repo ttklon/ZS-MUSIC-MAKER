@@ -289,6 +289,43 @@ CLI модуля (`scan` / `profile <автор>`) вынесен в `main(argv)
 проверку, что список путей не требует запрещённых одиночных файлов и что все
 объявленные пути существуют в реальном дереве.
 
+### `reference_ingest`: анализ референсов не работал ни на одном файле
+
+`modules/reference_ingest.py` (стилевой вектор из 1–7 референсов, ТЗ 3.2) был
+достижим — он в `modules.health.INTERNAL_MODULES` и в `self_diag.EXPECTED_PATHS`
+— но не покрыт. Покрытие 0 → 96 %, и по дороге четыре дефекта, каждый из
+которых виден пользователю:
+
+- **Любой реальный файл давал ошибку.** `analyze_file` вызывал `float(tempo)`, а
+  `librosa.beat.beat_track` начиная с 0.11 возвращает темп массивом формы (1,):
+  `TypeError: only 0-dimensional arrays can be converted to Python scalars`.
+  `requirements.txt` разрешает `librosa>=0.10.2`, то есть версия с таким
+  поведением допустима. Живая проверка до правки: `ok=False`, `build_style_vector`
+  → `all analyses failed`; после: `bpm 112.35`, `key A minor`, `n_ok 2`.
+- **Кэш некуда было писать.** `_save_cached` не создавал
+  `data/reference_cache/`, хотя комментарий обещал ленивое создание. В чистой
+  установке каталога нет (в git только `.gitkeep`), и удачный анализ
+  превращался в `FileNotFoundError`.
+- **Машина без librosa падала на разборе стиля.** `_wavg` отдаёт `None` для
+  отсутствующих полей, а `_guess_genre` использовал `.get(key, default)` —
+  запасное значение не спасало от `None` и разбор падал `TypeError`. Fallback
+  из `analyze_file` (это и есть штатное состояние установки без librosa) не
+  доходил до вектора.
+- **Отказ без причины.** У исключений audioread сообщение бывает пустым, и
+  `error` возвращался пустой строкой. Теперь причина — тип исключения и путь.
+
+Разбор темпа вынесен в `modules/tempo.py` (`tempo_scalar`), потому что тот же
+`float(tempo)` был ещё в трёх местах: `modules/essentia_analyzer.py` (librosa
+fallback), `modules/hit_scorer/hook_metrics.py` (`_chorus_catchiness`,
+`_bpm_dance_fitness`). В `modules/analyzer.py` и
+`modules/artist_dossier/features.py` разбор уже был корректным — они и были
+образцом. `tests/test_tempo_scalar.py` держит и сам разбор (12 случаев), и
+каждое место вызова на подставном librosa, возвращающем массив.
+
+`tests/test_reference_ingest.py` — 40 тестов: кэш (создание каталога, битый
+JSON, отключение), консенсус BPM с октавными ошибками, голосование по
+тональности, веса, частичный отказ, эвристики жанра и настроения.
+
 ### Что по-прежнему не проверено
 
 GUI, физический микрофон, Windows и реальный вывод нейросетевых моделей в этой

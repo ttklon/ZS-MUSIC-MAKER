@@ -24,6 +24,8 @@ import logging
 from pathlib import Path
 from typing import Any
 
+from modules.tempo import tempo_scalar
+
 log = logging.getLogger("zsmm.essentia")
 
 try:
@@ -138,7 +140,7 @@ def _analyze_librosa_fallback(audio_path: str, sr: int) -> dict[str, Any]:
         return {
             "ok": True,
             "engine": "librosa_fallback",
-            "bpm": float(tempo),
+            "bpm": tempo_scalar(tempo, 0.0),
             "key": keys[key_idx],
             "scale": (
                 "major"

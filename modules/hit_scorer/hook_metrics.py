@@ -9,6 +9,7 @@ from __future__ import annotations
 import math
 
 from modules.hit_scorer.audio import HAS_LIBROSA, librosa, np
+from modules.tempo import tempo_scalar
 
 
 def _rms(y) -> float:
@@ -110,7 +111,7 @@ def _chorus_catchiness(y, sr) -> tuple[float, dict]:
         harmonic_simplicity = max(0.0, min(100.0, 100.0 - chroma_var * 400.0))
         score = 0.6 * regularity + 0.4 * harmonic_simplicity
         return score, {
-            "tempo": float(tempo),
+            "tempo": tempo_scalar(tempo, 0.0),
             "peaks": len(peaks),
             "chroma_var": chroma_var,
         }
@@ -174,7 +175,7 @@ def _bpm_dance_fitness(y, sr) -> tuple[float, float]:
         return 60.0, 0.0
     try:
         tempo, _ = librosa.beat.beat_track(y=y, sr=sr)
-        t = float(tempo)
+        t = tempo_scalar(tempo, 0.0)
         # Sweet spots
         best_ranges = [(120, 140, 100), (70, 95, 90), (95, 120, 75), (140, 160, 80)]
         score = 40.0
