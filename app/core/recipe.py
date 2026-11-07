@@ -191,7 +191,43 @@ def resolve_style_vector(recipe: dict[str, Any], analysis: Any) -> dict[str, Any
     # иначе «детерминизм seed → одинаковый SHA-256» проверить невозможно.
     if recipe.get("seed") is not None:
         style["seed"] = int(recipe["seed"])
+    # Вариант «смелее/экспериментальнее» — свойство стиля, а не громкости:
+    # без этого поля три варианта отличались бы только агрессией.
+    if recipe.get("variant") is not None:
+        style["variant"] = int(recipe["variant"])
     return style
+
+
+def arrangement_style(style_vector: dict[str, Any] | None) -> dict[str, Any]:
+    """Перевести стилевой вектор бита в словарь, который понимает движок аранжировки.
+
+    В пайплайне живут два словаря: `resolve_style_vector()` говорит
+    `target_bpm / key_root / target_mode`, а `arrangement_engine.build_arrangement`
+    ждёт `bpm / key / mode / genre_hint`. Перевод держится в одном месте, чтобы
+    стадия не собирала ключи руками.
+
+    `seed` не выдумывается: если он не задан, движок сам решает, как обеспечить
+    воспроизводимость, и честно помечает план как `seeded: false`.
+    """
+    style = dict(style_vector or {})
+    out: dict[str, Any] = {
+        "bpm": _as_float(style.get("target_bpm")) or _as_float(style.get("bpm")) or 128.0,
+        "mode": str(style.get("target_mode") or style.get("mode") or "minor"),
+        "genre_hint": str(style.get("genre") or style.get("genre_hint") or "generic hit"),
+    }
+    key = style.get("key_root") or style.get("key")
+    if key:
+        out["key"] = str(key)
+    mood = style.get("mood") or style.get("prompt_hint")
+    if mood:
+        out["mood"] = str(mood)
+    seed = _as_int(style.get("seed"))
+    if seed is not None:
+        out["seed"] = seed
+    variant = _as_int(style.get("variant"))
+    if variant is not None:
+        out["variant"] = variant
+    return out
 
 
 def build_arrangement_plan(recipe: dict[str, Any], plan: Any, analysis: Any) -> dict[str, Any]:

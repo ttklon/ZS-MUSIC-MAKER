@@ -134,8 +134,18 @@ def _gates(report: dict[str, Any], stand: str) -> dict[str, bool]:
     }
 
 
-def master_one(mix_wav: str, out_wav: str, stand: str = "streaming") -> dict[str, Any]:
-    """Мастеринг одного WAV под конкретный стенд. Всегда стерео, всегда с отчётом."""
+def master_one(
+    mix_wav: str,
+    out_wav: str,
+    stand: str = "streaming",
+    iterations: int | None = None,
+) -> dict[str, Any]:
+    """Мастеринг одного WAV под конкретный стенд. Всегда стерео, всегда с отчётом.
+
+    `iterations` — сколько доводок громкости делал `_converge_loudness`
+    (режим качества из визарда). `None` — прежнее поведение (6 итераций),
+    поэтому вызовы без аргумента считают бит-в-бит как раньше.
+    """
     try:
         y, sr = _load(mix_wav)
     except Exception as exc:
@@ -151,12 +161,16 @@ def master_one(mix_wav: str, out_wav: str, stand: str = "streaming") -> dict[str
         high={"threshold_db": -20.0, "ratio": 1.4, "attack_ms": 10.0, "release_ms": 120.0},
     )
     crest_low, crest_high = CREST_RANGE.get(stand, DEFAULT_CREST)
+    # Режим качества задаёт глубину поиска во всех доводках этого стенда,
+    # включая rescue/topup: иначе "fast" всё равно тратил бы полный бюджет.
+    search_iterations = max(1, int(iterations)) if iterations else 6
     mastered, loudness_info = _converge_loudness(
         compressed,
         sr,
         target,
         min_crest_db=crest_low,
         max_crest_db=crest_high,
+        search_iterations=search_iterations,
     )
     # Если цель по громкости не достигнута из-за транзиентов (лимитер уже стоит
     # на потолке, а прибавка усиления не даёт LUFS), единственный честный путь —
@@ -180,6 +194,7 @@ def master_one(mix_wav: str, out_wav: str, stand: str = "streaming") -> dict[str
             target,
             min_crest_db=crest_low,
             max_crest_db=crest_high,
+            search_iterations=search_iterations,
         )
         rescue_attempts.append(
             {
@@ -202,6 +217,7 @@ def master_one(mix_wav: str, out_wav: str, stand: str = "streaming") -> dict[str
             max_gain_db=4.0,
             min_crest_db=crest_low,
             max_crest_db=crest_high,
+            search_iterations=search_iterations,
         )
         crest_info["topup"] = {
             "lufs_before": round(current_lufs, 2),

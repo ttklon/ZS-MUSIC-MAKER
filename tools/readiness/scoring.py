@@ -41,6 +41,16 @@ def compute() -> tuple[float, dict[str, Any]]:
     }
     block_pcts = {key: _block_percent(value) for key, value in blocks_raw.items()}
 
+    # Достижимость ядра: доля прод-модулей, до которых можно дойти от точек
+    # входа. Мёртвый код обязан снижать балл, иначе индикатор снова врёт.
+    inventory = module_inventory_summary()
+    total_modules = max(1, inventory["tracked_modules"])
+    live_share = (
+        inventory["REAL_PASS"] + inventory["REAL_FAIL"]
+    ) / total_modules
+    if "core_modules" in block_pcts:
+        block_pcts["core_modules"] = round(block_pcts["core_modules"] * live_share, 2)
+
     total = 0.0
     for key, weight in WEIGHTS.items():
         total += block_pcts.get(key, 0.0) * weight / 100.0
@@ -62,7 +72,8 @@ def compute() -> tuple[float, dict[str, Any]]:
     final = math.floor(min(total, cap_min))
 
     return float(final), {
-        "module_inventory": module_inventory_summary(),
+        "module_inventory": inventory,
+        "module_reachability_share": round(live_share, 4),
         "block_scores": block_pcts,
         "weights": WEIGHTS,
         "raw_probes": blocks_raw,

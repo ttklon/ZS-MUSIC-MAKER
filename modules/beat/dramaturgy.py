@@ -77,12 +77,50 @@ TARGET_MAX_SEC = 210.0
 HOOK_WITHIN_SEC = 15.0
 
 
+# Имена секций плана аранжировки → имена драматургии бита. Планировщик
+# аранжировки говорит «chorus1», конструктор бита знает «hook»; перевод держим
+# явным, чтобы слои, энергия и трим низа не терялись по дороге.
+ARRANGEMENT_SECTION_ALIASES = {
+    "intro": "intro",
+    "intro_pad": "intro_pad",
+    "verse": "verse",
+    "prechorus": "pre_chorus",
+    "pre_chorus": "pre_chorus",
+    "build": "pre_chorus",
+    "chorus": "chorus",
+    "hook": "hook",
+    "drop": "hook",
+    "bridge": "bridge",
+    "break": "breakdown",
+    "breakdown": "breakdown",
+    "outro": "outro",
+    "outro_fade": "outro_fade",
+}
+
+
+def canonical_section_name(name: str) -> str:
+    """Canonical beat-section name for an arrangement section name.
+
+    `chorus1`/`chorus2`/`verse2` несут цифру нумерации: она не меняет
+    ни энергию, ни слои, поэтому отбрасывается; `drop1` становится хуком.
+    """
+    raw = str(name or "").strip().lower()
+    stripped = raw.rstrip("0123456789")
+    return ARRANGEMENT_SECTION_ALIASES.get(stripped) or ARRANGEMENT_SECTION_ALIASES.get(raw) or "verse"
+
+
 @dataclass(frozen=True)
 class SectionPlan:
     name: str
     bars: int
     energy: float
     layers: tuple[str, ...]
+    # Имя из плана аранжировки (`chorus1`), если секция пришла оттуда.
+    source_name: str | None = None
+
+    @property
+    def canonical_name(self) -> str:
+        return canonical_section_name(self.name)
 
     @property
     def gain_db(self) -> float:
@@ -131,6 +169,39 @@ def _skeleton(include_intro: bool, include_bridge: bool, include_outro: bool) ->
     if include_outro:
         names.append("outro")
     return names
+
+
+def sections_from_arrangement(
+    sections: Iterable[dict],
+    bpm: float,
+) -> list[SectionPlan]:
+    """Построить план бита из секций плана аранжировки.
+
+    Число тактов и энергия берутся из аранжировки — бит перестаёт планировать
+    структуру самостоятельно и следует уже принятому решению. Если план пуст,
+    возвращается пустой список: вызывающая сторона решает, что делать дальше,
+    а не получает молчаливую подмену.
+    """
+    if bpm <= 0:
+        raise ValueError("bpm must be positive")
+    plans: list[SectionPlan] = []
+    for section in sections or ():
+        if not isinstance(section, dict):
+            continue
+        canonical = canonical_section_name(section.get("name", ""))
+        bars = max(1, int(section.get("bars") or BASE_BARS.get(canonical, 4)))
+        energy = section.get("energy")
+        energy = SECTION_ENERGY.get(canonical, 0.6) if energy is None else max(0.0, min(1.0, float(energy)))
+        plans.append(
+            SectionPlan(
+                name=canonical,
+                bars=bars,
+                energy=round(energy, 3),
+                layers=tuple(layers_for_section(canonical, energy)),
+                source_name=str(section.get("name") or canonical),
+            )
+        )
+    return plans
 
 
 def plan_sections(

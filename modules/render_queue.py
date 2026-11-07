@@ -25,11 +25,15 @@ LEGACY_STATE_FILE = QUEUE_DIR / "queue_state.json"
 # v22: ленивое создание (не при импорте)
 
 
+WORK_KINDS = ("track", "rvc_train_night")
+
+
 @dataclass
 class QueueItem:
     id: str
     recipe: dict
-    status: str = "pending"  # pending | running | done | error | cancelled
+    # pending | running | done | error | cancelled | blocked
+    status: str = "pending"
     cancel_requested: bool = False
     progress: float = 0.0
     stage: str = ""
@@ -124,7 +128,7 @@ class RenderQueue:
         return False
 
     def status_summary(self) -> dict:
-        c = {"pending": 0, "running": 0, "done": 0, "error": 0, "cancelled": 0}
+        c = {"pending": 0, "running": 0, "done": 0, "error": 0, "cancelled": 0, "blocked": 0}
         for it in self.items:
             c[it.status] = c.get(it.status, 0) + 1
         c["total"] = len(self.items)
@@ -186,25 +190,43 @@ class RenderQueue:
         item.started_at = time.time()
         self._persist()
         try:
-            if self.orchestrator is None:
-                # Ленивый импорт, чтобы модуль работал автономно.
-                from app.core.orchestrator import Orchestrator
-                from app.hw_probe import probe_hw
-                from app.core.logger import make_logger
+            kind = str(item.recipe.get("kind") or "track")
+            if kind == "rvc_train_night":
+                # Обучение RVC — отдельный процесс модели, а не рендер трека.
+                # Честный BLOCKED с причиной вместо общего error.
+                item.status = "blocked"
+                item.error = (
+                    "rvc_train_night requires a training backend; "
+                    "the render queue does not run RVC training"
+                )
+                self.log(f"[queue] {item.id} blocked: {item.error}")
+                return
 
-                self.orchestrator = Orchestrator(probe_hw(), make_logger())
+            runner = self._resolve_runner()
+            progress: list = []
 
-            def on_stage(stage: str, progress: float):
+            def on_stage(*args):
+                # `run_full_pipeline` отдаёт (name, status, index, total),
+                # очередь ведёт только прогресс и уважает отмену.
                 if item.cancel_requested or self._stop.is_set():
                     raise RuntimeError("cancelled")
-                item.stage = stage
-                item.progress = float(progress)
+                name = str(args[0]) if args else ""
+                item.stage = name
+                progress.append(1)
+                if len(args) >= 4:
+                    try:
+                        item.progress = float(args[2]) / float(args[3] or 1)
+                    except (TypeError, ValueError, ZeroDivisionError) as exc:
+                        # Прогресс — украшение, но причина должна быть в логе,
+                        # а не исчезать в пустом `except`.
+                        item.stage = f"{name} (progress unknown: {type(exc).__name__})"
                 self._persist()
 
-            res = self.orchestrator.run_pipeline(item.recipe, stage_hook=on_stage)
+            project_id = item.id
+            res = runner(project_id, item.recipe, on_stage=on_stage)
             item.result_paths = res or {}
             item.status = "done"
-            item.progress = 1.0
+            item.progress = 1.0 if progress else item.progress
         except Exception as e:
             if item.cancel_requested or str(e) == "cancelled":
                 item.status = "cancelled"
@@ -217,6 +239,32 @@ class RenderQueue:
         finally:
             item.finished_at = time.time()
             self._persist()
+
+    def _resolve_runner(self) -> Callable[..., dict]:
+        """Привести исполнителя рендера к единой сигнатуре.
+
+        Публичный API оркестратора — функция `run_full_pipeline(project_id,
+        recipe, on_stage=...)`. Раньше здесь импортировался несуществующий
+        класс `Orchestrator`, поэтому каждая задача падала на ImportError.
+        Внедрённый объект уважается в обеих формах: `run_full_pipeline(...)`
+        и легаси `run_pipeline(recipe, stage_hook)` — иначе подмена в тестах
+        молча игнорируется и очередь уходит в настоящий многоминутный рендер.
+        """
+        injected = self.orchestrator
+        if injected is not None:
+            full = getattr(injected, "run_full_pipeline", None)
+            if callable(full):
+                return full
+            legacy = getattr(injected, "run_pipeline", None)
+            if callable(legacy):
+                return lambda project_id, recipe, on_stage=None: legacy(recipe, on_stage)
+            if callable(injected):
+                return injected
+        try:
+            from app.core.orchestrator import run_full_pipeline
+        except Exception as exc:  # noqa: BLE001 - очередь должна честно сообщить
+            raise RuntimeError(f"orchestrator unavailable: {type(exc).__name__}: {exc}") from exc
+        return run_full_pipeline
 
     # ------------------------------------------------------- morning report
     def morning_report(self) -> dict:

@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[2]
+MODELS_DIR = ROOT / "data" / "ai_models"
 OUT_DIR = ROOT / "output" / "textures"
 CACHE = ROOT / "models" / "musicgen_cache"
 for d in (OUT_DIR, CACHE):
@@ -49,6 +50,10 @@ _MODEL_CACHE: dict[str, Any] = {}
 
 def _load_musicgen(size: str, device: str):
     """Ленивая загрузка модели MusicGen. Кэшируется в памяти."""
+    # Preflight: без локальных весов не идём в сеть молча (см. app/ai/weights.py).
+    from app.ai.weights import ensure_local_weights
+
+    ensure_local_weights("music_generation", MODELS_DIR)
     cache_key = f"{size}:{device}"
     if cache_key in _MODEL_CACHE:
         return _MODEL_CACHE[cache_key]

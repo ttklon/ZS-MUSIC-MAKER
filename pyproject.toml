@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 # v33 FIX (P1, SESSION_LOG v32.7): dependencies приведены к ядру
 # requirements.txt — раньше pip install . ставил ПОЛОВИНУ окружения
-# (не было PySide6/gradio/mido/matplotlib/mutagen/psutil и т.д.).
+# (не было PySide6/gradio/mido/mutagen/psutil и т.д.).
 # Тяжёлые опциональные зависимости (torch/audiocraft/demucs…) намеренно
 # НЕ входят: опциональные компоненты устанавливаются отдельно.
 dependencies = [
@@ -29,22 +29,16 @@ dependencies = [
     "matchering>=2.0.6",
     "PySide6>=6.7.0",
     "gradio>=4.44.0",
-    "matplotlib>=3.8.0",
-    "audioread>=3.0.1",
     "pyttsx3>=2.90",
     "sounddevice>=0.4.7",
     "Pillow>=10.0.0",
     "mutagen>=1.47.0",
-    "omegaconf>=2.3.0",
-    "tqdm>=4.66.0",
     "psutil>=5.9.0",
-    "plyer>=2.1.0",
     "mido>=1.3.0",
     "cryptography>=42.0.0",
     "audiomentations>=0.33.0",
     "moviepy>=1.0.3,<2.0.0",
-    "lyricsgenius>=3.0.1",
-    "mingus>=0.6.1"
+    "lyricsgenius>=3.0.1"
 ]
 
 [project.scripts]

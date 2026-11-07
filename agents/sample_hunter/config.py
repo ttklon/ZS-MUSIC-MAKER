@@ -23,9 +23,6 @@ MANIFEST_DIR = ROOT / "data" / "sample_manifests"
 
 AUDIO_EXT = (".wav", ".mp3", ".flac", ".ogg", ".m4a", ".aiff")
 
-
-AUDIO_EXT = (".wav", ".mp3", ".flac", ".ogg", ".m4a", ".aiff")
-
 GENRE_KEYWORDS: dict[str, list[str]] = {
     "phonk / drift": [
         "808 kick", "cowbell phonk", "vinyl hiss", "memphis vocal chop",

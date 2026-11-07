@@ -22,6 +22,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 CACHE_FILE = ROOT / "lyric_vault" / "trends_cache.json"
+SLANG_FILE = ROOT / "lyric_vault" / "slang.txt"
 USER_AGENT = "Mozilla/5.0 (Windows NT 11.0; Win64; x64) ZSMusicMaker/41.0"
 
 # ---------------------------------------------------------------- офлайн-база
@@ -144,6 +145,25 @@ def _reddit_hot(subreddit: str, limit: int = 10) -> list[str]:
     return out
 
 
+def _load_local_slang(path=None) -> list[str]:
+    """Прочитать пользовательский словарь сленга (`lyric_vault/slang.txt`).
+
+    Строки-комментарии (`#`) и пустые строки игнорируются, дубликаты
+    схлопываются с сохранением порядка. Файл не обязателен: отсутствие —
+    нормальное состояние, о котором сообщает диагностика.
+    """
+    target = path or SLANG_FILE
+    text = Path(target).read_text(encoding="utf-8")
+    seen: list[str] = []
+    for line in text.splitlines():
+        entry = line.strip()
+        if not entry or entry.startswith("#"):
+            continue
+        if entry not in seen:
+            seen.append(entry)
+    return seen
+
+
 def _fallback_trends(query: str) -> list[str]:
     """Офлайн-словарь, если сеть недоступна."""
     return list(FALLBACK_2026["hype_words"]) + list(FALLBACK_2026["punchlines_ru"])
@@ -175,10 +195,8 @@ def scout_trends_with_diagnostics(query: str, max_results: int = 10) -> dict:
         )
 
     try:
-        from modules.lyrics_gen import load_slang_dictionary
-
-        trends.extend(load_slang_dictionary()[:10])
-    except Exception as exc:  # noqa: BLE001
+        trends.extend(_load_local_slang()[:10])
+    except Exception as exc:  # noqa: BLE001 - причина видна в диагностике
         diagnostics.append(
             {"source": "local_slang", "ok": False, "error": f"{type(exc).__name__}: {exc}"}
         )

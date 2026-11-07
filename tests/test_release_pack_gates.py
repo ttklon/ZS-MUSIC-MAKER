@@ -30,6 +30,7 @@ def _tone(path: Path, seconds: float = 2.0, freq: float = 220.0, sr: int = 8_000
 def test_manifest_covers_every_artifact_with_sha256(tmp_path) -> None:
     master = _tone(tmp_path / "master.wav")
     stem = _tone(tmp_path / "stem.wav", 2.0, 110.0)
+    master_sha_before = sha256_file(Path(master))
 
     result = build_pack(
         master,
@@ -48,7 +49,12 @@ def test_manifest_covers_every_artifact_with_sha256(tmp_path) -> None:
     for name in ("master.wav", "streaming.wav", "drums.wav", "lyrics.txt", "hit_report.md"):
         assert name in artifacts, f"{name} отсутствует в манифесте"
         assert len(artifacts[name]) == 64
-    assert artifacts["master.wav"] == sha256_file(Path(master))
+    # T18: пакетный мастер — копия с ID3-тегами, поэтому его SHA-256
+    # обязан совпадать с манифестом, но не с проектом (оригинал не мутируется,
+    # это отдельно проверяет tests/test_release_id3.py).
+    assert artifacts["master.wav"] == sha256_file(Path(result["path"]) / "master.wav")
+    assert sha256_file(Path(master)) == master_sha_before, "мастер проекта изменён тегированием"
+    assert manifest["id3"]["ok"] is True
     assert "timed_lyrics" in result["missing"]
     assert "timed_lyrics" in manifest["missing"]
     assert not (Path(result["path"]) / "lyrics.lrc").exists()
@@ -129,6 +135,7 @@ def test_zip_manifest_matches_the_release_folder(tmp_path) -> None:
     """Архив не должен содержать устаревший манифест после сборки пакета."""
     master = _tone(tmp_path / "master.wav")
     stem = _tone(tmp_path / "stem.wav", 2.0, 110.0)
+    master_sha_before = sha256_file(Path(master))
 
     result = build_pack(
         master,

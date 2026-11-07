@@ -1,37 +1,46 @@
 # PROJECT_STATE
 
-> Состояние репозитория `ZS-MUSIC-MAKER` на 2026-11-03 (версия 41.0.0-alpha.16).
-> Сгенерировано `python -m tools.readiness --json`.
+> Состояние репозитория `ZS-MUSIC-MAKER` на 2026-11-07 (версия 41.0.0-alpha.16).
+> Цифры ниже сняты с `python -m tools.readiness --json` (коммит этой же ветки),
+> а не вписаны вручную.
 
 ## Готовность по внутреннему счётчику: 65.0 %
 
-Это технический индикатор наличия компонентов, а не процент реализации
+Счётчик ограничен сверху двумя колпаками: нет реального микрофона (≤ 80 %) и
+недоступны тяжёлые движки `musicgen_runtime` / `demucs_runtime` (≤ 65 %). Это
+технический индикатор наличия компонентов, а не процент реализации
 пользовательского сценария и не подтверждение качества музыки.
 
 ## Модули
 
-- отслеживается: **276**
-- REAL_PASS: **273**, REAL_FAIL: **0**, PLANNED: **3**
+- отслеживается: **287**
+- REAL_PASS: **251**, REAL_FAIL: **0**, PLANNED: **0**, DEPRECATED: **36**
+- достижимость прод-графа от точек входа: **87.5 %**
+
+`DEPRECATED` — код существует и работает, но из пользовательских путей
+недостижим (список §5.16 `CODE_REVIEW.md`). Он не удалён, но и не выдаётся за
+готовность: вес 0.25. Пометка снята только вместе с подключением модуля.
 
 ## Блоки
 
 | Блок | % |
 |---|---:|
 | architecture | 100.0 |
-| core_modules | 95.45 |
-| audio_pipeline | 75.0 |
+| core_modules | 83.48 |
+| audio_pipeline | 62.5 |
 | voice_recording | 71.43 |
 | release | 100.0 |
 | testing | 100.0 |
 
 ## Гейты
 
-- `python -m tools.pytest_isolated tests/` — 841 passed, 1 skipped (Linux; тесты моделей используют фальшивые backend-контракты); Windows 11 отдельно не проверен
+- `python -m pytest tests/` — 1006 passed, 3 skipped (Linux, 2026-11-07; тесты моделей используют фальшивые backend-контракты); Windows 11 отдельно не проверен
 - `tools/smoke_audio.py` — 6/6 PASS (без MusicGen и вокальных движков)
 - `tools/smoke_god.py` — 8/8 PASS (120 с DSP fallback, без тяжёлого AI и живого вокала)
 - `tools/ast_dead_imports.py` — CLEAN (0)
+- `python -m tools.readiness` — 65 %, 36 модулей `DEPRECATED`, 0 фантомных `REAL_PASS`
 - `python -m compileall` — 0 ошибок
-- `tools/audit_honesty.py` — CLEAN (257 файлов, 0 находок)
+- `python -m tools.audit_honesty` — CLEAN (277 файлов, 0 находок)
 - `tools/gitignore_guard.py` — CLEAN
 
 ## Штатное закрытие во время работы (2026-11-04)

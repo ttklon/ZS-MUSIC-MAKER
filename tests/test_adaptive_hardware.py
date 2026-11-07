@@ -175,7 +175,7 @@ def test_texture_adapts_backend_and_unloads_model(monkeypatch, tmp_path):
     assert result["blocked"] and "not enough" in result["reason"]
 
 
-def test_musicgen_passes_device_explicitly_and_keys_cache_by_device(monkeypatch):
+def test_musicgen_passes_device_explicitly_and_keys_cache_by_device(monkeypatch, tmp_path):
     from app.core import musicgen_texture
     calls = []
     fake = ModuleType("audiocraft.models")
@@ -183,6 +183,12 @@ def test_musicgen_passes_device_explicitly_and_keys_cache_by_device(monkeypatch)
     monkeypatch.setitem(sys.modules, "audiocraft", ModuleType("audiocraft"))
     monkeypatch.setitem(sys.modules, "audiocraft.models", fake)
     musicgen_texture._MODEL_CACHE.clear()
+    # T16: без локальных весов загрузчик не идёт в сеть. Тест про device,
+    # поэтому веса «есть» (каталог роли непустой).
+    weights = tmp_path / "music_generation"
+    weights.mkdir()
+    (weights / "model.safetensors").write_bytes(b"x")
+    monkeypatch.setattr(musicgen_texture, "MODELS_DIR", tmp_path)
     try:
         musicgen_texture._load_musicgen("small", "cpu")
         musicgen_texture._load_musicgen("small", "cuda")

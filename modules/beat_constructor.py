@@ -54,8 +54,13 @@ def construct_beat(
     n_verses: int = 2,
     aggression: float = 0.7,
     out_name: str = "constructed_beat.wav",
+    sections: list | None = None,
 ) -> dict:
-    """Удобная функция-обёртка для вызова из main.py."""
+    """Удобная функция-обёртка для вызова из main.py.
+
+    `sections` — план секций из аранжировки; `None` — прежнее независимое
+    планирование бита.
+    """
     bpm = style_vector.get("target_bpm", 128)
     mode = style_vector.get("target_mode", "minor")
     key_root = style_vector.get("key_root") or "A"
@@ -78,5 +83,6 @@ def construct_beat(
         n_verses=n_verses,
         aggression=aggression,
         out_name=out_name,
+        sections=sections,
     )
 

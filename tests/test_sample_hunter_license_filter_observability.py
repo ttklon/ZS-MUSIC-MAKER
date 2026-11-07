@@ -7,6 +7,7 @@ from agents.sample_hunter import hunter as sample_hunter
 
 
 def test_hunt_reports_applied_license_filter(monkeypatch):
+    monkeypatch.setattr(sample_hunter, "network_allowed", lambda allow=False: True)
     monkeypatch.setattr(sample_hunter, "list_local", lambda query: [])
     monkeypatch.setattr(
         sample_hunter,
@@ -28,6 +29,7 @@ def test_hunt_reports_applied_license_filter(monkeypatch):
 
 
 def test_hunt_fails_closed_when_license_validator_errors(monkeypatch):
+    monkeypatch.setattr(sample_hunter, "network_allowed", lambda allow=False: True)
     local = {"name": "local", "source": "local", "license": "user", "path": "/tmp/local.wav"}
     online = {"name": "unverified", "source": "catalog", "license": "CC0", "url": "https://example.test/a"}
     monkeypatch.setattr(sample_hunter, "list_local", lambda query: [local])

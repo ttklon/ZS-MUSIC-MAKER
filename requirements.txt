@@ -16,7 +16,7 @@ gradio>=4.44.0
 requests>=2.32.0
 # Keep Gradio/Hugging Face compatible with gTTS's click constraint.
 huggingface_hub>=0.24.0,<2
-click>=8.0,<8.2
+click>=8.0,<8.2   # нужен gradio/huggingface_hub, напрямую не импортируется
 
 # --- Блокировка пользовательских индексов ---
 filelock>=3.32.7
@@ -30,11 +30,9 @@ scipy>=1.11.0
 # а жёсткий пин заставлял pip ломать окружение. Совместимость с numpy 2.x
 # подтверждена pytest 7/7 + smoke_v26/v29 на numpy 2.4.6.
 numpy>=1.26.0
-matplotlib>=3.8.0
 
 # --- Аудио-обработка ---
 pydub>=0.25.1
-audioread>=3.0.1
 
 # --- TTS fallback (зависит от установленного системного движка) ---
 pyttsx3>=2.90
@@ -46,17 +44,19 @@ sounddevice>=0.4.7
 Pillow>=10.0.0
 
 # --- ID3-теги ---
+# T18: теги пишутся на копию мастера в релизном пакете (modules/release/export.py).
 mutagen>=1.47.0
 
 # --- Утилиты ---
-omegaconf>=2.3.0
-tqdm>=4.66.0
 psutil>=5.9.0
 
 # --- Desktop уведомления ---
-plyer>=2.1.0
 
 # --- Громкость и мастеринг ---
+# Убрано (T21): matplotlib, audioread, omegaconf, tqdm, plyer, mingus — ни
+# одного импорта в app/modules/agents/tools/ui/updater; matplotlib уже
+# исключается в packaging/zsmm.spec. click оставлен как транзитивное
+# требование gradio/huggingface_hub с верхним пином.
 pyloudnorm>=0.1.1
 pedalboard>=0.9.0
 
@@ -89,4 +89,3 @@ cryptography>=42.0.0
 audiomentations>=0.33.0
 moviepy>=1.0.3,<2.0.0
 lyricsgenius>=3.0.1
-mingus>=0.6.1

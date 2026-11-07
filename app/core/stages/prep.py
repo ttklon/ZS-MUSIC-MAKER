@@ -158,11 +158,60 @@ def _stage_groove(refs: list[str], genre: str = "drift_phonk") -> dict[str, Any]
         return {"ok": False, "reason": str(e)}
 
 
-def _stage_arrangement(analysis: Any) -> dict[str, Any]:
+DEFAULT_ARRANGEMENT_SEC = 150.0
+
+
+def _stage_arrangement(
+    analysis: Any = None,
+    *,
+    style: dict[str, Any] | None = None,
+    total_seconds: float | None = None,
+    variant: int = 0,
+    genre: str | None = None,
+    seed: int | None = None,
+) -> dict[str, Any]:
+    """План аранжировки: секции, барабанные паттерны, TikTok-хук.
+
+    До этой доработки стадия отдавала `{"ok": True, "plan": {"sections": []}}`:
+    `arrangement_engine.plan()` не существует, поэтому ветка `hasattr` всегда
+    давала пустой план, а стадия при этом считалась успешной. Теперь вызывается
+    настоящий `build_arrangement`, а сбой движка возвращается как честный
+    BLOCKED — успехом он больше не выглядит.
+    """
     try:
         from modules import arrangement_engine as ae
 
-        plan = ae.plan(analysis) if hasattr(ae, "plan") else {"sections": []}
-        return {"ok": True, "plan": plan}
-    except Exception as e:
-        return {"ok": False, "reason": str(e)}
+        from app.core.recipe import arrangement_style
+
+        # Адаптер принимает и стилевой вектор пайплайна (target_*), и уже
+        # переведённый словарь — стадия не зависит от того, кто её позвал.
+        style = arrangement_style(
+            style if style is not None else (analysis if isinstance(analysis, dict) else {})
+        )
+        if genre:
+            style["genre_hint"] = genre
+        if seed is not None:
+            style["seed"] = seed
+        if not variant:
+            variant = style.get("variant") or 0
+
+        seconds = float(total_seconds or DEFAULT_ARRANGEMENT_SEC)
+        plan = ae.build_arrangement(style, total_seconds=seconds, variant=int(variant or 0))
+        sections = plan.get("sections") or []
+        if not sections:
+            # Движок отработал, но не дал ни одной секции — это не успех и не
+            # сбой кода, а честный BLOCKED (конвенция проекта: ok+blocked).
+            return {
+                "ok": True,
+                "blocked": True,
+                "plan": plan,
+                "reason": "arrangement engine returned an empty section list",
+            }
+        return {"ok": True, "plan": plan, "n_sections": len(sections)}
+    except Exception as e:  # noqa: BLE001 - движок обязан падать честно, а не молча
+        # Исключение — это сбой, а не «нет зависимости»: статус FAILED, а не BLOCKED.
+        return {
+            "ok": False,
+            "plan": {"sections": []},
+            "reason": f"arrangement engine failed: {type(e).__name__}: {e}",
+        }

@@ -26,40 +26,27 @@ jobs:
           pip install -r requirements.txt
           pip install pyinstaller
 
-      # v36 FIX (P1, SESSION_LOG v32.8): раньше spec не тянул модели/пресеты/промпты
-      # (--add-data models отсутствовал), а --hidden-import modules бесполезен
-      # для динамических __import__. Теперь используем --collect-submodules
-      # для реального включения ленивых импортов, и smoke-шаг больше НЕ
-      # continue-on-error: true — падение EXE ломает сборку.
-      - name: Build EXE with PyInstaller
+      # Один источник правды для упаковки — `packaging/zsmm.spec`.
+      # Раньше workflow собирал собственную сборку в обход spec (со своим
+      # набором флагов и данных): два места задавали состав сборки. Spec по умолчанию собирает onedir
+      # (быстрый старт, предсказуемое обновление); onefile — только через
+      # ZSMM_ONEFILE=1, если это действительно нужно.
+      - name: Build EXE with PyInstaller (spec is the source of truth)
         run: |
-          pyinstaller --noconfirm --clean --onefile --windowed ^
-            --name "ZS-Music-Maker" ^
-            --add-data "version.json;." ^
-            --add-data "config;config" ^
-            --add-data "data;data" ^
-            --add-data "lyric_vault;lyric_vault" ^
-            --add-data "voice_vault;voice_vault" ^
-            --add-data "models;models" ^
-            --collect-submodules modules ^
-            --collect-submodules app ^
-            --collect-submodules agents ^
-            --collect-submodules tools ^
-            --collect-submodules ui ^
-            --collect-submodules updater ^
-            main.py
+          pyinstaller --noconfirm --clean packaging/zsmm.spec
         shell: cmd
 
       - name: Smoke-test the built EXE (--version must exit 0)
         run: |
-          .\dist\ZS-Music-Maker.exe --version
+          .\dist\ZS Music Maker\ZS Music Maker.exe --version
         shell: cmd
 
       - name: Upload EXE artifact
         uses: actions/upload-artifact@v4
         with:
           name: ZS-Music-Maker-Windows-EXE
-          path: dist/ZS-Music-Maker.exe
+          # onedir: каталог целиком, иначе обновление и данные теряются
+          path: dist/ZS Music Maker/
           retention-days: 30
 
   publish-release:

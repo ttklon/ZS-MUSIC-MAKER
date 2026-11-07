@@ -4,6 +4,70 @@
 > `docs/ROADMAP.md`, состояние — `PROJECT_STATE.md`.
 > История до v40 сохранена ниже как архив: удалённый `SESSION_LOG.md` больше не поддерживается.
 
+## После alpha.16 — разбор репозитория: 23 пункта плана
+
+Причина всего блока: полный аудит репозитория (`CODE_REVIEW.md`,
+`docs/PROJECT_INVENTORY.md`) нашёл места, где код и документация утверждали
+готовность, которой не было. Ниже — что изменено и чем это проверяется.
+Отдельных обещаний «стало лучше» здесь нет: только проверяемые факты.
+
+### Безопасность и честность
+
+- **T14. Распаковка обновления.** `zip.extractall` заменён на `_safe_extract`:
+  отклоняются абсолютные пути, буквы дисков, `..` и обратные слэши; архив с
+  небезопасной записью не меняет ФС вообще. `USER_PRESERVED` покрывает
+  `data/secrets.enc` и `data/settings.json` (раньше при обновлении могли
+  потеряться). Проверка: `tests/test_updater_safety.py`.
+- **T15. Сеть по умолчанию выключена.** `app/core/net_policy.py` —
+  `network_allowed()` срабатывает только на строгий `True`; `sample_hunter`,
+  `freesound_client` и апдейтер делегируют туда; чекбокс в визарде по умолчанию
+  снят; `hunt(..., allow_online=False)` помечает результат `offline: true`.
+  Проверка: `tests/test_offline_network_policy.py`.
+- **T16. Модели не тянутся молча.** `app/ai/weights.py` проверяет наличие
+  весов до загрузки и отказывает с путём, ролью и подсказкой про
+  `tools/pull_ai_models.py`; скачивание — только при `ZSMM_ALLOW_MODEL_DOWNLOAD=1`.
+  Проверка: `tests/test_model_loading_offline.py`.
+- **T18. ID3-теги.** `modules/release/export.py` пишет TIT2/TPE1/TALB/TCON/TDRC/TRCK
+  на **копию** мастера в релизном пакете; файл проекта не меняется (сверка
+  SHA-256). Без `mutagen` — `id3: {"ok": false, "reason": ...}` в манифесте, а не
+  тишина. Проверка: `tests/test_release_id3.py`, `tests/test_release_pack_gates.py`.
+
+### Индикатор готовности, документация, гигиена
+
+- **T17. `DEPRECATED` вместо фантомного `REAL_PASS`.** `tools/readiness/reachability.py`
+  строит граф импортов по AST и идёт BFS от точек входа; 36 недостижимых
+  модулей получили `DEPRECATED` с весом 0.25, а `production_references`
+  считается по импортам, а не по подстрокам (раньше модуль «ссылался сам на
+  себя»). `core_modules` теперь взвешен достижимостью: 95.45 → 83.48 %.
+  Проверка: `tests/test_readiness_reachability.py`.
+- **T19. Документация не врёт числами.** `docs/WORKFLOW.md` ссылался на
+  несуществующий `data/genres/` и `app/ai/quality.py`; теперь — `config/genres_100.json`
+  + `data/genre_presets/` и пакет `app/ai/quality/`. Оба документа ссылаются на
+  `docs/PROJECT_INVENTORY.md`. Проверка: `tests/test_docs_numbers.py` (8 тестов).
+- **T20. Длинные функции.** `orchestrator.run_full_pipeline` (315 → 140 строк)
+  разложен на блоки в `app/core/pipeline_blocks.py`; `_synth_beat` (258) — в
+  `app/core/stages/beat_synth.py`; `build_track` (252) — в
+  `modules/beat/track_assembly.py`. Правило «≤ 60 строк» стало мягким и
+  проверяемым: `tests/test_function_length_budget.py` фиксирует 79 существующих
+  исключений, запрещает новые и запрещает рост. Звук не менялся: числа, порядок
+  генераторов и уровни перенесены один в один.
+- **T21. Упаковка и зависимости.** CI собирает через `packaging/zsmm.spec`
+  (один источник правды, onedir) вместо собственного `--onefile`-набора;
+  из `requirements.txt`/`pyproject.toml` убраны `matplotlib`, `audioread`,
+  `omegaconf`, `tqdm`, `plyer`, `mingus` — ни одного импорта; `mutagen` оставлен
+  (теперь реально используется, T18). `tools/quality_gate.sh` больше не печатает
+  успех без `mypy`/`pylint`: он честно завершается с кодом 2 и перечисляет
+  реальные команды. Проверка: `tests/test_packaging_truth.py`.
+- **T22. Этот раздел и `PROJECT_STATE.md`.** Цифры состояния сняты с
+  `python -m tools.readiness --json`, а не вписаны вручную.
+
+### Что по-прежнему не проверено
+
+GUI, физический микрофон, Windows и реальный вывод нейросетевых моделей в этой
+итерации не проверялись: окружение сборки — Linux без `PySide6`/`libGL` и без
+весов. Два теста по этим причинам пропускаются (`PySide6`, `av`). Утверждения
+о звуке остаются утверждениями; измерены только тесты, схемы и аудио-гейты.
+
 ## После alpha.16 — защита от штатного закрытия во время работы
 
 - Главное окно не закрывается, пока открыт рекордер или выполняется рендер

@@ -9,9 +9,12 @@ archive.org (CC/PD), Pixabay (при наличии бесплатного кл�
 
 from __future__ import annotations
 
+import json
+import os
+import re
 from urllib.parse import quote_plus
 
-from agents.sample_hunter.config import HAS_REQ, requests
+from agents.sample_hunter.config import AUDIO_EXT, HAS_REQ, requests
 
 
 def _http_get(url: str, timeout: float = 6.0) -> str | None:

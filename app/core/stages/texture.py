@@ -83,7 +83,9 @@ def _texture_device_plan(ram_gib: float | None, torch_device: dict) -> dict:
     return {"ready": False, "reason": "not enough measured free RAM/VRAM for conservative MusicGen preflight"}
 
 
-def _stage_texture(prompt: str, out_dir: Path) -> dict[str, Any]:
+def _stage_texture(
+    prompt: str, out_dir: Path, quality_mode: str = "quality"
+) -> dict[str, Any]:
     """Optional texture; no model load when the conservative memory preflight fails."""
     from app.ai.hardware import _torch_device, available_memory_gib
 
@@ -97,7 +99,13 @@ def _stage_texture(prompt: str, out_dir: Path) -> dict[str, Any]:
         from app.core import musicgen_texture as mgt
 
         try:
-            result = mgt.generate_texture(prompt, duration_sec=10, vram_gb=plan["vram_gb"], device=plan["device"])
+            result = mgt.generate_texture(
+                prompt,
+                duration_sec=10,
+                vram_gb=plan["vram_gb"],
+                device=plan["device"],
+                quality_mode=quality_mode,
+            )
         finally:
             mgt.unload_all()
         if isinstance(result, dict) and result.get("ok") and result.get("path"):
