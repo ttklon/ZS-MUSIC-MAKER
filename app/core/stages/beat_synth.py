@@ -137,6 +137,49 @@ def _write_slice(target: Any, source: Any, start: int, total: int, gain: float =
     target[start:end] += source[: end - start] * gain
 
 
+def _bar_patterns(section_name: str) -> tuple[list[int], list[int]]:
+    """Паттерны кика и хэта: припев плотнее куплета, остальное — базовые."""
+    if section_name == "chorus":
+        return KICK_PAT_CHORUS, HIHAT_PAT_CHORUS
+    if section_name == "verse":
+        return KICK_PAT_VERSE, HIHAT_PAT_VERSE
+    return KICK_PAT, HIHAT_PAT
+
+
+def _write_bar(
+    y: Any,
+    np: Any,
+    sr: int,
+    bar_pos: int,
+    section_name: str,
+    gains: tuple[float, float, float, float],
+    beat_sec: float,
+    step_sec: float,
+    root_hz: float,
+) -> None:
+    """Один такт драм-лейна: kick → snare → hat → 808.
+
+    Порядок генераторов сохранён прежним (kick → snare → hat → 808): от него
+    зависит поток ГПСЧ, а значит и бит при том же seed.
+    """
+    kick_gain, snare_gain, hat_gain, bass_gain = gains
+    total = len(y)
+    kick_pattern, hat_pattern = _bar_patterns(section_name)
+    for step in range(16):
+        step_pos = bar_pos + int(step * step_sec * sr)
+        if kick_pattern[step] and section_name != "intro":
+            _write_slice(y, _kick(np, sr), step_pos, total, kick_gain)
+        if SNARE_PAT[step] and section_name != "intro":
+            _write_slice(y, _snare(np, sr), step_pos, total, snare_gain)
+        if hat_pattern[step]:
+            is_open = step == OPENHAT_STEP and section_name != "intro"
+            _write_slice(y, _hat(np, sr, open_=is_open), step_pos, total, hat_gain)
+        if kick_pattern[step] and section_name != "intro":
+            _write_slice(
+                y, _808(np, sr, beat_sec * 1.5, root_hz), step_pos, total, bass_gain * 0.65
+            )
+
+
 def render_drum_lane(
     y: Any,
     np: Any,
@@ -148,47 +191,21 @@ def render_drum_lane(
     root_hz: float,
 ) -> list[dict[str, Any]]:
     """Драм-лейн и 808 по секциям; возвращает карту секций."""
-    total_samples = len(y)
     pos = 0
     section_info: list[dict[str, Any]] = []
     for section_name, n_bars in sections:
         sec_start_sec = pos / sr
         sec_len = int(n_bars * bar_sec * sr)
-        kick_gain, snare_gain, hat_gain, bass_gain = SECTION_GAINS.get(
-            section_name, SECTION_GAINS["outro"]
-        )
-        if section_name == "chorus":
-            kick_pattern, hat_pattern = KICK_PAT_CHORUS, HIHAT_PAT_CHORUS
-        elif section_name == "verse":
-            kick_pattern, hat_pattern = KICK_PAT_VERSE, HIHAT_PAT_VERSE
-        else:
-            kick_pattern, hat_pattern = KICK_PAT, HIHAT_PAT
-
+        gains = SECTION_GAINS.get(section_name, SECTION_GAINS["outro"])
         for bar in range(n_bars):
             bar_pos = pos + bar * int(bar_sec * sr)
-            for step in range(16):
-                step_pos = bar_pos + int(step * step_sec * sr)
-                # Порядок генераторов сохранён прежним (kick → snare → hat → 808):
-                # от него зависит поток ГПСЧ, а значит и бит при том же seed.
-                if kick_pattern[step] and section_name != "intro":
-                    _write_slice(y, _kick(np, sr), step_pos, total_samples, kick_gain)
-                if SNARE_PAT[step] and section_name != "intro":
-                    _write_slice(y, _snare(np, sr), step_pos, total_samples, snare_gain)
-                if hat_pattern[step]:
-                    is_open = step == OPENHAT_STEP and section_name != "intro"
-                    _write_slice(y, _hat(np, sr, open_=is_open), step_pos, total_samples, hat_gain)
-                if kick_pattern[step] and section_name != "intro":
-                    _write_slice(
-                        y,
-                        _808(np, sr, beat_sec * 1.5, root_hz),
-                        step_pos,
-                        total_samples,
-                        bass_gain * 0.65,
-                    )
-
+            _write_bar(
+                y, np, sr, bar_pos, section_name, gains, beat_sec, step_sec, root_hz
+            )
             if section_name == "pre" and bar == n_bars - 1:
                 _write_pre_roll(y, np, sr, bar_pos, beat_sec)
         if section_name == "pre":
+            # Стоп-тайм перед хуком: последние 2 шага pre приглушаются.
             cut = int(step_sec * 2 * sr)
             if sec_len > cut:
                 y[pos + sec_len - cut : pos + sec_len] *= 0.15

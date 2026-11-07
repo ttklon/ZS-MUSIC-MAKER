@@ -15,7 +15,6 @@
 from __future__ import annotations
 
 import ast
-import subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -108,11 +107,26 @@ LONG_FUNCTIONS: dict[tuple[str, str], int] = {
 }
 
 
+# Каталоги, где лежит не исходный код, а данные, сборки и кэши.
+SKIP_DIRS = {
+    ".git", ".venv", "venv", "__pycache__", "output", "build", "dist",
+    "node_modules", "models", "data", "assets", "logs", ".pytest_cache",
+}
+
+
 def _tracked() -> list[str]:
-    out = subprocess.run(
-        ["git", "ls-files", "*.py"], cwd=ROOT, capture_output=True, text=True, check=True
-    )
-    return [line.strip() for line in out.stdout.splitlines() if line.strip()]
+    """Все .py в репозитории, включая ещё не закоммиченные.
+
+    Раньше список брался из `git ls-files`: новый файл до первого коммита
+    выпадал из гейта — то есть ровно тогда, когда правило важнее всего.
+    """
+    files: list[str] = []
+    for path in ROOT.rglob("*.py"):
+        parts = set(path.relative_to(ROOT).parts)
+        if parts & SKIP_DIRS:
+            continue
+        files.append(str(path.relative_to(ROOT)).replace("\\", "/"))
+    return sorted(files)
 
 
 def _long_functions() -> dict[tuple[str, str], int]:
