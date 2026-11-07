@@ -32,13 +32,17 @@ def run_version() -> int:
 
 
 def run_list_genres() -> int:
+    # Чтение каталога внутри try: битый конфиг жанров — это ошибка окружения
+    # (код 2), а не трейсбек в лицо пользователю.
     try:
         from modules.genre_engine import StyleRegistry
+
+        genres = sorted(StyleRegistry().list_genres())
     except Exception as e:
         safe_print(f"[main --list-genres] failed: {e}")
         return 2
     safe_print("\nAvailable Genres:")
-    for genre in sorted(StyleRegistry().list_genres()):
+    for genre in genres:
         safe_print(f"  - {genre}")
     return 0
 
