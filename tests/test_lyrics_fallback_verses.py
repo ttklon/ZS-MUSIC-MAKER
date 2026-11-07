@@ -100,3 +100,33 @@ def test_fallback_text_round_trips_through_parser() -> None:
     reparsed = _text_to_struct(text, "drift_phonk")
 
     assert len(reparsed["verses"]) == 3, text
+
+
+# ---------------------------------------------------------------------------
+#  Название трека: служебная строка-скаффолд не должна становиться названием
+# ---------------------------------------------------------------------------
+def test_scaffold_line_is_not_used_as_the_title() -> None:
+    """`тема, жанр, время идёт` — связка шаблона, а не название релиза.
+
+    Этот заголовок уезжал в ID3-теги и в `album` релизного манифеста:
+    пользователь получал трек «ночной город, drift_phonk, время идёт».
+    """
+    text = (
+        "[intro]\n"
+        "ночной город, drift_phonk, время идёт\n"
+        "\n[verse 1]\n"
+        "Город спит, а мы на пороге\n"
+        "[hook]\n"
+        "Хук один\n"
+    )
+
+    struct = _text_to_struct(text, "drift_phonk")
+
+    assert struct["title"] != "ночной город, drift_phonk, время идёт"
+    assert struct["title"] == "Город спит, а мы на пороге"
+
+
+def test_real_first_line_stays_the_title() -> None:
+    struct = _text_to_struct("Ночь горит\n[verse 1]\nстрока", "drift_phonk")
+
+    assert struct["title"] == "Ночь горит"

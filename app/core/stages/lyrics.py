@@ -30,6 +30,23 @@ except Exception:  # noqa: BLE001
     LLMRouter = None
 
 
+def _looks_like_a_title(line: str, genre: str) -> bool:
+    """Первая содержательная строка — кандидат в название, но не «скаффолд».
+
+    Шаблонный текст начинается со строки «тема, жанр, время идёт». Такая
+    строка — служебная связка, а не название: раньше она уезжала в теги
+    релиза (`title` == `album` == «тема, drift_phonk, время идёт»).
+    """
+    if not line or len(line) > 60 or line[0] in "[(":
+        return False
+    if line.endswith((",", ":", "—", "-")):
+        return False
+    # Скаффолд: несколько фрагментов через запятую и упоминание жанра.
+    if line.count(",") >= 2 and (genre or "").strip().lower() in line.lower():
+        return False
+    return True
+
+
 def _text_to_struct(text: str, genre: str) -> dict[str, Any]:
     lines = [ln.strip() for ln in (text or "").splitlines() if ln.strip()]
     title = ""
@@ -52,7 +69,7 @@ def _text_to_struct(text: str, genre: str) -> dict[str, Any]:
                 current = f"verse{max(1, number)}"
                 verses.setdefault(current, [])
             continue
-        if not title and len(ln) <= 60 and ln[0] not in "[(":
+        if not title and _looks_like_a_title(ln, genre):
             title = ln
         if current == "chorus":
             chorus.append(ln)

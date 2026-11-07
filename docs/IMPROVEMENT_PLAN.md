@@ -28,7 +28,7 @@
 Покрытие по T23: `updater/` 69 % (требовалось ≥ 60 %, было 15 %),
 `modules/render_queue.py` 87 % (было 0 %), общее — 64 %.
 
-Итог: 1034 passed, 3 skipped; `readiness` 65 % при 36 `DEPRECATED`; детали и
+Итог: 1036 passed, 3 skipped; `readiness` 65 % при 36 `DEPRECATED`; детали и
 способы проверки — раздел «разбор репозитория» в `CHANGELOG.md`.
 
 Базовая линия перед правками (Linux, CPU, зависимости из `requirements.txt` минус

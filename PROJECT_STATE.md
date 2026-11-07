@@ -34,7 +34,7 @@
 
 ## Гейты
 
-- `python -m pytest tests/` — 1034 passed, 3 skipped (Linux, 2026-11-07; тесты моделей используют фальшивые backend-контракты); Windows 11 отдельно не проверен
+- `python -m pytest tests/` — 1036 passed, 3 skipped (Linux, 2026-11-07; тесты моделей используют фальшивые backend-контракты); Windows 11 отдельно не проверен
 - `tools/smoke_audio.py` — 6/6 PASS (без MusicGen и вокальных движков)
 - `tools/smoke_god.py` — 8/8 PASS (120 с DSP fallback, без тяжёлого AI и живого вокала)
 - `tools/ast_dead_imports.py` — CLEAN (0)
