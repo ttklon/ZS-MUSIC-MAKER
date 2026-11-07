@@ -19,6 +19,40 @@ from app.core.stages.vocal import _stage_rvc, _stage_vocal_fx, _stage_voice_synt
 from app.pipeline import StageResult, StageStatus
 
 
+def _vocal_fx_stage(
+    vocal_final: str | None,
+    out_root: Path,
+    bpm: float | None,
+    key: str | None,
+    recipe: dict[str, Any],
+    disposable_scaffold: bool,
+) -> StageResult:
+    """Вокальные эффекты — только для вокала, который реально попадёт в микс.
+
+    Каркас без RVC микс не берёт, поэтому обработка для него — работа впустую.
+    Раньше она всё равно выполнялась и отчитывалась как успешная
+    (`engine=numpy_vocal_fx`), хотя микс честно писал `vocal_used=false`.
+    """
+    if disposable_scaffold:
+        return _blocked(
+            "_stage_vocal_fx",
+            "synthetic scaffold not used by the mix; effects refused instead of "
+            "processing audio nobody hears",
+        )
+    if not vocal_final:
+        return _blocked("_stage_vocal_fx", "no vocal")
+    if not recipe.get("use_vocal_fx", True):
+        return _blocked(
+            "_stage_vocal_fx", "vocal effects disabled by user; original vocal retained"
+        )
+    return _timed(
+        "_stage_vocal_fx",
+        lambda: _stage_vocal_fx(
+            vocal_final, out_root, bpm=bpm, key=key, tune=bool(recipe.get("tune", False))
+        ),
+    )
+
+
 def _run_vocal_chain(
     recipe: dict[str, Any],
     lyrics_text: str,
@@ -98,22 +132,13 @@ def _run_vocal_chain(
     rvc_path = _output(rvc).get("path") if rvc.ok else None
     vocal_final = rvc_path or voice_wav
 
-    if vocal_final and recipe.get("use_vocal_fx", True):
-        fx = _timed(
-            "_stage_vocal_fx",
-            lambda: _stage_vocal_fx(
-                vocal_final, out_root, bpm=bpm, key=key, tune=bool(recipe.get("tune", False))
-            ),
-        )
-    elif vocal_final:
-        fx = _blocked("_stage_vocal_fx", "vocal effects disabled by user; original vocal retained")
-    else:
-        fx = _blocked("_stage_vocal_fx", "no vocal")
+    disposable_scaffold = synthetic and not rvc_path
+    fx = _vocal_fx_stage(vocal_final, out_root, bpm, key, recipe, disposable_scaffold)
     stages.append(fx)
     if fx.ok:
         vocal_final = _output(fx).get("path") or _output(fx).get("out_wav") or vocal_final
 
-    if synthetic and not rvc_path:
+    if disposable_scaffold:
         warnings.append(
             "vocal skipped: synthetic scaffold not mixed "
             "(instrumental master; record voice or install TTS)"
