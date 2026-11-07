@@ -37,10 +37,17 @@ except Exception:  # noqa: BLE001
 # формульного 8-барного цикла, лента, несовершенный тюн, lofi-срез верхов.
 
 # ============================================================ IO
+PRESETS = ("gentle", "standard", "aggressive")
+
+
 def _read_track(path: str):
+    """Прочитать трек; при любой проблеме — (None, None), а не исключение."""
     if not NP_OK:
         return None, None
-    y, sr = _sf.read(path, always_2d=True)
+    try:
+        y, sr = _sf.read(path, always_2d=True)
+    except Exception:  # noqa: BLE001 - нечитаемый файл это отказ, не сбой стадии
+        return None, None
     return y, sr
 
 
@@ -230,6 +237,25 @@ def _lofi_pass(y, sr, cutoff: float = 15000.0):
 
 
 # ============================================================ main API
+def _validate_request(input_wav: str, preset: str) -> dict | None:
+    """Проверки до чтения аудио: None — можно работать, dict — отказ с причиной.
+
+    Неизвестный пресет раньше падал KeyError прямо на разборе amount_ms,
+    а отсутствующий/битый файл — трейсбеком LibsndfileError: стадия обязана
+    отказывать словами, а не падать.
+    """
+    if not NP_OK:
+        return {"ok": False, "error": "soundfile unavailable"}
+    if preset not in PRESETS:
+        return {
+            "ok": False,
+            "error": f"unknown preset '{preset}'; expected one of {', '.join(PRESETS)}",
+        }
+    if not Path(input_wav).is_file():
+        return {"ok": False, "error": f"cannot read {input_wav}"}
+    return None
+
+
 def polish_track(
     input_wav: str,
     output_wav: str,
@@ -244,8 +270,9 @@ def polish_track(
       • standard  — универсал (default)
       • aggressive — жёсткое разрушение формульности (для phonk / trap)
     """
-    if not NP_OK:
-        return {"ok": False, "error": "soundfile unavailable"}
+    refusal = _validate_request(input_wav, preset)
+    if refusal:
+        return refusal
     y, sr = _read_track(input_wav)
     if y is None:
         return {"ok": False, "error": f"cannot read {input_wav}"}
