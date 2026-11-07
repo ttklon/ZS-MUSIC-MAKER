@@ -41,7 +41,6 @@ LONG_FUNCTIONS: dict[tuple[str, str], int] = {
     ("app/core/stages/master.py", "_stage_stems"): 63,
     ("app/core/stages/mix.py", "_stage_mix_and_sidechain"): 138,
     ("app/core/stages/vocal.py", "_pyttsx3_speak"): 153,
-    ("app/core/stages/vocal.py", "_stage_voice_synth"): 62,
     ("app/core/stages/vocal_chain.py", "_run_vocal_chain"): 100,
     ("app/gui/theme.py", "qss"): 189,
     ("app/gui/wizard/project_edit_dialog.py", "__init__"): 70,
