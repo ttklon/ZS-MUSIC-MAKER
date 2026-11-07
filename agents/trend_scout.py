@@ -249,7 +249,7 @@ def get_hot_topics() -> list[str]:
 # --------------------------------------------------------------------------- #
 #  Готовый отчёт под тему (для генератора текстов)
 # --------------------------------------------------------------------------- #
-def scout(theme: str, offline_only: bool = False) -> dict:
+def scout(theme: str, offline_only: bool = False, allow_online: bool = False) -> dict:
     """Полный набор материалов под тему: слова, панчлайны, хуки, бренды, города."""
     year = time.strftime("%Y")
     cache_key = f"{(theme or '').lower().strip()}|{year}"
@@ -270,7 +270,20 @@ def scout(theme: str, offline_only: bool = False) -> dict:
         "year": year,
     }
 
-    if not offline_only:
+    # T15: сеть выключена, пока пользователь не разрешил её явно. Раньше здесь
+    # проверялся только `offline_only`, который вызывающий код не передаёт, —
+    # и каждая генерация текста ходила в DuckDuckGo и Reddit.
+    from app.core.net_policy import network_allowed
+
+    online = not offline_only and network_allowed(allow_online=allow_online)
+    result["offline"] = not online
+    result["reason"] = (
+        "офлайн: сеть выключена политикой (data/settings.json → network.online)"
+        if not online
+        else "онлайн: запросы к DuckDuckGo и Reddit"
+    )
+
+    if online:
         snippets: list[str] = []
         for query in (
             f"{theme} тренд {year} тикток",
