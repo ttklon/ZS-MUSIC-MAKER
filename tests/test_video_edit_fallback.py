@@ -102,7 +102,9 @@ def test_fallback_reports_honest_failure_for_broken_master(tmp_path) -> None:
 
     assert result.ok is False
     assert result.backend != "fallback_wav"
-    assert "fallback wav" in (result.reason or "").lower() or "format" in (result.reason or "").lower() or True
+    reason = (result.reason or "").lower()
+    assert reason, "отказ обязан называть причину, а не молчать"
+    assert "fallback wav" in reason or "format" in reason or "wav" in reason
     # инструкция для ручной сборки всё равно пишется
     assert (tmp_path / "clip_build_manually.txt").exists()
 

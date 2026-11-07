@@ -23,14 +23,33 @@ def test_fallback_produces_requested_number_of_verses(n_verses: int) -> None:
 
 
 def test_verses_beyond_the_template_are_not_literal_copies() -> None:
+    """Куплеты за пределами шаблона не должны быть его сдвинутой копией.
+
+    В шаблоне две строфы по 4 строки — всего 8 уникальных строк на 4 куплета,
+    поэтому дословные повторы строк неизбежны, и требовать их отсутствия было
+    бы неправдой. Реальное требование: ни один куплет не повторяет другой
+    целиком и не является сдвигом предыдущего на одну строку (именно этот
+    дефект и был: 3 строки из 4 совпадали с verse1).
+
+    Прежняя версия теста заканчивалась на `... or True` и не проверяла ничего.
+    """
     template = LYRICS_TEMPLATES["drift_phonk"]
 
     result = _fallback_lyrics("тема", "drift_phonk", n_verses=4)
 
-    first_block = result["verse1"]
-    # 3-й и 4-й куплеты строятся из шаблона циклически, но не совпадают строка-в-строку
-    assert result["verse3"] != first_block or result["verse3"] != result["verse2"] or True
+    blocks = [tuple(result[f"verse{index}"]) for index in range(1, 5)]
+    assert len(set(blocks)) == 4, "куплеты повторяются целиком"
+
+    first = list(result["verse1"])
+    rotated_by_one = first[1:] + first[:1]
+    assert result["verse3"] != rotated_by_one, "3-й куплет — сдвиг 1-го на строку"
+    # Строк в шаблоне 8 на 16 нужных: часть повторов неизбежна, но куплеты
+    # не должны быть «тем же текстом с перестановкой».
+    for later, base in (("verse3", "verse1"), ("verse4", "verse2")):
+        overlap = len(set(result[later]) & set(result[base]))
+        assert overlap <= 2, f"{later} совпадает с {base} на {overlap} строк из 4"
     assert len(result["verse1"]) == len(template["verse1"])
+    assert result["verse3"] != result["verse4"]
 
 
 def test_n_verses_is_clamped() -> None:

@@ -115,8 +115,10 @@ def _fallback_lyrics(theme: str, genre: str, n_verses: int = 2) -> dict[str, Any
     """v22: выбираем жанровый шаблон, подмешиваем тему. Не выдаём за LLM.
 
     `n_verses` уважается: сколько куплетов выбрал пользователь, столько блоков
-    и будет. Шаблон содержит два куплета; дальше они переиспользуются
-    циклически, но не копируются буквально — строки сдвигаются.
+    и будет. Шаблон содержит две строфы по 4 строки — 8 уникальных строк на
+    4 куплета (16 строк), поэтому строки переиспользуются; важно лишь, что
+    ни один куплет не повторяет другой целиком и не является сдвигом на одну
+    строку (прежде 3-й куплет на три четверти совпадал с 1-м).
     """
     g = (genre or "").lower().strip().replace("-", "_").replace(" ", "_")
     tpl = LYRICS_TEMPLATES.get(g, LYRICS_TEMPLATES["drift_phonk"])
@@ -130,11 +132,17 @@ def _fallback_lyrics(theme: str, genre: str, n_verses: int = 2) -> dict[str, Any
         "language": "ru+en",
     }
     for index in range(count):
-        block = list(base_verses[index % len(base_verses)])
-        # Сдвиг внутри шаблона: повторный куплет не выглядит копией предыдущего.
-        shift = index // len(base_verses)
-        if shift:
-            block = block[shift:] + block[:shift]
+        round_index = index // len(base_verses)
+        if round_index == 0:
+            block = list(base_verses[index % len(base_verses)])
+        else:
+            # Строки из восьми уникальных: дословного повтора не избежать, но
+            # перемежение двух строф даёт новую последовательность и оставляет
+            # максимум половину общих строк с первым куплетом.
+            block = [
+                base_verses[line % len(base_verses)][(index + line) % len(base_verses[0])]
+                for line in range(len(base_verses[0]))
+            ]
         out[f"verse{index + 1}"] = block
     out["verses"] = [out[f"verse{index + 1}"] for index in range(count)]
     # Подмешиваем тему в первую строку куплета, если тема нестандартная
