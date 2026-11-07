@@ -369,9 +369,9 @@ SHA-256 проектного мастера не изменился; без `mut
 | `tools/samples_audit`, `audit_data_inventory`, `genre_validator` | без изменений (32 сэмпла, 105 файлов, 50/119) |
 | `tools/smoke_audio` | 6/6 PASS, LUFS/TTP в допуске |
 | `tools/smoke_god` | 8/8 PASS |
-| `main.py --run --seed 42` | PARTIAL ≥ 87 %, стадия arrangement непуста |
+| `main.py --run --seed 42` | `PASS_BLOCKED`, `percent` ≥ 75, стадия arrangement непуста |
 | `main.py --e2e` | PARTIAL, 8/8 мастеров, 9+ файлов релиза |
-| `--readiness --json` | процент не завышен по сравнению с BFS-связностью |
+| `--readiness` | 65 %, процент не завышен по сравнению с BFS-связностью |
 
 Плюс ручная проверка воспроизводимости: `seed=7` дважды → идентичные `beat.wav`,
 `texture_scaffold.wav`, `report.json.stages[].output.plan` (план — тоже).

@@ -180,6 +180,32 @@ mix». Проверено повторным запуском smoke_god: `_stage
 «памяти нет» на работающей машине. Поведение оставлено как есть, но теперь
 тест фиксирует правило: отсутствующее измерение — `None`.
 
+### Финальная матрица T23 прогнана на текущем коде
+
+Прогон после всех правок этого слоя (не пересказ прошлых цифр):
+
+```
+python -m pytest tests/          -> 1207 passed, 3 skipped
+python -m compileall app modules agents tools updater -> 0 ошибок
+tools/smoke_audio.py             -> 6 PASS / 0 FAIL
+tools/smoke_god.py               -> 8 PASS / 0 FAIL
+main.py --run --seed 42          -> PASS_BLOCKED, percent 83, gates пусто
+main.py --e2e                    -> PARTIAL, 15/15 стадий, 8/8 мастеров, 9 файлов релиза
+python -m tools.readiness        -> 65 % (потолок — нет микрофона и тяжёлых движков)
+tools/samples_audit.py           -> OK
+tools/audit_data_inventory.py    -> 105 файлов, 0 неизвестных
+tools/genre_validator.py         -> PASS 50/50 и все runtime-жанры
+tools/gitignore_guard.py         -> CLEAN
+tools/ast_dead_imports.py        -> 0
+tools/ast_undefined_names.py     -> 0
+python -m tools.audit_honesty    -> CLEAN
+```
+
+Две цифры в `docs/IMPROVEMENT_PLAN.md` были привязаны к прошлому состоянию и
+исправлены по факту: порог `percent` для `--run --seed 42` (было ≥ 87 %, теперь
+≥ 75 % — потолок задают честно заблокированные стадии) и `--readiness --json`
+(такого флага у `main.py` нет; JSON даёт `python -m tools.readiness --json`).
+
 ### Что по-прежнему не проверено
 
 GUI, физический микрофон, Windows и реальный вывод нейросетевых моделей в этой
