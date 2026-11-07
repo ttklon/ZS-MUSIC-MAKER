@@ -92,6 +92,10 @@ BUILTIN_PRESETS = {
 }
 
 
+# Поля, без которых пресет не превращается в стилевой вектор.
+REQUIRED_FIELDS = ("target_bpm", "target_mode")
+
+
 def _load_all() -> dict:
     if os.path.exists(PRESETS_FILE):
         try:
@@ -100,29 +104,43 @@ def _load_all() -> dict:
             user = {}
     else:
         user = {}
+    if not isinstance(user, dict):
+        user = {}
     merged = dict(BUILTIN_PRESETS)
-    merged.update(user)
+    merged.update({k: v for k, v in user.items() if isinstance(v, dict)})
     return merged
 
 
+def _missing_fields(preset: dict) -> list:
+    """Чего не хватает пресету, чтобы стать стилем. Пустой список — всё есть."""
+    return [field for field in REQUIRED_FIELDS if preset.get(field) in (None, "")]
+
+
 def list_presets() -> list:
-    return [
-        {
-            "key": k,
-            "name": v["name"],
-            "description": v["description"],
-            "bpm": v["target_bpm"],
-            "tags": v["vibe_tags"],
-        }
-        for k, v in _load_all().items()
-    ]
+    """Список для CLI/GUI. Неполный пользовательский пресет остаётся видимым,
+    но помечается `incomplete: True` — иначе он молча исчезает из интерфейса."""
+    items = []
+    for key, preset in _load_all().items():
+        missing = _missing_fields(preset)
+        items.append({
+            "key": key,
+            "name": preset.get("name") or key,
+            "description": preset.get("description") or "",
+            "bpm": preset.get("target_bpm"),
+            "tags": list(preset.get("vibe_tags") or []),
+            "incomplete": bool(missing),
+        })
+    return items
 
 
 def get_preset(key: str) -> dict:
-    p = _load_all().get(key)
-    if not p:
+    preset = _load_all().get(key)
+    if not preset:
         return {"error": f"пресет '{key}' не найден"}
-    return p
+    missing = _missing_fields(preset)
+    if missing:
+        return {"error": f"пресет '{key}' неполный: нет {', '.join(missing)}"}
+    return preset
 
 
 def save_user_preset(key: str, preset: dict) -> dict:
@@ -147,7 +165,7 @@ def preset_to_style_vector(key: str) -> dict:
         "sources": [f"preset:{key}"],
         "target_bpm": p["target_bpm"],
         "target_mode": p["target_mode"],
-        "vibe_tags": p["vibe_tags"],
+        "vibe_tags": list(p.get("vibe_tags") or []),
         "target_bass_ratio": 1.5,
         "target_centroid": 1500.0,
         "bpm_range": {
@@ -157,7 +175,11 @@ def preset_to_style_vector(key: str) -> dict:
             "modes": {"keep_groove": p["target_bpm"]},
         },
         "individual": [
-            {"key_root": "A", "bpm": p["target_bpm"], "vibe_tags": p["vibe_tags"]}
+            {
+                "key_root": "A",
+                "bpm": p["target_bpm"],
+                "vibe_tags": list(p.get("vibe_tags") or []),
+            }
         ],
         "preset_key": key,
         "themes_hint": p.get("themes", []),
