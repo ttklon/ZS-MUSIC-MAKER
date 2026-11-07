@@ -59,7 +59,6 @@ LONG_FUNCTIONS: dict[tuple[str, str], int] = {
     ("modules/anti_neuro_track.py", "polish_track"): 68,
     ("modules/arrangement_engine.py", "build_arrangement"): 90,
     ("modules/artist_dossier/manager.py", "_analyze_single_track"): 156,
-    ("modules/auto_qa.py", "audit_track"): 101,
     ("modules/beat/arrangement.py", "_build_section"): 170,
     ("modules/beat/constructor.py", "build_track"): 85,
     ("modules/beat/dramaturgy.py", "plan_sections"): 79,
