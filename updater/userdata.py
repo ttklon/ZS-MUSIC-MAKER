@@ -13,6 +13,7 @@ import json
 import shutil
 import time
 from pathlib import Path
+from typing import Any
 
 from updater.paths import user_data_dir
 
@@ -67,35 +68,39 @@ def _stash_user_data(prog: Path, stg: Path) -> dict[str, Path]:
     return moved
 
 
-def _restore_user_data(prog: Path, moved: dict[str, Path]) -> list[str]:
-    """Вернуть сохранённые данные поверх новой версии (merge, не затирание)."""
-    """После распаковки новой версии: возвращаем сохранённые данные на место.
+def restore_user_data_report(prog: Path, moved: dict[str, Path]) -> dict[str, Any]:
+    """Вернуть сохранённые данные поверх новой версии и отчитаться о сбоях.
 
-    v37: MERGE-семантика вместо затирания. Если новая версия принесла свой
-    каталог (например свежие дефолтные пресеты в data/genre_presets) — юзерские
-    файлы накладываются ПОВЕРХ, а новые дефолтные СОХРАНЯЮТСЯ. Так не теряются
-    ни пользовательские данные, ни обновлённые пресеты из дистрибутива.
-    Возвращает список rel-путей, которые удалось восстановить.
+    MERGE-семантика: если новая версия принесла свой каталог (свежие пресеты),
+    пользовательские файлы накладываются ПОВЕРХ, а новые дефолтные остаются.
+
+    Раньше здесь стоял `except Exception: pass`: сбой возврата файла означал
+    потерю данных, о которой никто не узнавал. Теперь отчёт честный —
+    `{"ok": False, "failed": [...]}`.
     """
     restored: list[str] = []
+    failed: list[str] = []
     for rel, stash in moved.items():
         dst = prog / rel
-        dst.parent.mkdir(parents=True, exist_ok=True)
         try:
+            dst.parent.mkdir(parents=True, exist_ok=True)
             if stash.is_dir():
-                # merge: копируем юзерское содержимое поверх нового каталога
-                # (dirs_exist_ok=True — не удаляем новые дефолтные файлы)
                 shutil.copytree(str(stash), str(dst), dirs_exist_ok=True)
                 shutil.rmtree(str(stash), ignore_errors=True)
             else:
-                # файл: юзерский приоритетнее нового дефолтного
+                # файл: пользовательский приоритетнее нового дефолтного
                 if dst.exists():
                     dst.unlink()
                 shutil.move(str(stash), str(dst))
             restored.append(rel)
-        except Exception:
-            pass
-    return restored
+        except Exception as exc:  # noqa: BLE001 - причина уходит в отчёт
+            failed.append(f"{rel}: {type(exc).__name__}: {exc}")
+    return {"ok": not failed, "restored": restored, "failed": failed}
+
+
+def _restore_user_data(prog: Path, moved: dict[str, Path]) -> list[str]:
+    """Список восстановленных путей (совместимая обёртка над отчётом)."""
+    return restore_user_data_report(prog, moved)["restored"]
 
 
 def ensure_user_dirs() -> None:

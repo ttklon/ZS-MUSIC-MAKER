@@ -46,7 +46,13 @@ def user_data_dir() -> Path:
 
 
 def backup_dir() -> Path:
-    d = program_dir() / "updater" / "backup"
+    """Каталог бэкапов; `ZSMM_BACKUP_DIR` позволяет вынести его из установки.
+
+    Без этой переменной бэкапы всегда попадают внутрь `program_dir`, то есть
+    тест (или портативная сборка) не может работать в своей песочнице.
+    """
+    env = os.environ.get("ZSMM_BACKUP_DIR")
+    d = Path(env) if env else program_dir() / "updater" / "backup"
     d.mkdir(parents=True, exist_ok=True)
     return d
 

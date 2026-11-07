@@ -61,6 +61,18 @@
 - **T22. Этот раздел и `PROJECT_STATE.md`.** Цифры состояния сняты с
   `python -m tools.readiness --json`, а не вписаны вручную.
 
+### Верификация (T23)
+
+- **Покрытие там, где его не было.** `updater/` 15 % → 69 %,
+  `modules/render_queue.py` 0 % → 87 %. Заодно нашлись два настоящих дефекта:
+  откат данных проглатывал ошибку возврата файла (`except Exception: pass` —
+  это тихая потеря данных) и каталог бэкапов нельзя было вынести из установки.
+  Теперь `restore_user_data_report()` возвращает `{"ok", "restored", "failed"}`,
+  а `ZSMM_BACKUP_DIR` задаёт каталог. Проверка: `tests/test_updater_coverage.py`.
+- Итоговый прогон: **1029 passed, 3 skipped**; `compileall` 0 ошибок;
+  `fallback_audit`, `audit_honesty`, `ast_dead_imports`, `gitignore_guard`,
+  `samples_audit` — зелёные.
+
 ### Что по-прежнему не проверено
 
 GUI, физический микрофон, Windows и реальный вывод нейросетевых моделей в этой
