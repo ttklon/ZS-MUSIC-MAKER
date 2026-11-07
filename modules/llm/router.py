@@ -4,7 +4,9 @@ modules/llm/router.py — маршрутизация запроса по про�
 
 Порядок: OpenRouter → Grok → Gemini → Ollama → локальный шаблон.
 Перед вызовами делается быстрый preflight (сеть/локальный демон), чтобы
-отсутствие интернета не стоило десятков секунд простоя.
+отсутствие интернета не стоило десятков секунд простоя. Проверка интернета
+подчинена `app/core/net_policy.py` (T15): без разрешения пользователя
+внешний адрес не трогаем вообще, локальный демон Ollama проверяется всегда.
 """
 
 from __future__ import annotations
@@ -40,18 +42,24 @@ class LLMRouter:
     # = до 32с мёртвого простоя, если сети нет / ключей нет. Теперь один
     # socket.connect() решает, стоит ли вообще звонить в облака / локальный
     # Ollama. Состояние не кэшируется: сервер можно запустить во время работы.
-    def _preflight(self) -> dict[str, bool]:
+    def _preflight(self, allow_online: bool = False) -> dict[str, bool]:
         out = {"internet": False, "ollama": False}
         import socket
 
-        try:
-            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            s.settimeout(0.4)
-            s.connect(("8.8.8.8", 53))
-            s.close()
-            out["internet"] = True
-        except Exception:
-            logging.getLogger(__name__).debug("ignored exception", exc_info=True)
+        # T15: «проверить интернет» — это сетевой запрос. Раньше preflight
+        # открывал TCP к 8.8.8.8:53 в обход app/core/net_policy.py, то есть
+        # каждый запуск без настройки сети всё равно стучался наружу.
+        from app.core.net_policy import network_allowed
+
+        if network_allowed(allow_online=allow_online):
+            try:
+                s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                s.settimeout(0.4)
+                s.connect(("8.8.8.8", 53))
+                s.close()
+                out["internet"] = True
+            except Exception:
+                logging.getLogger(__name__).debug("ignored exception", exc_info=True)
         try:
             parts = self.ollama_url.split("://", 1)[-1].split(":")
             host = parts[0]

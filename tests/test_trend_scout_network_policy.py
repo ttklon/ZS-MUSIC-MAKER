@@ -199,3 +199,50 @@ def test_network_errors_do_not_break_scout(network_on) -> None:
 
     assert report["external_snippets"] == []
     assert report["hype_words"], "офлайн-словарь не должен зависеть от сети"
+
+
+# --------------------------------------------------------------------------- #
+#  Поиск сэмплов: защита стоит в вызывающем коде — закрепляем её
+# --------------------------------------------------------------------------- #
+
+def test_sample_hunter_does_not_search_web_without_permission(monkeypatch) -> None:
+    """`agents/sample_hunter/web.py` сам политику не спрашивает: её спрашивает
+    `hunter.hunt`. Если эту проверку уберут, тест упадёт."""
+    from agents.sample_hunter import hunter
+
+    called: list = []
+    monkeypatch.setattr(
+        hunter, "_search_online_with_diagnostics",
+        lambda *a, **k: called.append(a) or ([], {}),
+    )
+    monkeypatch.setattr(
+        "app.core.net_policy.network_allowed",
+        lambda allow_online=False, settings_path=None: allow_online is True,
+    )
+    monkeypatch.setattr(hunter, "list_local", lambda query: [])
+
+    result = hunter.hunt("cowbell", allow_online=False)
+
+    assert called == [], "онлайн-поиск сэмплов ушёл без разрешения"
+    assert result.get("offline") is not False
+
+
+def test_sample_hunter_searches_when_allowed(monkeypatch) -> None:
+    from agents.sample_hunter import hunter
+
+    called: list = []
+    monkeypatch.setattr(
+        hunter, "_search_online_with_diagnostics",
+        lambda query, max_results, diagnostics: called.append(query)
+        or ([{"license": "cc0", "title": "cowbell", "url": "u"}], {}),
+    )
+    monkeypatch.setattr(
+        "app.core.net_policy.network_allowed",
+        lambda allow_online=False, settings_path=None: allow_online is True,
+    )
+    monkeypatch.setattr(hunter, "list_local", lambda query: [])
+    monkeypatch.setattr(hunter, "_license_gate", lambda items: items, raising=False)
+
+    hunter.hunt("cowbell", allow_online=True)
+
+    assert called == ["cowbell"]
