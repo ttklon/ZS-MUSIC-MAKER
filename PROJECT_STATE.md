@@ -13,9 +13,9 @@
 
 ## Модули
 
-- отслеживается: **287**
-- REAL_PASS: **251**, REAL_FAIL: **0**, PLANNED: **0**, DEPRECATED: **36**
-- достижимость прод-графа от точек входа: **87.5 %**
+- отслеживается: **297**
+- REAL_PASS: **262**, REAL_FAIL: **0**, PLANNED: **0**, DEPRECATED: **35**
+- достижимость прод-графа от точек входа: **88.2 %**
 
 `DEPRECATED` — код существует и работает, но из пользовательских путей
 недостижим (список §5.16 `CODE_REVIEW.md`). Он не удалён, но и не выдаётся за
@@ -26,7 +26,7 @@
 | Блок | % |
 |---|---:|
 | architecture | 100.0 |
-| core_modules | 83.48 |
+| core_modules | 84.20 |
 | audio_pipeline | 62.5 |
 | voice_recording | 71.43 |
 | release | 100.0 |
@@ -38,7 +38,7 @@
 - `tools/smoke_audio.py` — 6/6 PASS (без MusicGen и вокальных движков)
 - `tools/smoke_god.py` — 8/8 PASS (120 с DSP fallback, без тяжёлого AI и живого вокала)
 - `tools/ast_dead_imports.py` — CLEAN (0)
-- `python -m tools.readiness` — 65 %, 36 модулей `DEPRECATED`, 0 фантомных `REAL_PASS`
+- `python -m tools.readiness` — 65 %, 35 модулей `DEPRECATED`, 0 фантомных `REAL_PASS`
 - `python -m compileall` — 0 ошибок
 - `python -m tools.audit_honesty` — CLEAN (277 файлов, 0 находок)
 - `tools/gitignore_guard.py` — CLEAN
