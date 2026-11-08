@@ -737,6 +737,12 @@ Windows 11», поэтому изменения идут по тому, что �
   `ZS-Music-Maker-Setup-1.0.0.exe` и `ZS-Music-Maker-1.0.0-portable.exe`;
   ярлык в «Пуск» остался человеческим — `ZS Music Maker`.
 
+**Где взять установщик:** релиз
+[`desktop-v1.0.0`](https://github.com/ttklon/ZS-MUSIC-MAKER/releases/tag/desktop-v1.0.0) —
+`ZS-Music-Maker-Setup-1.0.0.exe` (82.7 МБ) и portable |
+`releases/latest/download/ZS-Music-Maker-Setup-1.0.0.exe` отдаёт файл без
+входа в GitHub.
+
 **Чего нет:** подпись кода не настроена (SmartScreen предупредит при первом
 запуске); окно на Windows не открывалось глазами — проверены разметка,
 политика окна и упакованное приложение через `--smoke`.

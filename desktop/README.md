@@ -74,9 +74,14 @@ desktop/
 этого не годятся — они живут 30 дней и открываются только после входа в
 GitHub.
 
+Опубликованный релиз (проверено 2026-11-08):
+[`desktop-v1.0.0`](https://github.com/ttklon/ZS-MUSIC-MAKER/releases/tag/desktop-v1.0.0) —
+`ZS-Music-Maker-Setup-1.0.0.exe` (82 718 855 Б) и
+`ZS-Music-Maker-1.0.0-portable.exe` (82 425 858 Б); обе ссылки
+`releases/latest/download/…` отвечают 302 на файл.
+
 Если релиза ещё нет, установщик можно взять из артефактов: `Actions → Build
-Windows EXE → нужный запуск → ZS-Music-Maker-Windows-Setup`. Внутри лежат
-`ZS-Music-Maker-Setup-<версия>.exe` и portable-EXE. Python не нужен: бит считается внутри приложения. Раздел «Запуск»
+Windows EXE → нужный запуск → ZS-Music-Maker-Windows-Setup`. Python не нужен: бит считается внутри приложения. Раздел «Запуск»
 (пайплайн на Python) при его отсутствии честно отключается и говорит об этом
 в «Диагностике».
 

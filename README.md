@@ -42,6 +42,12 @@ python main.py --smoke               :: smoke-набор (God Mode + аудио-
 
 ## Приложение на Electron
 
+**Скачать установщик под Windows 11:**
+[`ZS-Music-Maker-Setup-1.0.0.exe`](https://github.com/ttklon/ZS-MUSIC-MAKER/releases/latest/download/ZS-Music-Maker-Setup-1.0.0.exe)
+(или [portable-EXE](https://github.com/ttklon/ZS-MUSIC-MAKER/releases/latest/download/ZS-Music-Maker-1.0.0-portable.exe),
+все сборки — в [релизах](https://github.com/ttklon/ZS-MUSIC-MAKER/releases)).
+Сборка не подписана: Windows 11 покажет SmartScreen при первом запуске.
+
 Оболочка приложения живёт в `desktop/` и не требует Python для просмотра
 данных: версия, 120 жанров с пресетами, матрица модулей, досье и честный
 процент готовности читаются из файлов проекта. Бит собирается там же: раздел
