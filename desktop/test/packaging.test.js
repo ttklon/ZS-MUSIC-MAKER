@@ -155,3 +155,19 @@ test('имя установщика без пробелов — ссылка н�
   // Ярлык в «Пуск» при этом остаётся человеческим.
   assert.equal(pkg.build.nsis.shortcutName, 'ZS Music Maker');
 });
+
+test('отчёт smoke попадает и в артефакты, и в релиз', () => {
+  // Релиз обещает `smoke.json`, но раньше файл писался в desktop/, а выгрузка
+  // искала desktop/dist/smoke.json — в ассетах отчёта не было. Ловим это
+  // тестом, а не взглядом на страницу релиза.
+  const yaml = fs.readFileSync(path.join(ROOT, '.github', 'workflows', 'build.yml'), 'utf8');
+  const smokeOut = /\$env:ZSMM_SMOKE_OUT = Join-Path \$PWD '([^']+)'/.exec(yaml);
+  assert.ok(smokeOut, 'не найден путь отчёта smoke в workflow');
+  const dir = smokeOut[1].split(/[\\/]/)[0];
+  assert.equal(dir, 'dist', `smoke.json должен писаться в dist, а не в ${smokeOut[1]}`);
+
+  const artifact = yaml.slice(yaml.indexOf('Upload installer'), yaml.indexOf('publish-release:'));
+  assert.match(artifact, /desktop\/dist\/smoke\.json|smoke\.json/, 'smoke.json не выгружается артефактом');
+  const publish = yaml.slice(yaml.indexOf('publish-release:'));
+  assert.match(publish, /smoke\.json/, 'smoke.json не попадает в релиз');
+});
