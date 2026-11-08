@@ -90,10 +90,10 @@
         <section class="view is-hidden" id="view-beat">
           <div class="panel">
             <h2>Бит прямо в окне</h2>
-            <p class="muted">
-              Движок написан на JavaScript и работает внутри приложения: ни Python,
-              ни сэмплового банка тут нет. Ударные синтезируются, поэтому статус
-              движка честно <code>FALLBACK</code>, а не «REAL_PASS».
+            <p class="muted" id="beat-bank-note">
+              Движок написан на JavaScript и работает внутри приложения, без Python.
+              Ударные берутся из сэмплового банка проекта, если он подключён; иначе
+              синтезируются и статус честно становится <code>FALLBACK</code>.
             </p>
             <div class="row">
               <input id="beat-genre" placeholder="жанр (phonk, trap, house…)" value="phonk" />
@@ -101,6 +101,7 @@
               <input id="beat-seed" placeholder="сид" value="7" />
               <input id="beat-duration" placeholder="секунд" value="20" />
               <button class="ghost" id="beat-render">Собрать бит</button>
+              <label class="muted"><input type="checkbox" id="beat-use-bank" checked /> банк сэмплов</label>
               <button class="ghost" id="beat-save" disabled>Сохранить WAV</button>
             </div>
             <p class="muted" id="beat-status">Бит ещё не собран</p>

@@ -16,6 +16,7 @@ const path = require('node:path');
 const { createNodeFs } = require('../src/core/fs-node');
 const { createProject } = require('../src/core/project');
 const { renderBeat } = require('../src/core/audio/engine');
+const { SampleSource } = require('../src/core/audio/bank');
 const { sanitizeBeatOptions } = require('../src/core/beat-options');
 
 const DESKTOP = path.resolve(__dirname, '..');
@@ -64,6 +65,10 @@ function shim(project) {
       });
       return response.json();
     },
+    beatBank: async () => {
+      const response = await fetch('/beat-bank');
+      return response.json();
+    },
     saveBeat: () => Promise.resolve({
       ok: false,
       error: 'в браузере файл не сохраняется: откройте приложение Electron',
@@ -77,7 +82,10 @@ function shim(project) {
 })();`;
 }
 
-function createServer(project) {
+function createServer(project, options = {}) {
+  // Один источник сэмплов на сервер: он кэширует декодированные one-shot'ы.
+  const sampleSource = options.sampleSource
+    || (options.bank === false ? null : new SampleSource({ fileSystem: createNodeFs(), rootDir: ROOT }));
   return http.createServer((req, res) => {
     const url = new URL(req.url, `http://${req.headers.host}`);
     const send = (status, body, type) => {
@@ -104,12 +112,25 @@ function createServer(project) {
           return;
         }
         try {
-          const { wav, report } = renderBeat(sanitized.value);
+          const { wav, report } = renderBeat({
+            ...sanitized.value,
+            bank: sanitized.value.useBank === false ? null : sampleSource,
+          });
           send(200, JSON.stringify({ ok: true, data: { report, wavBase64: wav.toString('base64') } }), MIME['.json']);
         } catch (err) {
           send(200, JSON.stringify({ ok: false, error: err.message }), MIME['.json']);
         }
       });
+      return;
+    }
+
+    if (url.pathname === '/beat-bank') {
+      try {
+        const report = sampleSource ? sampleSource.report() : { status: 'FALLBACK', warnings: ['банк отключён'] };
+        send(200, JSON.stringify({ ok: true, data: report }), MIME['.json']);
+      } catch (err) {
+        send(200, JSON.stringify({ ok: false, error: err.message }), MIME['.json']);
+      }
       return;
     }
 

@@ -52,6 +52,11 @@ function renderBeat(options) {
   return ipcRenderer.invoke('zsmm:beat-render', options);
 }
 
+/** Что за банк сэмплов подключён к движку (REAL_PASS/PARTIAL/FALLBACK). */
+function beatBank() {
+  return ipcRenderer.invoke('zsmm:beat-bank');
+}
+
 /** Сохранить готовый WAV через диалог сохранения. */
 function saveBeat(wavBase64) {
   return ipcRenderer.invoke('zsmm:beat-save', wavBase64);
@@ -78,6 +83,7 @@ contextBridge.exposeInMainWorld('zsmm', {
   onTaskEvent,
   onTaskDone,
   renderBeat,
+  beatBank,
   saveBeat,
   revealRoot,
   openExternal,

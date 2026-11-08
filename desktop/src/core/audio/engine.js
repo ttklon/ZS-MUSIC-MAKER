@@ -20,6 +20,7 @@
 const { Rng } = require('./rng');
 const { filter, zeros, mixInto, peak } = require('./dsp');
 const patterns = require('./patterns');
+const drums = require('./instruments');
 const variation = require('./variation');
 const humanize = require('./humanize');
 const arrangement = require('./arrangement');
@@ -468,6 +469,42 @@ function applyHumanity(left, right, sr, seed) {
  *
  * @returns {{wav: Buffer, report: object}}
  */
+/**
+ * Отчёт об источнике звука — замена `_drum_engine_report()` из Python.
+ *
+ * Правило то же: если из банка покрыто ≥ 4 барабанных инструмента, статус
+ * REAL_PASS и имя движка не врёт (`sample_bank+procedural`); иначе FALLBACK с
+ * причиной, сколько инструментов реально покрыто.
+ */
+function drumEngineReport(bank) {
+  const base = { ...drums.CAPABILITIES };
+  if (!bank || typeof bank.report !== 'function') {
+    base.reason = 'sample bank is not connected to this render; synthesised one-shots are used';
+    return base;
+  }
+  const report = bank.report();
+  const covered = (report.drum_instruments_with_samples || [])
+    .filter((name) => ['kick', 'snare', 'clap', 'hat', 'open_hat', '808'].includes(name));
+  const out = {
+    ...base,
+    sample_bank: {
+      instruments_with_samples: covered,
+      total_samples: report.total_samples || 0,
+      loaded_samples: report.loaded_samples || 0,
+      velocity_mode: report.velocity_mode,
+    },
+  };
+  if (covered.length >= 4) {
+    out.status = 'REAL_PASS';
+    out.engine = 'sample_bank+procedural';
+    out.reason = 'drums come from the licensed sample bank';
+  } else {
+    out.reason = `sample bank covers ${covered.length} of 6 drum instruments; the rest is synthesised`;
+  }
+  if (report.errors && report.errors.length) out.sample_load_errors = report.errors.slice();
+  return out;
+}
+
 function renderBeat({
   bpm = 140,
   key = 'A minor',
@@ -481,20 +518,29 @@ function renderBeat({
   includeOutro = true,
   sections = null,
   float32 = false,
+  // Источник сэмплов (`audio/bank.js::SampleSource`). Без него трек целиком
+  // синтезируется, и отчёт честно говорит FALLBACK.
+  bank = null,
 } = {}) {
   if (!(bpm > 0)) throw new Error('bpm должен быть положительным');
   if (!(durationSec > 0)) throw new Error('durationSec должен быть положительным');
 
   const sr = SAMPLE_RATE;
-  const rng = new Rng(seed === null || seed === undefined ? 0 : seed);
-  const drive = new Rng(seed === null || seed === undefined ? 0 : seed);
+  const baseSeed = seed === null || seed === undefined ? 0 : seed;
+  // Два независимых потока, как `_py_rng` и `_np_rng` в Python: человечность
+  // и вариативность не должны зависеть от того, сколько сэмплов выбрал банк.
+  const rng = new Rng(baseSeed);
+  const drive = new Rng(baseSeed);
+  const noise = new Rng((baseSeed ^ 0x9e3779b9) >>> 0);
 
   const slotPatterns = genre === 'legacy' ? patterns.LEGACY_PATTERN : patterns.slotPresetForGenre(genre);
   const velocityMap = genre === 'legacy'
     ? { kick: new Array(16).fill(1), snare: new Array(16).fill(1), hat: new Array(16).fill(1), bass: new Array(16).fill(1), melody: new Array(16).fill(1) }
     : patterns.velocityMapForGenre(genre);
 
-  const engine = new VoiceEngine({ bpm, key, genre, rng: drive, slotPatterns, velocityMap });
+  const engine = new VoiceEngine({
+    bpm, key, genre, rng: drive, noiseRng: noise, slotPatterns, velocityMap, bank,
+  });
   engine.aggression = aggression;
 
   const plans = sections && sections.length
@@ -549,7 +595,7 @@ function renderBeat({
       seed: seed === null || seed === undefined ? null : seed,
       deterministic: seed !== null && seed !== undefined,
       groove_family: patterns.familyForGenre(genre),
-      drum_engine: { ...require('./instruments').CAPABILITIES },
+      drum_engine: drumEngineReport(bank),
       sections: sectionInfo,
       total_bars: plans.reduce((sum, plan) => sum + plan.bars, 0),
       dramaturgy,
@@ -578,5 +624,6 @@ module.exports = {
   applyHumanity,
   limitBar,
   applyLowTrim,
+  drumEngineReport,
   renderBeat,
 };

@@ -136,6 +136,17 @@ test('предпросмотр рендерит бит тем же движко�
   const bad = await post({ bpm: 5000 });
   assert.equal(bad.ok, false);
   assert.match(bad.error, /BPM/);
+
+  // Банк сэмплов подключён и в предпросмотре: статус не «на словах», а по факту.
+  const bankReply = await get(server, '/beat-bank');
+  const bankData = JSON.parse(bankReply.body);
+  assert.equal(bankData.ok, true, bankData.error);
+  assert.equal(bankData.data.status, 'REAL_PASS');
+  assert.ok(bankData.data.total_samples >= 32);
+  assert.equal(ok.data.report.drum_engine.status, 'REAL_PASS');
+
+  const withoutBank = await post({ bpm: 120, genre: 'house', seed: 3, durationSec: 2, useBank: false });
+  assert.equal(withoutBank.data.report.drum_engine.status, 'FALLBACK');
 });
 
 test('CSP предпросмотра разрешает свой же сервер, приложение — нет', async (t) => {

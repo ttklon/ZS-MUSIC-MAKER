@@ -48,6 +48,15 @@ function createNodeFs(fileSystem = fs) {
       }
     },
 
+    /** Прочитать бинарный файл (сэмплы, WAV). */
+    readBinary(target) {
+      try {
+        return { value: fileSystem.readFileSync(target) };
+      } catch (err) {
+        return { error: `${err.code || 'ERR'}: ${err.message}` };
+      }
+    },
+
     /** Записать файл, создав родительские каталоги. */
     writeText(target, contents) {
       try {

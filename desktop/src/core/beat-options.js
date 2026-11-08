@@ -72,6 +72,8 @@ function sanitizeBeatOptions(options = {}, limits = BEAT_LIMITS) {
       seed,
       // 16 бит — формат Python-версии; float32 включается только тестами.
       float32: false,
+      // Банк сэмплов включён по умолчанию: живой one-shot лучше синтеза.
+      useBank: source.useBank !== false,
     },
   };
 }

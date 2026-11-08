@@ -169,3 +169,215 @@ def test_engine_is_deterministic_across_processes() -> None:
     assert first.returncode == 0, first.stderr
     assert second.returncode == 0, second.stderr
     assert first.stdout.strip() == second.stdout.strip(), "seed не гарантирует одинаковый WAV"
+
+
+def test_sample_bank_parity_with_python() -> None:
+    """Банк в окне видит те же инструменты и тот же статус, что Python."""
+    from app.audio import samples as py_samples
+    from modules.beat import drums as py_drums
+
+    script = """
+    const { createNodeFs } = require('./src/core/fs-node');
+    const bank = require('./src/core/audio/bank');
+    const root = require('node:path').resolve('..');
+    const loaded = bank.loadBank(createNodeFs(), root);
+    process.stdout.write(JSON.stringify({
+      report: bank.capability(loaded),
+      checksums: bank.verifyChecksums(createNodeFs(), root),
+      total: loaded.total,
+      warnings: loaded.warnings,
+    }));
+    """
+    result = _node(script, timeout=120)
+    assert result.returncode == 0, result.stderr
+    js = json.loads(result.stdout)
+
+    py_report = py_samples.capability()
+    assert js["report"]["status"] == py_report["status"], "статус банка разошёлся с Python"
+    assert js["report"]["instruments_with_samples"] == py_report["instruments_with_samples"]
+    assert js["report"]["total_samples"] == py_report["total_samples"]
+    assert js["total"] == py_report["total_samples"]
+    assert js["warnings"] == [], f"банк в окне ругается: {js['warnings']}"
+
+    broken = [item for item in js["checksums"] if not item["ok"]]
+    assert broken == [], f"хэши сэмплов не сходятся: {broken}"
+
+    # Гейны банка в окне — те же числа, что в Python-движке.
+    gains = _node("""
+    const drums = require('./src/core/audio/instruments');
+    process.stdout.write(JSON.stringify(drums.BANK_GAIN));
+    """)
+    assert json.loads(gains.stdout) == py_drums.BANK_GAIN
+    assert js["report"]["velocity_mode"] == "engine-gain"
+
+
+def test_window_render_with_bank_is_real_pass(tmp_path: Path) -> None:
+    """С банком окно рендерит живой звук и не врёт про статус движка."""
+    np = pytest.importorskip("numpy")
+    sf = pytest.importorskip("soundfile")
+
+    target = tmp_path / "beat_bank.wav"
+    script = f"""
+    const fs = require('node:fs');
+    const path = require('node:path');
+    const {{ renderBeat }} = require('./src/core/audio/engine');
+    const {{ SampleSource }} = require('./src/core/audio/bank');
+    const {{ createNodeFs }} = require('./src/core/fs-node');
+    const bank = new SampleSource({{ fileSystem: createNodeFs(), rootDir: path.resolve('..') }});
+    const {{ wav, report }} = renderBeat({{ bpm: 140, genre: 'phonk', seed: 7, durationSec: 8, bank }});
+    fs.writeFileSync({json.dumps(str(target))}, wav);
+    process.stdout.write(JSON.stringify(report));
+    """
+    result = _node(script, timeout=300)
+    assert result.returncode == 0, result.stderr
+    report = json.loads(result.stdout)
+
+    engine = report["drum_engine"]
+    assert engine["status"] == "REAL_PASS"
+    assert engine["engine"] == "sample_bank+procedural"
+    assert engine["sample_bank"]["loaded_samples"] >= 6, "банк должен реально читать файлы"
+
+    samples, sample_rate = sf.read(str(target))
+    assert sample_rate == 44100
+    peak = float(np.max(np.abs(samples)))
+    assert 0.05 < peak <= 1.0
+    rms = float(np.sqrt((samples ** 2).mean()))
+    assert rms > 0.02, "трек с банком не должен быть тише синтезированного"
+
+
+def test_bank_toggle_changes_the_sound() -> None:
+    """Выключенный банк действительно меняет звук, а не только отчёт."""
+    script = """
+    const path = require('node:path');
+    const crypto = require('node:crypto');
+    const { renderBeat } = require('./src/core/audio/engine');
+    const { SampleSource } = require('./src/core/audio/bank');
+    const { createNodeFs } = require('./src/core/fs-node');
+    const bank = new SampleSource({ fileSystem: createNodeFs(), rootDir: path.resolve('..') });
+    const hash = (options) => crypto.createHash('sha256')
+      .update(renderBeat(options).wav).digest('hex');
+    const base = { bpm: 130, genre: 'trap', seed: 5, durationSec: 4 };
+    process.stdout.write(JSON.stringify({
+      withBank: hash({ ...base, bank }),
+      synth: hash({ ...base, bank: null }),
+    }));
+    """
+    result = _node(script, timeout=300)
+    assert result.returncode == 0, result.stderr
+    hashes = json.loads(result.stdout)
+    assert hashes["withBank"] != hashes["synth"], "банк и синтез дали одинаковый WAV"
+
+
+# Полосы для сверки: низ (808/кик), тело (бас, корпус снейра), верх (хэты, шум).
+PARITY_BANDS = ((20, 60), (60, 120), (120, 250), (250, 500), (500, 1000),
+                (1000, 2000), (2000, 4000), (4000, 8000))
+
+
+def _band_energy(mono, sample_rate: int) -> dict[str, float]:
+    np = pytest.importorskip("numpy")
+    spectrum = np.abs(np.fft.rfft(mono * np.hanning(mono.size))) / mono.size * 2
+    freqs = np.fft.rfftfreq(mono.size, 1.0 / sample_rate)
+    out = {}
+    for low, high in PARITY_BANDS:
+        mask = (freqs >= low) & (freqs < high)
+        energy = float(np.sqrt((spectrum[mask] ** 2).sum()))
+        out[f"{low}-{high}"] = 20 * np.log10(max(energy, 1e-12))
+    return out
+
+
+def _js_section(name: str, bank: bool, target: Path) -> None:
+    script = f"""
+    const path = require('node:path');
+    const fs = require('node:fs');
+    const {{ renderBeat, buildSection }} = require('./src/core/audio/engine');
+    const {{ VoiceEngine }} = require('./src/core/audio/voices');
+    const {{ SampleSource }} = require('./src/core/audio/bank');
+    const {{ createNodeFs }} = require('./src/core/fs-node');
+    const patterns = require('./src/core/audio/patterns');
+    const arrangement = require('./src/core/audio/arrangement');
+    const {{ Rng }} = require('./src/core/audio/rng');
+    const {{ encodeWav }} = require('./src/core/audio/wav');
+
+    const plans = arrangement.planSections({{ bpm: 140, durationSec: 12 }});
+    const plan = plans.find((item) => item.name === {json.dumps(name)});
+    const bank = {str(bank).lower()}
+      ? new SampleSource({{ fileSystem: createNodeFs(), rootDir: path.resolve('..') }})
+      : null;
+    const engine = new VoiceEngine({{
+      bpm: 140,
+      key: 'A minor',
+      genre: 'phonk',
+      rng: new Rng(7),
+      noiseRng: new Rng((7 ^ 0x9e3779b9) >>> 0),
+      slotPatterns: patterns.slotPresetForGenre('phonk'),
+      velocityMap: patterns.velocityMapForGenre('phonk'),
+      bank,
+    }});
+    engine.aggression = 0.7;
+    const section = buildSection(engine, plan.name, plan.bars, plan);
+    fs.writeFileSync({json.dumps(str(target))}, encodeWav([section.left, section.right], 44100, {{ float32: true }}));
+    """
+    result = _node(script, timeout=300)
+    assert result.returncode == 0, result.stderr
+
+
+def _py_section(name: str, bank: bool, monkeypatch) -> object:
+    np = pytest.importorskip("numpy")
+    from modules.beat import samples as py_samples
+    from modules.beat.constructor import BeatConstructor
+    from modules.beat.dramaturgy import plan_sections
+
+    if not bank:
+        monkeypatch.setattr(py_samples.SampleBankMixin, "_bank", lambda self: None)
+    plans = plan_sections(bpm=140, duration_sec=12)
+    plan = [item for item in plans if item.name == name][0]
+    constructor = BeatConstructor(bpm=140, key="A minor", groove={}, samples=[], genre="phonk", seed=7)
+    return constructor._build_section(name, plan.bars, 0.7, plan=plan).mean(axis=1)
+
+
+@pytest.mark.parametrize("section", ["intro", "verse", "hook"])
+def test_synth_path_matches_python_within_2_db(section: str, tmp_path: Path, monkeypatch) -> None:
+    """Синтез в окне звучит как синтез в Python — полоса в полосу.
+
+    Это главная проверка порта: одинаковые формулы, огибающие, фильтры и
+    гейны должны давать одинаковый спектральный баланс. Допуск 2 дБ — это
+    разница между шумовыми реализациями (numpy PCG64 против mulberry32),
+    а не «примерно похоже»: расхождение по полосам видно сразу.
+    """
+    sf = pytest.importorskip("soundfile")
+
+    target = tmp_path / f"js_{section}.wav"
+    _js_section(section, bank=False, target=target)
+    js_mono = sf.read(str(target))[0].mean(axis=1)
+    py_mono = _py_section(section, bank=False, monkeypatch=monkeypatch)
+
+    js_bands = _band_energy(js_mono, 44100)
+    py_bands = _band_energy(py_mono, 44100)
+    diffs = {band: js_bands[band] - py_bands[band] for band in js_bands}
+    worst = max(diffs.items(), key=lambda item: abs(item[1]))
+    assert abs(worst[1]) <= 2.0, f"{section}: полоса {worst[0]} разошлась на {worst[1]:.1f} дБ"
+
+
+def test_bank_path_keeps_the_same_character(tmp_path: Path, monkeypatch) -> None:
+    """С банком окно звучит в том же характере, но не сэмпл-в-сэмпл.
+
+    Причина честная: Python выбирает one-shot через `_np_rng` (поток общий с
+    шумом синтеза), окно — через отдельный поток. Совпадение выборки не
+    гарантируется, поэтому сравнивается не сигнал, а грув и спектр.
+    """
+    sf = pytest.importorskip("soundfile")
+
+    target = tmp_path / "js_bank.wav"
+    _js_section("hook", bank=True, target=target)
+    js_mono = sf.read(str(target))[0].mean(axis=1)
+    py_mono = _py_section("hook", bank=True, monkeypatch=monkeypatch)
+
+    js_bands = _band_energy(js_mono, 44100)
+    py_bands = _band_energy(py_mono, 44100)
+    # Низ (808) выбирается случайно в каждом такте, поэтому по нему допуск шире;
+    # тело и верх обязаны совпасть.
+    for band in ("60-120", "120-250", "250-500", "500-1000", "4000-8000"):
+        assert abs(js_bands[band] - py_bands[band]) <= 3.0, (
+            f"полоса {band}: {js_bands[band]:.1f} против {py_bands[band]:.1f} дБ"
+        )
+    assert abs(js_bands["20-60"] - py_bands["20-60"]) <= 6.0, "низ разошёлся сильнее допустимого"

@@ -186,6 +186,7 @@ function beatOptions() {
     bpm,
     durationSec,
     seed: seedText === '' ? null : Number(seedText),
+    useBank: Boolean($('beat-use-bank') && $('beat-use-bank').checked),
   };
 }
 
@@ -214,6 +215,13 @@ function renderBeatReport(report) {
     reportLine('длительность', `${report.duration_sec} с, ${report.channels} канала, ${report.bits} бит`),
     reportLine('сид', report.seed === null ? 'нет (не детерминировано)' : report.seed),
     reportLine('движок ударных', `${report.drum_engine.status} — ${report.drum_engine.reason}`),
+    reportLine(
+      'банк сэмплов',
+      report.drum_engine.sample_bank
+        ? `${report.drum_engine.sample_bank.total_samples} one-shot, `
+          + `${report.drum_engine.sample_bank.instruments_with_samples.join(', ')}`
+        : 'не подключён',
+    ),
     reportLine('секций / тактов', `${report.sections.length} / ${report.total_bars}`),
     reportLine('хук в первые 15 с', report.dramaturgy.hook_within_15s ? 'да' : 'нет'),
     reportLine('дрейф темпа', `${drift.drift_pct || 0} % (пик ${drift.peak_deviation_ms || 0} мс)`),
@@ -228,6 +236,20 @@ async function loadBeat() {
   }
   if (loadBeat.wired) return;
   loadBeat.wired = true;
+
+  // Что за банк подключён — видно до первого рендера, а не только в отчёте.
+  try {
+    const bankReply = await window.zsmm.beatBank();
+    if (bankReply && bankReply.ok === true) {
+      const data = bankReply.data;
+      $('beat-bank-note').textContent = data.status === 'REAL_PASS'
+        ? `Банк сэмплов подключён: ${data.total_samples} one-shot (${data.instruments_with_samples.join(', ')}). `
+          + 'Ударные играют живые записи, синтез остаётся для импактов и FX.'
+        : `Банк неполный (${data.status}): ${(data.warnings || []).join('; ') || 'часть инструментов синтезируется'}.`;
+    }
+  } catch (err) {
+    showError(`Банк сэмплов: ${err.message}`);
+  }
 
   $('beat-render').addEventListener('click', async () => {
     let options;

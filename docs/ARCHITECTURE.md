@@ -191,8 +191,9 @@ loop, и отдаёт стадии списком `AsyncStage`. Раньше у 
   готовности готовит `npm run snapshot` вызовом штатного
   `python -m tools.readiness`, и окно **сверяет** их с собственным расчётом.
   Звук считает тоже окно: `src/core/audio/*` — порт `modules/beat/` на
-  JavaScript (синтез ударных, фильтры Баттерворта, ритм и акценты,
-  гармония, драматургия, сборка и запись WAV). Python остаётся эталоном и
+  JavaScript (синтез ударных, сэмпловый банк `data/samples/` с декодером WAV,
+  фильтры Баттерворта, ритм и акценты, гармония, драматургия, сборка и запись
+  WAV). Python остаётся эталоном и
   источником тяжёлых моделей: свои задачи окно запускает той же командой,
   что и терминал, и показывает вывод построчно. Упаковка описана в
   `package.json` (`electron-builder`), но инсталлятор не собирался: в
@@ -211,7 +212,7 @@ loop, и отдаёт стадии списком `AsyncStage`. Раньше у 
 | `python tools/ast_dead_imports.py` | мёртвые импорты |
 | `python tools/ast_undefined_names.py` | имена, использующиеся без определения (`NameError`) |
 | `python -m tools.readiness` | честный процент готовности + матрица модулей |
-| `cd desktop && npm test` | 122 теста оболочки на Electron: каталог, готовность, задачи, рендер окна в DOM-двойнике, аудио-движок (фильтры против чисел scipy, детерминизм seed, WAV) — пакет `electron` не нужен |
+| `cd desktop && npm test` | 143 теста оболочки на Electron: каталог, готовность, задачи, рендер окна в DOM-двойнике, аудио-движок (фильтры против чисел scipy, детерминизм seed, WAV) — пакет `electron` не нужен |
 | `python -m pytest tests/test_desktop_audio_port.py` | сверка JS-таблиц ритма и акцентов с `modules/beat/patterns.py`, проекция 120 жанров, чтение готового WAV через `soundfile` |
 | `cd desktop && npm run snapshot` | снимок чисел через штатный Python-инструмент → `data/desktop/` |
 | `python -m pytest tests/test_desktop_shell.py` | сверка расчёта готовности в JS с эталоном Python |

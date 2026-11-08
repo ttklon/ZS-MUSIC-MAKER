@@ -14,6 +14,7 @@ const path = require('node:path');
 const { createNodeFs } = require('../src/core/fs-node');
 const { createProject } = require('../src/core/project');
 const { renderBeat } = require('../src/core/audio/engine');
+const { SampleSource } = require('../src/core/audio/bank');
 const { sanitizeBeatOptions, BEAT_LIMITS } = require('../src/core/beat-options');
 const tasks = require('./tasks');
 
@@ -116,12 +117,33 @@ function registerIpc(getProject) {
 
   // Бит считается здесь, в главном процессе: страница не получает ни `fs`,
   // ни доступа к движку. Наружу уходит готовый WAV в base64 и отчёт.
+  //
+  // Банк сэмплов открывается один раз на процесс и переиспользуется: он
+  // держит декодированные one-shot'ы в кэше, и повторный рендер не
+  // перечитывает 32 файла с диска.
+  let sampleSource = null;
+  const bankFor = () => {
+    if (!sampleSource) sampleSource = new SampleSource({ fileSystem: createNodeFs(), rootDir: ROOT });
+    return sampleSource;
+  };
+
   ipcMain.handle('zsmm:beat-render', (_event, options) => {
     const sanitized = sanitizeBeatOptions(options);
     if (sanitized.error) return { ok: false, error: sanitized.error };
     try {
-      const { wav, report } = renderBeat(sanitized.value);
+      const { wav, report } = renderBeat({
+        ...sanitized.value,
+        bank: sanitized.value.useBank === false ? null : bankFor(),
+      });
       return { ok: true, data: { report, wavBase64: wav.toString('base64') } };
+    } catch (err) {
+      return { ok: false, error: err && err.message ? err.message : String(err) };
+    }
+  });
+
+  ipcMain.handle('zsmm:beat-bank', () => {
+    try {
+      return { ok: true, data: bankFor().report() };
     } catch (err) {
       return { ok: false, error: err && err.message ? err.message : String(err) };
     }

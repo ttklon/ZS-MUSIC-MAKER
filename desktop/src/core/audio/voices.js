@@ -56,14 +56,25 @@ function isMajor(key) {
  * же данные такта.
  */
 class VoiceEngine {
-  constructor({ bpm, key, genre, rng, slotPatterns, velocityMap, groove = {} }) {
+  constructor({
+    bpm, key, genre, rng, noiseRng = null, slotPatterns, velocityMap, groove = {}, bank = null,
+  }) {
     this.bpm = bpm;
     this.key = key;
     this.genre = genre;
+    // Два потока случайности, как в Python-версии (`_py_rng` и `_np_rng`):
+    // `rng` — человечность, акценты и вариативность рисунка; `noiseRng` —
+    // шум синтеза и выбор сэмпла из банка. Один общий поток — ошибка: выбор
+    // сэмпла сдвигал бы «человечность», и рисунок расходился бы с эталоном.
     this.rng = rng;
+    this.noiseRng = noiseRng || rng;
     this.slotPatterns = slotPatterns;
     this.velocityMap = velocityMap;
     this.groove = groove || {};
+    // Источник сэмплов (`audio/bank.js`): если банк пуст или его нет, голоса
+    // синтезируются и отчёт честно скажет FALLBACK.
+    this.bank = bank;
+    if (this.bank) this.bank.rootHz = rootFreq(key);
     this.sr = 44100;
     this.sectionEnergy = 0.6;
     this.previousChord = null;
@@ -110,11 +121,20 @@ class VoiceEngine {
     if (pattern[step % pattern.length] === 0) return zeros(1);
 
     const velocity = this.velocity('kick', step, bar);
-    const variant = humanize.variantIndex(this.rng, KICK_VARIANTS);
-    let kick = drums.synthKick(this.sr, this.rng, {
-      tune: 1.0 + (variant - 1) * 0.035,
-      decay: 0.23 + 0.03 * variant,
-    });
+    const bankKick = this.bankAudio('kick', velocity);
+    let kick;
+    if (bankKick) {
+      // Трим банка отдельный: one-shot'ы нормированы по пику, а не по
+      // громкости, поэтому без него кик «съедает» хэты (см. `drums.py`).
+      kick = Float32Array.from(bankKick);
+      for (let i = 0; i < kick.length; i += 1) kick[i] *= drums.BANK_GAIN.kick;
+    } else {
+      const variant = humanize.variantIndex(this.rng, KICK_VARIANTS);
+      kick = drums.synthKick(this.sr, this.noiseRng, {
+        tune: 1.0 + (variant - 1) * 0.035,
+        decay: 0.23 + 0.03 * variant,
+      });
+    }
 
     if (this.sectionEnergy >= 0.85) {
       const tail = drums.synth808(this.sr, 41.0, kick.length / this.sr, { glide: 0.02, drive: 1.2 });
@@ -134,16 +154,25 @@ class VoiceEngine {
     if (this.slotPatterns.snare[position] === 0 && !isGhost) return zeros(1);
 
     // Чередуем снейр и клэп на 2 и 4 доле нечётного такта.
-    const wantsClap = position === 4 || position === 12 ? bar % 2 === 1 : false;
+    const wantsClap = (position === 4 || position === 12) && bar % 2 === 1
+      && Boolean(this.bank && !this.bank.empty);
     const velocity = this.velocity('snare', step, bar, isGhost);
+    const instrument = wantsClap ? 'clap' : 'snare';
+    const bankHit = this.bankAudio(instrument, velocity);
+    if (bankHit) {
+      const gain = drums.BANK_GAIN[instrument] * velocity * drums.INSTRUMENT_GAIN.snare;
+      const out = Float32Array.from(bankHit);
+      for (let i = 0; i < out.length; i += 1) out[i] *= gain;
+      return out;
+    }
     const variant = humanize.variantIndex(this.rng, SNARE_VARIANTS);
-    let hit = drums.synthSnare(this.sr, this.rng, {
+    let hit = drums.synthSnare(this.sr, this.noiseRng, {
       tune: 1.0 + (variant - 1) * 0.03,
       decay: 0.155 + 0.012 * variant,
       bright: 1.0 + 0.08 * variant,
     });
     if (wantsClap) {
-      const clap = drums.synthClap(this.sr, this.rng);
+      const clap = drums.synthClap(this.sr, this.noiseRng);
       for (let i = 0; i < hit.length; i += 1) hit[i] = hit[i] * 0.75 + (clap[i] || 0) * 0.55;
     }
     const gain = velocity * drums.INSTRUMENT_GAIN.snare;
@@ -170,8 +199,16 @@ class VoiceEngine {
     const velocity = this.velocity('hat', step, bar);
     // Открытый хэт — на последней шестнадцатой такта, как в живом груве.
     const openHat = step % 16 === 15 && bar % 2 === 1;
+    const bankHat = this.bankAudio(openHat ? 'open_hat' : 'hat', velocity);
+    if (bankHat) {
+      const gain = drums.BANK_GAIN[openHat ? 'open_hat' : 'hat']
+        * velocity * drums.INSTRUMENT_GAIN.hat * amount;
+      const out = Float32Array.from(bankHat);
+      for (let i = 0; i < out.length; i += 1) out[i] *= gain;
+      return out;
+    }
     const variant = humanize.variantIndex(this.rng, HAT_VARIANTS);
-    const hat = drums.synthHat(this.sr, this.rng, {
+    const hat = drums.synthHat(this.sr, this.noiseRng, {
       openHat,
       tune: 1.0 + (variant - 1) * 0.045,
       metallic: 0.66 + 0.06 * variant,
@@ -190,8 +227,37 @@ class VoiceEngine {
     return (rootFreq(this.key) / 2.0) * Math.pow(2, semitones / 12);
   }
 
+  /** Сэмпл из банка (mono) или null: тонкость в том, что банк может быть пуст. */
+  bankAudio(instrument, velocity) {
+    if (!this.bank || this.bank.empty) return null;
+    const audio = this.bank.audio(instrument, this.noiseRng, velocity);
+    return audio && audio.length ? audio : null;
+  }
+
+  /**
+   * Атака настоящего 808 поверх синтезированного тела.
+   *
+   * Сэмпл 808 — затухающий удар, а не «луп на такт»: он не держит ноту и не
+   * подстраивается под ступень без потери атаки. Поэтому низ строит синтез,
+   * а сэмпл даёт характер — как в реальных битах.
+   */
+  bassAttack() {
+    const audio = this.bankAudio('808', 0.9);
+    if (!audio || !audio.length) return null;
+    const length = Math.min(audio.length, Math.trunc(this.sr * 0.09));
+    const attack = Float32Array.from(audio.subarray(0, length));
+    for (let i = 0; i < length; i += 1) attack[i] *= drums.INSTRUMENT_GAIN.bass808;
+    // Плавный спад в конце: обрыв волны на произвольной фазе даёт щелчок.
+    const fade = Math.min(length, Math.max(1, Math.trunc(this.sr * 0.01)));
+    for (let i = 0; i < fade; i += 1) attack[length - fade + i] *= 1 - i / fade;
+    return attack;
+  }
+
   /** Базовая линия на такт: 808 с humanize-смещениями. */
   generateBassLine(bar, barSamples) {
+    // Атака сэмпла считается один раз и копируется в каждую ноту: если взять
+    // её в цикле, RNG «съест» лишние числа и рисунок поедет против Python.
+    const attack = this.bassAttack();
     const pattern = this.slotPatterns.bass;
     const bass = zeros(barSamples);
     const stepLen = Math.floor(barSamples / 16);
@@ -206,6 +272,15 @@ class VoiceEngine {
         glide: 0.028,
         drive: 1.7 + 0.2 * (bar % 2),
       });
+      // `attack` — уже готовый «кирпич» 808 на 90 мс, посчитанный выше.
+      if (attack) {
+        // Атака сэмпла ложится на первые ~90 мс ноты: это и есть «шершавость»
+        // настоящего 808, которой у синуса нет. Своя громкость (`bass808`)
+        // уже учтена в самой атаке — второй раз множитель не применяем,
+        // иначе верх 808 глохнет на 10 дБ против Python-версии.
+        const head = Math.min(attack.length, note.length, end - start);
+        for (let j = 0; j < head; j += 1) note[j] += attack[j] * 0.9;
+      }
       const gain = drums.INSTRUMENT_GAIN.bass808 * this.velocity('bass', i, bar);
       mixInto(bass, note, start, gain);
       noteIndex += 1;
@@ -241,7 +316,7 @@ class VoiceEngine {
   /** FX: импакт на первом такте хука, стоп-тайм в конце фразы. */
   generateFx(bar, section, barSamples) {
     if ((section === 'hook' || section === 'chorus') && bar === 0) {
-      const impact = drums.synthSubImpact(this.sr, this.rng);
+      const impact = drums.synthSubImpact(this.sr, this.noiseRng);
       const out = zeros(barSamples);
       const length = Math.min(impact.length, barSamples);
       for (let i = 0; i < length; i += 1) out[i] = impact[i] * drums.INSTRUMENT_GAIN.impact;

@@ -11,10 +11,18 @@
 const test = require('node:test');
 const assert = require('node:assert');
 
+const path = require('node:path');
+
 const { renderBeat, SAMPLE_RATE, tempoDrift, addRoomNoise, finalizeStereo, fitLength } = require('../src/core/audio/engine');
 const { peak, rms } = require('../src/core/audio/dsp');
+const { createNodeFs } = require('../src/core/fs-node');
+const { SampleSource } = require('../src/core/audio/bank');
 
 const SR = SAMPLE_RATE;
+const ROOT = path.resolve(__dirname, '..', '..');
+
+/** Источник сэмплов на настоящем банке проекта. */
+const bankSource = () => new SampleSource({ fileSystem: createNodeFs(), rootDir: ROOT });
 
 /** Прочитать WAV, который вернул движок: заголовок и каналы. */
 function parseWav(buffer) {
@@ -174,4 +182,50 @@ test('fitLength дополняет нулями и нормирует в 0.9', (
   assert.strictEqual(fitted.left.length, 20);
   assert.strictEqual(fitted.left[19], 0);
   assert.ok(Math.abs(peak(fitted.left) - 0.9) < 1e-6);
+});
+
+test('с банком проект говорит REAL_PASS, без банка — FALLBACK', () => {
+  const withBank = renderBeat({ bpm: 140, genre: 'phonk', seed: 7, durationSec: 4, bank: bankSource() });
+  assert.strictEqual(withBank.report.drum_engine.status, 'REAL_PASS');
+  assert.strictEqual(withBank.report.drum_engine.engine, 'sample_bank+procedural');
+  assert.ok(withBank.report.drum_engine.sample_bank.total_samples >= 32);
+  assert.deepStrictEqual(
+    withBank.report.drum_engine.sample_bank.instruments_with_samples,
+    ['kick', 'snare', 'clap', 'hat', 'open_hat', '808'],
+  );
+
+  const synthOnly = renderBeat({ bpm: 140, genre: 'phonk', seed: 7, durationSec: 4, bank: null });
+  assert.strictEqual(synthOnly.report.drum_engine.status, 'FALLBACK');
+  assert.ok(synthOnly.report.drum_engine.reason.includes('sample bank'));
+  assert.ok(!synthOnly.wav.equals(withBank.wav), 'банк и синтез должны звучать по-разному');
+});
+
+test('банк не ломает детерминизм: тот же seed и банк — те же байты', () => {
+  const a = renderBeat({ bpm: 128, genre: 'trap', seed: 4, durationSec: 3, bank: bankSource() });
+  const b = renderBeat({ bpm: 128, genre: 'trap', seed: 4, durationSec: 3, bank: bankSource() });
+  assert.ok(a.wav.equals(b.wav), 'два разных источника банка должны давать одинаковый трек');
+});
+
+test('банк не перегружает микс: пик ≤ 0.98 и не тишина', () => {
+  for (const genre of ['phonk', 'house', 'drill', 'lofi']) {
+    const { wav } = renderBeat({ bpm: 140, genre, seed: 11, durationSec: 5, bank: bankSource() });
+    const audio = parseWav(wav);
+    const top = Math.max(peak(audio.left), peak(audio.right));
+    assert.ok(top <= 0.98, `${genre}: пик ${top.toFixed(3)} выше запаса`);
+    assert.ok(rms(audio.left) > 0.02, `${genre}: трек почти пустой`);
+  }
+});
+
+test('repair-путь: битый банк не роняет рендер, а честно уходит в синтез', () => {
+  const broken = new SampleSource({
+    fileSystem: {
+      exists: (target) => target.endsWith('manifest.json'),
+      readJson: () => ({ value: { schema: 'zsmm.sample-bank.v1', instruments: { kick: [{ file: 'kick/x.wav', license: 'CC0-1.0' }] } } }),
+      readBinary: () => ({ error: 'ENOENT' }),
+    },
+    rootDir: '/virtual',
+  });
+  const { report } = renderBeat({ bpm: 120, genre: 'trap', seed: 2, durationSec: 2, bank: broken });
+  assert.strictEqual(report.drum_engine.status, 'FALLBACK');
+  assert.ok(report.drum_engine.reason.includes('covers 0 of 6'));
 });
