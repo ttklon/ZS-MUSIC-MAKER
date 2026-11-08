@@ -119,13 +119,10 @@ def test_readiness_js_matches_python_snapshot() -> None:
         assert js["blocks"][block] == value, f"блок {block}: JS={js['blocks'][block]} Python={value}"
 
 
-def test_snapshot_freshness_tool_detects_stale_snapshot(tmp_path, monkeypatch) -> None:
-    """Инструмент сверки снимка обязан ругаться на устаревшие данные и молчать
-    на актуальных.
+def _freshness_module(tmp_path, monkeypatch):
+    """Загрузить `tools/check_snapshot_freshness.py` с подменёнными путями.
 
-    Он стоит в CI, поэтому «зелёный» на любом входе был бы хуже, чем его
-    отсутствие. Проверяются оба направления; настоящий репозиторий не
-    трогается — работа идёт на копии в tmp.
+    Настоящий репозиторий не трогается: снимок и инвентарь живут в tmp.
     """
     import importlib.util
 
@@ -137,7 +134,7 @@ def test_snapshot_freshness_tool_detects_stale_snapshot(tmp_path, monkeypatch) -
     spec.loader.exec_module(module)
 
     monkeypatch.setattr(module, "ROOT", tmp_path)
-    (tmp_path / "data" / "desktop").mkdir(parents=True)
+    (tmp_path / "data" / "desktop").mkdir(parents=True, exist_ok=True)
     snapshot = tmp_path / "data" / "desktop" / "readiness.json"
     inventory = tmp_path / "data" / "desktop" / "inventory.md"
     monkeypatch.setattr(module, "SNAPSHOT", snapshot)
@@ -155,13 +152,23 @@ def test_snapshot_freshness_tool_detects_stale_snapshot(tmp_path, monkeypatch) -
         ),
         encoding="utf-8",
     )
-    header = "| Versioned module | Status | AST syntax | Production refs | Test refs |"
-    inventory.write_text(
-        f"{header}\n|---|---|---:|---:|---:|\n| app/core.py | REAL_PASS | PASS | 3 | 7 |\n",
-        encoding="utf-8",
-    )
+    inventory.write_text(INVENTORY_TEXT, encoding="utf-8")
+    return module, snapshot
 
-    committed_snapshot = json.dumps(
+
+INVENTORY_HEADER = "| Versioned module | Status | AST syntax | Production refs | Test refs |"
+INVENTORY_TEXT = (
+    f"{INVENTORY_HEADER}\n|---|---|---:|---:|---:|\n| app/core.py | REAL_PASS | PASS | 3 | 7 |\n"
+)
+COMMITTED_INVENTORY = (
+    f"{INVENTORY_HEADER}\n|---|---|---:|---:|---:|\n| app/core.py | REAL_PASS | PASS | 3 | 9 |\n"
+)
+
+
+def test_snapshot_freshness_ignores_environment_dependent_numbers(tmp_path, monkeypatch) -> None:
+    """Другие проценты и другие «Test refs» — это не устаревший снимок."""
+    module, _ = _freshness_module(tmp_path, monkeypatch)
+    committed = json.dumps(
         {
             "percent": 42,
             "generated_at": "2025-01-01T00:00:00Z",
@@ -169,23 +176,29 @@ def test_snapshot_freshness_tool_detects_stale_snapshot(tmp_path, monkeypatch) -
             "caps_triggered": [["65", "heavy engines unavailable"]],
         }
     )
-    same_inventory = (
-        f"{header}\n|---|---|---:|---:|---:|\n| app/core.py | REAL_PASS | PASS | 3 | 9 |\n"
+    monkeypatch.setattr(
+        module,
+        "committed",
+        lambda path: committed if path.name == "readiness.json" else COMMITTED_INVENTORY,
+    )
+
+    assert module.main() == 0
+
+
+def test_snapshot_freshness_detects_changed_module_set(tmp_path, monkeypatch) -> None:
+    """А пропавший модуль — устаревший снимок: окно показывало бы не то."""
+    module, _ = _freshness_module(tmp_path, monkeypatch)
+    stale = json.dumps(
+        {
+            "percent": 42,
+            "module_inventory": {"tracked_modules": 299},
+            "caps_triggered": [["65", "heavy engines unavailable"]],
+        }
     )
     monkeypatch.setattr(
         module,
         "committed",
-        lambda path: committed_snapshot if path.name == "readiness.json" else same_inventory,
+        lambda path: stale if path.name == "readiness.json" else COMMITTED_INVENTORY,
     )
 
-    # Тот же состав модулей, другие проценты и другие «Test refs» — это не дрейф.
-    assert module.main() == 0, "снимок не должен считаться устаревшим из-за процентов и test refs"
-
-    # А вот пропавший/добавленный модуль — дрейф.
-    stale = committed_snapshot.replace('"tracked_modules": 300', '"tracked_modules": 299')
-    monkeypatch.setattr(
-        module,
-        "committed",
-        lambda path: stale if path.name == "readiness.json" else same_inventory,
-    )
-    assert module.main() == 1, "изменение состава модулей должно быть замечено"
+    assert module.main() == 1
