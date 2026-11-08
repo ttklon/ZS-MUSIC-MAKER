@@ -166,15 +166,34 @@ jobs:
             exit 1
           }
 
+      - name: Cache Electron and electron-builder downloads
+        uses: actions/cache@v4
+        with:
+          # Упаковка качает electron-vXX-win32-x64.zip и nsis-ресурсы.
+          # Без кэша каждый прогон — это три скачивания по сети раннера,
+          # и любое из них может оборваться (мы это уже видели: «EOF»).
+          path: |
+            ~/AppData/Local/electron/Cache
+            ~/AppData/Local/electron-builder/Cache
+          key: ${{ runner.os }}-electron-cache-${{ hashFiles('desktop/package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-electron-cache-
+
       - name: Download the Electron binary (needed for packaging)
         working-directory: desktop
         shell: pwsh
         run: |
-          $output = (& node node_modules/electron/install.js 2>&1 | Out-String)
-          $output
-          if ($LASTEXITCODE -ne 0) {
-            $tail = ($output -split "`n" | Select-Object -Last 10) -join ' | '
-            Write-Output "::error title=electron binary::$tail"
+          # Скачивание бинарника — самый хрупкий шаг: повторяем до трёх раз.
+          $ok = $false
+          for ($i = 1; $i -le 3; $i++) {
+            $output = (& node node_modules/electron/install.js 2>&1 | Out-String)
+            $output
+            if ($LASTEXITCODE -eq 0) { $ok = $true; break }
+            Write-Output "::warning title=electron binary::попытка $i не удалась, повтор"
+            Start-Sleep -Seconds (5 * $i)
+          }
+          if (-not $ok) {
+            Write-Output "::error title=electron binary::бинарник не скачался за 3 попытки"
             exit 1
           }
 
@@ -185,9 +204,17 @@ jobs:
         # в командной строке (`--win nsis portable`), и app-builder падал на
         # неожиданном аргументе.
         run: |
-          $output = (& npx electron-builder --win --x64 --publish never 2>&1 | Out-String)
-          $output
-          if ($LASTEXITCODE -ne 0) {
+          # Повтор на случай обрыва скачивания nsis/winCodeSign: конфигурация
+          # та же, поэтому вторая попытка обычно попадает в кэш первого шага.
+          $ok = $false
+          for ($i = 1; $i -le 2; $i++) {
+            $output = (& npx electron-builder --win --x64 --publish never 2>&1 | Out-String)
+            $output
+            if ($LASTEXITCODE -eq 0) { $ok = $true; break }
+            Write-Output "::warning title=electron-builder::попытка $i не удалась, повтор"
+            Start-Sleep -Seconds (10 * $i)
+          }
+          if (-not $ok) {
             $tail = ($output -split "`n" | Select-Object -Last 25) -join ' | '
             Write-Output "::error title=electron-builder::$tail"
             exit 1

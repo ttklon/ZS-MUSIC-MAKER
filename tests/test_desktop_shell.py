@@ -120,11 +120,12 @@ def test_readiness_js_matches_python_snapshot() -> None:
 
 
 def test_snapshot_freshness_tool_detects_stale_snapshot(tmp_path, monkeypatch) -> None:
-    """Инструмент сверки снимка обязан ругаться на устаревшие данные.
+    """Инструмент сверки снимка обязан ругаться на устаревшие данные и молчать
+    на актуальных.
 
     Он стоит в CI, поэтому «зелёный» на любом входе был бы хуже, чем его
-    отсутствие: оба случая — испорченный снимок и совпадающий — проверяются
-    на копии файла, настоящий репозиторий не трогается.
+    отсутствие. Проверяются оба направления; настоящий репозиторий не
+    трогается — работа идёт на копии в tmp.
     """
     import importlib.util
 
@@ -139,12 +140,14 @@ def test_snapshot_freshness_tool_detects_stale_snapshot(tmp_path, monkeypatch) -
     (tmp_path / "data" / "desktop").mkdir(parents=True)
     snapshot = tmp_path / "data" / "desktop" / "readiness.json"
     inventory = tmp_path / "data" / "desktop" / "inventory.md"
-    # Проценты могут законно отличаться (разные пакеты в окружении), а состав
-    # модулей и потолки — нет: именно они и должны ловить устаревший снимок.
+    monkeypatch.setattr(module, "SNAPSHOT", snapshot)
+    monkeypatch.setattr(module, "INVENTORY", inventory)
+    monkeypatch.setattr(module, "have_history", lambda: True)
+
     snapshot.write_text(
         json.dumps(
             {
-                "percent": 65,
+                "percent": 65,  # проценты законно зависят от установленных пакетов
                 "generated_at": "2026-01-01T00:00:00Z",
                 "module_inventory": {"tracked_modules": 300},
                 "caps_triggered": [["65", "heavy engines unavailable"]],
@@ -152,22 +155,37 @@ def test_snapshot_freshness_tool_detects_stale_snapshot(tmp_path, monkeypatch) -
         ),
         encoding="utf-8",
     )
-    inventory.write_text("| header |\n", encoding="utf-8")
-    monkeypatch.setattr(module, "SNAPSHOT", snapshot)
-    monkeypatch.setattr(module, "INVENTORY", inventory)
+    header = "| Versioned module | Status | AST syntax | Production refs | Test refs |"
+    inventory.write_text(
+        f"{header}\n|---|---|---:|---:|---:|\n| app/core.py | REAL_PASS | PASS | 3 | 7 |\n",
+        encoding="utf-8",
+    )
+
+    committed_snapshot = json.dumps(
+        {
+            "percent": 42,
+            "generated_at": "2025-01-01T00:00:00Z",
+            "module_inventory": {"tracked_modules": 300},
+            "caps_triggered": [["65", "heavy engines unavailable"]],
+        }
+    )
+    same_inventory = (
+        f"{header}\n|---|---|---:|---:|---:|\n| app/core.py | REAL_PASS | PASS | 3 | 9 |\n"
+    )
     monkeypatch.setattr(
         module,
         "committed",
-        lambda path: json.dumps(
-            {
-                "percent": 42,
-                "generated_at": "2025-01-01T00:00:00Z",
-                "module_inventory": {"tracked_modules": 299},
-                "caps_triggered": [["65", "heavy engines unavailable"]],
-            }
-        )
-        if path.name == "readiness.json"
-        else "| header |\n",
+        lambda path: committed_snapshot if path.name == "readiness.json" else same_inventory,
     )
 
-    assert module.main() == 1, "расхождение состава модулей должно быть замечено"
+    # Тот же состав модулей, другие проценты и другие «Test refs» — это не дрейф.
+    assert module.main() == 0, "снимок не должен считаться устаревшим из-за процентов и test refs"
+
+    # А вот пропавший/добавленный модуль — дрейф.
+    stale = committed_snapshot.replace('"tracked_modules": 300', '"tracked_modules": 299')
+    monkeypatch.setattr(
+        module,
+        "committed",
+        lambda path: stale if path.name == "readiness.json" else same_inventory,
+    )
+    assert module.main() == 1, "изменение состава модулей должно быть замечено"

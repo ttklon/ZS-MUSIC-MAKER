@@ -113,7 +113,7 @@
 | config/settings.py | REAL_PASS | PASS | 2 | 112 |
 | install.py | REAL_PASS | PASS | 0 | 158 |
 | main.py | REAL_PASS | PASS | 1 | 236 |
-| modules/__init__.py | REAL_PASS | PASS | 0 | 838 |
+| modules/__init__.py | REAL_PASS | PASS | 0 | 840 |
 | modules/ai_arranger.py | DEPRECATED | PASS | 0 | 0 |
 | modules/ai_detector_pro.py | DEPRECATED | PASS | 1 | 19 |
 | modules/analyzer.py | REAL_PASS | PASS | 1 | 81 |
@@ -186,7 +186,7 @@
 | modules/llm/secrets.py | REAL_PASS | PASS | 2 | 27 |
 | modules/lyric_vault.py | DEPRECATED | PASS | 0 | 5 |
 | modules/lyrics/__init__.py | REAL_PASS | PASS | 1 | 139 |
-| modules/lyrics/ai.py | REAL_PASS | PASS | 2 | 1990 |
+| modules/lyrics/ai.py | REAL_PASS | PASS | 2 | 1992 |
 | modules/lyrics/author.py | REAL_PASS | PASS | 1 | 150 |
 | modules/lyrics/generate.py | REAL_PASS | PASS | 2 | 103 |
 | modules/lyrics/memory.py | REAL_PASS | PASS | 3 | 48 |
@@ -281,7 +281,7 @@
 | tools/readiness/__init__.py | REAL_PASS | PASS | 2 | 124 |
 | tools/readiness/__main__.py | REAL_PASS | PASS | 0 | 11 |
 | tools/readiness/cli.py | REAL_PASS | PASS | 2 | 178 |
-| tools/readiness/inventory.py | REAL_PASS | PASS | 3 | 41 |
+| tools/readiness/inventory.py | REAL_PASS | PASS | 3 | 43 |
 | tools/readiness/paths.py | REAL_PASS | PASS | 5 | 58 |
 | tools/readiness/probes.py | REAL_PASS | PASS | 2 | 5 |
 | tools/readiness/reachability.py | REAL_PASS | PASS | 1 | 1 |
