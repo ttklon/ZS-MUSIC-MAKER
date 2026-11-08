@@ -47,17 +47,29 @@ def download_to_cache(item: dict) -> str | None:
     url = item.get("url")
     if not url:
         return None
-    from app.core.security_utils import download_file, safe_hash
+    from app.core.security_utils import download_file, safe_hash, safe_identifier
 
     CACHE.mkdir(parents=True, exist_ok=True)
     digest = safe_hash(url)[:10]
     raw_name = f"{item.get('source', 'online')}_{digest}_{item.get('name', 'sample')[:30]}"
-    safe_name = "".join(ch if ch.isalnum() or ch in "._-" else "_" for ch in raw_name)
+    # Имя собиралось вручную и могло содержать "..": правила безопасности
+    # должны быть одни на проект. НО `safe_identifier` убирает точку, поэтому
+    # санитизируется только основа, а аудио-расширение переносится отдельно —
+    # иначе скачанный файл терял `.wav` и пропадал из `list_local` (там фильтр
+    # по AUDIO_EXT), оставаясь на диске невидимым для пользователя.
+    stem, dot, ext = raw_name.rpartition(".")
+    if dot and f".{ext.lower()}" in AUDIO_EXT:
+        safe_name = f"{safe_identifier(stem, fallback=f'sample_{digest}')}.{ext.lower()}"
+    else:
+        safe_name = safe_identifier(raw_name, fallback=f"sample_{digest}")
     target = CACHE / safe_name
     if target.exists():
         return str(target)
     if download_file(url, str(target)):
-        return str(target)
+        # `download_file` возвращает True/False, но пустой ответ или сбой
+        # записи могут оставить нулевой файл: путь отдаём только за реальный.
+        if target.exists() and target.stat().st_size > 0:
+            return str(target)
     return None
 
 

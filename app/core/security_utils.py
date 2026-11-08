@@ -65,7 +65,11 @@ def download_file(url: str, target_path: str, timeout: int = 30) -> bool:
         response = requests.get(url, timeout=timeout, stream=True)
         response.raise_for_status()
         
-        os.makedirs(os.path.dirname(target_path), exist_ok=True)
+        # os.path.dirname("file.wav") == "": makedirs("") падал FileNotFoundError
+        # уже ПОСЛЕ успешного ответа — сеть потрачена, файл потерян.
+        parent = os.path.dirname(target_path)
+        if parent:
+            os.makedirs(parent, exist_ok=True)
         with open(target_path, 'wb') as f:
             for chunk in response.iter_content(chunk_size=8192):
                 f.write(chunk)
