@@ -149,3 +149,42 @@ test('реальный снимок inventory читается целиком', 
   assert.deepEqual(errors, []);
   assert.ok(rows.length > 200, `строк в inventory: ${rows.length}`);
 });
+
+
+test('пресет находится по множественному числу, сокращению и словам', () => {
+  const fsApi = createNodeFs();
+  const catalog = createCatalog(fsApi, ROOT);
+  const index = catalog.indexPresets(catalog.readPresets().presets);
+
+  // Живые пары из каталога: раньше они показывались как «без пресета»,
+  // хотя файлы лежат в data/genre_presets.
+  const pairs = [
+    ['Afrobeats', 'afrobeat'],
+    ['Drum and Bass', 'dnb'],
+    ['Lo-Fi Hip Hop', 'lofi'],
+    ['Phonk', 'phonk'],
+  ];
+  for (const [name, slug] of pairs) {
+    const preset = catalog.presetFor(index, name);
+    assert.ok(preset, `${name}: пресет не найден (ожидался ${slug})`);
+  }
+
+  // А вот выдумывать нечего: у жанра без пресета его нет.
+  assert.equal(catalog.presetFor(index, 'Baroque'), null);
+  assert.equal(catalog.presetFor(null, 'Phonk'), null);
+});
+
+test('все 50 пресетов видны каталогу, если на них есть жанр или родственник', () => {
+  const fsApi = createNodeFs();
+  const catalog = createCatalog(fsApi, ROOT);
+  const { genres } = catalog.readCatalog();
+  const index = catalog.indexPresets(catalog.readPresets().presets);
+  const matched = genres.filter((genre) => catalog.presetFor(index, genre.name));
+  assert.ok(matched.length >= 20, `с пресетом всего ${matched.length} жанров`);
+  // И каждая пара действительно даёт числа, а не пустую карточку.
+  for (const genre of matched) {
+    const card = catalog.genreCard(genre, catalog.presetFor(index, genre.name));
+    assert.equal(card.hasPreset, true);
+    assert.ok(Array.isArray(card.bpm) && card.bpm.length === 2, `${genre.name}: нет bpm_range`);
+  }
+});

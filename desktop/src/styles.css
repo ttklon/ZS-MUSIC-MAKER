@@ -372,6 +372,12 @@ input {
   background: var(--bg-raised);
 }
 
+.chip-send {
+  margin-top: 6px;
+  padding: 3px 8px;
+  font-size: 12px;
+}
+
 .chip.has-preset {
   border-color: #35507f;
 }

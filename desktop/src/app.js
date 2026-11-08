@@ -153,6 +153,10 @@ async function switchView(view, { force = false } = {}) {
   }
 }
 
+// Раздел «Бит» должен быть доступен из других разделов (жанр → бит), поэтому
+// переключение отдаётся через общий объект, как и остальные помощники.
+W.switchView = switchView;
+
 function wire() {
   for (const button of document.querySelectorAll('.nav-item')) {
     button.addEventListener('click', () => switchView(button.dataset.view));
@@ -162,10 +166,10 @@ function wire() {
     await switchView(state.view, { force: true });
   });
   $('genre-filter').addEventListener('input', () => W.renderGenres && W.renderGenres());
+  // Фильтр модулей перерисовывает уже загруженный список: каждый символ не
+  // должен заново читать inventory.md (300 строк) с диска.
   $('module-filter').addEventListener('input', () => {
-    if (state.loaded.has('modules')) {
-      W.loadModules().catch((err) => showError(err.message));
-    }
+    if (state.loaded.has('modules') && typeof W.renderModules === 'function') W.renderModules();
   });
   $('reveal').addEventListener('click', async () => {
     const result = await window.zsmm.revealRoot();

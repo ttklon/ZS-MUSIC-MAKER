@@ -35,7 +35,10 @@ function createProject(fsApi, root) {
     const { genres: list, categories, error } = catalog.readCatalog();
     const { presets, error: presetError } = catalog.readPresets();
     const index = catalog.indexPresets(presets);
-    const cards = list.map((genre) => catalog.genreCard(genre, index.get(catalog.normalizeKey(genre.name)) || null));
+    // `presetFor` включает множественное число, сокращения и совпадение по
+    // словам: без него «Drum and Bass», «Afrobeats» и «Phonk» показывались
+    // без пресета, хотя файлы лежат в data/genre_presets.
+    const cards = list.map((genre) => catalog.genreCard(genre, catalog.presetFor(index, genre.name)));
     const matched = cards.filter((card) => card.hasPreset).length;
     return {
       genres: cards,

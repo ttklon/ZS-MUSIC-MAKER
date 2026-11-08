@@ -23,6 +23,23 @@ function renderGenres() {
         ? `${genre.category} · ${genre.bpm ? genre.bpm.join('–') + ' BPM' : 'BPM нет'}`
         : `${genre.category} · без пресета`;
       li.append(el('span', 'chip-meta', meta));
+
+      // Жанр — это не только справка: по клику он подставляется в раздел
+      // «Бит» вместе с темпом пресета. Раньше 120 жанров были мёртвым списком,
+      // из которого нельзя было ничего собрать.
+      const send = el('button', 'ghost chip-send', 'Собрать бит');
+      send.addEventListener('click', () => {
+        const bpm = $('beat-bpm');
+        const name = $('beat-genre');
+        if (name) name.value = genre.name;
+        if (bpm && genre.bpm && genre.bpm.length) {
+          // Пресет даёт диапазон темпа — берём нижнюю границу как рабочую.
+          bpm.value = String(Number(genre.bpm[0]) || bpm.value);
+        }
+        state.genreSent = genre.name;
+        W.switchView('beat');
+      });
+      li.append(send);
       return li;
     }),
   );

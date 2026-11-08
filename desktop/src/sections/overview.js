@@ -48,6 +48,13 @@ async function loadOverview() {
 // ----------------------------------------------------------------- модули
 async function loadModules() {
   const data = await ask('modules');
+  state.modules = data;
+  renderModules();
+}
+
+/** Перерисовать таблицу модулей по сохранённым данным и текущему фильтру. */
+function renderModules() {
+  const data = state.modules || {};
   if (data.error) showError(data.error);
   const counts = data.counts || {};
   $('modules-summary').textContent = data.total
@@ -74,7 +81,13 @@ async function loadModules() {
       return tr;
     });
   $('modules-body').replaceChildren(...rows);
+  // Сколько нашлось по фильтру — видно сразу: «нет строк» иначе выглядит как
+  // сломанная таблица, а не как пустой результат поиска.
+  $('modules-found').textContent = filter
+    ? `найдено ${rows.length} из ${(data.rows || []).length}`
+    : '';
 }
 
 W.loadOverview = loadOverview;
 W.loadModules = loadModules;
+W.renderModules = renderModules;

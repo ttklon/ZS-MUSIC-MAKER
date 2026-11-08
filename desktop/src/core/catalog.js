@@ -97,13 +97,65 @@ function createCatalog(fsApi, root) {
       .trim();
   }
 
+  /**
+   * Как имя жанра из каталога соотносится с файлом пресета.
+   *
+   * Кроме точного совпадения ключей есть три честных правила, без которых
+   * живые пары терялись: множественное число («Afrobeats» ↔ `afrobeat`),
+   * сокращение (`dnb` ↔ «Drum and Bass») и разложение по словам
+   * (`lofi` ↔ «Lo Fi Hip Hop», `drift_phonk` ↔ «Phonk»). Ни одно правило не
+   * выдумывает данные: пресет берётся только из существующего файла.
+   */
+  const PRESET_ALIASES = {
+    'drum and bass': ['dnb', 'drum_n_bass'],
+    'lo fi hip hop': ['lofi'],
+    'rhythm and blues': ['rnb'],
+  };
+
+  /** Нормализация для сопоставления: без пунктуации, регистра и `_`. */
+  function looseKey(name) {
+    return String(name || '').toLowerCase().replace(/[_\-]+/g, ' ').replace(/[^a-z0-9а-я ]+/g, '').replace(/\s+/g, ' ').trim();
+  }
+
   function indexPresets(presets) {
     const byKey = new Map();
     for (const [fileKey, preset] of Object.entries(presets)) {
       byKey.set(normalizeKey(fileKey), preset);
-      if (preset && preset.genre) byKey.set(normalizeKey(preset.genre), preset);
+      byKey.set(looseKey(fileKey), preset);
+      if (preset && preset.genre) {
+        byKey.set(normalizeKey(preset.genre), preset);
+        byKey.set(looseKey(preset.genre), preset);
+      }
     }
     return byKey;
+  }
+
+  /**
+   * Пресет для жанра или null.
+   *
+   * Порядок: точное совпадение → множественное число → псевдоним →
+   * совпадение по словам (последнее слово имени жанра есть в ключе пресета).
+   * Последнее правило даёт «Phonk» → `drift_phonk` / `memphis_phonk`, и это
+   * честно: пресет того же семейства, а не выдуманный набор чисел.
+   */
+  function presetFor(index, name) {
+    if (!index || typeof index.get !== 'function') return null;
+    const key = normalizeKey(name);
+    if (index.has(key)) return index.get(key);
+    const loose = looseKey(name);
+    if (index.has(loose)) return index.get(loose);
+    if (index.has(`${loose}s`)) return index.get(`${loose}s`);
+    if (loose.endsWith('s') && index.has(loose.slice(0, -1))) return index.get(loose.slice(0, -1));
+    for (const alias of PRESET_ALIASES[key] || []) {
+      if (index.has(alias)) return index.get(alias);
+      if (index.has(normalizeKey(alias))) return index.get(normalizeKey(alias));
+    }
+    // Совпадение по словам: имя жанра целиком входит в ключ пресета.
+    for (const [candidate, preset] of index.entries()) {
+      if (!candidate) continue;
+      if (candidate.split(' ').includes(loose) && loose.length >= 4) return preset;
+    }
+    return null;
   }
 
   /** Жанр из каталога + пресет, если он есть: одна карточка для окна. */
@@ -121,7 +173,9 @@ function createCatalog(fsApi, root) {
     return card;
   }
 
-  return { readCatalog, readPresets, indexPresets, normalizeKey, genreCard, rootPath, rel };
+  return {
+    readCatalog, readPresets, indexPresets, presetFor, normalizeKey, looseKey, genreCard, rootPath, rel,
+  };
 }
 
 /**
