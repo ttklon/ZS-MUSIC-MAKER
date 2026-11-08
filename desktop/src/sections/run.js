@@ -30,6 +30,20 @@ function appendTaskLine(line) {
 }
 
 async function loadRun() {
+  // Есть ли Python — выясняем до первой кнопки: иначе пользователь нажимает
+  // «Запустить», получает отказ и не понимает, что чинить.
+  if (typeof window.zsmm.environment === 'function') {
+    try {
+      const reply = await window.zsmm.environment();
+      if (reply && reply.ok === true) {
+        state.python = reply.data.python || null;
+        state.pythonError = reply.data.python_error || null;
+      }
+    } catch (err) {
+      state.pythonError = `окружение недоступно: ${err.message}`;
+    }
+  }
+
   const reply = await window.zsmm.listTasks();
   if (!reply || reply.ok === false) {
     throw new Error((reply && reply.error) || 'список задач недоступен');
@@ -49,6 +63,7 @@ async function loadRun() {
       return option;
     }),
   );
+  updatePythonNote();
   setTaskStatus('Задача не запущена', false);
 
   if (!loadRun.wired) {
@@ -83,6 +98,25 @@ async function loadRun() {
       }
     });
   }
+}
+
+/**
+ * Подпись про Python: пока его нет, «Запустить» остаётся доступной, но рядом
+ * написано, что произойдёт. Прятать кнопку хуже — пользователь не поймёт,
+ * почему раздел пустой.
+ */
+function updatePythonNote() {
+  const note = $('task-python-note');
+  if (!note) return;
+  if (state.python) {
+    note.textContent = `Python найден: ${state.python}. Задача запускается тем же CLI, что в терминале.`;
+    return;
+  }
+  // `python_error` уже содержит человеческий текст («Python не найден»),
+  // поэтому не повторяем его дважды — один раз причину, один раз последствия.
+  const reason = state.pythonError || 'Python не найден';
+  note.textContent = `${reason.replace(/\.$/, '')}: задачи раздела не запустятся. `
+    + 'Рендер бита, жанры и досье работают без него.';
 }
 
 async function startTask() {

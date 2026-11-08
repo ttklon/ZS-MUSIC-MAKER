@@ -234,3 +234,37 @@ test('«Собрать досье» передаёт артиста в зада�
   assert.deepEqual(calls, [{ key: 'dossier-build', options: { artist: 'Demo Artist' } }]);
   assert.match(document.getElementById('task-status').textContent, /Запущено/);
 });
+
+
+test('без Python раздел «Запуск» говорит об этом до нажатия', async (t) => {
+  const api = bridge({
+    environment: async () => ({
+      ok: true,
+      data: {
+        python: null,
+        python_error: 'Python не найден: ни .venv, ни PATH',
+        user_data: 'C:/u',
+        music_dir: 'C:/m',
+        root: 'C:/p',
+        packaged: true,
+      },
+    }),
+  });
+  const { document } = bootWindow(api);
+  t.after(() => {
+    delete global.window;
+    delete global.document;
+  });
+  await flush();
+  const button = [...document.querySelectorAll('[data-view]')].find((b) => b.dataset.view === 'run');
+  button.dispatch('click');
+  await flush();
+  await flush();
+
+  const note = document.getElementById('task-python-note').textContent;
+  assert.match(note, /не найден/i);
+  // Важно, что рядом сказано: остальное окно от Python не зависит.
+  assert.match(note, /без него/);
+  // И кнопка не спрятана: пользователь должен видеть, что она есть.
+  assert.equal(document.getElementById('task-start').disabled, false);
+});
