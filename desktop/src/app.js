@@ -135,9 +135,25 @@ const TITLES = {
   help: 'Справка',
 };
 
+/**
+ * Запомнить раздел.
+ *
+ * `saveSettings` в главном процессе сливает переданное с тем, что уже лежит
+ * на диске, поэтому частичная запись не затирает жанр, темп и размер окна.
+ * Пишется без ожидания: смена раздела не должна ждать диск, а об ошибке
+ * сообщать нечего — при следующем запуске просто откроется «Обзор».
+ */
+function rememberView(view) {
+  if (state.settings) state.settings.view = view;
+  if (window.zsmm && typeof window.zsmm.saveSettings === 'function') {
+    window.zsmm.saveSettings({ view }).catch(() => {});
+  }
+}
+
 async function switchView(view, { force = false } = {}) {
   if (!LOADERS[view]) return;
   state.view = view;
+  rememberView(view);
   $('view-title').textContent = TITLES[view];
   for (const button of document.querySelectorAll('.nav-item')) {
     button.classList.toggle('is-active', button.dataset.view === view);
@@ -186,14 +202,37 @@ function wire() {
   });
 }
 
+/**
+ * С какого раздела начать: сохранённый, иначе «Обзор».
+ *
+ * Файл настроек читается один раз, поэтому при смене разделов в первые
+ * секунды после старта запись не затирает ещё не прочитанное.
+ */
+async function startView() {
+  if (state.settings || (window.zsmm && typeof window.zsmm.loadSettings === 'function')) {
+    if (!state.settings) {
+      try {
+        const reply = await window.zsmm.loadSettings();
+        if (reply && reply.ok === true && reply.data) state.settings = reply.data;
+      } catch {
+        // Настройки недоступны — открываем «Обзор»: окно не должно не открыться.
+      }
+    }
+    if (state.settings && LOADERS[state.settings.view]) return state.settings.view;
+  }
+  return 'overview';
+}
+
 if (typeof document !== 'undefined') {
   document.addEventListener('DOMContentLoaded', () => {
     wire();
-    switchView('overview');
+    // Настройки читаются ДО первого переключения, иначе `saveSettings` мог бы
+    // записать «Обзор» поверх запомненного раздела.
+    startView().then((view) => switchView(view));
   });
 }
 
 if (typeof module !== 'undefined' && module.exports) {
   // Для тестов: состояние, названия разделов и переход между ними.
-  module.exports = { state, TITLES, LOADERS, switchView, W };
+  module.exports = { state, TITLES, LOADERS, switchView, startView, W };
 }

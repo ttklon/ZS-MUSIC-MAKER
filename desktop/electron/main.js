@@ -53,7 +53,7 @@ const SAMPLE_ROOT = ROOT;
 let windows = null;
 let project = null;
 // Запущенная задача живёт здесь: её видит и `task-runner.js`, и выход.
-const taskState = { activeTask: null, dossierDir: null };
+const taskState = { activeTask: null, dossierDir: null, userData: null };
 let settingsStore = null;
 
 function settings() {
@@ -161,6 +161,13 @@ function registerIpc(getProject) {
   // `dossierDir` нужен нативной сводке по досье: в установленной сборке она
   // читает каталог пользователя, а не `resources/project`.
   taskState.dossierDir = dossierPlan().source === 'user' ? dossierPlan().dir : null;
+  // Самодиагностике окна нужен каталог настроек: запись туда проверяется
+  // на настоящем файле, а не «на глаз».
+  try {
+    taskState.userData = app.getPath('userData');
+  } catch {
+    taskState.userData = null;
+  }
   registerTaskIpc({
     ipcMain,
     root: ROOT,

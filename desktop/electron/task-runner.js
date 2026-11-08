@@ -66,6 +66,7 @@ function registerTaskIpc({
           project,
           root: root || path.resolve(__dirname, '..', '..'),
           dossierDir: state.dossierDir || null,
+          userData: state.userData || null,
           onEvent: (payload) => send('zsmm:task-event', payload),
         });
         send('zsmm:task-event', { type: 'exit', code: result.ok ? 0 : 1, signal: null, timedOut: false });

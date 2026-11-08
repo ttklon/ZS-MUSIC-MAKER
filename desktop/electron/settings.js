@@ -39,6 +39,12 @@ const LIMITS = {
 
 const GENRE_RE = /^[\w .+-]{1,40}$/;
 
+/**
+ * Разделы окна. Список нужен, чтобы `settings.json` не открывал окно на
+ * несуществующем разделе (тогда экран был бы пустым без объяснения).
+ */
+const VIEWS = ['overview', 'modules', 'genres', 'beat', 'dossiers', 'tracks', 'run', 'health', 'help'];
+
 /** Привести произвольный объект к известным полям. */
 function sanitizeSettings(raw) {
   const value = raw && typeof raw === 'object' ? raw : {};
@@ -58,7 +64,8 @@ function sanitizeSettings(raw) {
   }
 
   if (typeof value.useBank === 'boolean') out.useBank = value.useBank;
-  if (typeof value.view === 'string' && /^[a-z]{1,20}$/.test(value.view)) out.view = value.view;
+  if (typeof value.view === 'string' && VIEWS.includes(value.view)) out.view = value.view;
+  else if (value.view !== undefined) errors.push('view');
 
   return { value: out, errors };
 }
@@ -112,4 +119,6 @@ function createSettingsStore({ dir, fileSystem = require('node:fs') } = {}) {
   };
 }
 
-module.exports = { DEFAULTS, LIMITS, GENRE_RE, sanitizeSettings, createSettingsStore };
+module.exports = {
+  DEFAULTS, LIMITS, GENRE_RE, VIEWS, sanitizeSettings, createSettingsStore,
+};

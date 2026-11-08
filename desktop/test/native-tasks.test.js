@@ -25,8 +25,8 @@ const ROOT = path.resolve(__dirname, '..', '..');
 test('нативные задачи есть в общем списке и помечены', () => {
   const list = taskList();
   const natives = list.filter((task) => task.native);
-  assert.equal(natives.length, 3);
-  for (const key of ['native-files', 'native-readiness', 'native-dossier']) {
+  assert.equal(natives.length, 4);
+  for (const key of ['native-files', 'native-readiness', 'native-dossier', 'native-selfcheck']) {
     assert.ok(list.some((task) => task.key === key), `нет задачи ${key}`);
   }
   // Задачи Python остаются и не помечены нативными: окно не притворяется,
@@ -159,4 +159,51 @@ test('каталог досье для проверки берётся из ар
 
   fs.rmSync(root, { recursive: true, force: true });
   fs.rmSync(userDir, { recursive: true, force: true });
+});
+
+test('самодиагностика окна проверяет запись, поток и банк', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'zsmm-self-'));
+  fs.mkdirSync(path.join(root, 'data', 'artist_dossier'), { recursive: true });
+  fs.mkdirSync(path.join(root, 'data', 'desktop'), { recursive: true });
+  fs.writeFileSync(path.join(root, 'version.json'), '{"version":"9.9.9"}');
+  fs.mkdirSync(path.join(root, 'config'), { recursive: true });
+  fs.writeFileSync(
+    path.join(root, 'config', 'genres_100.json'),
+    JSON.stringify({ a: Array.from({ length: 120 }, (_, i) => `G${i}`) }),
+  );
+  fs.mkdirSync(path.join(root, 'data', 'samples'), { recursive: true });
+  fs.writeFileSync(
+    path.join(root, 'data', 'samples', 'manifest.json'),
+    JSON.stringify({ instruments: { kick: [{ file: 'a.wav' }] } }),
+  );
+  const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'zsmm-self-ud-'));
+
+  const project = createProject(createNodeFs(), root);
+  const result = native.runNativeTask({
+    key: 'native-selfcheck', project, root, userData,
+  });
+  const text = result.lines.join('\n');
+
+  assert.match(text, /OK версия приложения: 9\.9\.9/);
+  assert.match(text, /OK каталог жанров: 120/);
+  assert.match(text, /OK запись в досье/);
+  assert.match(text, /OK запись в настройки/);
+  assert.match(text, /поток рендера/);
+  assert.match(text, /банк/);
+  // Пробные файлы не остаются ни в досье, ни в настройках.
+  assert.deepEqual(fs.readdirSync(path.join(root, 'data', 'artist_dossier')), []);
+  assert.deepEqual(fs.readdirSync(userData), []);
+
+  fs.rmSync(root, { recursive: true, force: true });
+  fs.rmSync(userData, { recursive: true, force: true });
+});
+
+test('самодиагностика без версии называет проблему', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'zsmm-self-bad-'));
+  fs.mkdirSync(path.join(root, 'data', 'artist_dossier'), { recursive: true });
+  const project = createProject(createNodeFs(), root);
+  const result = native.runNativeTask({ key: 'native-selfcheck', project, root });
+  assert.equal(result.ok, false);
+  assert.match(result.lines.join('\n'), /ПРОБЛЕМА версия/);
+  fs.rmSync(root, { recursive: true, force: true });
 });

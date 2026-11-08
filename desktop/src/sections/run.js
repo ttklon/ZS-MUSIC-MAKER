@@ -73,7 +73,7 @@ async function loadRun() {
   if (!loadRun.wired) {
     loadRun.wired = true;
     $('task-start').addEventListener('click', startTask);
-    // Подпись про Python зависит от выбранной задачи: окно умеет три задачи
+    // Подпись про Python зависит от выбранной задачи: окно умеет четыре задачи
     // само, и предупреждение не должно висеть над ними.
     $('task-select').addEventListener('change', () => updatePythonNote());
     $('task-stop').addEventListener('click', () => {
@@ -115,7 +115,7 @@ async function loadRun() {
 function updatePythonNote() {
   const note = $('task-python-note');
   if (!note) return;
-  // Задачи без Python (проверка файлов, пересчёт готовности, сводка по досье)
+  // Задачи без Python (файлы, готовность, досье, самодиагностика)
   // считает само окно: предупреждение к ним не относится, иначе человек
   // решит, что не работает вообще ничего.
   const selected = Array.isArray(state.tasks)
