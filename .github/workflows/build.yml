@@ -307,10 +307,13 @@ jobs:
           retention-days: 30
 
   publish-release:
-    # Явный запуск из ветки тоже публикует сборку: иначе установщик живёт
-    # только 30 дней в артефактах CI, куда человеку ещё нужно войти в GitHub.
+    # Публикуем после любой успешной Windows-сборки: иначе установщик живёт
+    # только 30 дней в артефактах CI, куда человеку ещё нужно войти в GitHub,
+    # а прямой ссылки на .exe нет вовсе. Метка релиза зависит от версии
+    # приложения, поэтому повторные сборки перезаписывают те же файлы и
+    # ссылка `releases/latest/download/…` не меняется.
     needs: [desktop-windows]
-    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+    if: needs.desktop-windows.result == 'success'
     runs-on: ubuntu-latest
     permissions:
       contents: write

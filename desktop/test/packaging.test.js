@@ -109,7 +109,9 @@ test('установщик публикуется в релиз, а не тол�
   const yaml = fs.readFileSync(path.join(ROOT, '.github', 'workflows', 'build.yml'), 'utf8');
   const publish = yaml.slice(yaml.indexOf('  publish-release:'));
   assert.match(publish, /softprops\/action-gh-release/);
-  assert.match(publish, /workflow_dispatch/, 'сборку можно опубликовать запуском из ветки');
+  // Публикация привязана к успеху сборки, а не к тегу: иначе ссылку на
+  // установщик неоткуда взять, пока не выпущен тег.
+  assert.match(publish, /needs\.desktop-windows\.result == 'success'/);
   assert.match(publish, /desktop-v/, 'метка релиза не должна совпадать с Python-сборкой');
   assert.match(publish, /electron-win\/\*\.exe/, 'в релиз попадают установщик и portable');
   // Python-сборка (PyInstaller) — отдельная метка и только по тегам.
