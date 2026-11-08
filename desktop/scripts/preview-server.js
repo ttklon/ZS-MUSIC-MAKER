@@ -15,7 +15,7 @@ const path = require('node:path');
 
 const { createNodeFs } = require('../src/core/fs-node');
 const { createProject } = require('../src/core/project');
-const { renderBeat } = require('../src/core/audio/engine');
+const { renderBeatInSteps } = require('../src/core/audio/engine');
 const { SampleSource } = require('../src/core/audio/bank');
 const { sanitizeBeatOptions } = require('../src/core/beat-options');
 
@@ -65,6 +65,29 @@ function shim(project) {
       });
       return response.json();
     },
+    onBeatProgress: (callback) => {
+      // Поллинг вместо событий: у шима нет IPC, а держать SSE ради одной
+      // кнопки — лишний код. Возвращаем функцию отписки, как в preload.
+      if (typeof callback !== 'function') return () => {};
+      let stopped = false;
+      let last = '';
+      const tick = async () => {
+        if (stopped) return;
+        try {
+          const reply = await (await fetch('/beat-progress')).json();
+          const key = JSON.stringify(reply.data);
+          if (reply.ok && key !== last) {
+            last = key;
+            callback(reply.data);
+          }
+        } catch {
+          /* предпросмотр закрылся — тихо выходим */
+        }
+        if (!stopped) setTimeout(tick, 300);
+      };
+      tick();
+      return () => { stopped = true; };
+    },
     beatBank: async () => {
       const response = await fetch('/beat-bank');
       return response.json();
@@ -83,6 +106,8 @@ function shim(project) {
 }
 
 function createServer(project, options = {}) {
+  // Последний известный прогресс рендера: предпросмотр отдаёт его по запросу.
+  let lastProgress = { phase: 'idle', percent: 0 };
   // Один источник сэмплов на сервер: он кэширует декодированные one-shot'ы.
   const sampleSource = options.sampleSource
     || (options.bank === false ? null : new SampleSource({ fileSystem: createNodeFs(), rootDir: ROOT }));
@@ -111,16 +136,30 @@ function createServer(project, options = {}) {
           send(200, JSON.stringify({ ok: false, error: sanitized.error }), MIME['.json']);
           return;
         }
-        try {
-          const { wav, report } = renderBeat({
+        // В предпросмотре прогресс приходит не событиями, а поллингом
+        // `/beat-progress`: держать SSE ради одной кнопки — лишний код.
+        lastProgress = { phase: 'start', percent: 0 };
+        renderBeatInSteps(
+          {
             ...sanitized.value,
             bank: sanitized.value.useBank === false ? null : sampleSource,
+          },
+          { onProgress: (progress) => { lastProgress = progress; } },
+        )
+          .then(({ wav, report }) => {
+            lastProgress = { phase: 'done', percent: 100 };
+            send(200, JSON.stringify({ ok: true, data: { report, wavBase64: wav.toString('base64') } }), MIME['.json']);
+          })
+          .catch((err) => {
+            lastProgress = { phase: 'error', percent: 0, error: err.message };
+            send(200, JSON.stringify({ ok: false, error: err.message }), MIME['.json']);
           });
-          send(200, JSON.stringify({ ok: true, data: { report, wavBase64: wav.toString('base64') } }), MIME['.json']);
-        } catch (err) {
-          send(200, JSON.stringify({ ok: false, error: err.message }), MIME['.json']);
-        }
       });
+      return;
+    }
+
+    if (url.pathname === '/beat-progress') {
+      send(200, JSON.stringify({ ok: true, data: lastProgress }), MIME['.json']);
       return;
     }
 

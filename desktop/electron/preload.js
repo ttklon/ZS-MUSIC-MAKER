@@ -57,6 +57,14 @@ function beatBank() {
   return ipcRenderer.invoke('zsmm:beat-bank');
 }
 
+/** Подписка на прогресс рендера бита. Возвращает функцию отписки. */
+function onBeatProgress(callback) {
+  if (typeof callback !== 'function') return () => {};
+  const listener = (_event, payload) => callback(payload);
+  ipcRenderer.on('zsmm:beat-progress', listener);
+  return () => ipcRenderer.removeListener('zsmm:beat-progress', listener);
+}
+
 /** Сохранить готовый WAV через диалог сохранения. */
 function saveBeat(wavBase64) {
   return ipcRenderer.invoke('zsmm:beat-save', wavBase64);
@@ -84,6 +92,7 @@ contextBridge.exposeInMainWorld('zsmm', {
   onTaskDone,
   renderBeat,
   beatBank,
+  onBeatProgress,
   saveBeat,
   revealRoot,
   openExternal,

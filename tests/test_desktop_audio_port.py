@@ -381,3 +381,70 @@ def test_bank_path_keeps_the_same_character(tmp_path: Path, monkeypatch) -> None
             f"полоса {band}: {js_bands[band]:.1f} против {py_bands[band]:.1f} дБ"
         )
     assert abs(js_bands["20-60"] - py_bands["20-60"]) <= 6.0, "низ разошёлся сильнее допустимого"
+
+
+def test_repetition_report_matches_python(tmp_path: Path) -> None:
+    """«Формульность» в окне считает то же, что Python, на одинаковом сигнале."""
+    np = pytest.importorskip("numpy")
+    sf = pytest.importorskip("soundfile")
+    from modules.beat import variation as py_variation
+
+    target = tmp_path / "clicks.wav"
+    script = f"""
+    const fs = require('node:fs');
+    const analysis = require('./src/core/audio/analysis');
+    const {{ encodeWav }} = require('./src/core/audio/wav');
+    const sampleRate = 48000;
+    const bpm = 240;
+    const bar = Math.round(4 * (60 / bpm) * sampleRate);
+    const audio = new Float32Array(bar * 16);
+    for (let b = 0; b < 16; b += 1) {{
+      for (let hit = 0; hit < 4; hit += 1) {{
+        const start = b * bar + hit * Math.round(bar / 4);
+        for (let i = 0; i < 800 && start + i < audio.length; i += 1) {{
+          audio[start + i] += Math.sin(i * 0.3) * (1 - i / 800);
+        }}
+      }}
+    }}
+    fs.writeFileSync({json.dumps(str(target))}, encodeWav([audio], sampleRate, {{ float32: true }}));
+    process.stdout.write(JSON.stringify(analysis.repetitionReport(audio, sampleRate, bpm)));
+    """
+    result = _node(script, timeout=300)
+    assert result.returncode == 0, result.stderr
+    js = json.loads(result.stdout)
+
+    samples, sample_rate = sf.read(str(target), dtype="float32")
+    mono = samples if samples.ndim == 1 else samples.mean(axis=1)
+    py = py_variation.repetition_report(np.stack([mono, mono], axis=1), sample_rate, bpm=240.0)
+
+    assert js["bars"] == py["bars"]
+    assert js["distinct_types"] == py["distinct_types"], f"{js} против {py}"
+    assert abs(js["entropy_normalized"] - py["entropy_normalized"]) <= 0.02
+    assert js["formulaic"] == py["formulaic"]
+    assert abs(js["bar_similarity"] - py["bar_similarity"]) <= 0.05
+
+
+def test_rendered_beat_is_not_formulaic_like_python(tmp_path: Path) -> None:
+    """Бит окна «не формульный» — так же, как бит Python (энтропия ≥ порога)."""
+    from modules.beat import variation as py_variation
+
+    script = """
+    const path = require('node:path');
+    const { renderBeat } = require('./src/core/audio/engine');
+    const { SampleSource } = require('./src/core/audio/bank');
+    const { createNodeFs } = require('./src/core/fs-node');
+    const bank = new SampleSource({ fileSystem: createNodeFs(), rootDir: path.resolve('..') });
+    const { report } = renderBeat({
+      bpm: 128, key: 'A minor', genre: 'drift phonk', seed: 5, durationSec: 40, bank,
+    });
+    process.stdout.write(JSON.stringify(report.repetition));
+    """
+    result = _node(script, timeout=600)
+    assert result.returncode == 0, result.stderr
+    js = json.loads(result.stdout)
+
+    assert js["formulaic"] is False, js
+    assert js["entropy_normalized"] >= py_variation.MIN_ENTROPY
+    assert js["bars"] >= 10
+    # Python на этом же заходе даёт 0.641 — окно не должно уезжать далеко.
+    assert abs(js["entropy_normalized"] - 0.641) <= 0.08, js

@@ -13,7 +13,7 @@ const path = require('node:path');
 
 const { createNodeFs } = require('../src/core/fs-node');
 const { createProject } = require('../src/core/project');
-const { renderBeat } = require('../src/core/audio/engine');
+const { renderBeatInSteps } = require('../src/core/audio/engine');
 const { SampleSource } = require('../src/core/audio/bank');
 const { sanitizeBeatOptions, BEAT_LIMITS } = require('../src/core/beat-options');
 const tasks = require('./tasks');
@@ -127,14 +127,26 @@ function registerIpc(getProject) {
     return sampleSource;
   };
 
-  ipcMain.handle('zsmm:beat-render', (_event, options) => {
+  ipcMain.handle('zsmm:beat-render', async (event, options) => {
     const sanitized = sanitizeBeatOptions(options);
     if (sanitized.error) return { ok: false, error: sanitized.error };
     try {
-      const { wav, report } = renderBeat({
-        ...sanitized.value,
-        bank: sanitized.value.useBank === false ? null : bankFor(),
-      });
+      // Рендер режется по секциям: окно живо и получает прогресс, а не
+      // замирает на десятки секунд. WAV при этом побайтово тот же, что у
+      // синхронного пути (проверяется тестом).
+      const { wav, report } = await renderBeatInSteps(
+        {
+          ...sanitized.value,
+          bank: sanitized.value.useBank === false ? null : bankFor(),
+        },
+        {
+          onProgress: (progress) => {
+            if (event && event.sender && !event.sender.isDestroyed()) {
+              event.sender.send('zsmm:beat-progress', progress);
+            }
+          },
+        },
+      );
       return { ok: true, data: { report, wavBase64: wav.toString('base64') } };
     } catch (err) {
       return { ok: false, error: err && err.message ? err.message : String(err) };

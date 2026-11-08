@@ -13,7 +13,9 @@ const assert = require('node:assert');
 
 const path = require('node:path');
 
-const { renderBeat, SAMPLE_RATE, tempoDrift, addRoomNoise, finalizeStereo, fitLength } = require('../src/core/audio/engine');
+const {
+  renderBeat, renderBeatInSteps, prepareRender, SAMPLE_RATE, tempoDrift, addRoomNoise, finalizeStereo, fitLength,
+} = require('../src/core/audio/engine');
 const { peak, rms } = require('../src/core/audio/dsp');
 const { createNodeFs } = require('../src/core/fs-node');
 const { SampleSource } = require('../src/core/audio/bank');
@@ -228,4 +230,43 @@ test('repair-путь: битый банк не роняет рендер, а ч
   const { report } = renderBeat({ bpm: 120, genre: 'trap', seed: 2, durationSec: 2, bank: broken });
   assert.strictEqual(report.drum_engine.status, 'FALLBACK');
   assert.ok(report.drum_engine.reason.includes('covers 0 of 6'));
+});
+
+test('пошаговый рендер выдаёт те же байты, что синхронный', async () => {
+  const options = { bpm: 140, genre: 'phonk', seed: 3, durationSec: 6 };
+  const sync = renderBeat(options);
+  const stepped = await renderBeatInSteps(options);
+  assert.ok(sync.wav.equals(stepped.wav), 'побайтовое совпадение путей рендера');
+  assert.deepStrictEqual(
+    { ...stepped.report, repetition: null, measured_humanity: null },
+    { ...sync.report, repetition: null, measured_humanity: null },
+  );
+});
+
+test('прогресс рендера идёт по секциям и доходит до 100%', async () => {
+  const events = [];
+  const { report } = await renderBeatInSteps(
+    { bpm: 128, genre: 'drift phonk', seed: 5, durationSec: 20 },
+    { onProgress: (progress) => events.push(progress) },
+  );
+  const sections = events.filter((event) => event.phase === 'section').map((event) => event.section);
+  assert.deepStrictEqual(sections, report.sections.map((section) => section.name));
+  assert.strictEqual(events.at(-1).phase, 'done');
+  assert.strictEqual(events.at(-1).percent, 100);
+  // Проценты не откатываются назад: иначе индикатор в окне дёргается.
+  const percents = events.map((event) => event.percent);
+  assert.deepStrictEqual(percents, [...percents].sort((a, b) => a - b));
+  // Секции отмечаются до сборки, значит первый колбэк — нулевой такт.
+  assert.strictEqual(events[0].barsDone, 0);
+  assert.strictEqual(events[0].barsTotal, report.total_bars);
+});
+
+test('подготовка рендера не зависит от последующей сборки секций', () => {
+  const options = { bpm: 140, genre: 'phonk', seed: 21, durationSec: 8 };
+  const first = prepareRender(options);
+  const second = prepareRender(options);
+  assert.deepStrictEqual(first.plans, second.plans);
+  assert.strictEqual(first.barSec, second.barSec);
+  // Два независимых потока ГСЧ: без этого сид-хеши «плывут».
+  assert.notStrictEqual(first.engine.rng, first.engine.noiseRng);
 });

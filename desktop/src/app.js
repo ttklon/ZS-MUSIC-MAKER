@@ -225,6 +225,21 @@ function renderBeatReport(report) {
     reportLine('секций / тактов', `${report.sections.length} / ${report.total_bars}`),
     reportLine('хук в первые 15 с', report.dramaturgy.hook_within_15s ? 'да' : 'нет'),
     reportLine('дрейф темпа', `${drift.drift_pct || 0} % (пик ${drift.peak_deviation_ms || 0} мс)`),
+    reportLine(
+      'формульность',
+      report.repetition
+        ? `${report.repetition.formulaic ? 'рисунок повторяется' : 'трек развивается'}`
+          + ` (энтропия ${report.repetition.entropy_normalized}, сходство тактов `
+          + `${report.repetition.bar_similarity}, тактов ${report.repetition.bars})`
+        : 'не измерялась',
+    ),
+    reportLine(
+      'измерено в миксе',
+      report.measured_humanity
+        ? `шумовой пол ${report.measured_humanity.noise_floor_dbfs} dBFS, `
+          + `вариативность уровня ${report.measured_humanity.level_variation_db} дБ`
+        : 'не измерялось',
+    ),
     reportLine('пик', report.humanity.peak),
     reportLine('размер WAV', `${Math.round(report.bytes / 1024)} КБ`),
   ].join('\n');
@@ -261,6 +276,19 @@ async function loadBeat() {
     }
     $('beat-render').disabled = true;
     $('beat-status').textContent = 'Собираю бит в окне…';
+    // Прогресс по секциям: рендер длинного бита идёт десятки секунд, и без
+    // этого счётчика окно выглядело бы зависшим.
+    const unsubscribe = typeof window.zsmm.onBeatProgress === 'function'
+      ? window.zsmm.onBeatProgress((progress) => {
+        if (!progress || typeof progress.percent !== 'number') return;
+        if (progress.phase === 'section') {
+          $('beat-status').textContent =
+            `Собираю бит: секция ${progress.section} (${progress.barsDone}/${progress.barsTotal} тактов) — ${progress.percent}%`;
+        } else if (progress.phase === 'master') {
+          $('beat-status').textContent = 'Собираю бит: мастеринг и замеры…';
+        }
+      })
+      : () => {};
     try {
       const reply = await window.zsmm.renderBeat(options);
       if (!reply || reply.ok !== true) throw new Error((reply && reply.error) || 'рендер не удался');
@@ -277,6 +305,7 @@ async function loadBeat() {
       $('beat-status').textContent = 'Бит не собран';
       showError(err.message);
     } finally {
+      unsubscribe();
       $('beat-render').disabled = false;
     }
   });

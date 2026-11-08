@@ -203,7 +203,7 @@ loop, и отдаёт стадии списком `AsyncStage`. Раньше у 
 
 | Команда | Что ловит |
 |---|---|
-| `python -m pytest tests/` | 2021 тест: unit, аудио, e2e, property, контракты GUI/CLI, порт движка в окно |
+| `python -m pytest tests/` | 2030 тестов: unit, аудио, e2e, property, контракты GUI/CLI, порт движка в окно |
 | `python tools/smoke_audio.py` | стерео, громкость, drop (6 проверок) |
 | `python tools/smoke_god.py` | God Mode E2E, master 120 с, true-peak (8 проверок) |
 | `python tools/fallback_audit.py` | fallback-пути и маркеры заглушек |
@@ -212,7 +212,7 @@ loop, и отдаёт стадии списком `AsyncStage`. Раньше у 
 | `python tools/ast_dead_imports.py` | мёртвые импорты |
 | `python tools/ast_undefined_names.py` | имена, использующиеся без определения (`NameError`) |
 | `python -m tools.readiness` | честный процент готовности + матрица модулей |
-| `cd desktop && npm test` | 143 теста оболочки на Electron: каталог, готовность, задачи, рендер окна в DOM-двойнике, аудио-движок (фильтры против чисел scipy, детерминизм seed, WAV) — пакет `electron` не нужен |
+| `cd desktop && npm test` | 155 тестов оболочки на Electron: каталог, готовность, задачи, рендер окна в DOM-двойнике, аудио-движок (фильтры против чисел scipy, детерминизм seed, WAV, сэмпловый банк, замеры «формульности», пошаговый рендер) — пакет `electron` не нужен |
 | `python -m pytest tests/test_desktop_audio_port.py` | сверка JS-таблиц ритма и акцентов с `modules/beat/patterns.py`, проекция 120 жанров, чтение готового WAV через `soundfile` |
 | `cd desktop && npm run snapshot` | снимок чисел через штатный Python-инструмент → `data/desktop/` |
 | `python -m pytest tests/test_desktop_shell.py` | сверка расчёта готовности в JS с эталоном Python |

@@ -162,3 +162,35 @@ test('CSP предпросмотра разрешает свой же серве
   const source = fs.readFileSync(path.join(ROOT, 'desktop', 'src', 'index.html'), 'utf8');
   assert.match(source, /connect-src 'none'/, 'в приложении окно не должно ходить даже к себе по HTTP');
 });
+
+test('прогресс рендера отдаётся поллингом, а шим подписывается без IPC', async (t) => {
+  const server = await withServer(t);
+  const address = server.address();
+
+  const idle = JSON.parse((await get(server, '/beat-progress')).body);
+  assert.equal(idle.ok, true);
+  assert.equal(idle.data.phase, 'idle');
+
+  const body = JSON.stringify({ bpm: 120, genre: 'house', seed: 3, durationSec: 2 });
+  const rendered = await new Promise((resolve, reject) => {
+    const req = http.request(
+      { host: '127.0.0.1', port: address.port, path: '/beat-render', method: 'POST', headers: { 'Content-Type': 'application/json' } },
+      (res) => {
+        const chunks = [];
+        res.on('data', (chunk) => chunks.push(chunk));
+        res.on('end', () => resolve(JSON.parse(Buffer.concat(chunks).toString('utf8'))));
+      },
+    );
+    req.on('error', reject);
+    req.end(body);
+  });
+  assert.equal(rendered.ok, true, rendered.error);
+
+  const done = JSON.parse((await get(server, '/beat-progress')).body);
+  assert.equal(done.data.phase, 'done');
+  assert.equal(done.data.percent, 100);
+
+  // Шим обязан отдать функцию отписки — app.js вызывает её в `finally`.
+  const project = createProject(createNodeFs(), ROOT);
+  assert.match(shim(project), /onBeatProgress/);
+});

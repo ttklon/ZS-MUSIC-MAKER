@@ -8,13 +8,15 @@
  *
  * Что сознательно отличается от Python-версии и почему:
  *
- *  * нет сэмплового банка — окно не читает `data/samples/`, поэтому движок
- *    честно помечен FALLBACK (в Python это происходит при пустом банке);
- *  * нет `short-time` FFT-метрик (`repetition_report`), они остаются в
- *    Python: для окна это отчёт, а не звук;
- *  * «человечность» (`microtime.py`) портирована частично: дрейф темпа есть,
- *    шум комнаты тоже, но без scipy-фильтров поверх шума — наклон делается
- *    простым однополюсным ФНЧ.
+ *  * сэмпловый банк читается через `audio/bank.js`, поэтому статус движка
+ *    REAL_PASS при покрытии ≥ 4 барабанных инструментов и FALLBACK иначе;
+ *  * метрики «формульности» и «человечности» считаются здесь же
+ *    (`analysis.js`), но не влияют на звук — только на отчёт;
+ *  * «человечность» (`microtime.py`): дрейф темпа и шум комнаты есть, но
+ *    наклон шума делается простым однополюсным ФНЧ вместо scipy-баттерворта;
+ *  * рендер можно вести секциями (`renderBeatInSteps`): между секциями
+ *    управление возвращается в цикл событий, поэтому окно не замирает и
+ *    может показывать прогресс.
  */
 
 const { Rng } = require('./rng');
@@ -26,6 +28,7 @@ const humanize = require('./humanize');
 const arrangement = require('./arrangement');
 const { VoiceEngine, hookMotif, motifLead, isMajor } = require('./voices');
 const { encodeWav } = require('./wav');
+const analysis = require('./analysis');
 
 const SAMPLE_RATE = 44100;
 
@@ -465,7 +468,75 @@ function applyHumanity(left, right, sr, seed) {
 }
 
 /**
- * Полная сборка трека — замена `BeatConstructor.build_track`.
+ * Подготовить план и движок: общая часть синхронного и пошагового рендера.
+ *
+ * Дублировать её нельзя: любые расхождения в seed или velocity-карте сделают
+ * «тот же seed» ложью между двумя путями рендера.
+ */
+function prepareRender({
+  bpm = 140,
+  key = 'A minor',
+  genre = 'phonk',
+  seed = 7,
+  durationSec = 20,
+  nVerses = 2,
+  nChoruses = 2,
+  aggression = 0.7,
+  includeIntro = true,
+  includeOutro = true,
+  sections = null,
+  bank = null,
+} = {}) {
+  if (!(bpm > 0)) throw new Error('bpm должен быть положительным');
+  if (!(durationSec > 0)) throw new Error('durationSec должен быть положительным');
+
+  const baseSeed = seed === null || seed === undefined ? 0 : seed;
+  // Два независимых потока, как `_py_rng` и `_np_rng` в Python: человечность
+  // и вариативность не должны зависеть от того, сколько сэмплов выбрал банк.
+  const rng = new Rng(baseSeed);
+  const drive = new Rng(baseSeed);
+  const noise = new Rng((baseSeed ^ 0x9e3779b9) >>> 0);
+
+  const slotPatterns = genre === 'legacy' ? patterns.LEGACY_PATTERN : patterns.slotPresetForGenre(genre);
+  const velocityMap = genre === 'legacy'
+    ? {
+      kick: new Array(16).fill(1), snare: new Array(16).fill(1), hat: new Array(16).fill(1),
+      bass: new Array(16).fill(1), melody: new Array(16).fill(1),
+    }
+    : patterns.velocityMapForGenre(genre);
+
+  const engine = new VoiceEngine({
+    bpm, key, genre, rng: drive, noiseRng: noise, slotPatterns, velocityMap, bank,
+  });
+  engine.aggression = aggression;
+
+  const plans = sections && sections.length
+    ? arrangement.sectionsFromArrangement(sections, bpm)
+    : arrangement.planSections({
+      bpm,
+      durationSec,
+      includeIntro,
+      includeOutro,
+      nVerses,
+      nChoruses,
+    });
+
+  return {
+    engine,
+    plans,
+    slotPatterns,
+    bpm,
+    key,
+    genre,
+    seed,
+    durationSec,
+    bank,
+    barSec: (60.0 / bpm) * 4,
+  };
+}
+
+/**
+ * Завершить сборку: склеить секции, применить пост-обработку и записать WAV.
  *
  * @returns {{wav: Buffer, report: object}}
  */
@@ -505,6 +576,11 @@ function drumEngineReport(bank) {
   return out;
 }
 
+/**
+ * Полная сборка трека — замена `BeatConstructor.build_track`.
+ *
+ * @returns {{wav: Buffer, report: object}}
+ */
 function renderBeat({
   bpm = 140,
   key = 'A minor',
@@ -522,43 +598,73 @@ function renderBeat({
   // синтезируется, и отчёт честно говорит FALLBACK.
   bank = null,
 } = {}) {
-  if (!(bpm > 0)) throw new Error('bpm должен быть положительным');
-  if (!(durationSec > 0)) throw new Error('durationSec должен быть положительным');
-
-  const sr = SAMPLE_RATE;
-  const baseSeed = seed === null || seed === undefined ? 0 : seed;
-  // Два независимых потока, как `_py_rng` и `_np_rng` в Python: человечность
-  // и вариативность не должны зависеть от того, сколько сэмплов выбрал банк.
-  const rng = new Rng(baseSeed);
-  const drive = new Rng(baseSeed);
-  const noise = new Rng((baseSeed ^ 0x9e3779b9) >>> 0);
-
-  const slotPatterns = genre === 'legacy' ? patterns.LEGACY_PATTERN : patterns.slotPresetForGenre(genre);
-  const velocityMap = genre === 'legacy'
-    ? { kick: new Array(16).fill(1), snare: new Array(16).fill(1), hat: new Array(16).fill(1), bass: new Array(16).fill(1), melody: new Array(16).fill(1) }
-    : patterns.velocityMapForGenre(genre);
-
-  const engine = new VoiceEngine({
-    bpm, key, genre, rng: drive, noiseRng: noise, slotPatterns, velocityMap, bank,
+  const prepared = prepareRender({
+    bpm, key, genre, seed, durationSec, nVerses, nChoruses, aggression,
+    includeIntro, includeOutro, sections, bank,
   });
-  engine.aggression = aggression;
-
-  const plans = sections && sections.length
-    ? arrangement.sectionsFromArrangement(sections, bpm)
-    : arrangement.planSections({
-      bpm,
-      durationSec,
-      includeIntro,
-      includeOutro,
-      nVerses,
-      nChoruses,
-    });
-
-  const barSec = (60.0 / bpm) * 4;
-  const pieces = plans.map((plan) => buildSection(engine, plan.name, plan.bars, plan));
+  const pieces = prepared.plans.map(
+    (plan) => buildSection(prepared.engine, plan.name, plan.bars, plan),
+  );
   const totalSamples = pieces.reduce((sum, piece) => sum + piece.left.length, 0);
-  let left = zeros(totalSamples);
-  let right = zeros(totalSamples);
+  const left = zeros(totalSamples);
+  const right = zeros(totalSamples);
+  let cursor = 0;
+  for (const piece of pieces) {
+    left.set(piece.left, cursor);
+    right.set(piece.right, cursor);
+    cursor += piece.left.length;
+  }
+  return finishRender({ ...prepared, left, right, float32 });
+}
+
+/**
+ * Рендер секциями: между секциями управление возвращается в цикл событий.
+ *
+ * Зачем: 3 минуты бита — это десятки секунд синхронной работы, и всё это
+ * время окно не отвечает. Здесь работа режется по секциям, а прогресс
+ * приходит колбэком `onProgress({index, total, section, barsDone, barsTotal})`.
+ * Итоговый WAV побайтово совпадает с `renderBeat` — это проверяется тестом.
+ */
+async function renderBeatInSteps(options = {}, { onProgress = null, yieldToEventLoop = true } = {}) {
+  const prepared = prepareRender(options);
+  const { plans, barSec } = prepared;
+  const barsTotal = plans.reduce((sum, plan) => sum + plan.bars, 0);
+  const pieces = [];
+  let barsDone = 0;
+
+  for (const [index, plan] of plans.entries()) {
+    if (typeof onProgress === 'function') {
+      onProgress({
+        phase: 'section',
+        index,
+        total: plans.length,
+        section: plan.name,
+        barsDone,
+        barsTotal,
+        percent: Math.round((barsDone / Math.max(1, barsTotal)) * 80),
+      });
+    }
+    pieces.push(buildSection(prepared.engine, plan.name, plan.bars, plan));
+    barsDone += plan.bars;
+    if (yieldToEventLoop) await new Promise((resolve) => setImmediate(resolve));
+  }
+
+  if (typeof onProgress === 'function') {
+    onProgress({
+      phase: 'master',
+      index: plans.length,
+      total: plans.length,
+      section: 'master',
+      barsDone: barsTotal,
+      barsTotal,
+      percent: 90,
+    });
+  }
+  if (yieldToEventLoop) await new Promise((resolve) => setImmediate(resolve));
+
+  const totalSamples = pieces.reduce((sum, piece) => sum + piece.left.length, 0);
+  const left = zeros(totalSamples);
+  const right = zeros(totalSamples);
   let cursor = 0;
   for (const piece of pieces) {
     left.set(piece.left, cursor);
@@ -566,20 +672,53 @@ function renderBeat({
     cursor += piece.left.length;
   }
 
+  const result = finishRender({ ...prepared, left, right, float32: options.float32 === true });
+  if (typeof onProgress === 'function') {
+    onProgress({
+      phase: 'done',
+      index: plans.length,
+      total: plans.length,
+      section: 'done',
+      barsDone: barsTotal,
+      barsTotal,
+      percent: 100,
+      sectionSeconds: Math.round(barSec * 100) / 100,
+    });
+  }
+  return result;
+}
+
+/**
+ * Пост-обработка и запись: общая часть обоих путей рендера.
+ *
+ * @returns {{wav: Buffer, report: object}}
+ */
+function finishRender({
+  plans, bpm, key, genre, seed, durationSec, bank, left, right, float32 = false,
+}) {
+  const sr = SAMPLE_RATE;
+  const barSec = (60.0 / bpm) * 4;
   const sectionInfo = sectionTable(plans, barSec);
   applyDrop(left, right, sectionInfo, sr);
   applyHookMotif(left, right, sectionInfo, sr, bpm, key);
 
   const target = Math.trunc(durationSec * sr);
   const fitted = fitLength(left, right, target);
-  left = fitted.left;
-  right = fitted.right;
-
-  const stereo = finalizeStereo(left, right, sr);
+  const stereo = finalizeStereo(fitted.left, fitted.right, sr);
   const humanity = applyHumanity(stereo.left, stereo.right, sr, seed);
 
   const wav = encodeWav([humanity.left, humanity.right], sr, { float32 });
   const dramaturgy = arrangement.structureReport(plans, bpm);
+
+  // Отчёт «формульности» и «человечности» — по готовому миксу, как в Python.
+  const mono = new Float32Array(humanity.left.length);
+  for (let i = 0; i < mono.length; i += 1) mono[i] = (humanity.left[i] + humanity.right[i]) * 0.5;
+  const repetition = analysis.repetitionReport(mono, sr, bpm);
+  const measured = analysis.humanityReport(mono, sr);
+
+  const slotPatterns = genre === 'legacy'
+    ? patterns.LEGACY_PATTERN
+    : patterns.slotPresetForGenre(genre);
 
   return {
     wav,
@@ -600,6 +739,8 @@ function renderBeat({
       total_bars: plans.reduce((sum, plan) => sum + plan.bars, 0),
       dramaturgy,
       humanity: humanity.report,
+      measured_humanity: measured,
+      repetition,
       bytes: wav.length,
       slot_plan: Object.fromEntries(
         Object.entries(slotPatterns).map(([slot, row]) => [slot, row.concat(row, row, row)]),
@@ -625,5 +766,8 @@ module.exports = {
   limitBar,
   applyLowTrim,
   drumEngineReport,
+  prepareRender,
+  finishRender,
   renderBeat,
+  renderBeatInSteps,
 };
