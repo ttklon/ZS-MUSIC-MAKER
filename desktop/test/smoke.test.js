@@ -27,10 +27,17 @@ test('на репозитории проверка проходит целико
 
   assert.equal(report.ok, true, JSON.stringify(report.checks.filter((c) => !c.ok), null, 2));
   const names = report.checks.map((check) => check.name);
-  for (const expected of ['version.json', 'каталог жанров', 'inventory', 'банк сэмплов', 'рендер бита']) {
+  for (const expected of [
+    'version.json', 'каталог жанров', 'inventory', 'банк сэмплов', 'рендер бита',
+    // Новые проверки упакованного приложения: вокал и правка досье без Python.
+    'вокал (тестовый дубль)', 'досье читается', 'досье правится без Python',
+  ]) {
     assert.ok(names.includes(expected), `нет проверки «${expected}»`);
   }
   assert.match(report.checks.find((c) => c.name === 'рендер бита').detail, /такт/);
+  // Тестовый дубль в smoke обязан быть помечен как имитация, а не «записью».
+  const vocal = report.checks.find((c) => c.name === 'вокал (тестовый дубль)');
+  assert.match(vocal.detail, /не с микрофона/);
 });
 
 test('потерянный корень проекта — провал, а не пустой отчёт', async () => {

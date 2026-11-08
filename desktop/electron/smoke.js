@@ -71,6 +71,41 @@ async function runSmoke({
         beat.ok === true && beat.data.wavBase64.length > 1000,
         beat.ok === true ? `${beat.data.report.total_bars} тактов, ${beat.data.report.duration_sec} с` : beat.error,
       );
+
+      // Вокал в собранном приложении: движок в asar, поэтому проверяем именно
+      // упакованный путь. Тестовый дубль обязан приехать помеченным как
+      // имитация — иначе окно может выдать его за запись.
+      const withVocal = await renderBeatPayload(
+        { bpm: 120, genre: 'phonk', seed: 3, durationSec: 2, vocal: { mode: 'test' } },
+        { rootDir: root },
+      );
+      const vocal = withVocal.ok === true ? withVocal.data.report.vocal : null;
+      push(
+        'вокал (тестовый дубль)',
+        Boolean(vocal && vocal.source === 'test' && vocal.simulated === true && withVocal.data.vocalWavBase64),
+        vocal ? `${vocal.label}, ${vocal.mixed_seconds} с в миксе` : (withVocal.error || 'вокала нет в отчёте'),
+      );
+
+      // Досье читается и правится тем же кодом, что в окне. Пишем во
+      // временный каталог: у установленного приложения `resources` может быть
+      // только для чтения, и smoke не должен ничего ломать.
+      const dossier = require('../src/core/dossier-edit');
+      const list = project.dossiers();
+      push('досье читается', Array.isArray(list.artists), `${list.artists.length} артист(ов)`);
+      const tmp = require('node:fs').mkdtempSync(require('node:path').join(require('node:os').tmpdir(), 'zsmm-smoke-'));
+      const { createNodeFs } = require('../src/core/fs-node');
+      const added = dossier.addArtist(createNodeFs(), tmp, { artist: 'Smoke Artist' });
+      const removed = added.ok ? dossier.removeArtist(createNodeFs(), tmp, { slug: added.data.slug }) : { ok: false };
+      push(
+        'досье правится без Python',
+        added.ok === true && removed.ok === true,
+        added.ok ? `добавлен и удалён ${added.data.slug}` : added.error,
+      );
+      try {
+        require('node:fs').rmSync(tmp, { recursive: true, force: true });
+      } catch {
+        /* временный каталог мог остаться — это не провал проверки */
+      }
     } catch (err) {
       push('чтение проекта', false, err.message);
     }
