@@ -1,0 +1,67 @@
+{
+  "name": "zs-music-maker-desktop",
+  "version": "1.0.0",
+  "private": true,
+  "description": "ZS Music Maker на Electron: окно читает каталог жанров, снимок готовности и досье напрямую из проекта, без Python-процесса",
+  "main": "electron/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "test": "node --test test/*.test.js",
+    "check": "node --check electron/main.js && node --check electron/preload.js && node --check src/app.js && node --check src/core/project.js && node --check src/core/catalog.js && node --check src/core/readiness.js && node --check src/core/fs-node.js && node --check scripts/snapshot-readiness.js && node --check scripts/preview-server.js",
+    "snapshot": "node scripts/snapshot-readiness.js",
+    "verify": "npm run check && npm test",
+    "preview": "node scripts/preview-server.js"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0"
+  },
+  "build": {
+    "appId": "ru.zsmm.musicmaker",
+    "productName": "ZS Music Maker",
+    "files": [
+      "electron/**",
+      "src/**",
+      "data/**",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "../config/genres_100.json",
+        "to": "config/genres_100.json"
+      },
+      {
+        "from": "../data/genre_presets",
+        "to": "data/genre_presets",
+        "filter": [
+          "**/*.json"
+        ]
+      },
+      {
+        "from": "../data/desktop",
+        "to": "data/desktop"
+      },
+      {
+        "from": "../version.json",
+        "to": "version.json"
+      }
+    ],
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "category": "AudioVideo"
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ]
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "category": "public.app-category.music"
+    }
+  }
+}

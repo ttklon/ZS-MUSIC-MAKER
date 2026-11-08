@@ -1,0 +1,188 @@
+'use strict';
+/**
+ * main.js — главный процесс Electron. Ни Python, ни сеть здесь не участвуют.
+ *
+ * Окно работает на данных, которые читает этот процесс из файлов проекта
+ * (жанры, пресеты, снимок inventory/готовности). Логика вынесена в
+ * `src/core/*`, поэтому её проверяет обычный `node --test` без графической
+ * среды, а main.js остаётся тонким: окно, IPC, безопасность.
+ */
+
+const { app, BrowserWindow, ipcMain, shell, dialog } = require('electron');
+const path = require('node:path');
+
+const { createNodeFs } = require('../src/core/fs-node');
+const { createProject } = require('../src/core/project');
+const tasks = require('./tasks');
+
+const ROOT = path.resolve(__dirname, '..', '..');
+const IS_DEV = process.argv.includes('--dev');
+
+let mainWindow = null;
+let project = null;
+let activeTask = null;
+
+/** Найти Python: переменная окружения → локальное окружение → система. */
+function resolvePython({ root = ROOT, env = process.env } = {}) {
+  const candidates = [
+    env.ZSMM_PYTHON,
+    path.join(root, '.venv', 'bin', 'python3'),
+    path.join(root, '.venv', 'Scripts', 'python.exe'),
+    '/usr/bin/python3',
+    '/usr/local/bin/python3',
+  ].filter(Boolean);
+  for (const candidate of candidates) {
+    try {
+      if (require('node:fs').existsSync(candidate)) return { python: candidate };
+    } catch {
+      /* путь недоступен — пробуем следующий */
+    }
+  }
+  return {
+    python: null,
+    error: 'Python не найден. Укажите ZSMM_PYTHON=/путь/к/интерпретатору '
+      + 'или создайте .venv в корне проекта.',
+  };
+}
+
+function projectFor(root = ROOT, fileSystem = createNodeFs()) {
+  return createProject(fileSystem, root);
+}
+
+function createWindow() {
+  mainWindow = new BrowserWindow({
+    width: 1280,
+    height: 820,
+    minWidth: 960,
+    minHeight: 600,
+    backgroundColor: '#0f1115',
+    show: false,
+    title: 'ZS Music Maker',
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: false,
+    },
+  });
+
+  mainWindow.once('ready-to-show', () => mainWindow.show());
+  mainWindow.loadFile(path.join(__dirname, '..', 'src', 'index.html'));
+
+  // Окно не должно превращаться в браузер: внешние ссылки уходят в систему.
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (/^https?:\/\//.test(url)) shell.openExternal(url);
+    return { action: 'deny' };
+  });
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    if (!url.startsWith('file://')) {
+      event.preventDefault();
+      if (/^https?:\/\//.test(url)) shell.openExternal(url);
+    }
+  });
+
+  if (IS_DEV) mainWindow.webContents.openDevTools({ mode: 'detach' });
+  mainWindow.on('closed', () => {
+    mainWindow = null;
+  });
+}
+
+/** IPC: один канал на раздел. Возвращаем данные либо {error} — без исключений. */
+function registerIpc(getProject) {
+  const sections = {
+    version: (p) => p.version(),
+    genres: (p) => p.genres(),
+    modules: (p) => p.modules(),
+    readiness: (p) => p.readiness(),
+    dossiers: (p) => p.dossiers(),
+    system: (p) => p.systemInfo(),
+  };
+
+  for (const [name, loader] of Object.entries(sections)) {
+    ipcMain.handle(`zsmm:${name}`, () => {
+      const active = getProject();
+      if (!active) return { error: 'проект не открыт' };
+      try {
+        return { data: loader(active) };
+      } catch (err) {
+        return { error: err && err.message ? err.message : String(err) };
+      }
+    });
+  }
+
+  ipcMain.handle('zsmm:tasks', () => ({ ok: true, data: tasks.taskList() }));
+
+  ipcMain.handle('zsmm:task-start', async (event, { key, options } = {}) => {
+    if (activeTask) {
+      return { ok: false, error: 'уже выполняется другая задача: сначала остановите её' };
+    }
+    const { python, error } = resolvePython();
+    if (!python) return { ok: false, error };
+    try {
+      const sender = event.sender;
+      activeTask = tasks.runTask({
+        key,
+        options: options || {},
+        python,
+        root: ROOT,
+        onEvent: (payload) => {
+          if (!sender.isDestroyed()) sender.send('zsmm:task-event', payload);
+        },
+      });
+      activeTask.done.then((result) => {
+        activeTask = null;
+        if (!sender.isDestroyed()) sender.send('zsmm:task-done', result);
+      });
+      return { ok: true, data: { pid: activeTask.pid, command: activeTask.command } };
+    } catch (err) {
+      activeTask = null;
+      return { ok: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('zsmm:task-stop', () => {
+    if (!activeTask) return { ok: false, error: 'нет запущенной задачи' };
+    return { ok: true, data: { stopped: activeTask.stop() } };
+  });
+
+  ipcMain.handle('zsmm:reveal-root', async () => {
+    const error = await shell.openPath(ROOT);
+    return { ok: error === '', error: error || null, root: ROOT };
+  });
+
+  ipcMain.handle('zsmm:open-external', async (_event, url) => {
+    if (typeof url !== 'string' || !/^https?:\/\//.test(url)) {
+      return { ok: false, error: 'разрешены только http(s)-ссылки' };
+    }
+    await shell.openExternal(url);
+    return { ok: true };
+  });
+}
+
+app.whenReady().then(() => {
+  try {
+    project = projectFor();
+  } catch (err) {
+    dialog.showErrorBox('Не удалось открыть проект', `${err.message}\n\nКорень: ${ROOT}`);
+    app.quit();
+    return;
+  }
+  registerIpc(() => project);
+  createWindow();
+});
+
+app.on('window-all-closed', () => {
+  // Дочерний процесс не должен переживать окно.
+  if (activeTask) activeTask.stop();
+  if (process.platform !== 'darwin') app.quit();
+});
+
+app.on('before-quit', () => {
+  if (activeTask) activeTask.stop();
+});
+
+app.on('activate', () => {
+  if (BrowserWindow.getAllWindows().length === 0) createWindow();
+});
+
+module.exports = { projectFor, registerIpc, resolvePython, ROOT };

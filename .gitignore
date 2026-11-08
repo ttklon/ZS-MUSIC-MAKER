@@ -79,3 +79,12 @@ data/secrets.enc
 data/reference_cache/*
 !data/reference_cache/.gitkeep
 data/ai_models/
+
+# ---------------------------------------------------------------- Electron-оболочка
+desktop/node_modules/
+desktop/dist/
+desktop/out/
+desktop/*.log
+# Снимок чисел (data/desktop/readiness.json, inventory.md) версионируется:
+# именно его читает окно и именно по нему проверяется устаревание.
+

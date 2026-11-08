@@ -182,12 +182,23 @@ loop, и отдаёт стадии списком `AsyncStage`. Раньше у 
   (с консолью), `scripts\verify.cmd` (compileall → pytest → смоуки → аудиты →
   `--version`/`--readiness`), `scripts\make_shortcut.ps1` (ярлык на exe или
   на `run_silent.cmd`).
+- `desktop/` — окно на Electron: `electron/main.js` (окно, IPC, безопасность),
+  `electron/preload.js` (единственный мост, `contextIsolation: true`),
+  `electron/tasks.js` (белый список задач: окно не может запустить произвольный
+  процесс), `src/core/*` (жанры, пресеты, inventory, расчёт готовности),
+  `src/app.js` (разделы «Обзор», «Модули», «Жанры», «Досье», «Запуск»,
+  «Диагностика»). Данные читаются из файлов проекта; числа готовности
+  готовит `npm run snapshot` вызовом штатного `python -m tools.readiness` и
+  окно **сверяет** их с собственным расчётом. Тяжёлые операции выполняет Python —
+  окно запускает ту же команду, что и терминал, и показывает вывод построчно.
+  Упаковка описана в `package.json` (`electron-builder`), но инсталлятор
+  не собирался: в окружении сборки нет Electron и целевых платформ.
 
 ## 8. Проверки
 
 | Команда | Что ловит |
 |---|---|
-| `python -m pytest tests/` | 2016 тестов: unit, аудио, e2e, property, контракты GUI/CLI |
+| `python -m pytest tests/` | 2020 тестов: unit, аудио, e2e, property, контракты GUI/CLI |
 | `python tools/smoke_audio.py` | стерео, громкость, drop (6 проверок) |
 | `python tools/smoke_god.py` | God Mode E2E, master 120 с, true-peak (8 проверок) |
 | `python tools/fallback_audit.py` | fallback-пути и маркеры заглушек |
@@ -196,3 +207,6 @@ loop, и отдаёт стадии списком `AsyncStage`. Раньше у 
 | `python tools/ast_dead_imports.py` | мёртвые импорты |
 | `python tools/ast_undefined_names.py` | имена, использующиеся без определения (`NameError`) |
 | `python -m tools.readiness` | честный процент готовности + матрица модулей |
+| `cd desktop && npm test` | 64 теста оболочки на Electron: каталог, готовность, задачи, рендер окна в DOM-двойнике (пакет `electron` не нужен) |
+| `cd desktop && npm run snapshot` | снимок чисел через штатный Python-инструмент → `data/desktop/` |
+| `python -m pytest tests/test_desktop_shell.py` | сверка расчёта готовности в JS с эталоном Python |

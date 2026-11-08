@@ -1,0 +1,364 @@
+'use strict';
+/**
+ * app.js — логика окна на чистом JS.
+ *
+ * Данные приходят из preload (`window.zsmm.*`), который спрашивает главный
+ * процесс. Никаких сетевых запросов и никакого Python. Если раздела нет или
+ * файл не прочитан — показывается причина из `error`, а не пустой экран.
+ */
+
+const state = {
+  view: 'overview',
+  genres: [],
+  loaded: new Set(),
+  tasks: [],
+  taskRunning: false,
+  taskLines: [],
+};
+
+const $ = (id) => document.getElementById(id);
+
+function showError(message) {
+  const banner = $('error-banner');
+  banner.textContent = message;
+  banner.classList.remove('is-hidden');
+  window.clearTimeout(showError._timer);
+  showError._timer = window.setTimeout(() => banner.classList.add('is-hidden'), 9000);
+}
+
+function setStatus(ok, label) {
+  const dot = $('backend-dot');
+  dot.classList.toggle('is-ok', ok === true);
+  dot.classList.toggle('is-bad', ok === false);
+  $('backend-state').textContent = label;
+}
+
+const BRIDGE_MISSING = 'window.zsmm недоступен: окно открыто вне Electron';
+
+/** Единая обёртка: успех → data, ошибка → исключение с текстом причины. */
+async function ask(section) {
+  if (!window.zsmm || typeof window.zsmm[section] !== 'function') {
+    setStatus(false, 'мост не подключён');
+    throw new Error(BRIDGE_MISSING);
+  }
+  const reply = await window.zsmm[section]();
+  if (!reply || reply.ok !== true) {
+    setStatus(false, 'ошибка');
+    throw new Error((reply && reply.error) || 'нет ответа');
+  }
+  setStatus(true, 'проект открыт');
+  return reply.data;
+}
+
+function el(tag, className, text) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text !== undefined && text !== null) node.textContent = String(text);
+  return node;
+}
+
+function card(label, value, hint) {
+  const box = el('div', 'card');
+  box.append(el('div', 'card-label', label), el('div', 'card-value', value), el('div', 'card-hint', hint));
+  return box;
+}
+
+function statusTag(status) {
+  const kind =
+    status === 'REAL_PASS' ? 'ok' : status === 'DEPRECATED' || status === 'PLANNED' ? 'warn' : 'bad';
+  return el('span', `tag ${kind}`, status);
+}
+
+// ------------------------------------------------------------------ обзор
+async function loadOverview() {
+  const [version, readiness, modules] = await Promise.all([ask('version'), ask('readiness'), ask('modules')]);
+
+  $('version').textContent = version.version ? `v${version.version}` : 'версия неизвестна';
+  if (version.error) showError(version.error);
+
+  const caps = readiness.capsTriggered || [];
+  const percent = readiness.percent === null || readiness.percent === undefined ? '—' : `${readiness.percent}%`;
+  const inventory = readiness.moduleInventory || {};
+  const cards = [
+    card('Готовность', percent, readiness.stale ? `снимок ${readiness.ageDays} дн. назад` : 'по probes, с потолками'),
+    card('Модулей', String(modules.total || 0), `${(modules.counts || {}).REAL_PASS || 0} достижимы`),
+    card('Мёртвый код', String((modules.counts || {}).DEPRECATED || 0), 'не удалён, помечен в плане'),
+    card('Потолки', String(caps.length), 'причины ниже 100 %'),
+  ];
+  $('overview-cards').replaceChildren(...cards);
+
+  // причина отказа важнее любых цифр: сначала показываем её
+  $('readiness-note').textContent = readiness.error
+    ? readiness.error
+    : caps.length
+      ? 'Готовность ограничена потолками — они перечислены ниже, а не спрятаны.'
+      : 'Потолков нет.';
+  $('caps').replaceChildren(
+    ...caps.map(([value, reason]) => {
+      const item = el('li', null, `${value}% — ${reason}`);
+      return item;
+    }),
+  );
+
+  const stale = [];
+  if (readiness.stale) stale.push(`снимок готовности сделан ${readiness.ageDays} дн. назад`);
+  if (readiness.mismatch) stale.push('снимок расходится с пересчётом');
+  if (stale.length) showError(`Данные устарели: ${stale.join('; ')}. Запустите node scripts/snapshot-readiness.js`);
+  if (modules.error) showError(modules.error);
+}
+
+// ----------------------------------------------------------------- модули
+async function loadModules() {
+  const data = await ask('modules');
+  if (data.error) showError(data.error);
+  const counts = data.counts || {};
+  $('modules-summary').textContent = data.total
+    ? `${data.total} модулей: ` + Object.entries(counts).map(([k, v]) => `${k} — ${v}`).join(', ')
+    : 'нет данных';
+
+  const filter = ($('module-filter').value || '').trim().toLowerCase();
+  const rows = (data.rows || [])
+    .filter((row) => !filter || row.path.toLowerCase().includes(filter))
+    .map((row) => {
+      const tr = document.createElement('tr');
+      const syntax = el('td', null, row.syntaxOk ? 'да' : 'нет');
+      tr.append(
+        el('td', null, row.path),
+        (() => {
+          const td = document.createElement('td');
+          td.append(statusTag(row.status));
+          return td;
+        })(),
+        el('td', null, row.reachable ? 'да' : 'нет'),
+        el('td', null, String(row.productionReferences)),
+        syntax,
+      );
+      return tr;
+    });
+  $('modules-body').replaceChildren(...rows);
+}
+
+// ------------------------------------------------------------------ жанры
+function renderGenres() {
+  const needle = ($('genre-filter').value || '').trim().toLowerCase();
+  const list = state.genres.filter(
+    (genre) => !needle || genre.name.toLowerCase().includes(needle)
+      || genre.category.toLowerCase().includes(needle),
+  );
+  $('genre-list').replaceChildren(
+    ...list.map((genre) => {
+      const li = el('li', genre.hasPreset ? 'chip has-preset' : 'chip');
+      li.append(el('span', 'chip-name', genre.name));
+      const meta = genre.hasPreset
+        ? `${genre.category} · ${genre.bpm ? genre.bpm.join('–') + ' BPM' : 'BPM нет'}`
+        : `${genre.category} · без пресета`;
+      li.append(el('span', 'chip-meta', meta));
+      return li;
+    }),
+  );
+  $('genre-count').textContent = `${list.length} из ${state.genres.length}`;
+}
+
+async function loadGenres() {
+  const data = await ask('genres');
+  state.genres = data.genres || [];
+  for (const error of data.errors || []) showError(error);
+  $('genres-summary').textContent =
+    `каталог: ${state.genres.length} жанров, пресетов: ${data.presetCount || 0}`;
+  renderGenres();
+}
+
+// ------------------------------------------------------------------ досье
+async function loadDossiers() {
+  const data = await ask('dossiers');
+  if (data.error) showError(data.error);
+  const artists = data.artists || [];
+  $('dossier-empty').textContent = artists.length
+    ? `${artists.length} артист(ов) в досье`
+    : 'Досье пусто. Это не ошибка окна: артист добавляется командой python main.py --dossier-add.';
+  $('dossier-list').replaceChildren(
+    ...artists.map((artist) => {
+      const state_ = artist.hasDossier ? 'досье собрано' : artist.deferred ? 'отложено' : 'не собрано';
+      return el('li', null, `${artist.artist} — треков: ${artist.tracks}, ${state_}`);
+    }),
+  );
+}
+
+// ------------------------------------------------------------------ запуск
+function renderTaskOutput() {
+  // держим последние 2000 строк: полный вывод рендера может быть огромным
+  const tail = state.taskLines.slice(-2000);
+  const out = $('task-output');
+  out.textContent = tail.join('\n');
+  out.scrollTop = out.scrollHeight;
+}
+
+function setTaskStatus(text, running) {
+  state.taskRunning = running;
+  $('task-status').textContent = text;
+  $('task-start').disabled = running;
+  $('task-stop').disabled = !running;
+}
+
+function appendTaskLine(line) {
+  state.taskLines.push(line);
+  renderTaskOutput();
+}
+
+async function loadRun() {
+  const tasks = await window.zsmm.listTasks();
+  if (!tasks || tasks.ok === false) {
+    throw new Error((tasks && tasks.error) || 'список задач недоступен');
+  }
+  state.tasks = tasks;
+  $('task-select').replaceChildren(
+    ...tasks.map((task) => {
+      const option = document.createElement('option');
+      option.value = task.key;
+      option.textContent = task.label;
+      return option;
+    }),
+  );
+  setTaskStatus('Задача не запущена', false);
+
+  if (!loadRun.wired) {
+    loadRun.wired = true;
+    $('task-start').addEventListener('click', startTask);
+    $('task-stop').addEventListener('click', () => {
+      window.zsmm.stopTask().then((reply) => {
+        if (!reply || reply.ok !== true) showError((reply && reply.error) || 'не удалось остановить');
+      });
+    });
+    window.zsmm.onTaskEvent((event) => {
+      if (!event) return;
+      if (event.type === 'start') {
+        state.taskLines = [];
+        setTaskStatus(`Выполняется: ${event.label} (${event.command.join(' ')})`, true);
+      } else if (event.type === 'stdout') {
+        appendTaskLine(event.line);
+      } else if (event.type === 'stderr') {
+        appendTaskLine(`[stderr] ${event.line}`);
+      } else if (event.type === 'timeout') {
+        appendTaskLine(`[таймаут] задача превысила ${Math.round(event.timeoutMs / 60000)} мин и остановлена`);
+      }
+    });
+    window.zsmm.onTaskDone((result) => {
+      if (!result) return;
+      if (result.timedOut) {
+        setTaskStatus('Остановлено по таймауту — это не успех', false);
+      } else if (result.ok) {
+        setTaskStatus('Завершено успешно', false);
+      } else {
+        setTaskStatus(`Завершено с ошибкой (код ${result.code}${result.signal ? `, сигнал ${result.signal}` : ''})`, false);
+      }
+    });
+  }
+}
+
+async function startTask() {
+  const key = $('task-select').value;
+  const genre = ($('task-genre').value || '').trim();
+  const seed = ($('task-seed').value || '').trim();
+  const options = {};
+  if (genre) options.genre = genre;
+  if (seed) options.seed = seed;
+
+  state.taskLines = [];
+  renderTaskOutput();
+  const reply = await window.zsmm.startTask(key, options);
+  if (!reply || reply.ok !== true) {
+    setTaskStatus('Не запущено', false);
+    showError((reply && reply.error) || 'задача не запустилась');
+    return;
+  }
+  setTaskStatus(`Запущено: ${reply.data.command.join(' ')} (pid ${reply.data.pid})`, true);
+}
+
+// ------------------------------------------------------------ диагностика
+async function loadHealth() {
+  const [system, readiness] = await Promise.all([ask('system'), ask('readiness')]);
+  const rows = [
+    ['корень проекта', system.root],
+    ['платформа', system.platform],
+    ['Node', system.node],
+    ['Electron', system.electron || '—'],
+    ['Chromium', system.chrome || '—'],
+    ['снимок готовности', readiness.generatedAt || 'нет'],
+  ];
+  $('health-body').replaceChildren(
+    ...rows.map(([key, value]) => {
+      const tr = document.createElement('tr');
+      tr.append(el('td', null, key), el('td', null, value));
+      return tr;
+    }),
+  );
+  $('health-blocks').textContent = JSON.stringify(readiness.blockScores || {}, null, 2);
+  if (readiness.error) showError(readiness.error);
+}
+
+const LOADERS = {
+  overview: loadOverview,
+  modules: loadModules,
+  genres: loadGenres,
+  dossiers: loadDossiers,
+  run: loadRun,
+  health: loadHealth,
+};
+
+const TITLES = {
+  overview: 'Обзор',
+  modules: 'Модули',
+  genres: 'Жанры',
+  dossiers: 'Досье',
+  run: 'Запуск',
+  health: 'Диагностика',
+};
+
+async function switchView(view, { force = false } = {}) {
+  if (!LOADERS[view]) return;
+  state.view = view;
+  $('view-title').textContent = TITLES[view];
+  for (const button of document.querySelectorAll('.nav-item')) {
+    button.classList.toggle('is-active', button.dataset.view === view);
+  }
+  for (const name of Object.keys(LOADERS)) {
+    $(`view-${name}`).classList.toggle('is-hidden', name !== view);
+  }
+  if (force || !state.loaded.has(view)) {
+    try {
+      await LOADERS[view]();
+      state.loaded.add(view);
+    } catch (err) {
+      showError(`${TITLES[view]}: ${err.message}`);
+    }
+  }
+}
+
+function wire() {
+  for (const button of document.querySelectorAll('.nav-item')) {
+    button.addEventListener('click', () => switchView(button.dataset.view));
+  }
+  $('refresh').addEventListener('click', async () => {
+    state.loaded.clear();
+    await switchView(state.view, { force: true });
+  });
+  $('genre-filter').addEventListener('input', renderGenres);
+  $('module-filter').addEventListener('input', () => {
+    if (state.loaded.has('modules')) loadModules().catch((err) => showError(err.message));
+  });
+  $('reveal').addEventListener('click', async () => {
+    const result = await window.zsmm.revealRoot();
+    if (!result || result.ok !== true) showError(`Не удалось открыть папку: ${result && result.error}`);
+  });
+}
+
+if (typeof document !== 'undefined') {
+  document.addEventListener('DOMContentLoaded', () => {
+    wire();
+    switchView('overview');
+  });
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { state, TITLES };
+}

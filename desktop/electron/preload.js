@@ -1,0 +1,72 @@
+'use strict';
+/**
+ * preload.js — единственный мост между окном и системой.
+ *
+ * Контекст изоляции включён: страница не получает ни `require`, ни
+ * `ipcRenderer`. Наружу отдаётся ровно пять функций.
+ */
+
+const { contextBridge, ipcRenderer } = require('electron');
+
+async function section(name) {
+  const reply = await ipcRenderer.invoke(`zsmm:${name}`);
+  if (!reply || reply.error) {
+    return { ok: false, error: (reply && reply.error) || 'нет ответа от главного процесса' };
+  }
+  return { ok: true, data: reply.data };
+}
+
+// Обёртки держат `ipcRenderer` внутри preload: страница получает только
+// готовые функции, а не объект IPC.
+/** Запуск задач проекта: есть события, поэтому отдельный канал. */
+async function listTasks() {
+  const reply = await ipcRenderer.invoke('zsmm:tasks');
+  return reply && reply.ok ? reply.data : reply;
+}
+
+async function startTask(key, options) {
+  return ipcRenderer.invoke('zsmm:task-start', { key, options });
+}
+
+async function stopTask() {
+  return ipcRenderer.invoke('zsmm:task-stop');
+}
+
+/** Подписка на поток вывода. Возвращает функцию отписки. */
+function onTaskEvent(callback) {
+  if (typeof callback !== 'function') return () => {};
+  const listener = (_event, payload) => callback(payload);
+  ipcRenderer.on('zsmm:task-event', listener);
+  return () => ipcRenderer.removeListener('zsmm:task-event', listener);
+}
+
+function onTaskDone(callback) {
+  if (typeof callback !== 'function') return () => {};
+  const listener = (_event, payload) => callback(payload);
+  ipcRenderer.on('zsmm:task-done', listener);
+  return () => ipcRenderer.removeListener('zsmm:task-done', listener);
+}
+
+function revealRoot() {
+  return ipcRenderer.invoke('zsmm:reveal-root');
+}
+
+function openExternal(url) {
+  return ipcRenderer.invoke('zsmm:open-external', url);
+}
+
+contextBridge.exposeInMainWorld('zsmm', {
+  version: () => section('version'),
+  genres: () => section('genres'),
+  modules: () => section('modules'),
+  readiness: () => section('readiness'),
+  dossiers: () => section('dossiers'),
+  system: () => section('system'),
+  listTasks,
+  startTask,
+  stopTask,
+  onTaskEvent,
+  onTaskDone,
+  revealRoot,
+  openExternal,
+});
