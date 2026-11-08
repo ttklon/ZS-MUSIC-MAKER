@@ -238,8 +238,12 @@ jobs:
             Start-Sleep -Seconds (10 * $i)
           }
           if (-not $ok) {
-            $tail = ($output -split "`n" | Select-Object -Last 25) -join ' | '
-            Write-Output "::error title=electron-builder::$tail"
+            # Аннотация режется по длине: важен не весь стек app-builder, а
+            # строки «⨯ ...» — они называют настоящую причину.
+            $errors = ($output -split "`n" | Where-Object { $_ -match '⨯|error|Error:|failed' } | Select-Object -First 12) -join ' | '
+            if (-not $errors) { $errors = ($output -split "`n" | Select-Object -Last 12) -join ' | ' }
+            Write-Output "::error title=electron-builder::$errors"
+            Write-Output $output
             exit 1
           }
 
