@@ -185,3 +185,111 @@ def test_audio_extensions_are_declared_once() -> None:
     ]
 
     assert len(assignments) == 1, "AUDIO_EXT объявлен дважды — второе объявление мёртвое"
+
+# ------------------------------------------------------------------ лицензии
+def test_pixabay_hit_is_not_blocked_by_own_gate(fake_net) -> None:
+    """Парсер отдаёт "Royalty-Free (Pixabay)" — гейт обязан это пропустить.
+
+    До исправления `license_manager.normalize` уходил в ветку «URL» из-за
+    скобок и возвращал "unknown": единственный законный результат Pixabay
+    блокировался собственным фильтром, источник был мёртвым по построению.
+    """
+    from agents.sample_hunter.license import _license_gate
+
+    hits = web.search_pixabay("kick")
+
+    assert hits, "парсер ничего не вернул"
+    assert _license_gate(hits) == hits
+
+
+def test_wikimedia_hits_are_reported_but_blocked_by_sa() -> None:
+    """CC-BY-SA остаётся блокируемой: политика не «расширена» вместе с фиксом."""
+    from agents.sample_hunter.license import _license_gate
+
+    items = [{"source": "wikimedia", "license": "CC-BY-SA / PD"}]
+
+    passed = _license_gate(items)
+
+    assert passed == []
+    assert items[0]["license_blocked"] is True
+    assert items[0]["license_reason"].startswith("blocked by license gate")
+
+def test_without_requests_library_every_source_is_empty(monkeypatch) -> None:
+    """Без `requests` источники молчат, но не падают: поиск не должен ронять hunt."""
+    monkeypatch.setattr(web, "HAS_REQ", False)
+
+    assert web._http_get("https://example.invalid") is None
+    assert web.search_freesound_web("kick") == []
+    assert web.search_wikimedia("kick") == []
+    assert web.search_archive_org("kick") == []
+    assert web.search_pixabay("kick") == []
+
+
+def test_non_200_is_treated_as_no_answer(monkeypatch) -> None:
+    class _Resp:
+        status_code = 503
+        text = "<html>maintenance</html>"
+
+    monkeypatch.setattr(web, "HAS_REQ", True)
+    monkeypatch.setattr(web, "requests", type("R", (), {"get": staticmethod(lambda *a, **k: _Resp())}))
+
+    assert web._http_get("https://example.invalid") is None
+
+
+def test_request_exception_is_treated_as_no_answer(monkeypatch) -> None:
+    def boom(*args, **kwargs):
+        raise OSError("connection reset")
+
+    monkeypatch.setattr(web, "HAS_REQ", True)
+    monkeypatch.setattr(web, "requests", type("R", (), {"get": staticmethod(boom)}))
+
+    assert web._http_get("https://example.invalid") is None
+    assert web.search_freesound_web("kick") == []
+
+def test_http_get_returns_body_on_200(monkeypatch) -> None:
+    class _Resp:
+        status_code = 200
+        text = "ok-body"
+
+    monkeypatch.setattr(web, "HAS_REQ", True)
+    monkeypatch.setattr(web, "requests", type("R", (), {"get": staticmethod(lambda *a, **k: _Resp())}))
+
+    assert web._http_get("https://example.invalid") == "ok-body"
+
+
+def test_dead_network_makes_every_parser_empty(monkeypatch) -> None:
+    """Сеть недоступна → источники пусты, а не исключение наверх."""
+    monkeypatch.setattr(web, "HAS_REQ", True)
+    monkeypatch.setattr(web, "_http_get", lambda *a, **k: None)
+
+    assert web.search_freesound_web("kick") == []
+    assert web.search_wikimedia("kick") == []
+    assert web.search_archive_org("kick") == []
+    assert web.search_pixabay("kick") == []
+
+
+def test_pixabay_broken_json_is_not_a_crash(monkeypatch) -> None:
+    monkeypatch.setenv("PIXABAY_API_KEY", "k")
+    monkeypatch.setattr(web, "HAS_REQ", True)
+    monkeypatch.setattr(web, "_http_get", lambda *a, **k: "<html>not json</html>")
+
+    assert web.search_pixabay("kick") == []
+
+
+def test_pixabay_with_key_but_no_answer_is_empty(monkeypatch) -> None:
+    monkeypatch.setenv("PIXABAY_API_KEY", "k")
+    monkeypatch.setattr(web, "HAS_REQ", True)
+    monkeypatch.setattr(web, "_http_get", lambda *a, **k: None)
+
+    assert web.search_pixabay("kick") == []
+
+def test_archive_entry_without_identifier_is_skipped(monkeypatch) -> None:
+    import json as _json
+
+    payload = _json.dumps({"response": {"docs": [{"title": "без id"}, {"identifier": "ok"}]}})
+    monkeypatch.setattr(web, "HAS_REQ", True)
+    monkeypatch.setattr(web, "_http_get", lambda *a, **k: payload)
+
+    hits = web.search_archive_org("kick")
+
+    assert [hit["id"] for hit in hits] == ["ok"]
