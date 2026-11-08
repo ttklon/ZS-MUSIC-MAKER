@@ -4,6 +4,14 @@ on:
   push:
     branches: [ main ]
     tags: [ 'v*' ]
+  # Окно и установщик проверяются и на pull request: иначе о сломанной
+  # сборке на Windows узнаёшь уже после слияния. Python-сборка EXE на PR
+  # не запускается (она долгая и не меняется от правок в desktop/).
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'desktop/**'
+      - '.github/workflows/build.yml'
   workflow_dispatch:
 
 permissions:
@@ -11,6 +19,8 @@ permissions:
 
 jobs:
   build-windows:
+    # PyInstaller-сборка не нужна на каждом PR: она не зависит от desktop/.
+    if: github.event_name != 'pull_request'
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
