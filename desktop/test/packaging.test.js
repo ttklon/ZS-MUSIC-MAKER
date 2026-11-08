@@ -22,6 +22,9 @@ test('описание сборки Windows 11 на месте', () => {
 
   const targets = pkg.build.win.target.map((entry) => entry.target);
   assert.ok(targets.includes('nsis'), 'нужен установщик NSIS, а не только архив');
+  assert.ok(targets.includes('portable'), 'переносимый EXE собирается той же конфигурацией');
+  // Цели живут только здесь: дублирование в командной строке ломало сборку.
+  assert.doesNotMatch(pkg.scripts.dist, /--win nsis/, 'цели не должны дублироваться в CLI');
   assert.equal(pkg.build.win.target[0].arch[0], 'x64');
   // Установка «для пользователя»: без прав администратора на Windows 11.
   assert.equal(pkg.build.nsis.oneClick, false);

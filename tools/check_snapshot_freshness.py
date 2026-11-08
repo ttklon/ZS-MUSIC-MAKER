@@ -2,8 +2,17 @@
 
 Зачем: `data/desktop/readiness.json` и `inventory.md` — это данные, которые
 окно показывает человеку. Если они отстают от кода, окно говорит неправду,
-и заметить это можно только сверкой. Пересчёт детерминирован, поэтому
-сравнение корректно; исключение — `generated_at`, дата меняется от запуска.
+и заметить это можно только сверкой.
+
+Что сравнивается и почему не всё:
+
+* `inventory.md` — целиком: он выводится из кода (AST, достижимость), а не
+  из окружения, поэтому расхождение всегда означает устаревший снимок;
+* `readiness.json` — только `module_inventory` (сколько модулей и в каком
+  статусе) и `caps_triggered`. Проценты и `raw_probes` зависят от того, какие
+  пакеты установлены в окружении (наличие `pedalboard`, `torch`, PySide6),
+  поэтому в CI и на машине разработчика они законно разные. Сверять их —
+  значит требовать одинакового набора пакетов везде, а это неправда.
 
 Запускается после `node desktop/scripts/snapshot-readiness.js` в CI.
 """
@@ -43,8 +52,12 @@ def main() -> int:
         before = committed(SNAPSHOT)
         if not before:
             problems.append("readiness.json нет в коммите — снимок не сохранён")
-        elif payload(before) != payload(SNAPSHOT.read_text(encoding="utf-8")):
-            problems.append("readiness.json расходится с пересчётом")
+        else:
+            old = payload(before)
+            new = payload(SNAPSHOT.read_text(encoding="utf-8"))
+            for field in ("module_inventory", "caps_triggered"):
+                if old.get(field) != new.get(field):
+                    problems.append(f"readiness.json: {field} расходится с пересчётом")
     else:
         problems.append("readiness.json не сгенерирован")
 

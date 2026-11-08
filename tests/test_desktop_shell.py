@@ -139,16 +139,35 @@ def test_snapshot_freshness_tool_detects_stale_snapshot(tmp_path, monkeypatch) -
     (tmp_path / "data" / "desktop").mkdir(parents=True)
     snapshot = tmp_path / "data" / "desktop" / "readiness.json"
     inventory = tmp_path / "data" / "desktop" / "inventory.md"
-    snapshot.write_text('{"percent": 65, "generated_at": "2026-01-01T00:00:00Z"}', encoding="utf-8")
+    # Проценты могут законно отличаться (разные пакеты в окружении), а состав
+    # модулей и потолки — нет: именно они и должны ловить устаревший снимок.
+    snapshot.write_text(
+        json.dumps(
+            {
+                "percent": 65,
+                "generated_at": "2026-01-01T00:00:00Z",
+                "module_inventory": {"tracked_modules": 300},
+                "caps_triggered": [["65", "heavy engines unavailable"]],
+            }
+        ),
+        encoding="utf-8",
+    )
     inventory.write_text("| header |\n", encoding="utf-8")
     monkeypatch.setattr(module, "SNAPSHOT", snapshot)
     monkeypatch.setattr(module, "INVENTORY", inventory)
     monkeypatch.setattr(
         module,
         "committed",
-        lambda path: '{"percent": 42, "generated_at": "2025-01-01T00:00:00Z"}'
+        lambda path: json.dumps(
+            {
+                "percent": 42,
+                "generated_at": "2025-01-01T00:00:00Z",
+                "module_inventory": {"tracked_modules": 299},
+                "caps_triggered": [["65", "heavy engines unavailable"]],
+            }
+        )
         if path.name == "readiness.json"
         else "| header |\n",
     )
 
-    assert module.main() == 1, "расхождение процента должно быть замечено"
+    assert module.main() == 1, "расхождение состава модулей должно быть замечено"

@@ -181,8 +181,11 @@ jobs:
       - name: Build NSIS installer and portable EXE
         working-directory: desktop
         shell: pwsh
+        # Цели описаны в package.json → build.win.target. Раньше они дублировались
+        # в командной строке (`--win nsis portable`), и app-builder падал на
+        # неожиданном аргументе.
         run: |
-          $output = (& npx electron-builder --win nsis portable --x64 --publish never 2>&1 | Out-String)
+          $output = (& npx electron-builder --win --x64 --publish never 2>&1 | Out-String)
           $output
           if ($LASTEXITCODE -ne 0) {
             $tail = ($output -split "`n" | Select-Object -Last 25) -join ' | '
