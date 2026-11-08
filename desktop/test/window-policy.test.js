@@ -282,3 +282,26 @@ test('каталог «Музыка» на Windows или запасной пу�
   assert.match(appPaths.musicDir({ getPath: () => { throw new Error('нет профиля'); } }), /zsmm$/);
   assert.match(appPaths.musicDir(null), /zsmm$/);
 });
+
+test('меню умеет открыть каталог досье и перечитать раздел', () => {
+  // В установленной сборке досье лежит в каталоге пользователя, а данные
+  // раздела нужно перечитывать без перезагрузки страницы: иначе собранный
+  // бит пропадал бы по F5.
+  const calls = [];
+  const template = appMenu.menuTemplate({
+    openDossier: () => calls.push('dossier'),
+    reloadView: () => calls.push('reload'),
+  });
+  const items = template.flatMap((item) => item.submenu || []);
+  items.find((sub) => sub.label === 'Каталог досье').click();
+  const refresh = items.find((sub) => sub.label && sub.label.startsWith('Обновить раздел'));
+  assert.ok(refresh, 'нет пункта «Обновить раздел»');
+  assert.equal(refresh.accelerator, 'F5');
+  refresh.click();
+  assert.deepEqual(calls, ['dossier', 'reload']);
+
+  // Без обработчиков пунктов нет: шаблон не должен ссылаться на undefined.
+  const bare = appMenu.menuTemplate().flatMap((item) => item.submenu || []);
+  assert.ok(!bare.some((sub) => sub.label === 'Каталог досье'));
+  assert.ok(!bare.some((sub) => sub.label && sub.label.startsWith('Обновить раздел')));
+});

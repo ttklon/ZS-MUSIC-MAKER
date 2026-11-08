@@ -19,14 +19,25 @@
  * @param {boolean} [params.isDev]   показывать пункты разработчика
  * @param {Function} [params.openRoot] открыть папку проекта
  * @param {Function} [params.showAbout] окно «О приложении»
+ * @param {Function} [params.openDossier] открыть каталог, где лежит досье
+ * @param {Function} [params.reloadView] перечитать данные текущего раздела
  * @returns {Array<object>} шаблон для `Menu.buildFromTemplate`
  */
-function menuTemplate({ isDev = false, openRoot = () => {}, showAbout = () => {} } = {}) {
+function menuTemplate({
+  isDev = false,
+  openRoot = () => {},
+  showAbout = () => {},
+  openDossier = null,
+  reloadView = null,
+} = {}) {
   return [
     {
       label: 'Файл',
       submenu: [
         { label: 'Папка проекта', click: () => openRoot() },
+        // В установленной сборке досье лежит не рядом с программой, а в
+        // каталоге пользователя: без этого пункта его нечем открыть.
+        ...(openDossier ? [{ label: 'Каталог досье', click: () => openDossier() }] : []),
         { type: 'separator' },
         { role: 'quit', label: 'Выход' },
       ],
@@ -39,6 +50,10 @@ function menuTemplate({ isDev = false, openRoot = () => {}, showAbout = () => {}
         { role: 'zoomOut', label: 'Мельче' },
         { type: 'separator' },
         { role: 'togglefullscreen', label: 'Во весь экран' },
+        // «Обновить раздел» есть и в релизной сборке: это не перезагрузка
+        // страницы (она сбросила бы собранный бит), а повторное чтение данных
+        // — то же, что кнопка «Обновить» в окне.
+        ...(reloadView ? [{ label: 'Обновить раздел  F5', accelerator: 'F5', click: () => reloadView() }] : []),
         ...(isDev
           ? [
               { role: 'reload', label: 'Перезагрузить' },

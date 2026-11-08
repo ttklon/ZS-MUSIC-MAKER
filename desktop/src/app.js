@@ -173,6 +173,13 @@ function wire() {
   $('module-filter').addEventListener('input', () => {
     if (state.loaded.has('modules') && typeof W.renderModules === 'function') W.renderModules();
   });
+  // F5 из меню: перечитать данные текущего раздела, не теряя собранный бит.
+  if (window.zsmm && typeof window.zsmm.onRefresh === 'function') {
+    window.zsmm.onRefresh(async () => {
+      state.loaded.clear();
+      await switchView(state.view, { force: true });
+    });
+  }
   $('reveal').addEventListener('click', async () => {
     const result = await window.zsmm.revealRoot();
     if (!result || result.ok !== true) showError(`Не удалось открыть папку: ${result && result.error}`);

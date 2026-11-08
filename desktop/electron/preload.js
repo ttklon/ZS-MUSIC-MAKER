@@ -124,6 +124,19 @@ function environment() {
   return ipcRenderer.invoke('zsmm:environment');
 }
 
+/**
+ * Подписка на «перечитать раздел» из меню (F5).
+ *
+ * Это не перезагрузка страницы: собранный бит остаётся, меняются только
+ * данные раздела — как по кнопке «Обновить».
+ */
+function onRefresh(callback) {
+  if (typeof callback !== 'function') return () => {};
+  const listener = () => callback();
+  ipcRenderer.on('zsmm:refresh', listener);
+  return () => ipcRenderer.removeListener('zsmm:refresh', listener);
+}
+
 /** Треки артиста и добавление трека: досье ведётся из окна, без Python. */
 function dossierTracks(slug) {
   return ipcRenderer.invoke('zsmm:dossier-tracks', { slug });
@@ -153,6 +166,7 @@ contextBridge.exposeInMainWorld('zsmm', {
   stopTask,
   onTaskEvent,
   onTaskDone,
+  onRefresh,
   renderBeat,
   cancelBeat,
   beatBank,

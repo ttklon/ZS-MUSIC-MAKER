@@ -103,8 +103,22 @@ function saveTextCopy(args = {}, window = null) {
 
 /** Меню: шаблон в `app-menu.js`, сборка в меню Electron — здесь. */
 function buildMenu({ isDev = IS_DEV } = {}) {
+  const dataDir = dossierPlan().dir;
   return Menu.buildFromTemplate(
-    appMenu.menuTemplate({ isDev, openRoot: () => ROOT && shell.openPath(ROOT), showAbout }),
+    appMenu.menuTemplate({
+      isDev,
+      openRoot: () => ROOT && shell.openPath(ROOT),
+      showAbout,
+      // Досье в установленной сборке лежит в каталоге пользователя, а не
+      // рядом с программой: путь должен открываться одним пунктом меню.
+      openDossier: () => shell.openPath(dataDir),
+      // F5 перечитывает данные раздела. Это не перезагрузка страницы:
+      // собранный бит при этом не теряется.
+      reloadView: () => {
+        const window = windows && windows.get();
+        if (window && !window.webContents.isDestroyed()) window.webContents.send('zsmm:refresh');
+      },
+    }),
   );
 }
 

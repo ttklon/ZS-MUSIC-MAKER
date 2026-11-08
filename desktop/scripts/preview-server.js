@@ -200,6 +200,8 @@ function shim(project) {
     stopTask: () => Promise.resolve({ ok: false, error: 'нет задачи' }),
     onTaskEvent: () => () => {},
     onTaskDone: () => () => {},
+    // В браузере меню нет: подписка нужна, чтобы раздел не падал на её поиске.
+    onRefresh: () => () => {},
     revealRoot: () => Promise.resolve({ ok: false, error: 'доступно только в приложении' }),
     openExternal: () => Promise.resolve({ ok: false, error: 'доступно только в приложении' }),
   };
