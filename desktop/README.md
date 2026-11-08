@@ -21,6 +21,8 @@ desktop/
 │   ├── render-worker.js  точка входа потока рендера (вне app.asar)
 │   ├── beat-service.js   IPC бита: рендер, банк, сохранение WAV и отчёта
 │   ├── settings.js       settings.json в каталоге пользователя
+│   ├── writable-data.js  куда писать досье (Program Files только для чтения)
+│   ├── native-tasks.js   задачи «Запуска» без Python: файлы, готовность, досье
 │   ├── preload.js        единственный мост к системе (contextIsolation)
 │   └── tasks.js          белый список задач + запуск процессов
 ├── build/
