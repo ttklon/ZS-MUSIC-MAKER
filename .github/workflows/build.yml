@@ -179,23 +179,46 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-electron-cache-
 
-      - name: Download the Electron binary (needed for packaging)
+      - name: Install the Electron binary for packaging
         working-directory: desktop
         shell: pwsh
+        # `@electron/get` внутри install.js качал бинарник через редиректы
+        # release-assets.githubusercontent.com и падал с «EOF» на раннере.
+        # Здесь тот же артефакт скачивается напрямую (curl есть в Windows 11),
+        # кладётся в dist/ и path.txt — ровно то, что делает install.js.
+        # electron-builder после этого видит локальную копию и не качает её.
         run: |
-          # Скачивание бинарника — самый хрупкий шаг: повторяем до трёх раз.
+          $version = (node -p "require('electron/package.json').version")
+          $dist = "node_modules/electron/dist"
+          if (Test-Path "$dist/electron.exe") {
+            Write-Output "electron $version уже распакован"
+            exit 0
+          }
+          $zip = "electron-v$version-win32-x64.zip"
+          $url = "https://github.com/electron/electron/releases/download/v$version/$zip"
           $ok = $false
           for ($i = 1; $i -le 3; $i++) {
-            $output = (& node node_modules/electron/install.js 2>&1 | Out-String)
-            $output
-            if ($LASTEXITCODE -eq 0) { $ok = $true; break }
-            Write-Output "::warning title=electron binary::попытка $i не удалась, повтор"
-            Start-Sleep -Seconds (5 * $i)
+            Write-Output "скачивание $url (попытка $i)"
+            & curl.exe -L --fail --retry 3 --retry-delay 5 --max-time 900 -o $zip $url
+            if ($LASTEXITCODE -eq 0 -and (Test-Path $zip) -and ((Get-Item $zip).Length -gt 50MB)) {
+              $ok = $true
+              break
+            }
+            Start-Sleep -Seconds (10 * $i)
           }
           if (-not $ok) {
-            Write-Output "::error title=electron binary::бинарник не скачался за 3 попытки"
+            Write-Output "::error title=electron download::не удалось скачать $url"
             exit 1
           }
+          New-Item -ItemType Directory -Force -Path $dist | Out-Null
+          Expand-Archive -Path $zip -DestinationPath $dist -Force
+          Set-Content -Path "node_modules/electron/path.txt" -Value "electron.exe" -NoNewline
+          Remove-Item $zip -Force
+          if (-not (Test-Path "$dist/electron.exe")) {
+            Write-Output "::error title=electron unpack::в dist нет electron.exe"
+            exit 1
+          }
+          Write-Output "electron $version распакован в $dist"
 
       - name: Build NSIS installer and portable EXE
         working-directory: desktop
