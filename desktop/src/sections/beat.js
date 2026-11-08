@@ -29,7 +29,57 @@ function beatOptions() {
     durationSec,
     seed: seedText === '' ? null : Number(seedText),
     useBank: Boolean($('beat-use-bank') && $('beat-use-bank').checked),
+    vocal: vocalOptions(),
   };
+}
+
+// ---------------------------------------------------------------- вокал
+// Режим задаёт пользователь, но подпись всегда называет источник честно:
+// «тестовый дубль» не превращается в «запись с микрофона» ни при каких
+// настройках.
+let vocalFile = null;
+
+function vocalOptions() {
+  const mode = ($('vocal-mode') && $('vocal-mode').value) || 'none';
+  if (mode === 'none') return { mode: 'none' };
+  const text = ($('vocal-text') && $('vocal-text').value || '').trim();
+  const gainRaw = Number(($('vocal-gain') && $('vocal-gain').value) || 0.5);
+  const gain = Number.isFinite(gainRaw) ? Math.min(1, Math.max(0, gainRaw)) : 0.5;
+  if (mode === 'file') {
+    if (!vocalFile) throw new Error('сначала выберите WAV-файл с вокалом');
+    return { mode, text, gain, file: vocalFile };
+  }
+  return { mode, text, gain };
+}
+
+const VOCAL_NOTES = {
+  none: 'Вокал выключен: трек будет без голоса.',
+  synth: 'Голос синтезируется формантным движком в окне — это не запись человека.',
+  test: 'Тестовый дубль: имитация входа для проверки цепочки. Не микрофон и не запись.',
+  file: 'Вокал берётся из выбранного WAV-файла.',
+};
+
+function updateVocalNote() {
+  const mode = ($('vocal-mode') && $('vocal-mode').value) || 'none';
+  const note = $('vocal-note');
+  if (!note) return;
+  const pick = $('vocal-pick');
+  if (pick) pick.disabled = mode !== 'file';
+  const textField = $('vocal-text');
+  if (textField) textField.disabled = mode === 'none' || mode === 'file';
+  const gainField = $('vocal-gain');
+  if (gainField) gainField.disabled = mode === 'none';
+  note.textContent = mode === 'file' && vocalFile
+    ? `${VOCAL_NOTES.file} Файл: ${vocalFile}`
+    : VOCAL_NOTES[mode] || VOCAL_NOTES.none;
+}
+
+/** Одна строка про вокал: источник и что именно с ним сделали. */
+function describeVocal(vocal) {
+  if (!vocal) return 'не подключён';
+  const source = vocal.simulated ? 'тестовый дубль (имитация, не микрофон)' : vocal.label;
+  return `${source}; уровень ${vocal.gain}; в миксе ${vocal.mixed_seconds} с`
+    + (vocal.starts_outside ? '; дубль длиннее трека и обрезан' : '');
 }
 
 function renderBeatReport(report) {
@@ -78,6 +128,7 @@ function renderBeatReport(report) {
           + `вариативность уровня ${report.measured_humanity.level_variation_db} дБ`
         : 'не измерялось',
     ),
+    reportLine('вокал', describeVocal(report.vocal)),
     reportLine('пик', report.humanity.peak),
     reportLine('размер WAV', `${Math.round(report.bytes / 1024)} КБ`),
   ].join('\n');
@@ -107,6 +158,9 @@ function applyBeatSettings(settings) {
     'beat-bpm': 'bpm',
     'beat-seed': 'seed',
     'beat-duration': 'durationSec',
+    'vocal-mode': 'vocalMode',
+    'vocal-text': 'vocalText',
+    'vocal-gain': 'vocalGain',
   };
   for (const [id, key] of Object.entries(map)) {
     const field = $(id);
@@ -114,6 +168,9 @@ function applyBeatSettings(settings) {
   }
   const bank = $('beat-use-bank');
   if (bank && typeof settings.useBank === 'boolean') bank.checked = settings.useBank;
+  // Файл не запоминаем: путь мог исчезнуть, и молча рендерить «тишину»
+  // хуже, чем попросить выбрать файл заново.
+  if (settings.vocalMode && settings.vocalMode !== 'file') updateVocalNote();
 }
 
 async function loadBeat() {
@@ -149,6 +206,41 @@ async function loadBeat() {
     }
   } catch (err) {
     showError(`Банк сэмплов: ${err.message}`);
+  }
+
+  // Вокал: режим, выбор файла и честная подпись под блоком.
+  const vocalMode = $('vocal-mode');
+  if (vocalMode) {
+    vocalMode.addEventListener('change', updateVocalNote);
+    updateVocalNote();
+
+    // Что известно про вход записи, говорит главный процесс: если захвата
+    // нет, окно так и пишет, а не изображает микрофон.
+    if (typeof window.zsmm.vocalInput === 'function') {
+      try {
+        const input = await window.zsmm.vocalInput();
+        if (input && input.ok === true && input.data && !input.data.recording) {
+          $('vocal-note').textContent += ` Микрофон: ${input.data.reason}.`;
+        }
+      } catch (err) {
+        showError(`Вход записи: ${err.message}`);
+      }
+    }
+
+    $('vocal-pick').addEventListener('click', async () => {
+      if (typeof window.zsmm.pickVocalFile !== 'function') {
+        showError('Выбор файла доступен только в приложении');
+        return;
+      }
+      const reply = await window.zsmm.pickVocalFile();
+      if (!reply || reply.ok !== true) {
+        showError(`Файл не выбран: ${(reply && reply.error) || 'нет ответа'}`);
+        return;
+      }
+      vocalFile = (reply.data && reply.data.path) || null;
+      if (vocalFile) vocalMode.value = 'file';
+      updateVocalNote();
+    });
   }
 
   $('beat-render').addEventListener('click', async () => {

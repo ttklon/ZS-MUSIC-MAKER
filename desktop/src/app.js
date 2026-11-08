@@ -67,6 +67,21 @@ async function ask(section) {
 }
 W.ask = ask;
 
+/**
+ * Как `ask`, но с аргументом: каналы, которые что-то меняют (добавить
+ * артиста, удалить), принимают объект и отвечают `{ok, data|error}`.
+ */
+async function askWith(section, payload) {
+  if (!window.zsmm || typeof window.zsmm[section] !== 'function') {
+    setStatus(false, 'мост не подключён');
+    throw new Error(BRIDGE_MISSING);
+  }
+  const reply = await window.zsmm[section](payload);
+  if (!reply || reply.ok !== true) throw new Error((reply && reply.error) || 'нет ответа');
+  return reply.data;
+}
+W.askWith = askWith;
+
 function el(tag, className, text) {
   const node = document.createElement(tag);
   if (className) node.className = className;

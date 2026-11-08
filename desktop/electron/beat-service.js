@@ -9,6 +9,16 @@
 
 const path = require('node:path');
 const fsp = require('node:fs/promises');
+const { existsSync, readFileSync } = require('node:fs');
+
+/** Минимальное файловое API для чтения вокального WAV. */
+function readBinary(target) {
+  try {
+    return { value: readFileSync(target) };
+  } catch (err) {
+    return { error: `${err.code || 'ERR'}: ${err.message}` };
+  }
+}
 
 const { renderBeatPayload, createBankProvider } = require('./pipeline');
 const { renderInWorker, createCancelSignal } = require('./render-host');
@@ -27,6 +37,12 @@ function registerBeatIpc({ ipcMain, dialog, rootDir, getWindow, musicDir, onProg
   // Банк один на процесс: декодированные one-shot'ы кэшируются, повторный
   // рендер не перечитывает 32 файла.
   const bankProvider = createBankProvider({ rootDir });
+  // Минимальное файловое API для вокального WAV: главный процесс умеет
+  // читать диск, рендер-поток — нет.
+  const vocalFileSystem = {
+    exists: (target) => existsSync(target),
+    readBinary: (target) => readBinary(target),
+  };
 
   // Отмена живёт на уровне сервиса: одновременно идёт один рендер, и
   // «Отменить» относится именно к нему. Сигнала нет — рендера нет.
@@ -47,9 +63,14 @@ function registerBeatIpc({ ipcMain, dialog, rootDir, getWindow, musicDir, onProg
       activeRender = signal;
       let result;
       try {
+        // Файл вокала читается в главном процессе через файловое API проекта:
+        // рендер-поток не должен сам ходить по произвольным путям.
         result = await renderInWorker({
           options,
           rootDir,
+          // Вокальный файл читается здесь: в рендер-поток уходит уже готовый
+          // дубль, а не путь по диску пользователя.
+          vocalFileSystem,
           onProgress: send,
           signal,
           renderInMain: (opts, ctx) => renderBeatPayload(opts, { ...ctx, bankFor: () => bankProvider.bank() }),
@@ -82,6 +103,14 @@ function registerBeatIpc({ ipcMain, dialog, rootDir, getWindow, musicDir, onProg
       }
     },
 
+    // Выбор вокального WAV. Путь выбирает системный диалог: страница не
+    // может подсунуть произвольный путь, поэтому чтение файла безопасно.
+    'zsmm:vocal-pick': async () => pickVocalFile({ dialog, getWindow }),
+
+    // Готовность входа: есть ли в системе устройства записи. Окно показывает
+    // это честно, а не притворяется, что пишет с микрофона.
+    'zsmm:vocal-input': async () => ({ ok: true, data: describeInput() }),
+
     'zsmm:beat-save': async (_event, wavBase64) => saveBeat({ dialog, getWindow, musicDir, wavBase64 }),
 
     'zsmm:save-copy': async (_event, { name, text } = {}) => saveTextCopy({ dialog, getWindow, musicDir, name, text }),
@@ -90,6 +119,37 @@ function registerBeatIpc({ ipcMain, dialog, rootDir, getWindow, musicDir, onProg
   for (const [channel, handler] of Object.entries(handlers)) ipcMain.handle(channel, handler);
 
   return { bankProvider, handlers };
+}
+
+/** Диалог выбора WAV для вокального дубля. */
+async function pickVocalFile({ dialog, getWindow }) {
+  try {
+    const { canceled, filePaths } = await dialog.showOpenDialog(getWindow() || undefined, {
+      title: 'Выбрать WAV с вокалом',
+      properties: ['openFile'],
+      filters: [{ name: 'WAV', extensions: ['wav'] }],
+    });
+    if (canceled || !filePaths || !filePaths.length) return { ok: true, data: { path: null } };
+    return { ok: true, data: { path: filePaths[0] } };
+  } catch (err) {
+    return { ok: false, error: err && err.message ? err.message : String(err) };
+  }
+}
+
+/**
+ * Что известно о входе записи.
+ *
+ * Честно: в приложении нет захвата звука (для него нужен отдельный
+ * native-модуль). Поэтому здесь нет `recording: true` — вместо этого
+ * окно предлагает файл или тестовый дубль.
+ */
+function describeInput() {
+  return {
+    recording: false,
+    label: 'захват с микрофона не встроен',
+    reason: 'в приложении нет модуля записи со входа; доступны WAV-файл и тестовый дубль',
+    simulatedAvailable: true,
+  };
 }
 
 /** Сохранить WAV через диалог. base64 проверяется до записи. */
@@ -155,6 +215,8 @@ function defaultBeatPath(musicDir = () => path.join(require('node:os').tmpdir(),
 }
 
 module.exports = {
+  pickVocalFile,
+  describeInput,
   registerBeatIpc,
   saveBeat,
   saveTextCopy,

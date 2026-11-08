@@ -346,6 +346,22 @@ input {
   margin-bottom: 12px;
 }
 
+.fieldset {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin: 0 0 12px;
+  background: var(--bg-raised);
+}
+
+.fieldset legend {
+  padding: 0 6px;
+  color: var(--muted);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
 .chip {
   display: flex;
   flex-direction: column;

@@ -9,6 +9,15 @@
  * память процесса.
  */
 
+/** Режимы вокала: без голоса, синтез движком, тестовый дубль, файл. */
+const VOCAL_MODES = ['none', 'synth', 'test', 'file'];
+
+const VOCAL_LIMITS = {
+  maxTextLength: 600,
+  minGain: 0,
+  maxGain: 1,
+};
+
 const BEAT_LIMITS = {
   minBpm: 40,
   maxBpm: 220,
@@ -63,6 +72,10 @@ function sanitizeBeatOptions(options = {}, limits = BEAT_LIMITS) {
     seed = Math.trunc(parsed);
   }
 
+  // Вокал проверяется вместе с битом: он часть запроса на рендер.
+  const vocal = sanitizeVocalOptions(source.vocal);
+  if (vocal.error) return { error: vocal.error };
+
   return {
     value: {
       bpm,
@@ -74,8 +87,67 @@ function sanitizeBeatOptions(options = {}, limits = BEAT_LIMITS) {
       float32: false,
       // Банк сэмплов включён по умолчанию: живой one-shot лучше синтеза.
       useBank: source.useBank !== false,
+      // Вокал едет в том же объекте: рендер получает всё одним запросом.
+      vocal,
+      vocalFile: vocal.value.file,
     },
   };
 }
 
-module.exports = { BEAT_LIMITS, DEFAULT_BEAT, sanitizeBeatOptions };
+/**
+ * Проверить параметры вокала.
+ *
+ * Вокал — часть запроса, поэтому его границы проверяются вместе с битом:
+ * текст ограничен по длине (иначе строка на 10 000 слогов займёт минуты),
+ * уровень — 0…1, режим — из белого списка.
+ *
+ * @param {object} source
+ * @returns {{value: object, error?: string}}
+ */
+function sanitizeVocalOptions(source = {}) {
+  const input = source && typeof source === 'object' ? source : {};
+  const mode = typeof input.mode === 'string' ? input.mode.trim() : 'none';
+  if (!VOCAL_MODES.includes(mode)) {
+    return { error: `режим вокала должен быть один из: ${VOCAL_MODES.join(', ')}` };
+  }
+  if (mode === 'none') return { value: { mode: 'none', text: '', gain: 0, file: null } };
+
+  const text = typeof input.text === 'string'
+    ? input.text.replace(/\s+/g, ' ').trim().slice(0, VOCAL_LIMITS.maxTextLength)
+    : '';
+  const rawGain = input.gain === undefined || input.gain === null || input.gain === '' ? 0.5 : Number(input.gain);
+  const gain = Number.isFinite(rawGain)
+    ? Math.min(VOCAL_LIMITS.maxGain, Math.max(VOCAL_LIMITS.minGain, rawGain))
+    : 0.5;
+
+  let file = null;
+  if (mode === 'file') {
+    if (typeof input.file !== 'string' || !input.file.trim()) {
+      return { error: 'для режима «файл» нужен путь к WAV' };
+    }
+    // Путь выбирает диалог, а не страница: принимаем только .wav и только
+    // абсолютный путь без переходов вверх.
+    file = input.file.trim();
+    if (!/\.wav$/i.test(file) || file.split(/[\\/]+/).includes('..')) {
+      return { error: 'нужен путь к файлу .wav (без «..»)' };
+    }
+  }
+
+  return {
+    value: {
+      mode,
+      text: text || 'я читаю твой трек наизусть',
+      gain,
+      file,
+    },
+  };
+}
+
+module.exports = {
+  BEAT_LIMITS,
+  DEFAULT_BEAT,
+  VOCAL_MODES,
+  VOCAL_LIMITS,
+  sanitizeBeatOptions,
+  sanitizeVocalOptions,
+};

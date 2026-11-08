@@ -1,52 +1,26 @@
 'use strict';
 /**
- * core/audio/voices.js — голоса бита: ударные, бас, суб, мелодия, FX, пэд.
+ * core/audio/voices.js — голоса движка: ударные, бас, гармония, мелодия.
  *
- * Порт `modules/beat/voices.py` + `harmony.py::HarmonyMixin`. Каждый голос
- * берёт случайность из RNG конструктора, а не из глобального состояния,
- * поэтому seed → идентичный трек.
- *
- * Сэмпловый банк здесь не используется: в окне нет ни `data/samples/`, ни
- * декодера WAV-ов с диска. Движок честно помечает себя FALLBACK (как и
- * Python-версия без банка) и синтезирует one-shot'ы.
+ * Порт `modules/beat/voices.py`: банк сэмплов важнее синтеза (живая запись
+ * всегда предпочтительнее генератора), два независимых RNG-потока — как
+ * `_py_rng` и `_np_rng` в Python. Мотив хука и его лид переехали в
+ * `hook.js` (файл упирался в лимит 400 строк); здесь они только
+ * реэкспортируются, чтобы `require('./voices')` не менялся.
  */
 
 const drums = require('./instruments');
 const humanize = require('./humanize');
 const harmony = require('./harmony');
-const { zeros, mixInto, movingAverage, peak } = require('./dsp');
-
-const ROOT_FREQS = {
-  C: 261.63,
-  'C#': 277.18,
-  D: 293.66,
-  'D#': 311.13,
-  E: 329.63,
-  F: 349.23,
-  'F#': 369.99,
-  G: 392.0,
-  'G#': 415.3,
-  A: 440.0,
-  'A#': 466.16,
-  B: 493.88,
-};
+const { zeros, mixInto, peak } = require('./dsp');
+const { ROOT_FREQS } = require('./tuning');
+const { rootFreq, isMajor } = require('./tuning');
+const { hookMotif, motifLead } = require('./hook');
 
 const KICK_VARIANTS = 3;
 const SNARE_VARIANTS = 3;
 const HAT_VARIANTS = 4;
 
-/** Частоты нот по именам — для баса и мотива. */
-function rootFreq(key) {
-  const text = String(key || 'A minor');
-  const root = text.includes(' ') ? text.split(' ')[0] : 'A';
-  return ROOT_FREQS[root] === undefined ? 440.0 : ROOT_FREQS[root];
-}
-
-function isMajor(key) {
-  const text = String(key || 'A minor');
-  if (!text.includes(' ')) return false;
-  return text.split(' ').pop().toLowerCase().startsWith('maj');
-}
 
 /**
  * Конструктор голосов: держит слоты, velocity-карту, RNG и сетку.
@@ -377,29 +351,6 @@ class VoiceEngine {
     }
     return out;
   }
-}
-
-/** Мотив хука: повторяющийся лид, по которому трек узнаётся. */
-function hookMotif(key) {
-  const root = rootFreq(key);
-  if (isMajor(key)) return [root, (root * 9) / 8, (root * 5) / 4, (root * 4) / 3];
-  return [root, root * Math.pow(2, -2 / 12), root * Math.pow(2, -5 / 12), root * Math.pow(2, -7 / 12)];
-}
-
-/** Сглаживающий «воздух» для мотива: тот же фильтр, что у пэда. */
-function motifLead(sr, freq, duration) {
-  const n = Math.max(16, Math.trunc(sr * duration));
-  const out = new Float32Array(n);
-  for (let i = 0; i < n; i += 1) {
-    const t = i / sr;
-    const env = Math.exp(-t * 4.0) * (1.0 - Math.exp(-t * 60.0));
-    out[i] = (
-      0.6 * Math.sin(2 * Math.PI * freq * t)
-      + 0.25 * Math.sin(2 * Math.PI * freq * 2 * t)
-      + 0.1 * Math.sin(2 * Math.PI * freq * 3 * t)
-    ) * env;
-  }
-  return movingAverage(out, 3);
 }
 
 module.exports = {

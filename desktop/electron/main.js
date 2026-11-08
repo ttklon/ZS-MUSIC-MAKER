@@ -107,7 +107,7 @@ function showAbout() {
 function registerIpc(getProject) {
   // Данные проекта — в ipc-project.js: шесть однотипных загрузчиков не должны
   // занимать место рядом с окном и задачами.
-  registerProjectIpc({ ipcMain, getProject });
+  registerProjectIpc({ ipcMain, getProject, root: ROOT });
 
   ipcMain.handle('zsmm:tasks', () => ({ ok: true, data: tasks.taskList() }));
 

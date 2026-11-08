@@ -105,35 +105,10 @@ function createProject(fsApi, root) {
   }
 
   function dossiers() {
-    const dir = path.join(rootPath, 'data', 'artist_dossier');
-    const listing = fsApi.listDir(dir);
-    if (listing.error) {
-      return { artists: [], error: `data/artist_dossier: ${listing.error}` };
-    }
-    const artists = [];
-    const errors = [];
-    for (const entry of listing.entries) {
-      const artistFile = path.join(dir, entry, 'artist.json');
-      if (!fsApi.exists(artistFile)) continue;
-      const data = fsApi.readJson(artistFile);
-      if (data.error) {
-        errors.push(`${entry}: ${data.error}`);
-        continue;
-      }
-      const value = data.value || {};
-      const tracks = Array.isArray(value.tracks) ? value.tracks : [];
-      const dossier = value.dossier && typeof value.dossier === 'object' ? value.dossier : {};
-      artists.push({
-        artist: value.artist || entry,
-        slug: value.slug || entry,
-        tracks: tracks.length,
-        hasDossier: Boolean(dossier.bio),
-        deferred: Boolean(dossier.note) && !dossier.bio,
-        note: dossier.note || null,
-      });
-    }
-    artists.sort((a, b) => String(a.artist).localeCompare(String(b.artist), 'ru'));
-    return { artists, error: errors.length ? errors.join('; ') : null };
+    // Список и формат — в `dossier-edit.js`: окно правит досье теми же
+    // правилами, которыми его читает. Двух разных парсеров быть не должно.
+    const { dossiers: read } = require('./dossier-edit');
+    return read(fsApi, rootPath);
   }
 
   /** Сводка окружения: то, что окно может узнать без запуска Python. */

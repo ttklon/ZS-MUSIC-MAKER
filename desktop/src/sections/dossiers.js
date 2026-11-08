@@ -2,26 +2,85 @@
 /**
  * sections/dossiers.js — раздел «Досье»: артисты из `data/artist_dossier/`.
  *
+ * Раньше здесь был только список, а на пустом каталоге — совет идти в
+ * терминал. Теперь артиста можно добавить и удалить прямо в окне: это
+ * запись одного `artist.json` в том же формате, что у Python-менеджера
+ * (`core/dossier-edit.js`). Сборка самого досье (bio, темы, анализ треков)
+ * по-прежнему требует Python и честно названа в подписи.
+ *
  * Использует общие помощники из `app.js` через `window.ZSMM_UI`.
  */
 
 const W = window.ZSMM_UI;
-const { $, el, ask, showError, setStatus, card, statusTag, state } = W;
+const { $, ask, showError, state } = W;
 
-// ------------------------------------------------------------------ досье
+const EMPTY_TEXT = 'Артистов пока нет. Добавьте имя выше — окно само создаст запись в data/artist_dossier.';
+
+/** Нарисовать список артистов с кнопками удаления. */
+function renderArtists(artists) {
+  $('dossier-empty').textContent = artists.length
+    ? `${artists.length} артист(ов) в досье. Полная сборка досье (биография, темы, разбор треков) `
+      + 'требует Python: кнопка «Досье» запускает её в разделе «Запуск».'
+    : EMPTY_TEXT;
+
+  $('dossier-list').replaceChildren(
+    ...artists.map((artist) => {
+      const status = artist.hasDossier ? 'досье собрано' : artist.deferred ? 'отложено' : 'не собрано';
+      const demo = artist.demo ? '[демо из поставки] ' : '';
+      const note = artist.note ? ` — ${artist.note}` : '';
+      const remove = document.createElement('button');
+      remove.className = 'ghost';
+      remove.textContent = 'Удалить';
+      remove.addEventListener('click', async () => {
+        try {
+          await W.askWith('dossierRemove', { slug: artist.slug });
+          await W.loadDossiers();
+        } catch (err) {
+          showError(`Не удалено: ${err.message}`);
+        }
+      });
+      const item = document.createElement('li');
+      item.className = 'row';
+      const text = document.createElement('span');
+      text.textContent = `${demo}${artist.artist} — треков: ${artist.tracks}, ${status}${note}`;
+      item.append(text, remove);
+      return item;
+    }),
+  );
+}
+
 async function loadDossiers() {
   const data = await ask('dossiers');
   if (data.error) showError(data.error);
   const artists = data.artists || [];
-  $('dossier-empty').textContent = artists.length
-    ? `${artists.length} артист(ов) в досье`
-    : 'Досье пусто. Это не ошибка окна: артист добавляется командой python main.py --dossier-add.';
-  $('dossier-list').replaceChildren(
-    ...artists.map((artist) => {
-      const state_ = artist.hasDossier ? 'досье собрано' : artist.deferred ? 'отложено' : 'не собрано';
-      return el('li', null, `${artist.artist} — треков: ${artist.tracks}, ${state_}`);
-    }),
-  );
+  renderArtists(artists);
+
+  const addButton = $('dossier-add');
+  if (!addButton || addButton.dataset.wired === '1') return;
+  addButton.dataset.wired = '1';
+
+  addButton.addEventListener('click', async () => {
+    const name = ($('dossier-name').value || '').trim();
+    if (!name) {
+      showError('Введите имя артиста');
+      return;
+    }
+    addButton.disabled = true;
+    try {
+      const data = await W.askWith('dossierAdd', {
+        artist: name,
+        note: ($('dossier-note').value || '').trim(),
+      });
+      $('dossier-name').value = '';
+      $('dossier-note').value = '';
+      state.lastArtist = data;
+      await loadDossiers();
+    } catch (err) {
+      showError(`Артист не добавлен: ${err.message}`);
+    } finally {
+      addButton.disabled = false;
+    }
+  });
 }
 
 W.loadDossiers = loadDossiers;

@@ -161,6 +161,8 @@ test('битый artist.json попадает в ошибки, остальны�
     tracks: 2,
     hasDossier: true,
     deferred: false,
+    // Обычный артист не демо: флаг нужен окну, чтобы подписать поставку.
+    demo: false,
     note: null,
   });
   assert.match(data.error, /bad/);

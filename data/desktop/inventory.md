@@ -9,7 +9,7 @@
 | agents/sample_hunter/planner.py | REAL_PASS | PASS | 2 | 15 |
 | agents/sample_hunter/web.py | REAL_PASS | PASS | 1 | 66 |
 | agents/trend_scout.py | REAL_PASS | PASS | 1 | 58 |
-| app/__init__.py | REAL_PASS | PASS | 0 | 948 |
+| app/__init__.py | REAL_PASS | PASS | 0 | 950 |
 | app/ai/__init__.py | REAL_PASS | PASS | 0 | 215 |
 | app/ai/acestep.py | REAL_PASS | PASS | 1 | 3 |
 | app/ai/hardware.py | REAL_PASS | PASS | 6 | 65 |
@@ -28,7 +28,7 @@
 | app/cli/backup.py | REAL_PASS | PASS | 1 | 94 |
 | app/cli/commands.py | REAL_PASS | PASS | 1 | 46 |
 | app/cli/dossier.py | REAL_PASS | PASS | 1 | 207 |
-| app/cli/env.py | REAL_PASS | PASS | 8 | 368 |
+| app/cli/env.py | REAL_PASS | PASS | 8 | 369 |
 | app/cli/gui.py | REAL_PASS | PASS | 1 | 128 |
 | app/cli/parser.py | REAL_PASS | PASS | 1 | 15 |
 | app/cli/pipeline.py | REAL_PASS | PASS | 1 | 245 |
@@ -112,8 +112,8 @@
 | config/__init__.py | REAL_PASS | PASS | 0 | 164 |
 | config/settings.py | REAL_PASS | PASS | 2 | 112 |
 | install.py | REAL_PASS | PASS | 0 | 158 |
-| main.py | REAL_PASS | PASS | 1 | 236 |
-| modules/__init__.py | REAL_PASS | PASS | 0 | 840 |
+| main.py | REAL_PASS | PASS | 1 | 238 |
+| modules/__init__.py | REAL_PASS | PASS | 0 | 841 |
 | modules/ai_arranger.py | DEPRECATED | PASS | 0 | 0 |
 | modules/ai_detector_pro.py | DEPRECATED | PASS | 1 | 19 |
 | modules/analyzer.py | REAL_PASS | PASS | 1 | 81 |
@@ -186,7 +186,7 @@
 | modules/llm/secrets.py | REAL_PASS | PASS | 2 | 27 |
 | modules/lyric_vault.py | DEPRECATED | PASS | 0 | 5 |
 | modules/lyrics/__init__.py | REAL_PASS | PASS | 1 | 139 |
-| modules/lyrics/ai.py | REAL_PASS | PASS | 2 | 1992 |
+| modules/lyrics/ai.py | REAL_PASS | PASS | 2 | 1994 |
 | modules/lyrics/author.py | REAL_PASS | PASS | 1 | 150 |
 | modules/lyrics/generate.py | REAL_PASS | PASS | 2 | 103 |
 | modules/lyrics/memory.py | REAL_PASS | PASS | 3 | 48 |
@@ -261,13 +261,13 @@
 | modules/voice_synth.py | REAL_PASS | PASS | 2 | 87 |
 | modules/voice_synth_ai.py | REAL_PASS | PASS | 1 | 11 |
 | modules/voice_vault.py | REAL_PASS | PASS | 1 | 43 |
-| tools/__init__.py | REAL_PASS | PASS | 0 | 180 |
+| tools/__init__.py | REAL_PASS | PASS | 0 | 181 |
 | tools/ast_dead_imports.py | REAL_PASS | PASS | 0 | 4 |
 | tools/ast_undefined_names.py | REAL_PASS | PASS | 0 | 5 |
 | tools/audio_golden_metrics.py | REAL_PASS | PASS | 0 | 7 |
 | tools/audit_data_inventory.py | REAL_PASS | PASS | 0 | 3 |
 | tools/audit_honesty.py | REAL_PASS | PASS | 0 | 8 |
-| tools/check_snapshot_freshness.py | REAL_PASS | PASS | 0 | 2 |
+| tools/check_snapshot_freshness.py | REAL_PASS | PASS | 0 | 3 |
 | tools/cli.py | REAL_PASS | PASS | 0 | 178 |
 | tools/e2e.py | REAL_PASS | PASS | 1 | 10 |
 | tools/fallback_audit.py | REAL_PASS | PASS | 1 | 1 |
@@ -281,7 +281,7 @@
 | tools/readiness/__init__.py | REAL_PASS | PASS | 2 | 124 |
 | tools/readiness/__main__.py | REAL_PASS | PASS | 0 | 11 |
 | tools/readiness/cli.py | REAL_PASS | PASS | 2 | 178 |
-| tools/readiness/inventory.py | REAL_PASS | PASS | 3 | 43 |
+| tools/readiness/inventory.py | REAL_PASS | PASS | 3 | 44 |
 | tools/readiness/paths.py | REAL_PASS | PASS | 5 | 58 |
 | tools/readiness/probes.py | REAL_PASS | PASS | 2 | 5 |
 | tools/readiness/reachability.py | REAL_PASS | PASS | 1 | 1 |

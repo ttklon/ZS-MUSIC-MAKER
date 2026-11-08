@@ -57,6 +57,21 @@ function createNodeFs(fileSystem = fs) {
       }
     },
 
+    /**
+     * Удалить каталог со всем содержимым.
+     *
+     * Нужен для удаления артиста из досье: вызывающий код обязан сам
+     * проверить, что путь лежит внутри разрешённого каталога.
+     */
+    removeDir(target) {
+      try {
+        fileSystem.rmSync(target, { recursive: true, force: false });
+        return { value: target };
+      } catch (err) {
+        return { error: `${err.code || 'ERR'}: ${err.message}` };
+      }
+    },
+
     /** Записать файл, создав родительские каталоги. */
     writeText(target, contents) {
       try {

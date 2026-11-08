@@ -70,6 +70,26 @@ function onBeatProgress(callback) {
   return () => ipcRenderer.removeListener('zsmm:beat-progress', listener);
 }
 
+/** Добавить артиста в досье (запись artist.json в data/artist_dossier). */
+function dossierAdd(payload) {
+  return ipcRenderer.invoke('zsmm:dossier-add', payload);
+}
+
+/** Удалить артиста вместе с его каталогом досье. */
+function dossierRemove(payload) {
+  return ipcRenderer.invoke('zsmm:dossier-remove', payload);
+}
+
+/** Диалог выбора WAV для вокала. Возвращает `{path}` или `{path: null}`. */
+function pickVocalFile() {
+  return ipcRenderer.invoke('zsmm:vocal-pick');
+}
+
+/** Состояние входа записи: есть ли захват с микрофона (сейчас — нет). */
+function vocalInput() {
+  return ipcRenderer.invoke('zsmm:vocal-input');
+}
+
 /** Сохранить готовый WAV через диалог сохранения. */
 function saveBeat(wavBase64) {
   return ipcRenderer.invoke('zsmm:beat-save', wavBase64);
@@ -120,6 +140,10 @@ contextBridge.exposeInMainWorld('zsmm', {
   onBeatProgress,
   saveBeat,
   saveReport,
+  pickVocalFile,
+  vocalInput,
+  dossierAdd,
+  dossierRemove,
   loadSettings,
   saveSettings,
   environment,

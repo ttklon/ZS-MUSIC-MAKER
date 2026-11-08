@@ -84,6 +84,41 @@ test('app.js вызывает только то, что отдаёт preload', (
   assert.ok(exposed.size >= 6, `preload отдаёт слишком мало: ${[...exposed].join(', ')}`);
 });
 
+test('каждый файл окна и главного процесса не длиннее 400 строк', () => {
+  // Правило проекта: длинные файлы не читаются. Раньше оно проверялось
+  // только для Python, и `engine.js` успел вырасти до 843 строк при лимите
+  // 400 — то есть правило нарушалось, но никто об этом не узнал.
+  const MAX_LINES = 400;
+  const tooLong = [];
+  const walk = (dir) => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) walk(full);
+      else if (entry.name.endsWith('.js')) {
+        const lines = fs.readFileSync(full, 'utf8').split('\n').length;
+        if (lines > MAX_LINES) tooLong.push(`${path.relative(path.resolve(__dirname, '..'), full)}: ${lines}`);
+      }
+    }
+  };
+  walk(SRC);
+  walk(ELECTRON);
+  assert.deepEqual(tooLong, [], `файлы длиннее ${MAX_LINES} строк: ${tooLong.join(', ')}`);
+});
+
+test('страница зовёт только существующие методы моста, включая правку данных', () => {
+  // Проверяются все скрипты окна, а не только app.js: разделы зовут мост сами
+  // (вокал, досье) и могут сослаться на канал, которого нет в preload.
+  const block = preload.slice(preload.indexOf("exposeInMainWorld('zsmm'"));
+  const exposed = new Set();
+  for (const match of block.matchAll(/^\s{2}(\w+)\s*[:,]/gm)) exposed.add(match[1]);
+  const used = new Set();
+  for (const match of appJs.matchAll(/window\.zsmm\.(\w+)/g)) used.add(match[1]);
+  // `askWith` берёт имя метода строкой: собираем и такие обращения.
+  for (const match of appJs.matchAll(/askWith\('(\w+)'/g)) used.add(match[1]);
+  const unknown = [...used].filter((name) => !exposed.has(name));
+  assert.deepEqual(unknown, [], `окно зовёт несуществующие методы: ${unknown.join(', ')}`);
+});
+
 test('app.js не содержит сетевых вызовов', () => {
   for (const pattern of [/fetch\(/, /XMLHttpRequest/, /new WebSocket/, /https?:\/\//]) {
     assert.doesNotMatch(appJs, pattern, `сеть в окне недопустима: ${pattern}`);

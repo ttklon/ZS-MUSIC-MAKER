@@ -34,6 +34,10 @@ async function renderInWorker({
   rootDir,
   onProgress,
   renderInMain,
+  // Файловое API для вокального WAV. В поток не передаётся: `workerData`
+  // сериализуется, а функции — нет. Поэтому вокальный дубль читает главный
+  // процесс и передаёт результат запасным путём.
+  vocalFileSystem = null,
   Worker = loadWorker(),
   workerPath = path.join(__dirname, 'render-worker.js'),
   timeoutMs = 30 * 60_000,
@@ -49,6 +53,7 @@ async function renderInWorker({
     const result = await renderInMain(options, {
       rootDir,
       onProgress,
+      vocalFileSystem,
       // Запасной путь живёт в главном процессе и обязан сам проверять отмену:
       // иначе кнопка «Отменить» ничего не делает там, где нет потока.
       isCancelled: cancelled,
@@ -63,6 +68,10 @@ async function renderInWorker({
 
   let worker;
   try {
+    // Если выбран файл вокала, поток его прочитать не сможет (нет диска
+    // пользователя) — сразу считаем в главном процессе, чтобы не терять вокал.
+    const wantsVocalFile = Boolean(options && options.vocal && options.vocal.mode === 'file');
+    if (wantsVocalFile) return fallback('вокальный файл читает главный процесс');
     worker = new Worker(workerPath, { workerData: { options, rootDir } });
   } catch (err) {
     return fallback(`поток не запустился: ${err && err.message ? err.message : err}`);

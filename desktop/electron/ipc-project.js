@@ -11,15 +11,20 @@
  * уходит, иначе окно получит голый `Error` вместо текста для человека.
  */
 
+const { createNodeFs } = require('../src/core/fs-node');
+const dossierEdit = require('../src/core/dossier-edit');
+
 /**
  * Зарегистрировать каналы данных проекта.
  *
  * @param {object} params
  * @param {object} params.ipcMain     electron ipcMain (или двойник в тестах)
  * @param {Function} params.getProject текущая модель проекта либо null
+ * @param {string} params.root      корень проекта (для правки досье)
+ * @param {object} [params.fileSystem] файловое API (в тестах — двойник)
  * @returns {string[]} имена зарегистрированных каналов
  */
-function registerProjectIpc({ ipcMain, getProject }) {
+function registerProjectIpc({ ipcMain, getProject, root = null, fileSystem = null }) {
   const registered = [];
   // Загрузчики берутся из актуального проекта: окно может открыться до того,
   // как проект прочитан, и это не должно ломать регистрацию каналов.
@@ -44,6 +49,20 @@ function registerProjectIpc({ ipcMain, getProject }) {
       }
     });
     registered.push(channel);
+  }
+
+  // Досье редактируется в окне: добавление артиста — это запись одного JSON,
+  // Python для этого не нужен. Корень берём из аргумента, а не из модели,
+  // чтобы каналы регистрировались даже до открытия проекта.
+  if (root) {
+    const fsApi = fileSystem || createNodeFs();
+    ipcMain.handle('zsmm:dossier-add', (_event, payload) => dossierEdit.addArtist(
+      fsApi, root, payload && typeof payload === 'object' ? payload : {},
+    ));
+    ipcMain.handle('zsmm:dossier-remove', (_event, payload) => dossierEdit.removeArtist(
+      fsApi, root, payload && typeof payload === 'object' ? payload : {},
+    ));
+    registered.push('zsmm:dossier-add', 'zsmm:dossier-remove');
   }
   return registered;
 }

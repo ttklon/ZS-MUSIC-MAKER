@@ -107,6 +107,26 @@
               <button class="ghost" id="beat-save" disabled>Сохранить WAV</button>
               <button class="ghost" id="beat-copy" disabled>Сохранить отчёт</button>
             </div>
+            <fieldset class="fieldset" id="vocal-box">
+              <legend>Вокал</legend>
+              <p class="muted">
+                Голос миксуется в трек до мастеринга. Микрофона в приложении нет:
+                <strong>тестовый дубль</strong> — это сгенерированная дорожка, она
+                помечается как имитация и никогда не выдаётся за запись с микрофона.
+              </p>
+              <div class="row">
+                <select id="vocal-mode">
+                  <option value="none">без вокала</option>
+                  <option value="synth">синтез голоса</option>
+                  <option value="test">тестовый дубль (имитация входа)</option>
+                  <option value="file">WAV-файл с диска</option>
+                </select>
+                <input id="vocal-text" placeholder="текст строки" value="я читаю твой трек наизусть" />
+                <input id="vocal-gain" placeholder="уровень 0…1" value="0.5" />
+                <button class="ghost" id="vocal-pick" disabled>Выбрать WAV…</button>
+              </div>
+              <p class="muted" id="vocal-note">Вокал выключен: трек будет без голоса.</p>
+            </fieldset>
             <p class="muted" id="beat-status">Бит ещё не собран</p>
             <audio id="beat-audio" controls class="is-hidden"></audio>
             <div class="table-wrap">
@@ -130,6 +150,11 @@
         <section class="view is-hidden" id="view-dossiers">
           <div class="panel">
             <h2>Артисты с досье</h2>
+            <div class="row">
+              <input id="dossier-name" placeholder="имя артиста" />
+              <input id="dossier-note" placeholder="заметка (необязательно)" />
+              <button class="ghost" id="dossier-add">Добавить</button>
+            </div>
             <p class="muted" id="dossier-empty">Загрузка…</p>
             <ul class="list" id="dossier-list"></ul>
           </div>

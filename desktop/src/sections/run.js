@@ -30,9 +30,15 @@ function appendTaskLine(line) {
 }
 
 async function loadRun() {
-  const tasks = await window.zsmm.listTasks();
-  if (!tasks || tasks.ok === false) {
-    throw new Error((tasks && tasks.error) || 'список задач недоступен');
+  const reply = await window.zsmm.listTasks();
+  if (!reply || reply.ok === false) {
+    throw new Error((reply && reply.error) || 'список задач недоступен');
+  }
+  // preload отдаёт массив задач, предпросмотр и тесты — `{data}`. Принимаем
+  // оба вида: раньше `tasks.map` падал на объекте, и раздел оставался пустым.
+  const tasks = Array.isArray(reply) ? reply : reply.data;
+  if (!Array.isArray(tasks)) {
+    throw new Error(`список задач пришёл в неожиданном виде: ${typeof tasks}`);
   }
   state.tasks = tasks;
   $('task-select').replaceChildren(

@@ -62,8 +62,38 @@ test('конвейер регистрирует все каналы бита', (
 
   assert.deepEqual(
     [...ipc.handlers.keys()].sort(),
-    ['zsmm:beat-bank', 'zsmm:beat-cancel', 'zsmm:beat-render', 'zsmm:beat-save', 'zsmm:save-copy'],
+    [
+      'zsmm:beat-bank', 'zsmm:beat-cancel', 'zsmm:beat-render', 'zsmm:beat-save',
+      'zsmm:save-copy',
+      // Вокал: выбор WAV и честный статус входа записи.
+      'zsmm:vocal-input', 'zsmm:vocal-pick',
+    ],
   );
+});
+
+test('состояние входа записи честное: захвата с микрофона нет', async () => {
+  const ipc = fakeIpc();
+  registerBeatIpc({ ipcMain: ipc, dialog: fakeDialog(null), rootDir: ROOT, getWindow: () => null, musicDir: tempDir });
+  const reply = await ipc.handlers.get('zsmm:vocal-input')();
+  assert.equal(reply.ok, true);
+  assert.equal(reply.data.recording, false, 'окно не должно считать, что микрофон подключён');
+  assert.match(reply.data.reason, /микрофон|входа/);
+  assert.equal(reply.data.simulatedAvailable, true);
+});
+
+test('выбор вокального WAV: отмена и выбранный путь', async () => {
+  const ipc = fakeIpc();
+  const dialog = fakeDialog(null);
+  registerBeatIpc({ ipcMain: ipc, dialog, rootDir: ROOT, getWindow: () => null, musicDir: tempDir });
+
+  dialog.showOpenDialog = async () => ({ canceled: true, filePaths: [] });
+  const cancelled = await ipc.handlers.get('zsmm:vocal-pick')();
+  assert.equal(cancelled.ok, true);
+  assert.equal(cancelled.data.path, null);
+
+  dialog.showOpenDialog = async () => ({ canceled: false, filePaths: ['C:/music/take.wav'] });
+  const picked = await ipc.handlers.get('zsmm:vocal-pick')();
+  assert.equal(picked.data.path, 'C:/music/take.wav');
 });
 
 test('банк отдаёт отчёт, а рендер — WAV', async () => {
