@@ -117,3 +117,38 @@ def test_readiness_js_matches_python_snapshot() -> None:
     )
     for block, value in snapshot["block_scores"].items():
         assert js["blocks"][block] == value, f"блок {block}: JS={js['blocks'][block]} Python={value}"
+
+
+def test_snapshot_freshness_tool_detects_stale_snapshot(tmp_path, monkeypatch) -> None:
+    """Инструмент сверки снимка обязан ругаться на устаревшие данные.
+
+    Он стоит в CI, поэтому «зелёный» на любом входе был бы хуже, чем его
+    отсутствие: оба случая — испорченный снимок и совпадающий — проверяются
+    на копии файла, настоящий репозиторий не трогается.
+    """
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "check_snapshot_freshness", ROOT / "tools" / "check_snapshot_freshness.py"
+    )
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(module)
+
+    monkeypatch.setattr(module, "ROOT", tmp_path)
+    (tmp_path / "data" / "desktop").mkdir(parents=True)
+    snapshot = tmp_path / "data" / "desktop" / "readiness.json"
+    inventory = tmp_path / "data" / "desktop" / "inventory.md"
+    snapshot.write_text('{"percent": 65, "generated_at": "2026-01-01T00:00:00Z"}', encoding="utf-8")
+    inventory.write_text("| header |\n", encoding="utf-8")
+    monkeypatch.setattr(module, "SNAPSHOT", snapshot)
+    monkeypatch.setattr(module, "INVENTORY", inventory)
+    monkeypatch.setattr(
+        module,
+        "committed",
+        lambda path: '{"percent": 42, "generated_at": "2025-01-01T00:00:00Z"}'
+        if path.name == "readiness.json"
+        else "| header |\n",
+    )
+
+    assert module.main() == 1, "расхождение процента должно быть замечено"

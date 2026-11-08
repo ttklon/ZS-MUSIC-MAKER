@@ -71,12 +71,17 @@ function loadBank(fileSystem, rootDir, { manifestPath = 'data/samples/manifest.j
       if (!row || typeof row.file !== 'string') continue;
       const problems = [];
       if (!licenseAllowed(row.license)) problems.push(`лицензия ${row.license} не разрешена`);
-      const file = path.join(samplesDir, row.file);
+      // Путь из манифеста может быть записан по-виндовому (`kick\\x.wav`):
+      // на Linux такой файл «не находится», хотя лежит рядом. Разделители
+      // приводятся к текущей платформе — это данные, а не код.
+      const file = path.join(samplesDir, ...String(row.file).split(/[\\/]+/).filter(Boolean));
       if (!fileSystem.exists(file)) problems.push('файла нет на диске');
       usable.push({
         instrument,
         file,
-        relative: row.file,
+        // В отчётах путь всегда в одну форму: иначе один и тот же сэмпл
+        // называется по-разному на Windows и Linux.
+        relative: String(row.file).split(/[\\/]+/).filter(Boolean).join('/'),
         license: row.license,
         source: row.source || '',
         sha256: row.sha256 || '',

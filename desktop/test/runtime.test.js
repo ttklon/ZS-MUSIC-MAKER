@@ -83,6 +83,9 @@ test('Python ищется сначала в .venv Windows, потом в PATH', 
 });
 
 test('без Python возвращается текст с объяснением, а не пустота', () => {
+  // `platform: 'win32'` нарочно не используется: на Windows-раннере короткие
+  // имена `python.exe`/`py.exe` считаются найденными в PATH, и проверка
+  // «Python нет» зависела бы от того, что установлено на машине.
   const result = resolvePython({ root: path.resolve(path.sep, 'project'), platform: 'linux', env: {}, exists: () => false });
 
   assert.equal(result.python, null);

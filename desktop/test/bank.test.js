@@ -160,3 +160,23 @@ test('источник без банка не падает и честно пу�
   assert.strictEqual(source.audio('kick', new Rng(1)), null);
   assert.strictEqual(source.report().status, 'FALLBACK');
 });
+
+test('манифест с путями в стиле Windows читается так же', () => {
+  // Windows-путь в манифесте — не экзотика: человек правит JSON руками.
+  // На Linux он не должен превращаться в «файла нет на диске».
+  const manifest = {
+    schema: 'zsmm.sample-bank.v1',
+    instruments: { kick: [{ file: 'kick\\sub\\win.wav', license: 'CC0-1.0' }] },
+  };
+  const root = path.resolve(path.sep, 'virtual', 'zsmm-win');
+  const target = path.join(root, 'data', 'samples', 'kick', 'sub', 'win.wav');
+  const loaded = bank.loadBank(
+    fakeFs({
+      [path.join(root, 'data', 'samples', 'manifest.json')]: JSON.stringify(manifest),
+      [target]: '',
+    }),
+    root,
+  );
+
+  assert.strictEqual(bank.usable(loaded, 'kick').length, 1, 'windows-путь в манифесте не найден');
+});

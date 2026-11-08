@@ -116,10 +116,9 @@ jobs:
             exit 1
           }
           cat /tmp/snapshot.log
-          git -C .. diff --exit-code -- data/desktop || {
-            echo "::error title=snapshot drift::снимок в репозитории устарел относительно пересчёта"
-            exit 1
-          }
+          # `generated_at` меняется от каждого запуска — сравниваем содержимое
+          # без него, иначе шаг падал бы всегда.
+          python ../tools/check_snapshot_freshness.py
 
   desktop-windows:
     # Установщик для Windows 11 собирается и проверяется на настоящей Windows:
