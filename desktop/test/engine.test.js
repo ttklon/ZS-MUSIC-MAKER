@@ -225,7 +225,7 @@ test('repair-путь: битый банк не роняет рендер, а ч
       readJson: () => ({ value: { schema: 'zsmm.sample-bank.v1', instruments: { kick: [{ file: 'kick/x.wav', license: 'CC0-1.0' }] } } }),
       readBinary: () => ({ error: 'ENOENT' }),
     },
-    rootDir: '/virtual',
+    rootDir: path.resolve(path.sep, 'virtual', 'zsmm-engine'),
   });
   const { report } = renderBeat({ bpm: 120, genre: 'trap', seed: 2, durationSec: 2, bank: broken });
   assert.strictEqual(report.drum_engine.status, 'FALLBACK');

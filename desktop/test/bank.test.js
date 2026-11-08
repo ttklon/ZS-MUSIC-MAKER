@@ -86,9 +86,10 @@ test('отсутствующий файл не считается покрыти
     schema: 'zsmm.sample-bank.v1',
     instruments: { snare: [{ file: 'snare/ghost.wav', license: 'CC0-1.0' }] },
   };
+  const rootV = path.resolve(path.sep, 'v');
   const loaded = bank.loadBank(
-    fakeFs({ '/v/data/samples/manifest.json': JSON.stringify(manifest) }),
-    '/v',
+    fakeFs({ [path.join(rootV, 'data', 'samples', 'manifest.json')]: JSON.stringify(manifest) }),
+    rootV,
   );
   assert.strictEqual(bank.usable(loaded, 'snare').length, 0);
   assert.ok(loaded.warnings.some((warning) => warning.includes('файла нет на диске')));
