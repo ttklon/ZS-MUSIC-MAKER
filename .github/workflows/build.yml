@@ -91,16 +91,32 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Cross-check JS readiness against Python reference
-        if: always()
+      # Шаги разделены нарочно: логи job-а из внешней среды не читаются,
+      # а имя упавшего шага и его annotation — читаются.
+      - name: Cross-check JS shell against Python entry point
         run: |
           cd desktop
-          # Снимок должен быть актуален ДО перегенерации: тест `test_desktop_shell`
-          # проверяет коммитнутый снимок, а не тот, что мы только что записали.
-          # Поэтому сначала тесты на текущем снимке, затем перегенерация.
-          python -m pytest ../tests/test_desktop_shell.py -q 2>&1 | tee /tmp/shell.log
-          test ${PIPESTATUS[0]} -eq 0 || { echo "::error title=desktop shell::$(grep -E 'FAILED|AssertionError' /tmp/shell.log | head -10 | tr '\n' '|')"; exit 1; }
-          node scripts/snapshot-readiness.js
+          python -m pytest ../tests/test_desktop_shell.py -q > /tmp/shell.log 2>&1
+          status=$?
+          tail -40 /tmp/shell.log
+          if [ "$status" -ne 0 ]; then
+            detail=$(grep -E 'FAILED|AssertionError|Error|assert' /tmp/shell.log | head -12 | tr '\n' '|')
+            echo "::error title=desktop shell cross-check::${detail:-см. лог шага}"
+            exit 1
+          fi
+
+      - name: Regenerate readiness snapshot (must match committed files)
+        run: |
+          cd desktop
+          node scripts/snapshot-readiness.js > /tmp/snapshot.log 2>&1 || {
+            echo "::error title=snapshot generation::$(tail -5 /tmp/snapshot.log | tr '\n' '|')"
+            exit 1
+          }
+          cat /tmp/snapshot.log
+          git -C .. diff --exit-code -- data/desktop || {
+            echo "::error title=snapshot drift::снимок в репозитории устарел относительно пересчёта"
+            exit 1
+          }
 
   desktop-windows:
     # Установщик для Windows 11 собирается и проверяется на настоящей Windows:
@@ -118,20 +134,19 @@ jobs:
           cache: npm
           cache-dependency-path: desktop/package.json
 
-      - name: Install Electron and electron-builder
+      - name: Install JS dependencies (scripts skipped)
         working-directory: desktop
         shell: pwsh
-        # Скачивание бинарника Electron — самый хрупкий шаг на Windows-раннере.
-        # Повторяем один раз и печатаем причину, если оба раза не вышло.
+        # Тесты оболочки не требуют бинарника Electron, а его скачивание —
+        # самый хрупкий шаг на раннере. Поэтому сначала ставим пакеты без
+        # postinstall, затем отдельным шагом тянем бинарник для сборки.
         run: |
-          npm install --no-audit --no-fund
+          $env:ELECTRON_SKIP_BINARY_DOWNLOAD = '1'
+          $output = (& npm install --no-audit --no-fund --ignore-scripts 2>&1 | Out-String)
+          $output
           if ($LASTEXITCODE -ne 0) {
-            Write-Output '::warning title=npm install failed, retrying::retrying once'
-            Start-Sleep -Seconds 10
-            npm install --no-audit --no-fund
-          }
-          if ($LASTEXITCODE -ne 0) {
-            Write-Output '::error title=npm install::electron/electron-builder не установились'
+            $tail = ($output -split "`n" | Select-Object -Last 15) -join ' | '
+            Write-Output "::error title=npm install::$tail"
             exit 1
           }
 
@@ -149,9 +164,29 @@ jobs:
             exit 1
           }
 
+      - name: Download the Electron binary (needed for packaging)
+        working-directory: desktop
+        shell: pwsh
+        run: |
+          $output = (& node node_modules/electron/install.js 2>&1 | Out-String)
+          $output
+          if ($LASTEXITCODE -ne 0) {
+            $tail = ($output -split "`n" | Select-Object -Last 10) -join ' | '
+            Write-Output "::error title=electron binary::$tail"
+            exit 1
+          }
+
       - name: Build NSIS installer and portable EXE
         working-directory: desktop
-        run: npx electron-builder --win nsis portable --x64 --publish never
+        shell: pwsh
+        run: |
+          $output = (& npx electron-builder --win nsis portable --x64 --publish never 2>&1 | Out-String)
+          $output
+          if ($LASTEXITCODE -ne 0) {
+            $tail = ($output -split "`n" | Select-Object -Last 25) -join ' | '
+            Write-Output "::error title=electron-builder::$tail"
+            exit 1
+          }
 
       - name: Show what was built
         working-directory: desktop
