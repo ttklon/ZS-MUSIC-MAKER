@@ -59,7 +59,12 @@ function registerTaskIpc({
     if (native) {
       const project = getProject && getProject();
       if (!project) return { ok: false, error: 'проект не открыт' };
-      send('zsmm:task-event', { type: 'start', command: [native.label], label: native.label });
+      const start = { type: 'start', command: [native.label], label: native.label };
+      // Индикатор на кнопке панели задач нужен и здесь: «Проверка файлов»
+      // щёлкает мгновенно, а самодиагностика пишет на диск, и окно в это
+      // время не должно выглядеть занятым без причины.
+      if (windows) windows.showTaskProgress(start);
+      send('zsmm:task-event', start);
       try {
         const result = nativeTasks.runNativeTask({
           key,
@@ -69,7 +74,9 @@ function registerTaskIpc({
           userData: state.userData || null,
           onEvent: (payload) => send('zsmm:task-event', payload),
         });
-        send('zsmm:task-event', { type: 'exit', code: result.ok ? 0 : 1, signal: null, timedOut: false });
+        const exit = { type: 'exit', code: result.ok ? 0 : 1, signal: null, timedOut: false };
+        if (windows) windows.showTaskProgress(exit);
+        send('zsmm:task-event', exit);
         send('zsmm:task-done', {
           ok: result.ok, code: result.ok ? 0 : 1, signal: null, timedOut: false,
         });

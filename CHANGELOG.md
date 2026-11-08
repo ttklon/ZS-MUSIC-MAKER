@@ -25,6 +25,11 @@
   `task-runner.js` передаёт `userData` из `app.getPath('userData')`.
   Проверка: `desktop/test/native-tasks.test.js` (2 теста, включая «пробных
   файлов не осталось»).
+- **Индикатор на панели задач и у задач без Python.** `task-runner.js` теперь
+  зовёт `windows.showTaskProgress` и для нативных задач: `start` → бесконечный
+  индикатор, `exit` → снят. Раньше свёрнутое окно во время самодиагностики
+  выглядело как «ничего не происходит». Проверка:
+  `desktop/test/task-runner.test.js` (6 тестов).
 
 ## Desktop-окно: вокал, досье без Python, честные заглушки убраны
 

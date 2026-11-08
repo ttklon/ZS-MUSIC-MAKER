@@ -106,3 +106,23 @@ test('остановка без задачи — отказ, а не тихий 
   assert.equal(reply.ok, false);
   assert.match(reply.error, /нет запущенной/);
 });
+
+test('нативная задача ставит и снимает индикатор панели задач', async () => {
+  // Индикатор — единственный признак, что окно занято, когда оно свёрнуто.
+  // Нативные задачи раньше его не трогали вовсе.
+  const handlers = new Map();
+  const progress = [];
+  const ipcMain = { handle: (channel, fn) => handlers.set(channel, fn) };
+  const sender = { isDestroyed: () => false, send: () => {} };
+  registerTaskIpc({
+    ipcMain,
+    root: ROOT,
+    getProject: () => createProject(createNodeFs(), ROOT),
+    getWindows: () => ({ showTaskProgress: (event) => progress.push(event.type) }),
+    state: { activeTask: null, dossierDir: null },
+  });
+
+  const reply = await handlers.get('zsmm:task-start')({ sender }, { key: 'native-files' });
+  assert.equal(reply.ok, true, reply.error);
+  assert.deepEqual(progress, ['start', 'exit']);
+});
