@@ -22,10 +22,12 @@ const dossierTracks = require('../src/core/dossier-tracks');
  * @param {object} params.ipcMain     electron ipcMain (или двойник в тестах)
  * @param {Function} params.getProject текущая модель проекта либо null
  * @param {string} params.root      корень проекта (для правки досье)
+ * @param {string} [params.dataDir] каталог досье для записи (установленная
+ *   сборка: `resources/project` только для чтения, пишем в каталог пользователя)
  * @param {object} [params.fileSystem] файловое API (в тестах — двойник)
  * @returns {string[]} имена зарегистрированных каналов
  */
-function registerProjectIpc({ ipcMain, getProject, root = null, fileSystem = null }) {
+function registerProjectIpc({ ipcMain, getProject, root = null, fileSystem = null, dataDir = null }) {
   const registered = [];
   // Загрузчики берутся из актуального проекта: окно может открыться до того,
   // как проект прочитан, и это не должно ломать регистрацию каналов.
@@ -57,11 +59,15 @@ function registerProjectIpc({ ipcMain, getProject, root = null, fileSystem = nul
   // чтобы каналы регистрировались даже до открытия проекта.
   if (root) {
     const fsApi = fileSystem || createNodeFs();
+    // `opts.dataDir` — куда писать. В установленной сборке это каталог
+    // пользователя: `resources/project` лежит в Program Files, запись туда
+    // запрещена, и без этого «Добавить артиста» падало бы с EACCES.
+    const opts = dataDir ? { dataDir } : {};
     ipcMain.handle('zsmm:dossier-add', (_event, payload) => dossierEdit.addArtist(
-      fsApi, root, payload && typeof payload === 'object' ? payload : {},
+      fsApi, root, payload && typeof payload === 'object' ? payload : {}, opts,
     ));
     ipcMain.handle('zsmm:dossier-remove', (_event, payload) => dossierEdit.removeArtist(
-      fsApi, root, payload && typeof payload === 'object' ? payload : {},
+      fsApi, root, payload && typeof payload === 'object' ? payload : {}, opts,
     ));
     // Треки досье: запись `<slug>/tracks/<id>.json` в формате Python-менеджера.
     // Анализ (bpm, тональность, разбор вокала) по-прежнему делает Python —
@@ -70,14 +76,14 @@ function registerProjectIpc({ ipcMain, getProject, root = null, fileSystem = nul
       const { slug } = payload && typeof payload === 'object' ? payload : {};
       const clean = String(slug || '').trim();
       if (!clean) return { ok: false, error: 'не указан артист' };
-      const list = dossierTracks.listTracks(fsApi, root, clean);
+      const list = dossierTracks.listTracks(fsApi, root, clean, opts);
       return {
         ok: true,
         data: { slug: clean, tracks: list.tracks, errors: list.errors },
       };
     });
     ipcMain.handle('zsmm:dossier-track-add', (_event, payload) => dossierTracks.addTrack(
-      fsApi, root, payload && typeof payload === 'object' ? payload : {},
+      fsApi, root, payload && typeof payload === 'object' ? payload : {}, opts,
     ));
     registered.push(
       'zsmm:dossier-add', 'zsmm:dossier-remove',

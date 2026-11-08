@@ -49,6 +49,11 @@ async function loadHealth() {
       envRow('каталог настроек', env.user_data || '—', 'settings.json'),
       envRow('каталог для WAV', env.music_dir || '—', 'диалог сохранения'),
       envRow(
+        'Каталог досье',
+        env.dossier_dir || '—',
+        env.dossier_source || 'запись в каталог проекта',
+      ),
+      envRow(
         'Python для «Запуска»',
         env.python || 'не найден',
         env.python ? 'раздел «Запуск» работает' : 'рендер бита от него не зависит',

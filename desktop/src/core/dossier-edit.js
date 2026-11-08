@@ -19,8 +19,18 @@ const path = require('node:path');
 /** Артисты, которые приходят вместе с приложением (демонстрация раздела). */
 const DEMO_SLUGS = new Set(['demo_artist']);
 
-/** Каталог досье внутри корня проекта. */
-function dossierDir(root) {
+/**
+ * Каталог досье.
+ *
+ * В репозитории это `data/artist_dossier` внутри корня. В установленной
+ * сборке корень — `resources/project`, куда писать нельзя (Program Files),
+ * поэтому главный процесс передаёт каталог пользователя: `electronDataDir`.
+ *
+ * @param {string} root
+ * @param {string} [electronDataDir] переопределение для установленной сборки
+ */
+function dossierDir(root, electronDataDir = null) {
+  if (electronDataDir) return electronDataDir;
   return path.join(root, 'data', 'artist_dossier');
 }
 
@@ -43,8 +53,8 @@ function slugify(name) {
 }
 
 /** Список артистов в том же виде, что отдаёт `project.dossiers()`. */
-function dossiers(fsApi, root) {
-  const dir = dossierDir(root);
+function dossiers(fsApi, root, opts = {}) {
+  const dir = dossierDir(root, opts.dataDir);
   const listing = fsApi.listDir(dir);
   if (listing.error) return { artists: [], error: `data/artist_dossier: ${listing.error}` };
   const artists = [];
@@ -82,16 +92,17 @@ function dossiers(fsApi, root) {
  * @param {object} fsApi файловое API проекта
  * @param {string} root  корень проекта
  * @param {object} params `{ artist, note }`
+ * @param {object} [opts] `{ dataDir }` — каталог досье в установленной сборке
  * @returns {{ok: true, data: object} | {ok: false, error: string}}
  */
-function addArtist(fsApi, root, { artist, note = null } = {}) {
+function addArtist(fsApi, root, { artist, note = null } = {}, opts = {}) {
   const name = String(artist || '').trim();
   if (name.length < 2) return { ok: false, error: 'имя артиста короче двух символов' };
   if (name.length > 80) return { ok: false, error: 'имя артиста длиннее 80 символов' };
   const slug = slugify(name);
   if (!slug) return { ok: false, error: 'из этого имени не получается имя каталога' };
 
-  const dir = dossierDir(root);
+  const dir = dossierDir(root, opts.dataDir);
   const artistDir = path.join(dir, slug);
   const artistFile = path.join(artistDir, 'artist.json');
   if (fsApi.exists(artistFile)) {
@@ -134,9 +145,10 @@ function addArtist(fsApi, root, { artist, note = null } = {}) {
  * @param {object} fsApi  файловое API проекта (нужен `removeDir`)
  * @param {string} root
  * @param {object} params `{ slug }`
+ * @param {object} [opts] `{ dataDir }` — каталог досье в установленной сборке
  * @returns {{ok: true, data: object} | {ok: false, error: string}}
  */
-function removeArtist(fsApi, root, { slug } = {}) {
+function removeArtist(fsApi, root, { slug } = {}, opts = {}) {
   const clean = String(slug || '').trim();
   if (!clean || clean !== slugify(clean)) {
     return { ok: false, error: 'некорректное имя каталога артиста' };
@@ -144,7 +156,7 @@ function removeArtist(fsApi, root, { slug } = {}) {
   if (typeof fsApi.removeDir !== 'function') {
     return { ok: false, error: 'файловое API не умеет удалять каталоги' };
   }
-  const dir = dossierDir(root);
+  const dir = dossierDir(root, opts.dataDir);
   const target = path.join(dir, clean);
   // Проверка по разрешённому пути: «..» и абсолютные пути отсекаются здесь,
   // даже если окно когда-нибудь будет взломано.

@@ -41,8 +41,8 @@ function trackId(title, url = '') {
 }
 
 /** Каталог `tracks/` конкретного артиста внутри `data/artist_dossier`. */
-function tracksDir(root, slug) {
-  return path.join(dossierDir(root), slug, 'tracks');
+function tracksDir(root, slug, dataDir = null) {
+  return path.join(dossierDir(root, dataDir), slug, 'tracks');
 }
 
 /**
@@ -51,8 +51,8 @@ function tracksDir(root, slug) {
  *
  * @returns {{tracks: Array<object>, errors: string[]}}
  */
-function listTracks(fsApi, root, slug) {
-  const dir = tracksDir(root, slug);
+function listTracks(fsApi, root, slug, opts = {}) {
+  const dir = tracksDir(root, slug, opts.dataDir);
   const listing = fsApi.listDir(dir);
   if (listing.error) return { tracks: [], errors: [`tracks/: ${listing.error}`] };
   const tracks = [];
@@ -89,12 +89,12 @@ function listTracks(fsApi, root, slug) {
  * @param {object} params `{ slug, title, externalUrl, lyrics }`
  * @returns {{ok: true, data: object} | {ok: false, error: string}}
  */
-function addTrack(fsApi, root, { slug, title, externalUrl = null, lyrics = null } = {}) {
+function addTrack(fsApi, root, { slug, title, externalUrl = null, lyrics = null } = {}, opts = {}) {
   const cleanSlug = String(slug || '').trim();
   if (!cleanSlug || cleanSlug !== slugify(cleanSlug)) {
     return { ok: false, error: 'некорректное имя каталога артиста' };
   }
-  const dir = dossierDir(root);
+  const dir = dossierDir(root, opts.dataDir);
   const artistFile = path.join(dir, cleanSlug, 'artist.json');
   if (!fsApi.exists(artistFile)) {
     return { ok: false, error: `артиста «${cleanSlug}» нет — сначала добавьте его` };

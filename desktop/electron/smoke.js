@@ -86,6 +86,20 @@ async function runSmoke({
         vocal ? `${vocal.label}, ${vocal.mixed_seconds} с в миксе` : (withVocal.error || 'вокала нет в отчёте'),
       );
 
+      // Куда приложение пишет досье. В установленной сборке это обязан быть
+      // каталог пользователя: `resources/project` лежит в Program Files.
+      const writable = require('./writable-data');
+      const plan = writable.dossierWriteDir({
+        packaged,
+        projectRoot: root,
+        userData: process.env.APPDATA || require('node:os').tmpdir(),
+      });
+      push(
+        'каталог досье для записи',
+        packaged ? plan.source === 'user' : plan.source === 'project',
+        `${plan.source}: ${plan.dir}`,
+      );
+
       // Задачи без Python: раздел «Запуск» должен уметь хоть что-то в
       // установленном приложении, где интерпретатора нет.
       const nativeTasks = require('./native-tasks');

@@ -63,7 +63,7 @@ cd desktop
 npm install
 npm start              :: окно
 npm run snapshot       :: обновить снимок чисел (нужен Python)
-npm test               :: 341 тест оболочки и аудио-движка, графика не нужна
+npm test               :: 347 тестов оболочки и аудио-движка, графика не нужна
 npm run preview        :: посмотреть окно в браузере
 ```
 

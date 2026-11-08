@@ -15,8 +15,16 @@ const { computeReadiness } = require('./readiness');
 
 const SNAPSHOT_MAX_AGE_DAYS = 30;
 
-function createProject(fsApi, root) {
+/**
+ * @param {object} fsApi файловое API
+ * @param {string} root  корень проекта
+ * @param {object} [options]
+ * @param {string|null} [options.dossierDir] каталог досье для чтения и записи:
+ *   в установленной сборке это каталог пользователя, а не `resources/project`
+ */
+function createProject(fsApi, root, options = {}) {
   const rootPath = path.resolve(root);
+  const dossierDataDir = options.dossierDir || null;
   const catalog = createCatalog(fsApi, rootPath);
 
   function version() {
@@ -111,7 +119,7 @@ function createProject(fsApi, root) {
     // Список и формат — в `dossier-edit.js`: окно правит досье теми же
     // правилами, которыми его читает. Двух разных парсеров быть не должно.
     const { dossiers: read } = require('./dossier-edit');
-    return read(fsApi, rootPath);
+    return read(fsApi, rootPath, dossierDataDir ? { dataDir: dossierDataDir } : {});
   }
 
   /** Сводка окружения: то, что окно может узнать без запуска Python. */

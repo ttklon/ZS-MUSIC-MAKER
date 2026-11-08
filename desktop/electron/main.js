@@ -27,6 +27,7 @@ const nativeTasks = require('./native-tasks');
 const policy = require('./window-policy');
 const appMenu = require('./app-menu');
 const appPaths = require('./app-paths');
+const writableData = require('./writable-data');
 const { registerProjectIpc } = require('./ipc-project');
 const startup = require('./startup');
 const { createWindowManager } = require('./window');
@@ -63,7 +64,30 @@ function settings() {
 }
 
 function projectFor(root = ROOT, fileSystem = createNodeFs()) {
-  return createProject(fileSystem, root);
+  return createProject(fileSystem, root, { dossierDir: dossierPlan().dir });
+}
+
+/**
+ * Каталог досье и докладка демо-артиста — в `writable-data.js`: в
+ * установленной сборке `resources/project` лежит в Program Files, где
+ * обычному пользователю писать нельзя.
+ */
+let dossierPlanCache = null;
+function dossierPlan() {
+  if (!dossierPlanCache) {
+    dossierPlanCache = writableData.prepareDossierStore({
+      packaged: app.isPackaged,
+      projectRoot: ROOT || path.resolve(__dirname, '..', '..'),
+      userData: (() => {
+        try {
+          return app.getPath('userData');
+        } catch {
+          return null;
+        }
+      })(),
+    });
+  }
+  return dossierPlanCache;
 }
 
 /** Каталог «Музыка» (Windows 11) либо запасной путь — см. app-paths.js. */
@@ -108,7 +132,14 @@ function showAbout() {
 function registerIpc(getProject) {
   // Данные проекта — в ipc-project.js: шесть однотипных загрузчиков не должны
   // занимать место рядом с окном и задачами.
-  registerProjectIpc({ ipcMain, getProject, root: ROOT });
+  registerProjectIpc({
+    ipcMain,
+    getProject,
+    root: ROOT,
+    // Писать досье в `resources/project` нельзя (Program Files): каналы
+    // получают каталог пользователя, а раздел «Диагностика» — причину.
+    dataDir: dossierPlan().source === 'user' ? dossierPlan().dir : null,
+  });
 
   ipcMain.handle('zsmm:tasks', () => ({ ok: true, data: tasks.taskList() }));
 
@@ -246,6 +277,12 @@ function registerIpc(getProject) {
           }
         })(),
         music_dir: safeMusicDir(),
+        // Где приложение ведёт досье и почему: в установленной сборке
+        // `resources/project` только для чтения.
+        dossier_dir: dossierPlan().dir,
+        dossier_source: dossierPlan().source === 'user'
+          ? 'каталог пользователя: каталог установки только для чтения'
+          : 'каталог проекта: приложение запущено из репозитория',
         python: python.python,
         python_error: python.error,
         platform: process.platform,
@@ -313,6 +350,12 @@ app.whenReady().then(() => {
     app.quit();
     return;
   }
+  // Первый запуск установленной сборки: демо-артист и схема копируются в
+  // каталог пользователя, иначе раздел «Досье» открылся бы пустым.
+  if (dossierPlan().seeded.length) {
+    process.stdout.write(`досье: скопировано ${dossierPlan().seeded.length} файл(ов) в каталог пользователя\n`);
+  }
+  if (dossierPlan().error) process.stdout.write(`${dossierPlan().error}\n`);
   try {
     project = projectFor();
   } catch (err) {
