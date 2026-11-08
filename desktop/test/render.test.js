@@ -253,3 +253,23 @@ test('отменённый рендер показывается как отме
   // Кнопка рендера снова доступна — иначе окно «залипло» бы после отмены.
   assert.equal(render.disabled, false);
 });
+
+test('справка называет отмену рендера и одно окно', async (t) => {
+  const { document } = bootWindow({ bridge: realBridge() });
+  t.after(() => {
+    delete global.window;
+    delete global.document;
+  });
+  await flush();
+  const button = [...document.querySelectorAll('[data-view]')].find((b) => b.dataset.view === 'help');
+  button.dispatch('click');
+  await flush();
+  await flush();
+
+  const text = document.getElementById('help-body').textContent;
+  // Обещания интерфейса должны совпадать с тем, что он умеет.
+  assert.match(text, /Отмена рендера/);
+  assert.match(text, /Одно окно/);
+  assert.match(text, /Свойства файла EXE/, 'незаполненные свойства файла — честное ограничение');
+  assert.match(text, /Мгновенная отмена/, 'задержка отмены должна быть названа');
+});
