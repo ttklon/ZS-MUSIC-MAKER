@@ -1,0 +1,98 @@
+'use strict';
+/**
+ * smoke.js — проверка упакованного приложения без окна (`--smoke`).
+ *
+ * Зачем отдельным модулем: собрать установщик и не проверить, что он читает
+ * свои данные, — значит узнать о сломанных путях от пользователя. Здесь нет
+ * ни `electron`, ни сети: только чтение проекта и короткий рендер, поэтому
+ * проверка прогоняется и в CI на Windows, и обычным `node --test`.
+ */
+
+const path = require('node:path');
+
+const { renderBeatPayload } = require('./pipeline');
+const { createBankProvider } = require('./pipeline');
+const { resolvePython } = require('./runtime');
+
+/**
+ * Собрать отчёт о состоянии приложения.
+ *
+ * @param {object} params
+ * @param {string|null} params.root      корень проекта
+ * @param {string|null} params.rootError причина, если корень не найден
+ * @param {Function} params.createProject фабрика модели проекта
+ * @param {object} [params.env]
+ * @param {boolean} [params.packaged]
+ * @param {string} [params.electron]
+ * @returns {Promise<{ok: boolean, checks: Array<{name: string, ok: boolean, detail: string}>}>}
+ */
+async function runSmoke({
+  root,
+  rootError = null,
+  createProject,
+  env = process.env,
+  packaged = false,
+  electron = null,
+}) {
+  const checks = [];
+  const push = (name, ok, detail) => checks.push({ name, ok: Boolean(ok), detail: String(detail ?? '') });
+
+  push('корень проекта найден', Boolean(root), root || rootError || 'путь не найден');
+
+  if (root) {
+    try {
+      const project = createProject();
+      const version = project.version();
+      push('version.json', Boolean(version.version), version.version || version.error);
+
+      const genres = project.genres();
+      push('каталог жанров', genres.genres.length >= 100, `${genres.genres.length} жанров`);
+
+      const modules = project.modules();
+      push('inventory', modules.total > 0, `${modules.total} модулей`);
+
+      const readiness = project.readiness();
+      push('снимок готовности', readiness.percent !== null && readiness.percent !== undefined, `${readiness.percent}%`);
+
+      const bank = createBankProvider({ rootDir: root }).bank();
+      const bankReport = bank.report();
+      push(
+        'банк сэмплов',
+        bankReport.status === 'REAL_PASS',
+        `${bankReport.status}, ${bankReport.total_samples} сэмплов`,
+      );
+
+      const beat = await renderBeatPayload(
+        { bpm: 140, genre: 'phonk', seed: 7, durationSec: 2 },
+        { rootDir: root },
+      );
+      push(
+        'рендер бита',
+        beat.ok === true && beat.data.wavBase64.length > 1000,
+        beat.ok === true ? `${beat.data.report.total_bars} тактов, ${beat.data.report.duration_sec} с` : beat.error,
+      );
+    } catch (err) {
+      push('чтение проекта', false, err.message);
+    }
+  }
+
+  const python = resolvePython({ root, env });
+  // Python в собранном приложении не обязателен: это не провал сборки,
+  // а состояние, о котором говорит «Диагностика».
+  push('Python для задач', true, python.python || 'не найден (не обязателен)');
+
+  return {
+    ok: checks.every((check) => check.ok),
+    packaged,
+    electron,
+    root,
+    checks,
+  };
+}
+
+/** Куда писать отчёт: CI читает файл, а не stdout (у GUI нет консоли). */
+function smokeOutputPath(env = process.env, tmpdir = require('node:os').tmpdir()) {
+  return env.ZSMM_SMOKE_OUT || path.join(tmpdir, 'zsmm-smoke.json');
+}
+
+module.exports = { runSmoke, smokeOutputPath };

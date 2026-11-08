@@ -20,8 +20,8 @@ const fsp = require('node:fs/promises');
 
 const { createNodeFs } = require('../src/core/fs-node');
 const { createProject } = require('../src/core/project');
-const { renderBeatPayload, createBankProvider } = require('./pipeline');
 const beatService = require('./beat-service');
+const smoke = require('./smoke');
 const { resolveRoot, resolvePython } = require('./runtime');
 const { createSettingsStore, DEFAULTS } = require('./settings');
 const tasks = require('./tasks');
@@ -298,6 +298,27 @@ function defaultBeatPath() {
 
 function saveTextCopy(args = {}, window = mainWindow) {
   return beatService.saveTextCopy({ ...args, dialog, getWindow: () => window, musicDir: safeMusicDir });
+}
+
+/** `--smoke`: проверка без окна. Логика — в `electron/smoke.js`. */
+async function runSmoke() {
+  const report = await smoke.runSmoke({
+    root: ROOT,
+    rootError: rootInfo.error,
+    createProject: () => projectFor(),
+    packaged: app.isPackaged,
+    electron: process.versions.electron,
+  });
+  const text = `${JSON.stringify(report, null, 2)}\n`;
+  process.stdout.write(text);
+  const outFile = smoke.smokeOutputPath();
+  try {
+    fs.writeFileSync(outFile, text, 'utf8');
+    process.stdout.write(`smoke: ${outFile}\n`);
+  } catch (err) {
+    process.stdout.write(`smoke: файл не записан (${err.message})\n`);
+  }
+  app.exit(report.ok ? 0 : 1);
 }
 
 app.whenReady().then(() => {
