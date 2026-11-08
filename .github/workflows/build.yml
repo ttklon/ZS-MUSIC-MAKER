@@ -92,10 +92,16 @@ jobs:
           pip install -r requirements.txt
 
       - name: Cross-check JS readiness against Python reference
+        if: always()
         run: |
           cd desktop
           node scripts/snapshot-readiness.js
-          python -m pytest ../tests/test_desktop_shell.py -q
+          python -m pytest ../tests/test_desktop_shell.py -q 2>&1 | tee /tmp/shell.log
+          status=${PIPESTATUS[0]}
+          if [ "$status" -ne 0 ]; then
+            echo "::error title=desktop shell cross-check::$(grep -E 'FAILED|assert|Error' /tmp/shell.log | head -20 | tr '\n' '|')"
+            exit "$status"
+          fi
 
   desktop-windows:
     # Установщик для Windows 11 собирается и проверяется на настоящей Windows:
@@ -119,7 +125,17 @@ jobs:
 
       - name: Shell tests on Windows (no GUI needed)
         working-directory: desktop
-        run: npm test
+        shell: pwsh
+        # Логи job-а читаются только через веб-интерфейс, поэтому падение
+        # дублируется в annotation: её видно из API и из PR.
+        run: |
+          $output = (& npm test 2>&1 | Out-String)
+          $output
+          if ($LASTEXITCODE -ne 0) {
+            $failed = ($output -split "`n" | Where-Object { $_ -match '^# (fail|tests|pass)|^not ok|AssertionError|Error:' } | Select-Object -First 25) -join ' | '
+            Write-Output "::error title=npm test on Windows::$failed"
+            exit 1
+          }
 
       - name: Build NSIS installer and portable EXE
         working-directory: desktop
