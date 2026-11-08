@@ -89,7 +89,10 @@ jobs:
       - name: Install minimal Python deps for snapshot
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          # Cross-check трогает `tools.readiness` и `main.py --version`;
+          # полный requirements.txt с PySide6 (~200 МБ) здесь не нужен и
+          # делает шаг главным источником падений на раннере.
+          pip install requests filelock pyyaml pytest hypothesis pytest-cov
 
       # Шаги разделены нарочно: логи job-а из внешней среды не читаются,
       # а имя упавшего шага и его annotation — читаются.

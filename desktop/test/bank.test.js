@@ -61,11 +61,14 @@ test('запрещённая лицензия не попадает в трек 
       ],
     },
   };
-  const root = '/virtual';
+  // Корень строится на месте: на Windows путь с ведущим «/» превращается
+  // в «\\virtual\\...», и манифест «не находится» — тест падал не по делу.
+  const root = path.resolve(path.sep, 'virtual', 'zsmm-bank');
+  const sampleFile = (name) => path.join(root, 'data', 'samples', name);
   const fake = fakeFs({
-    '/virtual/data/samples/manifest.json': JSON.stringify(manifest),
-    '/virtual/data/samples/kick/ok.wav': '',
-    '/virtual/data/samples/kick/bad.wav': '',
+    [path.join(root, 'data', 'samples', 'manifest.json')]: JSON.stringify(manifest),
+    [sampleFile('kick/ok.wav')]: '',
+    [sampleFile('kick/bad.wav')]: '',
   });
   const loaded = bank.loadBank(fake, root);
   const usable = bank.usable(loaded, 'kick');

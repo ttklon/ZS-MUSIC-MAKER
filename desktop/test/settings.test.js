@@ -85,7 +85,8 @@ test('жанр с путём или переводом строки не при�
 
 test('ошибка записи возвращается текстом, а не исключением', () => {
   const store = createSettingsStore({
-    dir: '/virtual',
+    // Путь платформонезависимый: на Windows «/virtual» — не абсолютный путь.
+    dir: path.resolve(path.sep, 'virtual', 'zsmm-settings'),
     fileSystem: {
       existsSync: () => false,
       readFileSync: () => '',

@@ -65,14 +65,15 @@ test('маркером считается и config/genres_100.json, и version.
 });
 
 test('кандидаты не содержат дублей после нормализации', () => {
-  const candidates = rootCandidates({ appPath: '/app/desktop', resourcesPath: '/app', env: {} });
+  const base = path.resolve(path.sep, 'app');
+  const candidates = rootCandidates({ appPath: path.join(base, 'desktop'), resourcesPath: base, env: {} });
   const normalized = candidates.map((item) => path.resolve(item));
 
   assert.equal(new Set(normalized).size, normalized.length);
 });
 
 test('Python ищется сначала в .venv Windows, потом в PATH', () => {
-  const root = '/project';
+  const root = path.resolve(path.sep, 'project');
 
   const windows = resolvePython({ root, platform: 'win32', env: {}, exists: (p) => p === path.join(root, '.venv', 'Scripts', 'python.exe') });
   assert.equal(windows.python, path.join(root, '.venv', 'Scripts', 'python.exe'));
@@ -82,7 +83,7 @@ test('Python ищется сначала в .venv Windows, потом в PATH', 
 });
 
 test('без Python возвращается текст с объяснением, а не пустота', () => {
-  const result = resolvePython({ root: '/project', platform: 'linux', env: {}, exists: () => false });
+  const result = resolvePython({ root: path.resolve(path.sep, 'project'), platform: 'linux', env: {}, exists: () => false });
 
   assert.equal(result.python, null);
   assert.match(result.error, /рендер бита\s+работает/);
