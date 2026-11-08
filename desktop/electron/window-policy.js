@@ -20,6 +20,36 @@
 const APP_USER_MODEL_ID = 'ru.zsmm.musicmaker';
 
 /**
+ * Размер окна, который нужно запомнить.
+ *
+ * Кнопка «развернуть» — это не размер окна для настроек: сохранять надо то,
+ * куда пользователь вернётся, если развернёт обратно. Поэтому максимизация
+ * заменяется обычными границами окна.
+ *
+ * @param {{getBounds: Function, isMaximized?: Function, isMinimized?: Function, isFullScreen?: Function}} window
+ * @returns {{width: number, height: number}|null}
+ */
+function boundsToRemember(window) {
+  if (!window || typeof window.getBounds !== 'function') return null;
+  try {
+    if (typeof window.isFullScreen === 'function' && window.isFullScreen()) return null;
+    if (typeof window.isMinimized === 'function' && window.isMinimized()) return null;
+    const bounds = (typeof window.isMaximized === 'function' && window.isMaximized()
+      ? window.getNormalBounds()
+      : window.getBounds()) || {};
+    const width = Math.round(Number(bounds.width));
+    const height = Math.round(Number(bounds.height));
+    // Окно, сложенное в угол с нулевым размером, запоминать нечего.
+    if (!Number.isFinite(width) || !Number.isFinite(height) || width < 400 || height < 300) {
+      return null;
+    }
+    return { width, height };
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Идентификатор для панели задач Windows.
  *
  * В разработке (`electron .`) Windows группирует окна по пути к `electron.exe`,
@@ -99,10 +129,11 @@ function quitsOnAllWindowsClosed(platform = process.platform) {
  * @param {{dev?: boolean, iconPath?: string, preloadPath?: string}} params
  * @returns {object}
  */
-function windowOptions({ iconPath = null, preloadPath = null } = {}) {
+function windowOptions({ iconPath = null, preloadPath = null, width = 1280, height = 820 } = {}) {
   const options = {
-    width: 1280,
-    height: 820,
+    // Размер из настроек прошлого запуска; границы — ниже, в minWidth.
+    width: Math.max(960, Math.round(Number(width)) || 1280),
+    height: Math.max(600, Math.round(Number(height)) || 820),
     // На Windows 11 окно не должно уменьшаться до нечитаемого состояния:
     // разделы с таблицами ломаются раньше, чем верстка.
     minWidth: 960,
@@ -151,6 +182,7 @@ function windowTitle(project) {
 module.exports = {
   APP_USER_MODEL_ID,
   appUserModelId,
+  boundsToRemember,
   shouldContinueStartup,
   focusExisting,
   quitsOnAllWindowsClosed,

@@ -64,12 +64,13 @@ function projectFor(root = ROOT, fileSystem = createNodeFs()) {
 function createWindow() {
   // Размеры, цвет фона и настройки webPreferences — в window-policy.js:
   // их проверяет тест, которому Electron не нужен.
-  mainWindow = new BrowserWindow(
-    policy.windowOptions({
-      iconPath: path.join(__dirname, '..', 'build', 'icon.png'),
-      preloadPath: path.join(__dirname, 'preload.js'),
-    }),
-  );
+  const saved = settings().load().value;
+  mainWindow = new BrowserWindow(policy.windowOptions({
+    iconPath: path.join(__dirname, '..', 'build', 'icon.png'),
+    preloadPath: path.join(__dirname, 'preload.js'),
+    width: saved.windowWidth,
+    height: saved.windowHeight,
+  }));
 
   // В заголовке окна — версия проекта: в Windows 11 заголовок виден в
   // списке задач и должен отличать сборку от соседней папки.
@@ -102,6 +103,11 @@ function createWindow() {
   });
 
   if (IS_DEV) mainWindow.webContents.openDevTools({ mode: 'detach' });
+  // Размер запоминается до закрытия: после `closed` границ уже нет.
+  mainWindow.on('close', () => {
+    const bounds = policy.boundsToRemember(mainWindow);
+    if (bounds) settings().save(bounds);
+  });
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
@@ -269,10 +275,7 @@ function safeMusicDir() {
   return path.join(require('node:os').tmpdir(), 'zsmm');
 }
 
-function defaultBeatPath() {
-  return beatService.defaultBeatPath(safeMusicDir);
-}
-
+/** `zsmm:save-copy` вне IPC: окно отчёта не должно зависеть от регистрации. */
 function saveTextCopy(args = {}, window = mainWindow) {
   return beatService.saveTextCopy({ ...args, dialog, getWindow: () => window, musicDir: safeMusicDir });
 }
@@ -383,7 +386,6 @@ module.exports = {
   projectFor,
   registerIpc,
   buildMenu,
-  defaultBeatPath,
   saveTextCopy,
   settings,
   safeMusicDir,

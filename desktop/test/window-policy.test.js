@@ -164,3 +164,72 @@ test('окно «О приложении» называет версию, кор
   assert.match(broken.detail, /ZSMM_ROOT/);
   assert.equal(broken.message, 'ZS Music Maker');
 });
+
+test('размер окна запоминается, но не в развёрнутом и не в свёрнутом виде', () => {
+  // Развёрнутое окно занимает весь монитор: если запомнить этот размер,
+  // после перезапуска окно откроется «во весь экран» без кнопки «развернуть».
+  const maximized = {
+    getBounds: () => ({ width: 1920, height: 1080 }),
+    getNormalBounds: () => ({ width: 1180, height: 760 }),
+    isMaximized: () => true,
+    isMinimized: () => false,
+    isFullScreen: () => false,
+  };
+  assert.deepEqual(policy.boundsToRemember(maximized), { width: 1180, height: 760 });
+
+  const plain = { getBounds: () => ({ width: 1000.4, height: 700.6 }), isMaximized: () => false };
+  assert.deepEqual(policy.boundsToRemember(plain), { width: 1000, height: 701 });
+
+  // Свёрнутое и полноэкранное окно не даёт осмысленного размера.
+  assert.equal(policy.boundsToRemember({ ...plain, isMinimized: () => true }), null);
+  assert.equal(policy.boundsToRemember({ ...plain, isFullScreen: () => true }), null);
+  // Вырожденные размеры и мусор тоже не запоминаем.
+  assert.equal(policy.boundsToRemember({ getBounds: () => ({ width: 0, height: 0 }) }), null);
+  assert.equal(policy.boundsToRemember({ getBounds: () => ({ width: 'wide', height: 700 }) }), null);
+  assert.equal(policy.boundsToRemember({}), null);
+  assert.equal(policy.boundsToRemember(null), null);
+});
+
+test('сохранённый размер подставляется в окно в пределах минимума', () => {
+  const custom = policy.windowOptions({ width: 1500, height: 950 });
+  assert.equal(custom.width, 1500);
+  assert.equal(custom.height, 950);
+
+  // Меньше минимума Windows 11 не покажет — подгибаем сами.
+  const small = policy.windowOptions({ width: 300, height: 200 });
+  assert.equal(small.width, 960);
+  assert.equal(small.height, 600);
+
+  const broken = policy.windowOptions({ width: 'широко', height: undefined });
+  assert.equal(broken.width, 1280);
+  assert.equal(broken.height, 820);
+});
+
+test('размер окна лежит в настройках между запусками', () => {
+  const os = require('node:os');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'zsmm-bounds-'));
+  const { createSettingsStore, DEFAULTS } = require('../electron/settings');
+  const store = createSettingsStore({ dir });
+
+  assert.equal(DEFAULTS.windowWidth, 1280);
+  assert.equal(store.load().value.windowHeight, 820);
+
+  const saved = store.save({ windowWidth: 1440, windowHeight: 900 });
+  assert.equal(saved.error, null);
+  assert.equal(store.load().value.windowWidth, 1440);
+
+  // Мусор вместо размера — не повод ронять запуск: берётся умолчание, а
+  // причина называется в отчёте о настройках (`invalid` в окне).
+  const junk = store.save({ windowWidth: 'широко', windowHeight: 'высоко' });
+  assert.deepEqual(junk.invalid.sort(), ['windowHeight', 'windowWidth']);
+  assert.equal(store.load().value.windowWidth, 1280);
+
+  // Меньше минимума окно не откроется: настройки такое значение не берут,
+  // а окно всё равно подгибает размер, если он пришёл из старого файла.
+  const tooSmall = store.save({ windowWidth: 300, windowHeight: 200 });
+  assert.deepEqual(tooSmall.invalid.sort(), ['windowHeight', 'windowWidth']);
+  const small = policy.windowOptions({ width: 300, height: 200 });
+  assert.equal(small.width, 960);
+  assert.equal(small.height, 600);
+  fs.rmSync(dir, { recursive: true, force: true });
+});

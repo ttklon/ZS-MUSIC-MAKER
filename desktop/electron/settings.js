@@ -22,12 +22,19 @@ const DEFAULTS = {
   durationSec: 20,
   useBank: true,
   view: 'overview',
+  // Размер окна: на Windows 11 пользователь разворачивает окно под свой
+  // монитор, и каждый запуск с 1280×820 выглядит как сброс настроек.
+  windowWidth: 1280,
+  windowHeight: 820,
 };
 
 const LIMITS = {
   bpm: [40, 300],
   seed: [0, 2 ** 31 - 1],
   durationSec: [1, 600],
+  // Границы, а не размеры: окно больше монитора Windows 11 сам не покажет.
+  windowWidth: [960, 10000],
+  windowHeight: [600, 10000],
 };
 
 const GENRE_RE = /^[\w .+-]{1,40}$/;
@@ -92,13 +99,14 @@ function createSettingsStore({ dir, fileSystem = require('node:fs') } = {}) {
 
     save(patch) {
       const current = this.load().value;
-      const { value } = sanitizeSettings({ ...current, ...(patch && typeof patch === 'object' ? patch : {}) });
+      // `invalid` — какие поля не приняты: окно говорит об этом, а не молчит.
+      const { value, errors } = sanitizeSettings({ ...current, ...(patch && typeof patch === 'object' ? patch : {}) });
       try {
         fileSystem.mkdirSync(dir, { recursive: true });
         fileSystem.writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
-        return { value, error: null };
+        return { value, invalid: errors, error: null };
       } catch (err) {
-        return { value: current, error: `settings.json не записан: ${err.message}` };
+        return { value: current, invalid: [], error: `settings.json не записан: ${err.message}` };
       }
     },
   };
