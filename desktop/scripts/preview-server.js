@@ -16,6 +16,7 @@ const path = require('node:path');
 const { createNodeFs } = require('../src/core/fs-node');
 const { createProject } = require('../src/core/project');
 const { createBankProvider, renderBeatPayload } = require('../electron/pipeline');
+const { createCancelSignal } = require('../electron/render-host');
 
 const DESKTOP = path.resolve(__dirname, '..');
 const ROOT = path.resolve(DESKTOP, '..');
@@ -86,6 +87,12 @@ function shim(project) {
       tick();
       return () => { stopped = true; };
     },
+    // В предпросмотре рендер идёт на этом же сервере, поэтому отмена —
+    // отдельный POST, как и в Electron.
+    cancelBeat: async () => {
+      const response = await fetch('/beat-cancel', { method: 'POST' });
+      return response.json();
+    },
     beatBank: async () => {
       const response = await fetch('/beat-bank');
       return response.json();
@@ -121,6 +128,8 @@ function shim(project) {
 function createServer(project, options = {}) {
   // Последний известный прогресс рендера: предпросмотр отдаёт его по запросу.
   let lastProgress = { phase: 'idle', percent: 0 };
+  // Отмена идёт тем же сигналом, что и в Electron (render-host.createCancelSignal).
+  let activeRender = null;
   // Один источник сэмплов на сервер: он кэширует декодированные one-shot'ы.
   const bankProvider = createBankProvider({
     rootDir: ROOT,
@@ -152,17 +161,33 @@ function createServer(project, options = {}) {
         lastProgress = { phase: 'start', percent: 0 };
         // Тот же конвейер, что в Electron: проверка параметров, банк и
         // прогресс не дублируются, поэтому предпросмотр не «врёт» про окно.
+        const signal = createCancelSignal();
+        activeRender = signal;
         renderBeatPayload(parsed, {
           rootDir: ROOT,
           bankFor: () => bankProvider.bank(),
           onProgress: (progress) => { lastProgress = progress; },
+          isCancelled: () => signal.aborted,
         }).then((reply) => {
-          lastProgress = reply.ok === true
-            ? { phase: 'done', percent: 100 }
-            : { phase: 'error', percent: 0, error: reply.error };
+          if (activeRender === signal) activeRender = null;
+          if (reply.cancelled === true) lastProgress = { phase: 'cancelled', percent: 0 };
+          else {
+            lastProgress = reply.ok === true
+              ? { phase: 'done', percent: 100 }
+              : { phase: 'error', percent: 0, error: reply.error };
+          }
           send(200, JSON.stringify(reply), MIME['.json']);
         });
       });
+      return;
+    }
+
+    if (url.pathname === '/beat-cancel' && req.method === 'POST') {
+      const cancelled = activeRender ? activeRender.abort() : false;
+      lastProgress = cancelled
+        ? { phase: 'cancelled', percent: 0 }
+        : lastProgress;
+      send(200, JSON.stringify({ ok: true, data: { cancelled } }), MIME['.json']);
       return;
     }
 

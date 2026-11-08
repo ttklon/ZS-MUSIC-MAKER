@@ -62,7 +62,7 @@ test('конвейер регистрирует все каналы бита', (
 
   assert.deepEqual(
     [...ipc.handlers.keys()].sort(),
-    ['zsmm:beat-bank', 'zsmm:beat-render', 'zsmm:beat-save', 'zsmm:save-copy'],
+    ['zsmm:beat-bank', 'zsmm:beat-cancel', 'zsmm:beat-render', 'zsmm:beat-save', 'zsmm:save-copy'],
   );
 });
 
@@ -176,4 +176,38 @@ test('путь по умолчанию — «Музыка» пользовате
 
   assert.match(target, /beat_.*\.wav$/);
   assert.ok(target.startsWith('C:\\Users\\user\\Music'), target);
+});
+
+test('канал отмены регистрируется и честно говорит, было ли что отменять', async () => {
+  const ipc = fakeIpc();
+  registerBeatIpc({ ipcMain: ipc, dialog: fakeDialog(null), rootDir: ROOT, getWindow: () => null, musicDir: tempDir });
+
+  assert.ok([...ipc.handlers.keys()].includes('zsmm:beat-cancel'));
+
+  const idle = await ipc.handlers.get('zsmm:beat-cancel')();
+  assert.equal(idle.ok, true);
+  assert.equal(idle.data.cancelled, false, 'когда рендера нет, отменять нечего');
+});
+
+test('отмена во время рендера возвращает отменённый результат, а не бит', async () => {
+  const ipc = fakeIpc();
+  registerBeatIpc({ ipcMain: ipc, dialog: fakeDialog(null), rootDir: ROOT, getWindow: () => null, musicDir: tempDir });
+  const sender = { isDestroyed: () => false, send: () => {} };
+
+  // Длинный бит: рендер идёт секунды, отменяем сразу после старта.
+  const rendering = ipc.handlers.get('zsmm:beat-render')(
+    { sender },
+    { bpm: 128, genre: 'drift phonk', seed: 5, durationSec: 120 },
+  );
+  const cancelled = await ipc.handlers.get('zsmm:beat-cancel')();
+  const result = await rendering;
+
+  assert.equal(cancelled.data.cancelled, true);
+  assert.equal(result.ok, false);
+  assert.equal(result.cancelled, true);
+  assert.match(result.error, /отменён/);
+
+  // После отмены канал снова свободен.
+  const again = await ipc.handlers.get('zsmm:beat-cancel')();
+  assert.equal(again.data.cancelled, false);
 });

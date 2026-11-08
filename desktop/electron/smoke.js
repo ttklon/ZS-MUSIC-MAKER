@@ -95,4 +95,32 @@ function smokeOutputPath(env = process.env, tmpdir = require('node:os').tmpdir()
   return env.ZSMM_SMOKE_OUT || path.join(tmpdir, 'zsmm-smoke.json');
 }
 
-module.exports = { runSmoke, smokeOutputPath };
+/**
+ * Напечатать отчёт и сохранить его в файл.
+ *
+ * Файл нужен CI: консольный вывод запущенного через `Start-Process` процесса
+ * перехватить нельзя, а прочитать JSON после выхода — можно. Если записать
+ * не удалось, это не ошибка проверки: отчёт уже напечатан.
+ *
+ * @param {object} report
+ * @param {object} [params]
+ * @param {object} [params.env]
+ * @param {Function} [params.writeFile]
+ * @param {{write: Function}} [params.out]
+ * @returns {string} путь к файлу отчёта
+ */
+function writeReport(report, { env = process.env, writeFile = null, out = process.stdout } = {}) {
+  const text = `${JSON.stringify(report, null, 2)}\n`;
+  out.write(text);
+  const file = smokeOutputPath(env);
+  if (!writeFile) return file;
+  try {
+    writeFile(file, text, 'utf8');
+    out.write(`smoke: ${file}\n`);
+  } catch (err) {
+    out.write(`smoke: файл не записан (${err.message})\n`);
+  }
+  return file;
+}
+
+module.exports = { runSmoke, smokeOutputPath, writeReport };

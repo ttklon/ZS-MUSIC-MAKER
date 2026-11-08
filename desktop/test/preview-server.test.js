@@ -37,6 +37,23 @@ function get(server, pathname) {
   });
 }
 
+/** POST JSON на сервер предпросмотра; возвращает разобранный ответ. */
+function postTo(server, pathname, payload) {
+  const address = server.address();
+  return new Promise((resolve, reject) => {
+    const req = http.request(
+      { host: '127.0.0.1', port: address.port, path: pathname, method: 'POST', headers: { 'Content-Type': 'application/json' } },
+      (res) => {
+        const chunks = [];
+        res.on('data', (chunk) => chunks.push(chunk));
+        res.on('end', () => resolve(JSON.parse(Buffer.concat(chunks).toString('utf8'))));
+      },
+    );
+    req.on('error', reject);
+    req.end(JSON.stringify(payload || {}));
+  });
+}
+
 async function withServer(t) {
   const project = createProject(createNodeFs(), ROOT);
   const server = createServer(project);
@@ -194,4 +211,26 @@ test('прогресс рендера отдаётся поллингом, а ш
   // Шим обязан отдать функцию отписки — app.js вызывает её в `finally`.
   const project = createProject(createNodeFs(), ROOT);
   assert.match(shim(project), /onBeatProgress/);
+});
+
+test('отмена рендера в предпросмотре отвечает и не ломает прогресс', async (t) => {
+  const server = await withServer(t);
+  const address = server.address();
+
+  const idle = await postTo(server, '/beat-cancel', {});
+  assert.equal(idle.ok, true);
+  assert.equal(idle.data.cancelled, false);
+
+  // Длинный рендер и отмена почти сразу.
+  const rendering = postTo(server, '/beat-render', { bpm: 128, genre: 'drift phonk', seed: 5, durationSec: 120 });
+  const cancelled = await postTo(server, '/beat-cancel', {});
+  const result = await rendering;
+
+  assert.equal(cancelled.data.cancelled, true);
+  assert.equal(result.ok, false);
+  assert.match(result.error, /отменён/);
+
+  const progress = JSON.parse((await get(server, '/beat-progress')).body);
+  assert.equal(progress.data.phase, 'cancelled');
+  assert.ok(address.port > 0);
 });

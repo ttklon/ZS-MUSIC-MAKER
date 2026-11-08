@@ -270,3 +270,22 @@ test('подготовка рендера не зависит от послед�
   // Два независимых потока ГСЧ: без этого сид-хеши «плывут».
   assert.notStrictEqual(first.engine.rng, first.engine.noiseRng);
 });
+
+test('отмена рендера прекращает счёт и не отдаёт половину WAV', async () => {
+  let calls = 0;
+  const options = { bpm: 128, genre: 'drift phonk', seed: 5, durationSec: 60 };
+
+  await assert.rejects(
+    () => renderBeatInSteps(options, { isCancelled: () => { calls += 1; return calls > 2; } }),
+    (err) => err.name === 'RenderCancelled',
+  );
+});
+
+test('без отмены рендер по секциям проходит как обычно', async () => {
+  const { wav } = await renderBeatInSteps(
+    { bpm: 128, genre: 'drift phonk', seed: 5, durationSec: 8 },
+    { isCancelled: () => false },
+  );
+
+  assert.equal(wav.toString('ascii', 0, 4), 'RIFF');
+});

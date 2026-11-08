@@ -147,6 +147,16 @@ class FakeDocument extends FakeElement {
 }
 
 /** Собрать документ из index.html: только id, data-view и поля ввода. */
+/**
+ * Есть ли булев атрибут в строке атрибутов.
+ *
+ * `hasBooleanAttribute(' id="x" disabled', 'disabled')` → true,
+ * а `' data-disabled="1"'` → false. Именно на этой разнице всё и держится.
+ */
+function hasBooleanAttribute(attributes, name) {
+  return new RegExp(`(^|\\s)${name}(\\s|=|$)`).test(attributes);
+}
+
 function documentFromHtml(html) {
   const doc = new FakeDocument();
   const body = doc.createElement('body');
@@ -164,6 +174,12 @@ function documentFromHtml(html) {
       element.classList.add('nav-item');
     }
     if (tag === 'input') element.value = '';
+    // Булевы атрибуты разметки: без них тест не отличит изначально
+    // заблокированную кнопку от доступной. Границу слова проверяем явно:
+    // `(?=[\s>/])` не срабатывает в конце строки, а атрибут может быть
+    // последним (`... id="x" disabled`).
+    if (hasBooleanAttribute(attributes, 'disabled')) element.disabled = true;
+    if (hasBooleanAttribute(attributes, 'checked')) element.checked = true;
     body.append(element);
   }
   return doc;

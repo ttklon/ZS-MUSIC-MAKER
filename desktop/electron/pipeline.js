@@ -71,10 +71,16 @@ async function renderBeatRequest(options, context = {}) {
       {
         onProgress: typeof context.onProgress === 'function' ? context.onProgress : undefined,
         yieldToEventLoop: context.yieldToEventLoop !== false,
+        // Отмена приходит из главного процесса (см. render-host.js):
+        // движок проверяет её между секциями.
+        isCancelled: typeof context.isCancelled === 'function' ? context.isCancelled : undefined,
       },
     );
     return { ok: true, data: { wav, report } };
   } catch (err) {
+    if (err && err.name === 'RenderCancelled') {
+      return { ok: false, error: 'рендер отменён', cancelled: true };
+    }
     return { ok: false, error: err && err.message ? err.message : String(err) };
   }
 }

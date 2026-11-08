@@ -52,6 +52,11 @@ function renderBeat(options) {
   return ipcRenderer.invoke('zsmm:beat-render', options);
 }
 
+/** Прервать идущий рендер бита. */
+function cancelBeat() {
+  return ipcRenderer.invoke('zsmm:beat-cancel');
+}
+
 /** Что за банк сэмплов подключён к движку (REAL_PASS/PARTIAL/FALLBACK). */
 function beatBank() {
   return ipcRenderer.invoke('zsmm:beat-bank');
@@ -110,6 +115,7 @@ contextBridge.exposeInMainWorld('zsmm', {
   onTaskEvent,
   onTaskDone,
   renderBeat,
+  cancelBeat,
   beatBank,
   onBeatProgress,
   saveBeat,

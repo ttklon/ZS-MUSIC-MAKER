@@ -13,7 +13,7 @@ const assert = require('node:assert/strict');
 const path = require('node:path');
 const { EventEmitter } = require('node:events');
 
-const { renderInWorker } = require('../electron/render-host');
+const { renderInWorker, createCancelSignal } = require('../electron/render-host');
 
 const ROOT = path.resolve(__dirname, '..', '..');
 const OPTIONS = { bpm: 140, genre: 'phonk', seed: 7, durationSec: 2 };
@@ -133,4 +133,82 @@ test('настоящий поток действительно считает б
   assert.equal(result.renderer, 'worker');
   assert.equal(Buffer.from(result.data.wavBase64, 'base64').toString('ascii', 0, 4), 'RIFF');
   assert.equal(result.data.report.bpm, 140);
+});
+
+test('отмена снимает поток и не уходит в запасной путь', async () => {
+  let mainCalled = false;
+  const signal = createCancelSignal();
+  const Worker = fakeWorker((worker) => {
+    // Поток «работает», но пользователь нажал «Отменить».
+    setTimeout(() => signal.abort(), 5);
+    setTimeout(() => worker.emit('message', { type: 'result', payload: {} }), 50);
+  });
+
+  const result = await renderInWorker({
+    options: OPTIONS,
+    rootDir: ROOT,
+    renderInMain: async () => {
+      mainCalled = true;
+      return { ok: true, data: {} };
+    },
+    Worker,
+    signal,
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.cancelled, true);
+  assert.match(result.error, /отменён/);
+  assert.equal(mainCalled, false, 'отменённый рендер не должен переезжать в главный процесс');
+});
+
+test('отмена до старта возвращает «отменён», не запуская ничего', async () => {
+  const signal = createCancelSignal();
+  signal.abort();
+  let started = false;
+
+  const result = await renderInWorker({
+    options: OPTIONS,
+    rootDir: ROOT,
+    renderInMain: async () => {
+      started = true;
+      return { ok: true, data: {} };
+    },
+    Worker: fakeWorker(() => {}),
+    signal,
+  });
+
+  assert.equal(result.cancelled, true);
+  assert.equal(started, false);
+});
+
+test('запасной путь тоже уважает отмену', async () => {
+  const signal = createCancelSignal();
+  const Worker = null; // как будто worker_threads недоступны
+
+  const result = await renderInWorker({
+    options: OPTIONS,
+    rootDir: ROOT,
+    Worker,
+    signal,
+    renderInMain: async (_options, ctx) => {
+      // Главный процесс обязан получить проверку отмены, а не только флаг.
+      assert.equal(typeof ctx.isCancelled, 'function');
+      signal.abort();
+      assert.equal(ctx.isCancelled(), true);
+      return { ok: false, error: 'рендер отменён', cancelled: true };
+    },
+  });
+
+  assert.equal(result.cancelled, true);
+  assert.equal(result.renderer, 'main');
+});
+
+test('сигнал отмены срабатывает один раз и не падает без подписчиков', () => {
+  const signal = createCancelSignal();
+
+  assert.equal(signal.aborted, false);
+  assert.equal(signal.abort(), true);
+  assert.equal(signal.abort(), false, 'повторная отмена — не событие');
+  assert.equal(signal.aborted, true);
+  signal.offAbort(() => {});
 });

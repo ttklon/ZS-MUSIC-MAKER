@@ -11,7 +11,7 @@ const path = require('node:path');
 const fsp = require('node:fs/promises');
 
 const { renderBeatPayload, createBankProvider } = require('./pipeline');
-const { renderInWorker } = require('./render-host');
+const { renderInWorker, createCancelSignal } = require('./render-host');
 
 /**
  * @param {object} params
@@ -28,6 +28,10 @@ function registerBeatIpc({ ipcMain, dialog, rootDir, getWindow, musicDir, onProg
   // рендер не перечитывает 32 файла.
   const bankProvider = createBankProvider({ rootDir });
 
+  // Отмена живёт на уровне сервиса: одновременно идёт один рендер, и
+  // «Отменить» относится именно к нему. Сигнала нет — рендера нет.
+  let activeRender = null;
+
   const handlers = {
     'zsmm:beat-render': async (event, options) => {
       const send = (progress) => {
@@ -39,17 +43,35 @@ function registerBeatIpc({ ipcMain, dialog, rootDir, getWindow, musicDir, onProg
       // Основной путь — отдельный поток. Если он недоступен, тот же код
       // считается в главном процессе: пользователь получает бит в любом
       // случае, а отчёт говорит, каким путём (`renderer`).
-      const result = await renderInWorker({
-        options,
-        rootDir,
-        onProgress: send,
-        renderInMain: (opts, ctx) => renderBeatPayload(opts, { ...ctx, bankFor: () => bankProvider.bank() }),
-      });
-      if (result.ok !== true) return { ok: false, error: result.error };
+      const signal = createCancelSignal();
+      activeRender = signal;
+      let result;
+      try {
+        result = await renderInWorker({
+          options,
+          rootDir,
+          onProgress: send,
+          signal,
+          renderInMain: (opts, ctx) => renderBeatPayload(opts, { ...ctx, bankFor: () => bankProvider.bank() }),
+        });
+      } finally {
+        if (activeRender === signal) activeRender = null;
+      }
+      if (result.ok !== true) {
+        return { ok: false, error: result.error, cancelled: result.cancelled === true };
+      }
       return {
         ok: true,
         data: { ...result.data, report: { ...result.data.report, renderer: result.renderer } },
       };
+    },
+
+    // «Остановить» во время рендера. Возвращает, было что отменять, — окно
+    // не должно показывать «отменено» там, где ничего не шло.
+    'zsmm:beat-cancel': () => {
+      if (!activeRender) return { ok: true, data: { cancelled: false } };
+      const cancelled = activeRender.abort();
+      return { ok: true, data: { cancelled } };
     },
 
     'zsmm:beat-bank': () => {

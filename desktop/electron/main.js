@@ -2,11 +2,9 @@
 /**
  * main.js — главный процесс Electron. В окне нет ни Python, ни сети.
  *
- * Окно работает на данных, которые этот процесс читает из файлов проекта
- * (жанры, пресеты, снимок inventory/готовности). Логика вынесена в
- * `src/core/*` и `electron/{runtime,pipeline,render-host}.js`, поэтому её
- * проверяет обычный `node --test` без графической среды, а main.js остаётся
- * тонким: окно, IPC, безопасность.
+ * Окно работает на данных, которые этот процесс читает из файлов проекта.
+ * Логика вынесена в `src/core/*` и `electron/*`, поэтому её проверяет обычный
+ * `node --test` без графической среды, а main.js остаётся тонким: окно, IPC.
  *
  * Где лежит проект и есть ли Python — решает `runtime.js`, потому что в
  * установленном приложении (`resources/app.asar`) относительные пути
@@ -25,11 +23,13 @@ const smoke = require('./smoke');
 const { resolveRoot, resolvePython } = require('./runtime');
 const { createSettingsStore, DEFAULTS } = require('./settings');
 const tasks = require('./tasks');
+const policy = require('./window-policy');
+const appMenu = require('./app-menu');
 
 const IS_DEV = process.argv.includes('--dev');
-// `--smoke` запускает приложение, проверяет, что проект открылся и данные
-// читаются, печатает JSON и выходит с кодом 0/1. Нужен CI: упакованную
-// сборку надо чем-то проверить, а графической среды на раннере нет.
+// `--smoke`: запустить приложение, проверить данные, напечатать JSON и выйти
+// с кодом 0/1. Нужен CI: упакованную сборку надо чем-то проверить, а
+// графической среды на раннере нет.
 const IS_SMOKE = process.argv.includes('--smoke');
 
 // Корень проекта: в репозитории — на два уровня выше `desktop/`, в
@@ -62,36 +62,42 @@ function projectFor(root = ROOT, fileSystem = createNodeFs()) {
 }
 
 function createWindow() {
-  mainWindow = new BrowserWindow({
-    width: 1280,
-    height: 820,
-    minWidth: 960,
-    minHeight: 600,
-    // Окно красится в тон интерфейсу: без этого при старте видна белая вспышка.
-    backgroundColor: '#0f1115',
-    show: false,
-    title: 'ZS Music Maker',
-    icon: path.join(__dirname, '..', 'build', 'icon.png'),
-    webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
-      contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: false,
-    },
-  });
+  // Размеры, цвет фона и настройки webPreferences — в window-policy.js:
+  // их проверяет тест, которому Electron не нужен.
+  mainWindow = new BrowserWindow(
+    policy.windowOptions({
+      iconPath: path.join(__dirname, '..', 'build', 'icon.png'),
+      preloadPath: path.join(__dirname, 'preload.js'),
+    }),
+  );
+
+  // В заголовке окна — версия проекта: в Windows 11 заголовок виден в
+  // списке задач и должен отличать сборку от соседней папки.
+  try {
+    const version = project ? (project.version() || {}).version : null;
+    if (version) mainWindow.setTitle(policy.windowTitle({ version }));
+  } catch {
+    /* без версии остаётся имя приложения */
+  }
 
   mainWindow.once('ready-to-show', () => mainWindow.show());
   mainWindow.loadFile(path.join(__dirname, '..', 'src', 'index.html'));
 
   // Окно не должно превращаться в браузер: внешние ссылки уходят в систему.
+  // Какие ссылки разрешены, решает policy.externalUrl — там же и тест.
+  const openExternal = (url) => {
+    const allowed = policy.externalUrl(url);
+    if (allowed) shell.openExternal(allowed);
+    return allowed;
+  };
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    if (/^https?:\/\//.test(url)) shell.openExternal(url);
+    openExternal(url);
     return { action: 'deny' };
   });
   mainWindow.webContents.on('will-navigate', (event, url) => {
     if (!url.startsWith('file://')) {
       event.preventDefault();
-      if (/^https?:\/\//.test(url)) shell.openExternal(url);
+      openExternal(url);
     }
   });
 
@@ -101,57 +107,29 @@ function createWindow() {
   });
 }
 
-/**
- * Меню приложения.
- *
- * В собранной Windows-сборке меню по умолчанию выглядит как меню браузера:
- * «Reload», «Toggle DevTools», «Zoom». Для приложения это лишнее и опасно
- * (перезагрузка сбрасывает собранный бит), поэтому меню своё: только то, что
- * действительно нужно.
- */
+/** Меню: шаблон в `app-menu.js`, здесь только сборка в меню Electron. */
 function buildMenu({ isDev = IS_DEV } = {}) {
-  const template = [
-    {
-      label: 'Файл',
-      submenu: [
-        { label: 'Папка проекта', click: () => ROOT && shell.openPath(ROOT) },
-        { type: 'separator' },
-        { role: 'quit', label: 'Выход' },
-      ],
-    },
-    {
-      label: 'Вид',
-      submenu: [
-        { role: 'resetZoom', label: 'Обычный масштаб' },
-        { role: 'zoomIn', label: 'Крупнее' },
-        { role: 'zoomOut', label: 'Мельче' },
-        { type: 'separator' },
-        { role: 'togglefullscreen', label: 'Во весь экран' },
-        ...(isDev ? [{ role: 'reload', label: 'Перезагрузить' }, { role: 'toggleDevTools', label: 'Инструменты' }] : []),
-      ],
-    },
-    {
-      label: 'Справка',
-      submenu: [
-        { label: 'О приложении', click: () => showAbout() },
-      ],
-    },
-  ];
-  return Menu.buildFromTemplate(template);
+  return Menu.buildFromTemplate(
+    appMenu.menuTemplate({ isDev, openRoot: () => ROOT && shell.openPath(ROOT), showAbout }),
+  );
 }
 
 function showAbout() {
   const version = project ? project.version() : { version: null };
+  const text = appMenu.aboutText({
+    version: version.version,
+    root: ROOT,
+    electron: process.versions.electron,
+    node: process.versions.node,
+    chrome: process.versions.chrome,
+    platform: process.platform,
+    arch: process.arch,
+  });
   dialog.showMessageBox(mainWindow || undefined, {
     type: 'info',
-    title: 'ZS Music Maker',
-    message: `ZS Music Maker ${version.version ? `v${version.version}` : ''}`.trim(),
-    detail: [
-      'Бит собирается внутри приложения: движок на JavaScript, без Python и сети.',
-      ROOT ? `Проект: ${ROOT}` : 'Проект не найден — задайте ZSMM_ROOT.',
-      `Electron ${process.versions.electron}, Node ${process.versions.node}, Chromium ${process.versions.chrome}.`,
-      `Платформа: ${process.platform} ${process.arch}.`,
-    ].join('\n\n'),
+    title: text.title,
+    message: text.message,
+    detail: text.detail,
     buttons: ['Закрыть'],
   });
 }
@@ -231,10 +209,9 @@ function registerIpc(getProject) {
   });
 
   ipcMain.handle('zsmm:open-external', async (_event, url) => {
-    if (typeof url !== 'string' || !/^https?:\/\//.test(url)) {
-      return { ok: false, error: 'разрешены только http(s)-ссылки' };
-    }
-    await shell.openExternal(url);
+    const allowed = policy.externalUrl(url);
+    if (!allowed) return { ok: false, error: 'разрешены только http(s)-ссылки' };
+    await shell.openExternal(allowed);
     return { ok: true };
   });
 
@@ -309,19 +286,51 @@ async function runSmoke() {
     packaged: app.isPackaged,
     electron: process.versions.electron,
   });
-  const text = `${JSON.stringify(report, null, 2)}\n`;
-  process.stdout.write(text);
-  const outFile = smoke.smokeOutputPath();
-  try {
-    fs.writeFileSync(outFile, text, 'utf8');
-    process.stdout.write(`smoke: ${outFile}\n`);
-  } catch (err) {
-    process.stdout.write(`smoke: файл не записан (${err.message})\n`);
-  }
+  smoke.writeReport(report, { env: process.env, writeFile: fs.writeFileSync, out: process.stdout });
   app.exit(report.ok ? 0 : 1);
 }
 
+/**
+ * Второй запуск открывает уже существующее окно.
+ *
+ * Без этого двойной клик по ярлыку при открытом приложении поднимал второй
+ * процесс, который писал те же настройки и тот же файл банка.
+ */
+function installSingleInstance() {
+  const gotLock = app.requestSingleInstanceLock();
+  if (!policy.shouldContinueStartup({ gotLock })) {
+    // Окно живёт в первом процессе: этому остаётся только выйти.
+    app.quit();
+    return false;
+  }
+  app.on('second-instance', () => {
+    policy.focusExisting(mainWindow);
+  });
+  return true;
+}
+
+/**
+ * Идентификатор для панели задач Windows 11.
+ *
+ * Ставится только у собранного приложения: в разработке `electron.exe`
+ * группируется по своему пути, и смешивать их не надо.
+ */
+function installAppUserModelId() {
+  const id = policy.appUserModelId({ isPackaged: app.isPackaged, platform: process.platform });
+  if (!id) return null;
+  try {
+    app.setAppUserModelId(id);
+    return id;
+  } catch {
+    return null;
+  }
+}
+
+// Замок берётся до `whenReady`: второй процесс не должен успеть подняться.
+const HAS_SINGLE_INSTANCE = installSingleInstance();
+
 app.whenReady().then(() => {
+  if (!HAS_SINGLE_INSTANCE) return;
   if (IS_SMOKE) {
     runSmoke().catch((err) => {
       process.stdout.write(`${JSON.stringify({ ok: false, error: err.message })}\n`);
@@ -338,6 +347,7 @@ app.whenReady().then(() => {
     /* старая версия Electron — тема не критична */
   }
   Menu.setApplicationMenu(buildMenu());
+  installAppUserModelId();
 
   if (!ROOT) {
     dialog.showErrorBox('Не удалось найти проект', `${rootInfo.error}\n\nКандидаты:\n${rootInfo.candidates.join('\n')}`);
@@ -358,7 +368,7 @@ app.whenReady().then(() => {
 app.on('window-all-closed', () => {
   // Дочерний процесс не должен переживать окно.
   if (activeTask) activeTask.stop();
-  if (process.platform !== 'darwin') app.quit();
+  if (policy.quitsOnAllWindowsClosed(process.platform)) app.quit();
 });
 
 app.on('before-quit', () => {
@@ -382,4 +392,6 @@ module.exports = {
   DEFAULTS,
   ROOT,
   rootInfo,
+  installSingleInstance,
+  installAppUserModelId,
 };

@@ -12,7 +12,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('node:path');
 
-const { runSmoke, smokeOutputPath } = require('../electron/smoke');
+const { runSmoke, smokeOutputPath, writeReport } = require('../electron/smoke');
 const { createProject } = require('../src/core/project');
 const { createNodeFs } = require('../src/core/fs-node');
 
@@ -72,4 +72,42 @@ test('отсутствие Python не считается провалом сб�
 test('путь отчёта берётся из ZSMM_SMOKE_OUT, иначе из temp', () => {
   assert.equal(smokeOutputPath({ ZSMM_SMOKE_OUT: 'C:\\out\\smoke.json' }), 'C:\\out\\smoke.json');
   assert.match(smokeOutputPath({}, 'C:\\Temp'), /zsmm-smoke\.json$/);
+});
+
+test('отчёт печатается и пишется в файл даже без доступа к temp', () => {
+  const written = [];
+  const lines = [];
+  const out = { write: (text) => lines.push(String(text)) };
+  const report = { ok: true, checks: [] };
+
+  const file = writeReport(report, {
+    env: { ZSMM_SMOKE_OUT: 'C:\\out\\smoke.json' },
+    writeFile: (target, text) => written.push({ target, text }),
+    out,
+  });
+
+  assert.equal(file, 'C:\\out\\smoke.json');
+  assert.equal(written.length, 1);
+  assert.equal(written[0].target, file);
+  assert.deepEqual(JSON.parse(written[0].text), report);
+  assert.match(lines.join(''), /smoke: C:\\out\\smoke\.json/);
+});
+
+test('не удалось записать файл — отчёт всё равно напечатан, причина названа', () => {
+  const lines = [];
+  const out = { write: (text) => lines.push(String(text)) };
+  writeReport(
+    { ok: false },
+    {
+      env: { ZSMM_SMOKE_OUT: 'C:\\out\\smoke.json' },
+      writeFile: () => {
+        throw new Error('нет прав');
+      },
+      out,
+    },
+  );
+
+  const text = lines.join('');
+  assert.match(text, /"ok": false/, 'JSON должен уйти в консоль до записи файла');
+  assert.match(text, /файл не записан \(нет прав\)/);
 });

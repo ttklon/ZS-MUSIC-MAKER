@@ -160,6 +160,10 @@ async function loadBeat() {
       return;
     }
     $('beat-render').disabled = true;
+    // Отмена доступна только во время рендера: кнопка, которая может ничего
+    // не делать, вводит в заблуждение.
+    const cancelButton = $('beat-cancel');
+    cancelButton.disabled = !(window.zsmm && typeof window.zsmm.cancelBeat === 'function');
     $('beat-status').textContent = 'Собираю бит в окне…';
     // Прогресс по секциям: рендер длинного бита идёт десятки секунд, и без
     // этого счётчика окно выглядело бы зависшим.
@@ -189,12 +193,26 @@ async function loadBeat() {
       $('beat-status').textContent =
         `Готово: ${report.sections.length} секций, ${report.duration_sec} с. Можно слушать.`;
     } catch (err) {
-      $('beat-status').textContent = 'Бит не собран';
+      $('beat-status').textContent = /отмен/i.test(err.message) ? 'Рендер отменён' : 'Бит не собран';
       showError(err.message);
     } finally {
       unsubscribe();
       $('beat-render').disabled = false;
+      $('beat-cancel').disabled = true;
     }
+  });
+
+  $('beat-cancel').addEventListener('click', async () => {
+    if (typeof window.zsmm.cancelBeat !== 'function') return;
+    $('beat-cancel').disabled = true;
+    const reply = await window.zsmm.cancelBeat();
+    if (!reply || reply.ok !== true) {
+      showError(`Не удалось отменить: ${(reply && reply.error) || 'нет ответа'}`);
+      return;
+    }
+    $('beat-status').textContent = reply.data && reply.data.cancelled
+      ? 'Отменяю рендер…'
+      : 'Нечего отменять: рендер уже завершился';
   });
 
   $('beat-save').addEventListener('click', async () => {

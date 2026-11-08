@@ -99,9 +99,13 @@ test('preload не отдаёт странице require и ipcRenderer напр
 
 test('main.js держит изоляцию контекста включённой', () => {
   const main = fs.readFileSync(path.join(ELECTRON, 'main.js'), 'utf8');
+  const options = require('../electron/window-policy').windowOptions();
 
-  assert.match(main, /contextIsolation:\s*true/);
-  assert.match(main, /nodeIntegration:\s*false/);
+  // Настройки окна живут в window-policy.js: проверяем значения, а не текст
+  // main.js, иначе перенос строки ломает «зелёный» тест без поломки окна.
+  assert.equal(options.webPreferences.contextIsolation, true);
+  assert.equal(options.webPreferences.nodeIntegration, false);
+  assert.match(main, /policy\.windowOptions\(/, 'окно должно собираться по этой политике');
   assert.match(main, /setWindowOpenHandler/, 'всплывающие окна должны блокироваться');
   // Раньше здесь стоял запрет на child_process: оболочка была без Python.
   // Задачи проекта запускают `python main.py …` осознанно и только через
@@ -150,8 +154,14 @@ test('окно работает без Python: рендер бита идёт ч
 });
 
 test('меню приложения не отдаёт «перезагрузить» в релизной сборке', () => {
-  const main = fs.readFileSync(path.join(ELECTRON, 'main.js'), 'utf8');
+  const main = readElectron(['main.js', 'app-menu.js']);
+  const { menuTemplate } = require('../electron/app-menu');
 
   assert.match(main, /buildMenu/, 'меню должно собираться кодом');
-  assert.match(main, /isDev \? \[/, 'reload и DevTools — только в режиме разработки');
+  // Проверяем сам шаблон: в сборке пунктов разработчика быть не должно.
+  const roles = menuTemplate({ isDev: false }).flatMap((item) => (item.submenu || []).map((sub) => sub.role));
+  assert.ok(!roles.includes('reload'), 'reload и DevTools — только в режиме разработки');
+  assert.ok(!roles.includes('toggleDevTools'));
+  const devRoles = menuTemplate({ isDev: true }).flatMap((item) => (item.submenu || []).map((sub) => sub.role));
+  assert.ok(devRoles.includes('reload') && devRoles.includes('toggleDevTools'));
 });

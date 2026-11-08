@@ -189,3 +189,33 @@ test('справка перечисляет и возможности, и огр
   // Обещание, которое нельзя проверить, в справке — это ложь интерфейса.
   assert.match(text, /Подпись кода/, 'ограничение SmartScreen должно быть названо');
 });
+
+test('кнопка «Отменить» доступна только во время рендера', async (t) => {
+  let cancelledCalls = 0;
+  const bridge = {
+    ...realBridge(),
+    cancelBeat: async () => {
+      cancelledCalls += 1;
+      return { ok: true, data: { cancelled: true } };
+    },
+  };
+  const { document } = bootWindow({ bridge });
+  t.after(() => {
+    delete global.window;
+    delete global.document;
+  });
+  await flush();
+  const button = [...document.querySelectorAll('[data-view]')].find((b) => b.dataset.view === 'beat');
+  button.dispatch('click');
+  await flush();
+  await flush();
+
+  const cancel = document.getElementById('beat-cancel');
+  assert.equal(cancel.disabled, true, 'до рендера отменять нечего');
+
+  // Клик по заблокированной кнопке ничего не отправляет: иначе окно
+  // показывало бы «отменяю» там, где рендер даже не начинался.
+  cancel.dispatch('click');
+  await flush();
+  assert.equal(cancelledCalls, 0);
+});

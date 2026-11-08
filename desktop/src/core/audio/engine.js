@@ -625,7 +625,10 @@ function renderBeat({
  * приходит колбэком `onProgress({index, total, section, barsDone, barsTotal})`.
  * Итоговый WAV побайтово совпадает с `renderBeat` — это проверяется тестом.
  */
-async function renderBeatInSteps(options = {}, { onProgress = null, yieldToEventLoop = true } = {}) {
+async function renderBeatInSteps(
+  options = {},
+  { onProgress = null, yieldToEventLoop = true, isCancelled = null } = {},
+) {
   const prepared = prepareRender(options);
   const { plans, barSec } = prepared;
   const barsTotal = plans.reduce((sum, plan) => sum + plan.bars, 0);
@@ -633,6 +636,13 @@ async function renderBeatInSteps(options = {}, { onProgress = null, yieldToEvent
   let barsDone = 0;
 
   for (const [index, plan] of plans.entries()) {
+    // Отмена проверяется между секциями: бросать посреди такта незачем —
+    // результат всё равно не попадёт в WAV, а секция считается быстро.
+    if (typeof isCancelled === 'function' && isCancelled()) {
+      const cancelled = new Error('рендер отменён');
+      cancelled.name = 'RenderCancelled';
+      throw cancelled;
+    }
     if (typeof onProgress === 'function') {
       onProgress({
         phase: 'section',
@@ -646,6 +656,11 @@ async function renderBeatInSteps(options = {}, { onProgress = null, yieldToEvent
     }
     pieces.push(buildSection(prepared.engine, plan.name, plan.bars, plan));
     barsDone += plan.bars;
+    if (typeof isCancelled === 'function' && isCancelled()) {
+      const cancelled = new Error('рендер отменён');
+      cancelled.name = 'RenderCancelled';
+      throw cancelled;
+    }
     if (yieldToEventLoop) await new Promise((resolve) => setImmediate(resolve));
   }
 
