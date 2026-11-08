@@ -55,7 +55,7 @@ desktop/
 │           └── bank.js         сэмпловый банк: манифест, лицензии, round-robin
 ├── scripts/
 │   └── snapshot-readiness.js  снимок чисел через штатный Python-инструмент
-└── test/             265 тестов на `node --test`, без графической среды
+└── test/             267 тестов на `node --test`, без графической среды
 ```
 
 ## Запуск
@@ -65,7 +65,8 @@ desktop/
 - страница со всеми сборками: <https://github.com/ttklon/ZS-MUSIC-MAKER/releases>
 - последняя Electron-сборка: <https://github.com/ttklon/ZS-MUSIC-MAKER/releases/latest>
 - прямой файл: `https://github.com/ttklon/ZS-MUSIC-MAKER/releases/latest/download/ZS-Music-Maker-Setup-1.0.0.exe`
-  (пробелы в имени заменяются дефисами, portable — `ZS-Music-Maker-1.0.0-portable.exe`)
+  (portable — `ZS-Music-Maker-1.0.0-portable.exe`). Имена без пробелов — чтобы
+  ссылка вставлялась в чат и не ломалась на `%20`
 
 Тег релиза — `desktop-v<версия>`, поэтому ссылка `releases/latest` остаётся
 рабочей от сборки к сборке. Сборку публикует job `publish-release` по тегу
@@ -74,7 +75,7 @@ desktop/
 
 Если релиза ещё нет, установщик можно взять из артефактов: `Actions → Build
 Windows EXE → нужный запуск → ZS-Music-Maker-Windows-Setup`. Внутри лежат
-`ZS Music Maker-Setup-<версия>.exe` и portable-EXE. Python не нужен: бит считается внутри приложения. Раздел «Запуск»
+`ZS-Music-Maker-Setup-<версия>.exe` и portable-EXE. Python не нужен: бит считается внутри приложения. Раздел «Запуск»
 (пайплайн на Python) при его отсутствии честно отключается и говорит об этом
 в «Диагностике».
 

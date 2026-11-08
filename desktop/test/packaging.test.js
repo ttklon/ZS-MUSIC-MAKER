@@ -116,3 +116,16 @@ test('установщик публикуется в релиз, а не тол�
   assert.match(publish, /refs\/tags\/v/);
   assert.match(publish, /ZS-Music-Maker-Windows\.zip/);
 });
+
+test('имя установщика без пробелов — ссылка на файл не ломается', () => {
+  // «ZS Music Maker-Setup-1.0.0.exe» в URL превращается в %20 и перестаёт
+  // открываться из чата или письма: имя артефакта — часть публичного адреса.
+  assert.equal(pkg.build.nsis.artifactName, 'ZS-Music-Maker-Setup-${version}.${ext}');
+  assert.equal(pkg.build.portable.artifactName, 'ZS-Music-Maker-${version}-portable.${ext}');
+  for (const name of [pkg.build.nsis.artifactName, pkg.build.portable.artifactName]) {
+    assert.doesNotMatch(name.replace(/\$\{[a-z]+\}/g, ''), /\s/, `пробел в имени: ${name}`);
+    assert.doesNotMatch(name.replace(/\$\{[a-z]+\}/g, ''), /[^\x20-\x7E]/, 'только ASCII');
+  }
+  // Ярлык в «Пуск» при этом остаётся человеческим.
+  assert.equal(pkg.build.nsis.shortcutName, 'ZS Music Maker');
+});

@@ -97,10 +97,10 @@
       "createStartMenuShortcut": true,
       "shortcutName": "ZS Music Maker",
       "deleteAppDataOnUninstall": false,
-      "artifactName": "${productName}-Setup-${version}.${ext}"
+      "artifactName": "ZS-Music-Maker-Setup-${version}.${ext}"
     },
     "portable": {
-      "artifactName": "${productName}-${version}-portable.${ext}"
+      "artifactName": "ZS-Music-Maker-${version}-portable.${ext}"
     },
     "linux": {
       "target": [
