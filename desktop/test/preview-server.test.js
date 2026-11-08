@@ -239,7 +239,10 @@ test('отмена рендера в предпросмотре отвечает
 test('предпросмотр правит досье тем же кодом, что приложение', async (t) => {
   const server = await withServer(t);
   const listing = await get(server, '/preview-shim.js');
-  for (const method of ['dossierAdd', 'dossierRemove', 'vocalInput', 'pickVocalFile', 'exportVocalTake', 'openBeatExternal']) {
+  for (const method of [
+    'dossierAdd', 'dossierRemove', 'dossierTracks', 'dossierTrackAdd',
+    'vocalInput', 'pickVocalFile', 'exportVocalTake', 'openBeatExternal',
+  ]) {
     assert.match(listing.body, new RegExp(method), `в шиме нет ${method}`);
   }
 
@@ -259,6 +262,18 @@ test('предпросмотр правит досье тем же кодом, �
   // Выход за каталог досье запрещён и здесь, а не только в приложении.
   const escape = await postTo(server, '/dossier-remove', { slug: '../..' });
   assert.equal(escape.ok, false);
+
+  // Трек в предпросмотре заводится тем же кодом, что в приложении.
+  const track = await postTo(server, '/dossier-track-add', { slug: 'тест_предпросмотра', title: 'Трек из превью' });
+  assert.equal(track.ok, true, track.error);
+  const tracks = await get(server, `/dossier-tracks?slug=${encodeURIComponent('тест_предпросмотра')}`);
+  const listed = JSON.parse(tracks.body);
+  assert.equal(listed.ok, true);
+  assert.equal(listed.data.tracks.length, 1);
+  assert.equal(listed.data.tracks[0].status, 'pending');
+
+  const noArtist = await get(server, '/dossier-tracks?slug=');
+  assert.equal(JSON.parse(noArtist.body).ok, false);
 
   const removed = await postTo(server, '/dossier-remove', { slug: 'тест_предпросмотра' });
   assert.equal(removed.ok, true, removed.error);
