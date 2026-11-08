@@ -123,7 +123,11 @@ def master_ai(
     elif reference_wav:
         from app.ai.registry import registry
 
-        if registry.is_available("mastering_ai"):
+        # `MG_OK` — тот же matchering, который ищет реестр. Если выше сказано,
+        # что движка нет, спрашивать реестр незачем: он бы ответил «доступен»
+        # и попытка загрузки падала бы с ModuleNotFoundError вместо честного
+        # «matchering unavailable». Именно так CI и падал.
+        if MG_OK and registry.is_available("mastering_ai"):
             try:
                 with registry.use("mastering_ai") as loaded:
                     result = master_with_matchering(

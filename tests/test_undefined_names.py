@@ -168,3 +168,32 @@ def scan_all_check(path: str) -> list[tuple[str, str]]:
 def test_repo_has_no_undefined_names() -> None:
     report = scan_all()
     assert report == {}, f"используются неопределённые имена: {report}"
+
+
+def test_registry_agreeing_with_engine_probe(tmp_path, monkeypatch) -> None:
+    """Реестр без движка не должен выглядеть доступным.
+
+    `is_available("mastering_ai")` проверяет `import matchering` здесь и сейчас,
+    а `MG_OK` — при импорте модуля. Если реестр ответил «доступен», а движка
+    нет, стадия падала с ModuleNotFoundError вместо честного
+    `fallback_reason == "matchering unavailable"` (так падал CI).
+    """
+    import sys
+
+    from modules import mastering_reference
+
+    sr = 44100
+    t = np.arange(sr) / sr
+    source = tmp_path / "in.wav"
+    sf.write(source, 0.3 * np.sin(2 * np.pi * 220 * t), sr)
+
+    monkeypatch.setattr(mastering_reference, "MG_OK", False)
+    # Прячем движок от реестра: он обязан ответить «недоступен», а не упасть.
+    monkeypatch.setitem(sys.modules, "matchering", None)
+
+    result = mastering_reference.master_ai(
+        str(source), str(tmp_path / "out.wav"), reference_wav=str(source)
+    )
+
+    assert result.get("ok") is True, result
+    assert result.get("fallback_reason") == "matchering unavailable"
