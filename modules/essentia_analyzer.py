@@ -155,7 +155,10 @@ def _analyze_librosa_fallback(audio_path: str, sr: int) -> dict[str, Any]:
             "n_beats": len(beats),
         }
     except Exception as e:
-        return {"ok": False, "reason": str(e)}
+        # У части бэкендов (soundfile/audioread NoBackendError) str(e) == "".
+        # Пустая причина превращала отчёт в необъяснимый {"ok": false}.
+        reason = str(e).strip() or f"{type(e).__name__}: аудио не читается"
+        return {"ok": False, "reason": reason}
 
 
 def save_report(report: dict[str, Any], out_json: str) -> None:

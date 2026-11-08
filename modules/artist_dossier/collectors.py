@@ -43,10 +43,19 @@ class LyricVaultCollector:
                 self.vault / "author_corpus" / artist.lower(),
                 self.vault / "author_corpus" / artist.replace(" ", "_")]
         out = []
+        seen: set[str] = set()
         for base in cand:
             if not base.exists():
                 continue
             for p in sorted(base.glob("*.txt")):
+                # Каталоги-кандидаты могут указывать на ОДИН и тот же путь
+                # (например "Kalash" и "kalash" на регистронезависимой ФС,
+                # или "two words" и "two_words"). Без дедупликации один и
+                # тот же текст попадал в досье дважды.
+                key = str(p.resolve()).casefold()
+                if key in seen:
+                    continue
+                seen.add(key)
                 out.append({"title": p.stem,
                             "lyrics": p.read_text(encoding="utf-8", errors="ignore")})
         return out
