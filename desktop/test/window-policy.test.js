@@ -41,7 +41,7 @@ test('main.js ставит AppUserModelId до создания окна', () =>
   assert.match(startupSource, /app\.setAppUserModelId\(/, 'без этого вызова иконка в панели задач чужая');
 
   const setIndex = MAIN_SOURCE.indexOf('startup.installAppUserModelId(');
-  const windowIndex = MAIN_SOURCE.lastIndexOf('createWindow();');
+  const windowIndex = MAIN_SOURCE.indexOf('windows.create(project);');
   assert.ok(setIndex > 0, 'идентификатор ставится из whenReady');
   assert.ok(windowIndex > setIndex, 'идентификатор ставится раньше окна');
 });

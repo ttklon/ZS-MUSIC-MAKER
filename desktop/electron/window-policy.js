@@ -148,6 +148,46 @@ function taskbarProgress(progress) {
 }
 
 /**
+ * Что делать, если окно упало или зависло.
+ *
+ * На Windows падение процесса отрисовки выглядит как белое окно без
+ * объяснений: пользователь думает, что приложение сломалось навсегда.
+ * Перезагружать окно можно не всегда — при нехватке памяти (OOM) перезапуск
+ * повторит ту же ошибку, и честнее сказать об этом прямо.
+ *
+ * @param {object} params
+ * @param {string} [params.name]    'render-process-gone' | 'unresponsive'
+ * @param {object} [params.details] `{reason, exitCode}` от Electron
+ * @returns {{reload: boolean, title: string, text: string}}
+ */
+function crashRecovery({ name = '', details = {} } = {}) {
+  if (name === 'unresponsive') {
+    return {
+      reload: true,
+      title: 'Окно не отвечает',
+      text: 'Приложение перестало отвечать на запросы. Окно можно перезагрузить — '
+        + 'собранный бит при этом не пострадает, он хранится в памяти главного процесса.',
+    };
+  }
+  const reason = details && typeof details.reason === 'string' ? details.reason : '';
+  const memory = reason === 'oom' || reason === 'memory-exhausted';
+  if (memory) {
+    return {
+      reload: false,
+      title: 'Не хватило памяти',
+      text: 'Окно закрылось из-за нехватки памяти. Перезапуск повторит ту же ошибку: '
+        + 'закройте другие программы или выберите длительность бита покороче.',
+    };
+  }
+  return {
+    reload: true,
+    title: 'Окно закрылось неожиданно',
+    text: `Процесс отрисовки завершился${reason ? ` (${reason})` : ''}. `
+      + 'Окно можно открыть заново; данные проекта не пострадали.',
+  };
+}
+
+/**
  * Закрывать ли процесс, когда закрылись все окна.
  *
  * На macOS приложение живёт без окон (поведение системы), на Windows и Linux
@@ -226,6 +266,7 @@ module.exports = {
   boundsToRemember,
   taskbarProgress,
   taskProgress,
+  crashRecovery,
   shouldContinueStartup,
   focusExisting,
   quitsOnAllWindowsClosed,

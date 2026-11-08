@@ -28,6 +28,7 @@ const appMenu = require('./app-menu');
 const appPaths = require('./app-paths');
 const { registerProjectIpc } = require('./ipc-project');
 const startup = require('./startup');
+const { createWindowManager } = require('./window');
 
 const IS_DEV = process.argv.includes('--dev');
 // `--smoke`: запустить приложение, проверить данные, напечатать JSON и выйти
@@ -48,7 +49,7 @@ const ROOT = rootInfo.root;
 // такого каталога нет — берём корень, где нашлись маркеры.
 const SAMPLE_ROOT = ROOT;
 
-let mainWindow = null;
+let windows = null;
 let project = null;
 let activeTask = null;
 let settingsStore = null;
@@ -64,69 +65,18 @@ function projectFor(root = ROOT, fileSystem = createNodeFs()) {
   return createProject(fileSystem, root);
 }
 
-function createWindow() {
-  // Размеры, цвет фона и настройки webPreferences — в window-policy.js:
-  // их проверяет тест, которому Electron не нужен.
-  const saved = settings().load().value;
-  mainWindow = new BrowserWindow(policy.windowOptions({
-    iconPath: path.join(__dirname, '..', 'build', 'icon.png'),
-    preloadPath: path.join(__dirname, 'preload.js'),
-    width: saved.windowWidth,
-    height: saved.windowHeight,
-  }));
-
-  // В заголовке окна — версия проекта: в Windows 11 заголовок виден в
-  // списке задач и должен отличать сборку от соседней папки.
-  try {
-    const version = project ? (project.version() || {}).version : null;
-    if (version) mainWindow.setTitle(policy.windowTitle({ version }));
-  } catch {
-    /* без версии остаётся имя приложения */
-  }
-
-  mainWindow.once('ready-to-show', () => mainWindow.show());
-  mainWindow.loadFile(path.join(__dirname, '..', 'src', 'index.html'));
-
-  // Окно не должно превращаться в браузер: внешние ссылки уходят в систему.
-  // Какие ссылки разрешены, решает policy.externalUrl — там же и тест.
-  const openExternal = (url) => {
-    const allowed = policy.externalUrl(url);
-    if (allowed) shell.openExternal(allowed);
-    return allowed;
-  };
-  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    openExternal(url);
-    return { action: 'deny' };
-  });
-  mainWindow.webContents.on('will-navigate', (event, url) => {
-    if (!url.startsWith('file://')) {
-      event.preventDefault();
-      openExternal(url);
-    }
-  });
-
-  if (IS_DEV) mainWindow.webContents.openDevTools({ mode: 'detach' });
-  // Размер запоминается до закрытия: после `closed` границ уже нет.
-  mainWindow.on('close', () => {
-    const bounds = policy.boundsToRemember(mainWindow);
-    if (bounds) settings().save(bounds);
-  });
-  mainWindow.on('closed', () => {
-    mainWindow = null;
-  });
-}
-
-/** Каталог для сохранений по умолчанию (Windows 11: «Музыка» пользователя). */
+/** Каталог «Музыка» (Windows 11) либо запасной путь — см. app-paths.js. */
 function safeMusicDir() {
   return appPaths.musicDir(app);
 }
 
 /** `zsmm:save-copy` вне IPC: окно отчёта не должно зависеть от регистрации. */
-function saveTextCopy(args = {}, window = mainWindow) {
-  return beatService.saveTextCopy({ ...args, dialog, getWindow: () => window, musicDir: safeMusicDir });
+function saveTextCopy(args = {}, window = null) {
+  const target = window || (windows ? windows.get() : null);
+  return beatService.saveTextCopy({ ...args, dialog, getWindow: () => target, musicDir: safeMusicDir });
 }
 
-/** Меню: шаблон в `app-menu.js`, здесь только сборка в меню Electron. */
+/** Меню: шаблон в `app-menu.js`, сборка в меню Electron — здесь. */
 function buildMenu({ isDev = IS_DEV } = {}) {
   return Menu.buildFromTemplate(
     appMenu.menuTemplate({ isDev, openRoot: () => ROOT && shell.openPath(ROOT), showAbout }),
@@ -144,7 +94,7 @@ function showAbout() {
     platform: process.platform,
     arch: process.arch,
   });
-  dialog.showMessageBox(mainWindow || undefined, {
+  dialog.showMessageBox((windows && windows.get()) || undefined, {
     type: 'info',
     title: text.title,
     message: text.message,
@@ -167,12 +117,12 @@ function registerIpc(getProject) {
     ipcMain,
     dialog,
     rootDir: SAMPLE_ROOT || path.resolve(__dirname, '..', '..'),
-    getWindow: () => mainWindow,
+    getWindow: () => (windows ? windows.get() : null),
     musicDir: safeMusicDir,
     // Прогресс рендера виден и в панели задач: свёрнутое окно иначе выглядит
     // зависшим. Значение считает window-policy (там же и тест).
     onProgressSender: (event, progress) => {
-      showTaskbarProgress(progress);
+      if (windows) windows.showTaskbarProgress(progress);
       if (event && event.sender && !event.sender.isDestroyed()) {
         event.sender.send('zsmm:beat-progress', progress);
       }
@@ -193,7 +143,7 @@ function registerIpc(getProject) {
         python,
         root: ROOT || path.resolve(__dirname, '..', '..'),
         onEvent: (payload) => {
-          showTaskProgress(payload);
+          if (windows) windows.showTaskProgress(payload);
           if (!sender.isDestroyed()) sender.send('zsmm:task-event', payload);
         },
       });
@@ -269,28 +219,6 @@ function registerIpc(getProject) {
   });
 }
 
-/** Индикатор на кнопке панели задач; `null`-окно не роняет рендер. */
-function showTaskbarProgress(progress) {
-  if (!mainWindow) return;
-  try {
-    mainWindow.setProgressBar(policy.taskbarProgress(progress));
-  } catch {
-    /* без графической среды панели задач нет */
-  }
-}
-
-/** Индикатор для задачи «Запуск»: идёт — бесконечный, вышла — снять. */
-function showTaskProgress(event) {
-  if (!mainWindow) return;
-  const value = policy.taskProgress(event);
-  if (value === null) return;
-  try {
-    mainWindow.setProgressBar(value);
-  } catch {
-    /* без графической среды панели задач нет */
-  }
-}
-
 /** `--smoke`: проверка без окна. Логика — в `electron/smoke.js`. */
 async function runSmoke() {
   const report = await smoke.runSmoke({
@@ -304,10 +232,20 @@ async function runSmoke() {
   app.exit(report.ok ? 0 : 1);
 }
 
+// Окно и всё, что к нему привязано, — в window.js: main.js остаётся про
+// запуск, IPC и меню.
+windows = createWindowManager({
+  BrowserWindow,
+  shell,
+  dialog,
+  settings,
+  dev: IS_DEV,
+});
+
 // Замок берётся до `whenReady`: второй процесс не должен успеть подняться.
 const HAS_SINGLE_INSTANCE = startup.installSingleInstance({
   app,
-  getWindow: () => mainWindow,
+  getWindow: () => windows.get(),
 });
 
 app.whenReady().then(() => {
@@ -343,7 +281,7 @@ app.whenReady().then(() => {
     return;
   }
   registerIpc(() => project);
-  createWindow();
+  windows.create(project);
 });
 
 app.on('window-all-closed', () => {
@@ -357,7 +295,7 @@ app.on('before-quit', () => {
 });
 
 app.on('activate', () => {
-  if (BrowserWindow.getAllWindows().length === 0) createWindow();
+  if (BrowserWindow.getAllWindows().length === 0) windows.create(project);
 });
 
 module.exports = {

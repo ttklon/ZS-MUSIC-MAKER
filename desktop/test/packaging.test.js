@@ -76,9 +76,14 @@ test('main.js запускается из упакованного app.asar', ()
   assert.equal(pkg.main, 'electron/main.js');
   // Внутри сборки нет `src/` рядом с корнем репозитория: путь к preload и
   // странице считается от __dirname, а не от cwd.
-  const main = fs.readFileSync(path.join(DESKTOP, 'electron', 'main.js'), 'utf8');
-  assert.match(main, /path\.join\(__dirname, 'preload\.js'\)/);
-  assert.match(main, /path\.join\(__dirname, '\.\.', 'src', 'index\.html'\)/);
+  // Окно создаётся в window.js, поэтому пути ищутся там: перенос кода не
+  // должен означать «тест больше не проверяет ничего».
+  const windowModule = fs.readFileSync(path.join(DESKTOP, 'electron', 'window.js'), 'utf8');
+  assert.match(windowModule, /path\.join\(__dirname, 'preload\.js'\)/);
+  assert.match(windowModule, /path\.join\(__dirname, '\.\.', 'src', 'index\.html'\)/);
+  // Для упаковки важны оба файла: main.js указывает точку входа, window.js
+  // лежит рядом и распакован вместе с electron/**.
+  assert.ok(pkg.build.files.includes('electron/**'));
 });
 
 test('в сборку не попадает ничего лишнего', () => {
