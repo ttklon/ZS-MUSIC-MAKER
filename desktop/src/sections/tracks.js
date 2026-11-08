@@ -136,4 +136,16 @@ async function loadTracks() {
   });
 }
 
+/**
+ * Открыть треки конкретного артиста из другого раздела.
+ *
+ * `state.trackArtist` запоминается до переключения: `loadTracks` выберет
+ * этого артиста в списке, поэтому пользователь не ищет его заново.
+ */
+function openArtistTracks(slug) {
+  if (slug) state.trackArtist = slug;
+  W.switchView('tracks');
+}
+
+W.openArtistTracks = openArtistTracks;
 W.loadTracks = loadTracks;

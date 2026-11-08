@@ -159,3 +159,36 @@ test('повтор трека и пустое название дают текс
   // Форма не очищена: человек должен видеть, что именно он ввёл.
   assert.equal(document.getElementById('tracks-title').value, 'Уже есть');
 });
+
+test('из «Досье» кнопка «Треки» открывает треки нужного артиста', async (t) => {
+  const root = makeRoot();
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const { document } = bootDocumentWindow({ srcDir: SRC, html: HTML, bridge: bridge(root) });
+  t.after(() => {
+    delete global.window;
+    delete global.document;
+  });
+  await flush();
+
+  const dossierButton = [...document.querySelectorAll('[data-view]')]
+    .find((b) => b.dataset.view === 'dossiers');
+  dossierButton.dispatch('click');
+  await flush();
+  await flush();
+
+  // У каждого артиста две кнопки: «Треки» и «Собрать досье».
+  const items = document.getElementById('dossier-list').children;
+  assert.ok(items.length >= 2);
+  const target = items.find((item) => /Первый Артист/.test(item.textContent));
+  assert.ok(target, 'нет строки артиста');
+  const tracksButton = target.children.find((child) => child.textContent === 'Треки');
+  assert.ok(tracksButton, 'нет кнопки «Треки» у артиста');
+  tracksButton.dispatch('click');
+  await flush();
+  await flush();
+
+  // Открылся раздел «Треки» и выбран именно этот артист.
+  assert.equal(document.getElementById('view-title').textContent, 'Треки');
+  assert.equal(document.getElementById('tracks-artist').value, 'первый_артист');
+  assert.match(document.getElementById('tracks-list').textContent, /Уже есть/);
+});

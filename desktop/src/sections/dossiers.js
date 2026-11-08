@@ -51,6 +51,12 @@ function renderArtists(artists) {
       const status = artist.hasDossier ? 'досье собрано' : artist.deferred ? 'отложено' : 'не собрано';
       const demo = artist.demo ? '[демо из поставки] ' : '';
       const note = artist.note ? ` — ${artist.note}` : '';
+      // «Треки» — рядом с артистом: заводить трек логично там, где видишь
+      // артиста, а не искать его в другом разделе по имени.
+      const tracks = document.createElement('button');
+      tracks.className = 'ghost';
+      tracks.textContent = 'Треки';
+      tracks.addEventListener('click', () => W.openArtistTracks(artist.slug));
       const build = document.createElement('button');
       build.className = 'ghost';
       build.textContent = 'Собрать досье';
@@ -76,7 +82,7 @@ function renderArtists(artists) {
       text.textContent = `${demo}${artist.artist} — треков: ${artist.tracks}, ${status}${note}`;
       // Сборка досье идёт через Python: кнопка активна всегда, но текст
       // подписи раздела говорит, что для неё нужен Python.
-      item.append(text, build, remove);
+      item.append(text, tracks, build, remove);
       return item;
     }),
   );
