@@ -95,13 +95,12 @@ jobs:
         if: always()
         run: |
           cd desktop
-          node scripts/snapshot-readiness.js
+          # Снимок должен быть актуален ДО перегенерации: тест `test_desktop_shell`
+          # проверяет коммитнутый снимок, а не тот, что мы только что записали.
+          # Поэтому сначала тесты на текущем снимке, затем перегенерация.
           python -m pytest ../tests/test_desktop_shell.py -q 2>&1 | tee /tmp/shell.log
-          status=${PIPESTATUS[0]}
-          if [ "$status" -ne 0 ]; then
-            echo "::error title=desktop shell cross-check::$(grep -E 'FAILED|assert|Error' /tmp/shell.log | head -20 | tr '\n' '|')"
-            exit "$status"
-          fi
+          test ${PIPESTATUS[0]} -eq 0 || { echo "::error title=desktop shell::$(grep -E 'FAILED|AssertionError' /tmp/shell.log | head -10 | tr '\n' '|')"; exit 1; }
+          node scripts/snapshot-readiness.js
 
   desktop-windows:
     # Установщик для Windows 11 собирается и проверяется на настоящей Windows:
@@ -121,7 +120,20 @@ jobs:
 
       - name: Install Electron and electron-builder
         working-directory: desktop
-        run: npm install --no-audit --no-fund
+        shell: pwsh
+        # Скачивание бинарника Electron — самый хрупкий шаг на Windows-раннере.
+        # Повторяем один раз и печатаем причину, если оба раза не вышло.
+        run: |
+          npm install --no-audit --no-fund
+          if ($LASTEXITCODE -ne 0) {
+            Write-Output '::warning title=npm install failed, retrying::retrying once'
+            Start-Sleep -Seconds 10
+            npm install --no-audit --no-fund
+          }
+          if ($LASTEXITCODE -ne 0) {
+            Write-Output '::error title=npm install::electron/electron-builder не установились'
+            exit 1
+          }
 
       - name: Shell tests on Windows (no GUI needed)
         working-directory: desktop
