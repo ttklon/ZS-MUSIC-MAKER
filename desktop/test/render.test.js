@@ -219,3 +219,37 @@ test('кнопка «Отменить» доступна только во вр�
   await flush();
   assert.equal(cancelledCalls, 0);
 });
+
+test('отменённый рендер показывается как отмена, а не как ошибка', async (t) => {
+  // Мост отвечает так же, как главный процесс после отмены: рендер не удался,
+  // но по вине пользователя. Окно не должно ругаться красной плашкой.
+  const bridge = {
+    ...realBridge(),
+    renderBeat: async () => ({ ok: false, cancelled: true, error: 'рендер отменён' }),
+    cancelBeat: async () => ({ ok: true, data: { cancelled: false } }),
+    onBeatProgress: () => () => {},
+  };
+  const { document } = bootWindow({ bridge });
+  t.after(() => {
+    delete global.window;
+    delete global.document;
+  });
+  await flush();
+  const button = [...document.querySelectorAll('[data-view]')].find((b) => b.dataset.view === 'beat');
+  button.dispatch('click');
+  await flush();
+  await flush();
+
+  const render = document.getElementById('beat-render');
+  render.dispatch('click');
+  await flush();
+  await flush();
+
+  const status = document.getElementById('beat-status').textContent;
+  assert.match(status, /отменён/i, `состояние после отмены: ${status}`);
+  assert.doesNotMatch(status, /не собран/i);
+  // Сохранять нечего: отменённый WAV на диск не писался.
+  assert.equal(document.getElementById('beat-save').disabled, true);
+  // Кнопка рендера снова доступна — иначе окно «залипло» бы после отмены.
+  assert.equal(render.disabled, false);
+});

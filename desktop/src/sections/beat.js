@@ -180,6 +180,12 @@ async function loadBeat() {
       : () => {};
     try {
       const reply = await window.zsmm.renderBeat(options);
+      // Отмена — не ошибка: иначе окно показывает «Бит не собран» с красной
+      // плашкой там, где пользователь сам нажал «Отменить».
+      if (reply && reply.cancelled) {
+        $('beat-status').textContent = 'Рендер отменён — бит не сохранён';
+        return;
+      }
       if (!reply || reply.ok !== true) throw new Error((reply && reply.error) || 'рендер не удался');
       const { report, wavBase64 } = reply.data;
       renderBeatReport(report);
@@ -193,7 +199,7 @@ async function loadBeat() {
       $('beat-status').textContent =
         `Готово: ${report.sections.length} секций, ${report.duration_sec} с. Можно слушать.`;
     } catch (err) {
-      $('beat-status').textContent = /отмен/i.test(err.message) ? 'Рендер отменён' : 'Бит не собран';
+      $('beat-status').textContent = 'Бит не собран';
       showError(err.message);
     } finally {
       unsubscribe();

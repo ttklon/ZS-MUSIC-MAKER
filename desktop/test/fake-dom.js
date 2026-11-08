@@ -173,7 +173,12 @@ function documentFromHtml(html) {
       element.dataset.view = viewMatch[1];
       element.classList.add('nav-item');
     }
-    if (tag === 'input') element.value = '';
+    // Как в браузере: value из разметки — начальное значение поля, иначе
+    // тест видит пустые поля там, где у пользователя уже стоит «140».
+    if (tag === 'input') {
+      const valueMatch = /\svalue="([^"]*)"/.exec(attributes);
+      element.value = valueMatch ? valueMatch[1] : '';
+    }
     // Булевы атрибуты разметки: без них тест не отличит изначально
     // заблокированную кнопку от доступной. Границу слова проверяем явно:
     // `(?=[\s>/])` не срабатывает в конце строки, а атрибут может быть
