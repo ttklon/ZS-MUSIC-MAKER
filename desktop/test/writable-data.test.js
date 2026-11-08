@@ -37,15 +37,15 @@ function makeProject() {
 test('из репозитория досье пишется в проект', () => {
   const plan = writable.dossierWriteDir({ packaged: false, projectRoot: '/repo', userData: '/u' });
   assert.equal(plan.source, 'project');
-  assert.equal(plan.dir, path.join('/repo', 'data', 'artist_dossier'));
+  assert.equal(plan.dir, path.join(path.resolve('/repo'), 'data', 'artist_dossier'));
 });
 
 test('в установленной сборке досье пишется в каталог пользователя', () => {
   const plan = writable.dossierWriteDir({ packaged: true, projectRoot: '/Program Files/app/resources/project', userData: '/u' });
   assert.equal(plan.source, 'user');
   // Program Files только для чтения: писать туда нельзя.
-  assert.equal(plan.dir, path.join('/u', 'artist_dossier'));
-  assert.ok(!plan.dir.startsWith('/Program Files'));
+  assert.equal(plan.dir, path.join(path.resolve('/u'), 'artist_dossier'));
+  assert.ok(!plan.dir.includes('Program Files'));
 });
 
 test('демо-артист и схема докладываются один раз и не перетирают правки', () => {
@@ -54,7 +54,9 @@ test('демо-артист и схема докладываются один р
   const first = writable.prepareDossierStore({ packaged: true, projectRoot: project, userData });
 
   assert.equal(first.source, 'user');
-  assert.deepEqual(first.seeded.sort(), ['demo_artist/artist.json', 'schema.json']);
+  // Пути собираются через `path.join`: на Windows разделитель другой, и
+  // сравнение со слэшами падало бы только в CI на windows-latest.
+  assert.deepEqual(first.seeded.sort(), [path.join('demo_artist', 'artist.json'), 'schema.json'].sort());
   assert.ok(fs.existsSync(path.join(first.dir, 'demo_artist', 'artist.json')));
   assert.ok(fs.existsSync(path.join(first.dir, 'schema.json')));
 
