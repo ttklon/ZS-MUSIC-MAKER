@@ -16,6 +16,29 @@ const { $, ask, showError, state } = W;
 
 const EMPTY_TEXT = 'Артистов пока нет. Добавьте имя выше — окно само создаст запись в data/artist_dossier.';
 
+/**
+ * Отправить собранное имя в раздел «Запуск» и запустить сборку досье.
+ *
+ * Тяжёлую работу делает Python (`--dossier-build`), поэтому честный путь —
+ * не притворяться, что окно считает само, а передать задачу туда, где она
+ * выполняется, и показать её вывод.
+ */
+function runDossierBuild(artist) {
+  const field = $('task-artist');
+  if (field) field.value = artist;
+  const select = $('task-select');
+  if (select && [...select.options].some((option) => option.value === 'dossier-build')) {
+    select.value = 'dossier-build';
+  }
+  W.switchView('run');
+  // Запуск происходит уже в разделе «Запуск»: там видно команду, вывод и
+  // кнопку «Остановить». Здесь только переключаем и ждём.
+  setTimeout(() => {
+    const start = $('task-start');
+    if (start && !start.disabled) start.click();
+  }, 0);
+}
+
 /** Нарисовать список артистов с кнопками удаления. */
 function renderArtists(artists) {
   $('dossier-empty').textContent = artists.length
@@ -28,6 +51,10 @@ function renderArtists(artists) {
       const status = artist.hasDossier ? 'досье собрано' : artist.deferred ? 'отложено' : 'не собрано';
       const demo = artist.demo ? '[демо из поставки] ' : '';
       const note = artist.note ? ` — ${artist.note}` : '';
+      const build = document.createElement('button');
+      build.className = 'ghost';
+      build.textContent = 'Собрать досье';
+      build.addEventListener('click', () => runDossierBuild(artist.artist));
       const remove = document.createElement('button');
       remove.className = 'ghost';
       remove.textContent = 'Удалить';
@@ -47,7 +74,9 @@ function renderArtists(artists) {
       item.className = 'row';
       const text = document.createElement('span');
       text.textContent = `${demo}${artist.artist} — треков: ${artist.tracks}, ${status}${note}`;
-      item.append(text, remove);
+      // Сборка досье идёт через Python: кнопка активна всегда, но текст
+      // подписи раздела говорит, что для неё нужен Python.
+      item.append(text, build, remove);
       return item;
     }),
   );

@@ -36,6 +36,16 @@ const TASKS = {
     accepts: [],
     timeoutMs: 15 * 60_000,
   },
+  // Полная сборка досье: биография, темы, разбор вокала и треков. Именно то,
+  // что окно не умеет само и о чём честно пишет в разделе «Досье».
+  // Полная сборка досье: биография, темы, разбор вокала и треков. Именно то,
+  // что окно не умеет само и о чём честно пишет в разделе «Досье».
+  'dossier-build': {
+    label: 'Собрать досье артиста',
+    args: () => ['--dossier-build'],
+    accepts: ['artist'],
+    timeoutMs: 4 * 60 * 60_000,
+  },
   'self-diag': {
     label: 'Самодиагностика',
     args: () => ['--self-diag'],
@@ -69,6 +79,14 @@ function sanitizeOptions(options = {}) {
   const genre = options.genre === undefined || options.genre === null ? null : String(options.genre);
   const theme = options.theme === undefined || options.theme === null ? null : String(options.theme);
   const seed = options.seed === undefined || options.seed === null ? null : options.seed;
+  const artist = options.artist === undefined || options.artist === null ? null : String(options.artist);
+
+  // Имя артиста уходит аргументом в Python: только буквы, цифры, пробел, «-» и
+  // «_». Это же имя Python превращает в slug каталога, поэтому `..` и слэши
+  // здесь запрещены.
+  if (artist !== null && !/^[\w \-А-Яа-яЁё]{2,80}$/u.test(artist)) {
+    throw new TaskError(`недопустимое имя артиста: ${artist}`);
+  }
 
   if (genre !== null && !/^[\w \-]{1,64}$/u.test(genre)) {
     throw new TaskError(`недопустимый жанр: ${genre}`);
@@ -91,7 +109,7 @@ function sanitizeOptions(options = {}) {
       throw new TaskError(`сид должен быть неотрицательным целым: ${seed}`);
     }
   }
-  return { genre, theme, seed: seedValue };
+  return { genre, theme, seed: seedValue, artist };
 }
 
 /** Собрать argv для задачи: только разрешённые флаги, без оболочки. */
@@ -99,10 +117,14 @@ function buildCommand(key, options = {}) {
   const task = TASKS[key];
   if (!task) throw new TaskError(`неизвестная задача: ${key}`);
   const safe = sanitizeOptions(options);
-  const argv = [...task.args()];
+  const argv = [...task.args(safe)];
   if (safe.genre !== null && task.accepts.includes('genre')) argv.push('--genre', safe.genre);
   if (safe.theme !== null && task.accepts.includes('theme')) argv.push('--theme', safe.theme);
   if (safe.seed !== null && task.accepts.includes('seed')) argv.push('--seed', String(safe.seed));
+  if (task.accepts.includes('artist')) {
+    if (!safe.artist) throw new TaskError('для этой задачи нужно имя артиста');
+    argv.push('--dossier-artist', safe.artist);
+  }
   return argv;
 }
 

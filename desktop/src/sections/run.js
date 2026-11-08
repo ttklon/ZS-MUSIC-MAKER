@@ -89,12 +89,23 @@ async function startTask() {
   const key = $('task-select').value;
   const genre = ($('task-genre').value || '').trim();
   const seed = ($('task-seed').value || '').trim();
+  // Артист нужен задачам досье и не мешает остальным: tasks.js сам решает,
+  // какие параметры принимает выбранная задача.
+  const artist = ($('task-artist').value || '').trim();
   const options = {};
   if (genre) options.genre = genre;
   if (seed) options.seed = seed;
+  if (artist) options.artist = artist;
 
   state.taskLines = [];
   renderTaskOutput();
+  // Пустой список задач — единственный случай, когда запускать нечего: имя
+  // задачи приходит из `<select>`, и проверять его здесь незачем (это делает
+  // tasks.js и отвечает текстом).
+  if (!Array.isArray(state.tasks) || state.tasks.length === 0) {
+    showError('Нет доступных задач: список пуст');
+    return;
+  }
   const reply = await window.zsmm.startTask(key, options);
   if (!reply || reply.ok !== true) {
     setTaskStatus('Не запущено', false);

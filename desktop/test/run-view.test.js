@@ -200,3 +200,37 @@ test('нет Python — понятное сообщение, а не завис�
   assert.match(document.getElementById('error-banner').textContent, /ZSMM_PYTHON/);
   assert.equal(document.getElementById('task-status').textContent, 'Не запущено');
 });
+
+
+test('«Собрать досье» передаёт артиста в задачу dossier-build', async (t) => {
+  const calls = [];
+  const api = bridge({
+    listTasks: async () => ({ ok: true, data: [
+      { key: 'health', label: 'Проверка окружения', accepts: [] },
+      { key: 'dossier-build', label: 'Собрать досье артиста', accepts: ['artist'] },
+    ] }),
+    startTask: async (key, options) => {
+      calls.push({ key, options });
+      return { ok: true, data: { command: ['python', 'main.py', '--dossier-build'], pid: 7 } };
+    },
+  });
+  const { document } = bootWindow(api);
+  t.after(() => {
+    delete global.window;
+    delete global.document;
+  });
+  await flush();
+  const button = [...document.querySelectorAll('[data-view]')].find((b) => b.dataset.view === 'run');
+  button.dispatch('click');
+  await flush();
+  await flush();
+
+  document.getElementById('task-select').value = 'dossier-build';
+  document.getElementById('task-artist').value = 'Demo Artist';
+  document.getElementById('task-start').dispatch('click');
+  await flush();
+  await flush();
+
+  assert.deepEqual(calls, [{ key: 'dossier-build', options: { artist: 'Demo Artist' } }]);
+  assert.match(document.getElementById('task-status').textContent, /Запущено/);
+});

@@ -37,7 +37,7 @@ test('белый список задач не пуст и каждая прин�
   for (const task of list) {
     assert.ok(TASKS[task.key], `нет описания для ${task.key}`);
     for (const accepted of task.accepts) {
-      assert.ok(['genre', 'theme', 'seed'].includes(accepted), `неизвестный параметр ${accepted}`);
+      assert.ok(['genre', 'theme', 'seed', 'artist'].includes(accepted), `неизвестный параметр ${accepted}`);
     }
   }
 });
@@ -156,4 +156,23 @@ test('таймаут помечается честно', async (t) => {
   } finally {
     TASKS.run.timeoutMs = original;
   }
+});
+
+
+test('сборка досье запускает тот же CLI, что терминал', () => {
+  assert.deepEqual(
+    buildCommand('dossier-build', { artist: 'Demo Artist' }),
+    ['--dossier-build', '--dossier-artist', 'Demo Artist'],
+  );
+  // Без артиста задача не имеет смысла: отказ до запуска процесса.
+  assert.throws(() => buildCommand('dossier-build', {}), /нужно имя артиста/);
+  // Имя уходит аргументом в Python: путь и кавычки запрещены.
+  for (const bad of ['../../etc', 'a; rm -rf /', 'x', '']) {
+    assert.throws(() => buildCommand('dossier-build', { artist: bad }), /артиста/);
+  }
+  // Кириллица разрешена: артистов зовут не только латиницей.
+  assert.deepEqual(
+    buildCommand('dossier-build', { artist: 'МС Тест' }),
+    ['--dossier-build', '--dossier-artist', 'МС Тест'],
+  );
 });
