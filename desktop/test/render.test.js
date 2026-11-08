@@ -13,7 +13,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const { FakeDocument, documentFromHtml } = require('./fake-dom');
+const { documentFromHtml, windowScripts } = require('./fake-dom');
 const { createProject } = require('../src/core/project');
 const { createNodeFs } = require('../src/core/fs-node');
 
@@ -38,15 +38,16 @@ function bootWindow({ bridge }) {
   window.setTimeout = global.setTimeout;
   window.clearTimeout = global.clearTimeout;
 
-  const source = fs.readFileSync(path.join(SRC, 'app.js'), 'utf8');
-  // app.js — классический скрипт: исполняем в текущем контексте
-  // eslint-disable-next-line no-new-func
-  new Function('window', 'document', 'setTimeout', 'clearTimeout', source)(
-    window,
-    document,
-    global.setTimeout,
-    global.clearTimeout,
-  );
+  // Скрипты окна — классические: исполняем их по порядку, как браузер.
+  for (const script of windowScripts(SRC)) {
+    // eslint-disable-next-line no-new-func
+    new Function('window', 'document', 'setTimeout', 'clearTimeout', script.source)(
+      window,
+      document,
+      global.setTimeout,
+      global.clearTimeout,
+    );
+  }
   document.dispatch('DOMContentLoaded');
   return { document, window };
 }

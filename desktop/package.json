@@ -2,60 +2,104 @@
   "name": "zs-music-maker-desktop",
   "version": "1.0.0",
   "private": true,
-  "description": "ZS Music Maker на Electron: окно читает каталог жанров, снимок готовности и досье напрямую из проекта, без Python-процесса",
+  "description": "ZS Music Maker на Electron: окно читает каталог жанров, снимок готовности и досье прямо из проекта, и собирает бит движком на JavaScript — без Python и без сети",
   "main": "electron/main.js",
   "scripts": {
     "start": "electron .",
     "dev": "electron . --dev",
     "test": "node --test test/*.test.js",
-    "check": "node --check electron/main.js && node --check electron/preload.js && node --check src/app.js && node --check src/core/audio/rng.js && node --check src/core/audio/dsp.js && node --check src/core/audio/instruments.js && node --check src/core/audio/pattern-data.js && node --check src/core/audio/patterns.js && node --check src/core/audio/humanize.js && node --check src/core/audio/variation.js && node --check src/core/audio/harmony.js && node --check src/core/audio/voices.js && node --check src/core/audio/arrangement.js && node --check src/core/audio/analysis.js && node --check src/core/audio/engine.js && node --check src/core/audio/wav.js && node --check src/core/audio/wav-decode.js && node --check src/core/audio/bank.js && node --check src/core/beat-options.js && node --check src/core/project.js && node --check src/core/catalog.js && node --check src/core/readiness.js && node --check src/core/fs-node.js && node --check scripts/snapshot-readiness.js && node --check scripts/preview-server.js",
+    "check": "node --check electron/main.js && node --check electron/preload.js && node --check src/app.js && node --check src/sections/overview.js && node --check src/sections/genres.js && node --check src/sections/beat.js && node --check src/sections/dossiers.js && node --check src/sections/run.js && node --check src/sections/health.js && node --check electron/beat-service.js && node --check electron/settings.js && node --check src/core/audio/rng.js && node --check src/core/audio/dsp.js && node --check src/core/audio/instruments.js && node --check src/core/audio/pattern-data.js && node --check src/core/audio/patterns.js && node --check src/core/audio/humanize.js && node --check src/core/audio/variation.js && node --check src/core/audio/harmony.js && node --check src/core/audio/voices.js && node --check src/core/audio/arrangement.js && node --check src/core/audio/analysis.js && node --check src/core/audio/engine.js && node --check src/core/audio/wav.js && node --check src/core/audio/wav-decode.js && node --check src/core/audio/bank.js && node --check src/core/beat-options.js && node --check src/core/project.js && node --check src/core/catalog.js && node --check src/core/readiness.js && node --check src/core/fs-node.js && node --check scripts/snapshot-readiness.js && node --check scripts/preview-server.js",
     "snapshot": "node scripts/snapshot-readiness.js",
     "verify": "npm run check && npm test",
-    "preview": "node scripts/preview-server.js"
+    "preview": "node scripts/preview-server.js",
+    "dist": "electron-builder --win --x64 --publish never",
+    "dist:dir": "electron-builder --win --x64 --dir --publish never"
   },
   "devDependencies": {
-    "electron": "^33.0.0"
+    "electron": "^33.0.0",
+    "electron-builder": "^25.1.8"
   },
   "build": {
     "appId": "ru.zsmm.musicmaker",
     "productName": "ZS Music Maker",
+    "copyright": "ZS Music Maker",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
     "files": [
       "electron/**",
       "src/**",
-      "data/**",
       "package.json"
+    ],
+    "asarUnpack": [
+      "electron/**"
     ],
     "extraResources": [
       {
+        "from": "../version.json",
+        "to": "project/version.json"
+      },
+      {
         "from": "../config/genres_100.json",
-        "to": "config/genres_100.json"
+        "to": "project/config/genres_100.json"
+      },
+      {
+        "from": "../data/samples",
+        "to": "project/data/samples",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "../data/desktop",
+        "to": "project/data/desktop"
       },
       {
         "from": "../data/genre_presets",
-        "to": "data/genre_presets",
+        "to": "project/data/genre_presets",
         "filter": [
           "**/*.json"
         ]
       },
       {
-        "from": "../data/desktop",
-        "to": "data/desktop"
-      },
-      {
-        "from": "../version.json",
-        "to": "version.json"
+        "from": "../data/artist_dossier",
+        "to": "project/data/artist_dossier",
+        "filter": [
+          "**/*.json"
+        ]
       }
     ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.ico",
+      "artifactName": "${productName}-${version}-win-${arch}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "ZS Music Maker",
+      "deleteAppDataOnUninstall": false,
+      "artifactName": "${productName}-Setup-${version}.${ext}"
+    },
+    "portable": {
+      "artifactName": "${productName}-${version}-portable.${ext}"
+    },
     "linux": {
       "target": [
         "AppImage"
       ],
       "category": "AudioVideo"
-    },
-    "win": {
-      "target": [
-        "nsis"
-      ]
     },
     "mac": {
       "target": [
@@ -63,5 +107,8 @@
       ],
       "category": "public.app-category.music"
     }
+  },
+  "author": {
+    "name": "ZS Music Maker"
   }
 }

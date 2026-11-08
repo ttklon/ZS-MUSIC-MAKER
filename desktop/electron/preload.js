@@ -70,6 +70,25 @@ function saveBeat(wavBase64) {
   return ipcRenderer.invoke('zsmm:beat-save', wavBase64);
 }
 
+/** Сохранить текстовый отчёт (JSON/MD) через диалог сохранения. */
+function saveReport(name, text) {
+  return ipcRenderer.invoke('zsmm:save-copy', { name, text });
+}
+
+/** Настройки окна: переживают перезапуск (userData/settings.json). */
+function loadSettings() {
+  return ipcRenderer.invoke('zsmm:settings-load');
+}
+
+function saveSettings(patch) {
+  return ipcRenderer.invoke('zsmm:settings-save', patch);
+}
+
+/** Где работает приложение: пути, версии, есть ли Python. Для «Диагностики». */
+function environment() {
+  return ipcRenderer.invoke('zsmm:environment');
+}
+
 function revealRoot() {
   return ipcRenderer.invoke('zsmm:reveal-root');
 }
@@ -94,6 +113,10 @@ contextBridge.exposeInMainWorld('zsmm', {
   beatBank,
   onBeatProgress,
   saveBeat,
+  saveReport,
+  loadSettings,
+  saveSettings,
+  environment,
   revealRoot,
   openExternal,
 });

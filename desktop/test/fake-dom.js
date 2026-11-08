@@ -170,3 +170,60 @@ function documentFromHtml(html) {
 }
 
 module.exports = { FakeDocument, FakeElement, documentFromHtml };
+
+/**
+ * Все скрипты окна в порядке подключения (см. `index.html`).
+ *
+ * Окно разбито на `sections/*.js`; тест рендера обязан исполнять их так же,
+ * как браузер, иначе «раздел пустой» пройдёт незамеченным.
+ */
+function windowScripts(srcDir) {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const html = fs.readFileSync(path.join(srcDir, 'index.html'), 'utf8');
+  return [...html.matchAll(/<script src="([^"]+)"><\/script>/g)]
+    .map((match) => match[1])
+    // шим предпросмотра подаётся сервером, а не файлом
+    .filter((name) => name !== 'preview-shim.js')
+    .map((name) => ({ name, source: fs.readFileSync(path.join(srcDir, name), 'utf8') }));
+}
+
+module.exports.windowScripts = windowScripts;
+
+/**
+ * Загрузить всё окно (`app.js` + `sections/*.js`) в поддельный документ.
+ *
+ * @param {object} params
+ * @param {string} params.srcDir  каталог `src/`
+ * @param {string} params.html    содержимое index.html
+ * @param {object} params.bridge  объект `window.zsmm`
+ * @returns {{document: object, window: object}}
+ */
+function bootWindow({ srcDir, html, bridge }) {
+  const document = documentFromHtml(html);
+  const window = document.createElement('window');
+  window.zsmm = bridge;
+
+  // Таймеры остаются настоящими: окно ждёт таймаутов (складка настроек,
+  // автоскрытие баннера), и подменять их заглушкой — значит проверять не то.
+  const nativeSetTimeout = global.setTimeout;
+  const nativeClearTimeout = global.clearTimeout;
+  window.setTimeout = (fn, ms) => nativeSetTimeout(fn, ms);
+  window.clearTimeout = (handle) => nativeClearTimeout(handle);
+  global.window = window;
+  global.document = document;
+
+  for (const script of windowScripts(srcDir)) {
+    // eslint-disable-next-line no-new-func
+    new Function('window', 'document', 'setTimeout', 'clearTimeout', script.source)(
+      window,
+      document,
+      window.setTimeout,
+      window.clearTimeout,
+    );
+  }
+  document.dispatch('DOMContentLoaded');
+  return { document, window };
+}
+
+module.exports.bootWindow = bootWindow;

@@ -1,51 +1,60 @@
 'use strict';
 /**
- * main.js — главный процесс Electron. Ни Python, ни сеть здесь не участвуют.
+ * main.js — главный процесс Electron. В окне нет ни Python, ни сети.
  *
- * Окно работает на данных, которые читает этот процесс из файлов проекта
+ * Окно работает на данных, которые этот процесс читает из файлов проекта
  * (жанры, пресеты, снимок inventory/готовности). Логика вынесена в
- * `src/core/*`, поэтому её проверяет обычный `node --test` без графической
- * среды, а main.js остаётся тонким: окно, IPC, безопасность.
+ * `src/core/*` и `electron/{runtime,pipeline,render-host}.js`, поэтому её
+ * проверяет обычный `node --test` без графической среды, а main.js остаётся
+ * тонким: окно, IPC, безопасность.
+ *
+ * Где лежит проект и есть ли Python — решает `runtime.js`, потому что в
+ * установленном приложении (`resources/app.asar`) относительные пути
+ * репозитория не существуют.
  */
 
-const { app, BrowserWindow, ipcMain, shell, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, dialog, Menu, nativeTheme } = require('electron');
 const path = require('node:path');
+const fs = require('node:fs');
+const fsp = require('node:fs/promises');
 
 const { createNodeFs } = require('../src/core/fs-node');
 const { createProject } = require('../src/core/project');
-const { renderBeatInSteps } = require('../src/core/audio/engine');
-const { SampleSource } = require('../src/core/audio/bank');
-const { sanitizeBeatOptions, BEAT_LIMITS } = require('../src/core/beat-options');
+const { renderBeatPayload, createBankProvider } = require('./pipeline');
+const beatService = require('./beat-service');
+const { resolveRoot, resolvePython } = require('./runtime');
+const { createSettingsStore, DEFAULTS } = require('./settings');
 const tasks = require('./tasks');
 
-const ROOT = path.resolve(__dirname, '..', '..');
 const IS_DEV = process.argv.includes('--dev');
+// `--smoke` запускает приложение, проверяет, что проект открылся и данные
+// читаются, печатает JSON и выходит с кодом 0/1. Нужен CI: упакованную
+// сборку надо чем-то проверить, а графической среды на раннере нет.
+const IS_SMOKE = process.argv.includes('--smoke');
+
+// Корень проекта: в репозитории — на два уровня выше `desktop/`, в
+// установленном приложении — `resources/project` (см. `resolveRoot`).
+const rootInfo = resolveRoot({
+  appPath: app.getAppPath(),
+  resourcesPath: process.resourcesPath,
+  env: process.env,
+});
+const ROOT = rootInfo.root;
+// Откуда читать сэмпловый банк. В установленной сборке `data/samples/` лежит
+// в `resources/project` рядом с `version.json`, как и в репозитории; если
+// такого каталога нет — берём корень, где нашлись маркеры.
+const SAMPLE_ROOT = ROOT;
 
 let mainWindow = null;
 let project = null;
 let activeTask = null;
+let settingsStore = null;
 
-/** Найти Python: переменная окружения → локальное окружение → система. */
-function resolvePython({ root = ROOT, env = process.env } = {}) {
-  const candidates = [
-    env.ZSMM_PYTHON,
-    path.join(root, '.venv', 'bin', 'python3'),
-    path.join(root, '.venv', 'Scripts', 'python.exe'),
-    '/usr/bin/python3',
-    '/usr/local/bin/python3',
-  ].filter(Boolean);
-  for (const candidate of candidates) {
-    try {
-      if (require('node:fs').existsSync(candidate)) return { python: candidate };
-    } catch {
-      /* путь недоступен — пробуем следующий */
-    }
+function settings() {
+  if (!settingsStore) {
+    settingsStore = createSettingsStore({ dir: app.getPath('userData') });
   }
-  return {
-    python: null,
-    error: 'Python не найден. Укажите ZSMM_PYTHON=/путь/к/интерпретатору '
-      + 'или создайте .venv в корне проекта.',
-  };
+  return settingsStore;
 }
 
 function projectFor(root = ROOT, fileSystem = createNodeFs()) {
@@ -58,9 +67,11 @@ function createWindow() {
     height: 820,
     minWidth: 960,
     minHeight: 600,
+    // Окно красится в тон интерфейсу: без этого при старте видна белая вспышка.
     backgroundColor: '#0f1115',
     show: false,
     title: 'ZS Music Maker',
+    icon: path.join(__dirname, '..', 'build', 'icon.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -90,6 +101,61 @@ function createWindow() {
   });
 }
 
+/**
+ * Меню приложения.
+ *
+ * В собранной Windows-сборке меню по умолчанию выглядит как меню браузера:
+ * «Reload», «Toggle DevTools», «Zoom». Для приложения это лишнее и опасно
+ * (перезагрузка сбрасывает собранный бит), поэтому меню своё: только то, что
+ * действительно нужно.
+ */
+function buildMenu({ isDev = IS_DEV } = {}) {
+  const template = [
+    {
+      label: 'Файл',
+      submenu: [
+        { label: 'Папка проекта', click: () => ROOT && shell.openPath(ROOT) },
+        { type: 'separator' },
+        { role: 'quit', label: 'Выход' },
+      ],
+    },
+    {
+      label: 'Вид',
+      submenu: [
+        { role: 'resetZoom', label: 'Обычный масштаб' },
+        { role: 'zoomIn', label: 'Крупнее' },
+        { role: 'zoomOut', label: 'Мельче' },
+        { type: 'separator' },
+        { role: 'togglefullscreen', label: 'Во весь экран' },
+        ...(isDev ? [{ role: 'reload', label: 'Перезагрузить' }, { role: 'toggleDevTools', label: 'Инструменты' }] : []),
+      ],
+    },
+    {
+      label: 'Справка',
+      submenu: [
+        { label: 'О приложении', click: () => showAbout() },
+      ],
+    },
+  ];
+  return Menu.buildFromTemplate(template);
+}
+
+function showAbout() {
+  const version = project ? project.version() : { version: null };
+  dialog.showMessageBox(mainWindow || undefined, {
+    type: 'info',
+    title: 'ZS Music Maker',
+    message: `ZS Music Maker ${version.version ? `v${version.version}` : ''}`.trim(),
+    detail: [
+      'Бит собирается внутри приложения: движок на JavaScript, без Python и сети.',
+      ROOT ? `Проект: ${ROOT}` : 'Проект не найден — задайте ZSMM_ROOT.',
+      `Electron ${process.versions.electron}, Node ${process.versions.node}, Chromium ${process.versions.chrome}.`,
+      `Платформа: ${process.platform} ${process.arch}.`,
+    ].join('\n\n'),
+    buttons: ['Закрыть'],
+  });
+}
+
 /** IPC: один канал на раздел. Возвращаем данные либо {error} — без исключений. */
 function registerIpc(getProject) {
   const sections = {
@@ -115,80 +181,21 @@ function registerIpc(getProject) {
 
   ipcMain.handle('zsmm:tasks', () => ({ ok: true, data: tasks.taskList() }));
 
-  // Бит считается здесь, в главном процессе: страница не получает ни `fs`,
-  // ни доступа к движку. Наружу уходит готовый WAV в base64 и отчёт.
-  //
-  // Банк сэмплов открывается один раз на процесс и переиспользуется: он
-  // держит декодированные one-shot'ы в кэше, и повторный рендер не
-  // перечитывает 32 файла с диска.
-  let sampleSource = null;
-  const bankFor = () => {
-    if (!sampleSource) sampleSource = new SampleSource({ fileSystem: createNodeFs(), rootDir: ROOT });
-    return sampleSource;
-  };
-
-  ipcMain.handle('zsmm:beat-render', async (event, options) => {
-    const sanitized = sanitizeBeatOptions(options);
-    if (sanitized.error) return { ok: false, error: sanitized.error };
-    try {
-      // Рендер режется по секциям: окно живо и получает прогресс, а не
-      // замирает на десятки секунд. WAV при этом побайтово тот же, что у
-      // синхронного пути (проверяется тестом).
-      const { wav, report } = await renderBeatInSteps(
-        {
-          ...sanitized.value,
-          bank: sanitized.value.useBank === false ? null : bankFor(),
-        },
-        {
-          onProgress: (progress) => {
-            if (event && event.sender && !event.sender.isDestroyed()) {
-              event.sender.send('zsmm:beat-progress', progress);
-            }
-          },
-        },
-      );
-      return { ok: true, data: { report, wavBase64: wav.toString('base64') } };
-    } catch (err) {
-      return { ok: false, error: err && err.message ? err.message : String(err) };
-    }
-  });
-
-  ipcMain.handle('zsmm:beat-bank', () => {
-    try {
-      return { ok: true, data: bankFor().report() };
-    } catch (err) {
-      return { ok: false, error: err && err.message ? err.message : String(err) };
-    }
-  });
-
-  ipcMain.handle('zsmm:beat-save', async (_event, wavBase64) => {
-    if (typeof wavBase64 !== 'string' || wavBase64.length < 64) {
-      return { ok: false, error: 'нет данных для сохранения' };
-    }
-    const { canceled, filePath } = await dialog.showSaveDialog(mainWindow || undefined, {
-      title: 'Сохранить бит',
-      defaultPath: path.join(ROOT, 'data', 'beats', `beat_${Date.now()}.wav`),
-      filters: [{ name: 'WAV', extensions: ['wav'] }],
-    });
-    if (canceled || !filePath) return { ok: false, error: 'сохранение отменено' };
-    try {
-      const buffer = Buffer.from(wavBase64, 'base64');
-      if (buffer.length < 44 || buffer.toString('ascii', 0, 4) !== 'RIFF') {
-        return { ok: false, error: 'это не WAV: сохранять нечего' };
-      }
-      await require('node:fs/promises').mkdir(path.dirname(filePath), { recursive: true });
-      await require('node:fs/promises').writeFile(filePath, buffer);
-      return { ok: true, data: { path: filePath, bytes: buffer.length } };
-    } catch (err) {
-      return { ok: false, error: err && err.message ? err.message : String(err) };
-    }
+  // Рендер, банк и сохранения бита живут в beat-service.js. Отсюда передаём
+  // только то, что умеет Electron: диалоги и путь к каталогу музыки.
+  beatService.registerBeatIpc({
+    ipcMain,
+    dialog,
+    rootDir: SAMPLE_ROOT || path.resolve(__dirname, '..', '..'),
+    getWindow: () => mainWindow,
+    musicDir: safeMusicDir,
   });
 
   ipcMain.handle('zsmm:task-start', async (event, { key, options } = {}) => {
     if (activeTask) {
       return { ok: false, error: 'уже выполняется другая задача: сначала остановите её' };
     }
-    const { python, error } = resolvePython();
+    const { python, error } = resolvePython({ root: ROOT, env: process.env });
     if (!python) return { ok: false, error };
     try {
       const sender = event.sender;
@@ -196,7 +203,7 @@ function registerIpc(getProject) {
         key,
         options: options || {},
         python,
-        root: ROOT,
+        root: ROOT || path.resolve(__dirname, '..', '..'),
         onEvent: (payload) => {
           if (!sender.isDestroyed()) sender.send('zsmm:task-event', payload);
         },
@@ -218,6 +225,7 @@ function registerIpc(getProject) {
   });
 
   ipcMain.handle('zsmm:reveal-root', async () => {
+    if (!ROOT) return { ok: false, error: rootInfo.error };
     const error = await shell.openPath(ROOT);
     return { ok: error === '', error: error || null, root: ROOT };
   });
@@ -229,9 +237,92 @@ function registerIpc(getProject) {
     await shell.openExternal(url);
     return { ok: true };
   });
+
+  ipcMain.handle('zsmm:settings-load', () => {
+    const { value, error, errors } = settings().load();
+    return { ok: true, data: { ...value, error, invalid: errors } };
+  });
+
+  ipcMain.handle('zsmm:settings-save', (_event, patch) => {
+    const { value, error } = settings().save(patch);
+    return { ok: error === null, data: value, error };
+  });
+
+  // Всё, что отличает «работает в репозитории» от «работает на Windows
+  // после установки»: пути, наличие Python, каталог настроек.
+  ipcMain.handle('zsmm:environment', () => {
+    const python = resolvePython({ root: ROOT, env: process.env });
+    return {
+      ok: true,
+      data: {
+        version: app.getVersion(),
+        packaged: app.isPackaged,
+        root: ROOT,
+        rootCandidates: rootInfo.candidates,
+        rootError: rootInfo.error,
+        user_data: (() => {
+          try {
+            return app.getPath('userData');
+          } catch {
+            return null;
+          }
+        })(),
+        music_dir: safeMusicDir(),
+        python: python.python,
+        python_error: python.error,
+        platform: process.platform,
+        arch: process.arch,
+        electron: process.versions.electron || null,
+        node: process.versions.node,
+        chrome: process.versions.chrome || null,
+        worker_render: true,
+      },
+    };
+  });
+}
+
+/** Каталог для сохранений по умолчанию (Windows 11: «Музыка» пользователя). */
+function safeMusicDir() {
+  try {
+    const dir = app.getPath('music');
+    if (dir) return dir;
+  } catch {
+    /* без графической среды пути может не быть */
+  }
+  return path.join(require('node:os').tmpdir(), 'zsmm');
+}
+
+function defaultBeatPath() {
+  return beatService.defaultBeatPath(safeMusicDir);
+}
+
+function saveTextCopy(args = {}, window = mainWindow) {
+  return beatService.saveTextCopy({ ...args, dialog, getWindow: () => window, musicDir: safeMusicDir });
 }
 
 app.whenReady().then(() => {
+  if (IS_SMOKE) {
+    runSmoke().catch((err) => {
+      process.stdout.write(`${JSON.stringify({ ok: false, error: err.message })}\n`);
+      app.exit(1);
+    });
+    return;
+  }
+
+  // Тёмная тема — не украшение: белые поля в диалогах на тёмном окне
+  // выглядят как ошибка отрисовки.
+  try {
+    nativeTheme.themeSource = 'dark';
+  } catch {
+    /* старая версия Electron — тема не критична */
+  }
+  Menu.setApplicationMenu(buildMenu());
+
+  if (!ROOT) {
+    dialog.showErrorBox('Не удалось найти проект', `${rootInfo.error}\n\nКандидаты:\n${rootInfo.candidates.join('\n')}`);
+    app.quit();
+    return;
+  }
   try {
     project = projectFor();
   } catch (err) {
@@ -257,4 +348,17 @@ app.on('activate', () => {
   if (BrowserWindow.getAllWindows().length === 0) createWindow();
 });
 
-module.exports = { projectFor, registerIpc, resolvePython, sanitizeBeatOptions, BEAT_LIMITS, ROOT };
+module.exports = {
+  projectFor,
+  registerIpc,
+  buildMenu,
+  defaultBeatPath,
+  saveTextCopy,
+  settings,
+  safeMusicDir,
+  resolvePython,
+  resolveRoot,
+  DEFAULTS,
+  ROOT,
+  rootInfo,
+};

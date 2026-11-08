@@ -13,7 +13,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const { documentFromHtml } = require('./fake-dom');
+const { documentFromHtml, bootWindow: bootDocumentWindow } = require('./fake-dom');
 const { createProject } = require('../src/core/project');
 const { createNodeFs } = require('../src/core/fs-node');
 const { runTask } = require('../electron/tasks');
@@ -82,31 +82,10 @@ function bridge(overrides = {}) {
   };
 }
 
+/** Поднять всё окно (`app.js` + `sections/*.js`) с указанным мостом. */
 function bootWindow(api) {
-  const document = documentFromHtml(HTML);
-  const window = document.createElement('window');
-  window.zsmm = api;
-  const timers = [];
-  const fakeSetTimeout = (fn, ms) => {
-    timers.push({ fn, ms });
-    return timers.length;
-  };
-  const fakeClearTimeout = () => {};
-  window.setTimeout = fakeSetTimeout;
-  window.clearTimeout = fakeClearTimeout;
-  global.window = window;
-  global.document = document;
-
-  const source = fs.readFileSync(path.join(SRC, 'app.js'), 'utf8');
-  // eslint-disable-next-line no-new-func
-  new Function('window', 'document', 'setTimeout', 'clearTimeout', source)(
-    window,
-    document,
-    fakeSetTimeout,
-    fakeClearTimeout,
-  );
-  document.dispatch('DOMContentLoaded');
-  return { document, window };
+  global.setTimeout = global.setTimeout;
+  return bootDocumentWindow({ srcDir: SRC, html: HTML, bridge: api });
 }
 
 const flush = () => new Promise((resolve) => setImmediate(resolve));

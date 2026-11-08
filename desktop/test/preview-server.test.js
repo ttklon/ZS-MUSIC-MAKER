@@ -53,10 +53,11 @@ test('отдаёт index.html и подключает шим только в п�
   assert.equal(page.status, 200);
   assert.match(page.headers['content-type'], /text\/html/);
   assert.match(page.body, /preview-shim\.js/, 'шим обязан быть подключён до app.js');
-  assert.ok(
-    page.body.indexOf('preview-shim.js') < page.body.indexOf('app.js'),
-    'шим должен загружаться первым',
-  );
+  // Ищем именно теги скриптов: имена файлов встречаются и в комментариях.
+  const shimTag = page.body.indexOf('<script src="preview-shim.js"');
+  const firstWindowScript = page.body.indexOf('<script src="app.js"');
+  assert.ok(shimTag > -1 && firstWindowScript > -1, 'нет тегов шима и app.js');
+  assert.ok(shimTag < firstWindowScript, 'шим должен загружаться первым');
 });
 
 test('шим отдаёт настоящие данные проекта и не умеет запускать процессы', async (t) => {

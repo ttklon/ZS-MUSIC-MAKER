@@ -15,9 +15,7 @@ const path = require('node:path');
 
 const { createNodeFs } = require('../src/core/fs-node');
 const { createProject } = require('../src/core/project');
-const { renderBeatInSteps } = require('../src/core/audio/engine');
-const { SampleSource } = require('../src/core/audio/bank');
-const { sanitizeBeatOptions } = require('../src/core/beat-options');
+const { createBankProvider, renderBeatPayload } = require('../electron/pipeline');
 
 const DESKTOP = path.resolve(__dirname, '..');
 const ROOT = path.resolve(DESKTOP, '..');
@@ -92,10 +90,25 @@ function shim(project) {
       const response = await fetch('/beat-bank');
       return response.json();
     },
+    // В браузере диалога сохранения нет — но данные отчёта скачиваются,
+    // чтобы проверять его было чем-то, кроме глаз.
     saveBeat: () => Promise.resolve({
       ok: false,
       error: 'в браузере файл не сохраняется: откройте приложение Electron',
     }),
+    saveReport: async (name, text) => {
+      const blob = new Blob([text], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = String(name || 'report.json');
+      link.click();
+      URL.revokeObjectURL(url);
+      return { ok: true, data: { path: link.download } };
+    },
+    // В предпросмотре настроек нет: каждый запуск — чистый лист.
+    loadSettings: () => Promise.resolve({ ok: true, data: {} }),
+    saveSettings: () => Promise.resolve({ ok: true, data: {} }),
     stopTask: () => Promise.resolve({ ok: false, error: 'нет задачи' }),
     onTaskEvent: () => () => {},
     onTaskDone: () => () => {},
@@ -109,8 +122,11 @@ function createServer(project, options = {}) {
   // Последний известный прогресс рендера: предпросмотр отдаёт его по запросу.
   let lastProgress = { phase: 'idle', percent: 0 };
   // Один источник сэмплов на сервер: он кэширует декодированные one-shot'ы.
-  const sampleSource = options.sampleSource
-    || (options.bank === false ? null : new SampleSource({ fileSystem: createNodeFs(), rootDir: ROOT }));
+  const bankProvider = createBankProvider({
+    rootDir: ROOT,
+    fileSystem: createNodeFs(),
+    shared: options.sampleSource ? { source: options.sampleSource } : { source: options.bank === false ? null : undefined },
+  });
   return http.createServer((req, res) => {
     const url = new URL(req.url, `http://${req.headers.host}`);
     const send = (status, body, type) => {
@@ -131,29 +147,21 @@ function createServer(project, options = {}) {
           send(400, JSON.stringify({ ok: false, error: 'тело запроса — не JSON' }), MIME['.json']);
           return;
         }
-        const sanitized = sanitizeBeatOptions(parsed);
-        if (sanitized.error) {
-          send(200, JSON.stringify({ ok: false, error: sanitized.error }), MIME['.json']);
-          return;
-        }
         // В предпросмотре прогресс приходит не событиями, а поллингом
         // `/beat-progress`: держать SSE ради одной кнопки — лишний код.
         lastProgress = { phase: 'start', percent: 0 };
-        renderBeatInSteps(
-          {
-            ...sanitized.value,
-            bank: sanitized.value.useBank === false ? null : sampleSource,
-          },
-          { onProgress: (progress) => { lastProgress = progress; } },
-        )
-          .then(({ wav, report }) => {
-            lastProgress = { phase: 'done', percent: 100 };
-            send(200, JSON.stringify({ ok: true, data: { report, wavBase64: wav.toString('base64') } }), MIME['.json']);
-          })
-          .catch((err) => {
-            lastProgress = { phase: 'error', percent: 0, error: err.message };
-            send(200, JSON.stringify({ ok: false, error: err.message }), MIME['.json']);
-          });
+        // Тот же конвейер, что в Electron: проверка параметров, банк и
+        // прогресс не дублируются, поэтому предпросмотр не «врёт» про окно.
+        renderBeatPayload(parsed, {
+          rootDir: ROOT,
+          bankFor: () => bankProvider.bank(),
+          onProgress: (progress) => { lastProgress = progress; },
+        }).then((reply) => {
+          lastProgress = reply.ok === true
+            ? { phase: 'done', percent: 100 }
+            : { phase: 'error', percent: 0, error: reply.error };
+          send(200, JSON.stringify(reply), MIME['.json']);
+        });
       });
       return;
     }
@@ -165,7 +173,9 @@ function createServer(project, options = {}) {
 
     if (url.pathname === '/beat-bank') {
       try {
-        const report = sampleSource ? sampleSource.report() : { status: 'FALLBACK', warnings: ['банк отключён'] };
+        const report = options.bank === false
+          ? { status: 'FALLBACK', warnings: ['банк отключён'] }
+          : bankProvider.bank().report();
         send(200, JSON.stringify({ ok: true, data: report }), MIME['.json']);
       } catch (err) {
         send(200, JSON.stringify({ ok: false, error: err.message }), MIME['.json']);
@@ -186,7 +196,8 @@ function createServer(project, options = {}) {
     }
     let body = fs.readFileSync(target);
     if (requested === '/index.html') {
-      // В разработке шим подключается до app.js; CSP остаётся прежней
+      // В разработке шим подключается до ПЕРВОГО скрипта окна (сейчас это
+      // app.js, за ним идут sections/*.js); CSP остаётся прежней
       // (скрипт отдаётся с этого же origin, поэтому 'self' его разрешает).
       // В предпросмотре рендер бита идёт на этот же сервер, поэтому
       // `connect-src` расширяется до 'self' — и только здесь. В приложении

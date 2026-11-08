@@ -103,6 +103,7 @@
               <button class="ghost" id="beat-render">Собрать бит</button>
               <label class="muted"><input type="checkbox" id="beat-use-bank" checked /> банк сэмплов</label>
               <button class="ghost" id="beat-save" disabled>Сохранить WAV</button>
+              <button class="ghost" id="beat-copy" disabled>Сохранить отчёт</button>
             </div>
             <p class="muted" id="beat-status">Бит ещё не собран</p>
             <audio id="beat-audio" controls class="is-hidden"></audio>
@@ -159,6 +160,13 @@
                 <tbody id="health-body"></tbody>
               </table>
             </div>
+            <h3>Приложение</h3>
+            <p class="muted" id="health-env-note">Загрузка…</p>
+            <div class="table-wrap">
+              <table>
+                <tbody id="health-env"></tbody>
+              </table>
+            </div>
             <h3>Баллы по блокам</h3>
             <pre class="output" id="health-blocks"></pre>
           </div>
@@ -167,6 +175,17 @@
         <div class="banner is-hidden" id="error-banner"></div>
       </main>
     </div>
+    <!--
+      Сначала app.js: он создаёт пространство имён и помощники, а разделы их
+      используют на этапе загрузки. Навигация стартует по DOMContentLoaded,
+      то есть когда подключены все скрипты.
+    -->
     <script src="app.js"></script>
+    <script src="sections/overview.js"></script>
+    <script src="sections/genres.js"></script>
+    <script src="sections/beat.js"></script>
+    <script src="sections/dossiers.js"></script>
+    <script src="sections/run.js"></script>
+    <script src="sections/health.js"></script>
   </body>
 </html>

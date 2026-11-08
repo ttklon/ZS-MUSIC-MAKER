@@ -16,8 +16,16 @@ const SRC = path.resolve(__dirname, '..', 'src');
 const ELECTRON = path.resolve(__dirname, '..', 'electron');
 
 const html = fs.readFileSync(path.join(SRC, 'index.html'), 'utf8');
-const appJs = fs.readFileSync(path.join(SRC, 'app.js'), 'utf8');
+// Окно разбито на app.js + sections/*.js — контракт проверяется по всем
+// скриптам вместе: иначе правило легко обойти, перенеся код в раздел.
+const { windowScripts } = require('./fake-dom');
+const appJs = windowScripts(SRC).map((script) => script.source).join('\n');
 const preload = fs.readFileSync(path.join(ELECTRON, 'preload.js'), 'utf8');
+
+/** Исходники главного процесса: main.js сам тонкий, IPC живёт рядом. */
+function readElectron(names) {
+  return names.map((name) => fs.readFileSync(path.join(ELECTRON, name), 'utf8')).join('\n');
+}
 
 function ids() {
   const found = new Set();
@@ -109,12 +117,41 @@ test('в стилях нет внешних шрифтов и картинок',
 });
 
 test('бит рендерится в главном процессе, а не в странице', () => {
-  const main = fs.readFileSync(path.join(ELECTRON, 'main.js'), 'utf8');
+  const main = readElectron(['main.js', 'beat-service.js']);
+  const pipeline = fs.readFileSync(path.join(ELECTRON, 'pipeline.js'), 'utf8');
 
   assert.match(main, /zsmm:beat-render/, 'нет IPC-канала рендера бита');
-  assert.match(main, /sanitizeBeatOptions/, 'параметры из окна должны проверяться');
+  assert.match(pipeline, /sanitizeBeatOptions/, 'параметры из окна должны проверяться');
+  assert.match(main, /renderInWorker/, 'рендер должен уходить в отдельный поток');
   assert.match(main, /zsmm:beat-save/, 'нет канала сохранения WAV');
   // Движок тянет fs/Buffer — в окне ему не место.
   assert.doesNotMatch(appJs, /require\(/, 'страница не должна получать require');
   assert.match(appJs, /window\.zsmm\.renderBeat/, 'окно должно звать мост рендера');
+});
+
+test('настройки и окружение приложения доходят до окна', () => {
+  const main = readElectron(['main.js', 'beat-service.js', 'settings.js']);
+
+  for (const channel of ['zsmm:settings-load', 'zsmm:settings-save', 'zsmm:environment', 'zsmm:save-copy']) {
+    assert.match(main, new RegExp(channel), `нет канала ${channel}`);
+  }
+  assert.match(appJs, /rememberBeatOptions/, 'параметры бита должны запоминаться');
+  assert.match(appJs, /saveReport/, 'отчёт должен сохраняться, а не только показываться');
+});
+
+test('окно работает без Python: рендер бита идёт через worker', () => {
+  const main = fs.readFileSync(path.join(ELECTRON, 'main.js'), 'utf8');
+  const host = fs.readFileSync(path.join(ELECTRON, 'render-host.js'), 'utf8');
+
+  // Задачи пайплайна — единственное место, где нужен Python, и он ищется
+  // отдельно (runtime.js), а не предполагается на месте.
+  assert.match(main, /resolvePython/);
+  assert.match(host, /renderInMain/, 'без worker_threads должен быть запасной путь');
+});
+
+test('меню приложения не отдаёт «перезагрузить» в релизной сборке', () => {
+  const main = fs.readFileSync(path.join(ELECTRON, 'main.js'), 'utf8');
+
+  assert.match(main, /buildMenu/, 'меню должно собираться кодом');
+  assert.match(main, /isDev \? \[/, 'reload и DevTools — только в режиме разработки');
 });

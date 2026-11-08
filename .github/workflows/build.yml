@@ -64,11 +64,7 @@ jobs:
       - name: Syntax check of shell sources
         run: |
           cd desktop
-          node --check electron/main.js
-          node --check electron/preload.js
-          node --check electron/tasks.js
-          node --check src/app.js
-          node --check src/core/project.js
+          npm run check
 
       - name: Shell tests (node --test, no GUI needed)
         run: |
@@ -90,6 +86,64 @@ jobs:
           cd desktop
           node scripts/snapshot-readiness.js
           python -m pytest ../tests/test_desktop_shell.py -q
+
+  desktop-windows:
+    # Установщик для Windows 11 собирается и проверяется на настоящей Windows:
+    # упакованное приложение запускается с `--smoke` и читает свои данные из
+    # `resources/project`. Без этой job «работает у меня в репозитории» и
+    # «работает после установки» — разные вещи, и вторая не проверена.
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: desktop/package.json
+
+      - name: Install Electron and electron-builder
+        working-directory: desktop
+        run: npm install --no-audit --no-fund
+
+      - name: Shell tests on Windows (no GUI needed)
+        working-directory: desktop
+        run: npm test
+
+      - name: Build NSIS installer and portable EXE
+        working-directory: desktop
+        run: npx electron-builder --win nsis portable --x64 --publish never
+
+      - name: Show what was built
+        working-directory: desktop
+        shell: pwsh
+        run: Get-ChildItem dist | Format-Table Name, Length
+
+      - name: Smoke-test the packaged app (unpacked build)
+        working-directory: desktop
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem dist -Recurse -Filter 'ZS Music Maker.exe' | Select-Object -First 1
+          if (-not $exe) { throw 'unpacked exe not found' }
+          $env:ZSMM_SMOKE_OUT = Join-Path $PWD 'smoke.json'
+          & $exe.FullName --smoke
+          $code = $LASTEXITCODE
+          Get-Content $env:ZSMM_SMOKE_OUT -Raw
+          if ($code -ne 0) { throw "smoke failed with $code" }
+          $report = Get-Content $env:ZSMM_SMOKE_OUT -Raw | ConvertFrom-Json
+          if (-not $report.ok) { throw 'smoke report not ok' }
+          if (-not $report.root) { throw 'packaged app did not find the project root' }
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: ZS-Music-Maker-Windows-Setup
+          path: |
+            desktop/dist/*.exe
+            desktop/dist/*.blockmap
+            desktop/dist/smoke.json
+          retention-days: 30
 
   publish-release:
     needs: build-windows
