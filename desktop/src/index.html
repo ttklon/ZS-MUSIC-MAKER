@@ -28,6 +28,7 @@
           <button class="nav-item" data-view="dossiers">Досье</button>
           <button class="nav-item" data-view="run">Запуск</button>
           <button class="nav-item" data-view="health">Диагностика</button>
+          <button class="nav-item" data-view="help">Справка</button>
         </nav>
         <div class="sidebar-footer">
           <span class="dot" id="backend-dot"></span>
@@ -172,6 +173,17 @@
           </div>
         </section>
 
+        <section class="view is-hidden" id="view-help">
+          <div class="panel">
+            <h2>Справка</h2>
+            <p class="muted" id="help-lead">
+              Коротко: что приложение делает само, что требует Python и чего
+              здесь принципиально нет.
+            </p>
+          </div>
+          <div id="help-body"></div>
+        </section>
+
         <div class="banner is-hidden" id="error-banner"></div>
       </main>
     </div>
@@ -187,5 +199,6 @@
     <script src="sections/dossiers.js"></script>
     <script src="sections/run.js"></script>
     <script src="sections/health.js"></script>
+    <script src="sections/help.js"></script>
   </body>
 </html>

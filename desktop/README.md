@@ -24,7 +24,7 @@ desktop/
 │   ├── index.html        разметка (CSP: без inline-скриптов и без сети)
 │   ├── styles.css        оформление
 │   ├── app.js            состояние, помощники, навигация
-│   ├── sections/         разделы окна: overview, genres, beat, dossiers, run, health
+│   ├── sections/         разделы окна: overview, genres, beat, dossiers, run, health, help
 │   └── core/
 │       ├── fs-node.js  файловое API с ошибками вместо исключений
 │       ├── catalog.js  жанры, пресеты, разбор inventory
@@ -49,7 +49,7 @@ desktop/
 │           └── bank.js         сэмпловый банк: манифест, лицензии, round-robin
 ├── scripts/
 │   └── snapshot-readiness.js  снимок чисел через штатный Python-инструмент
-└── test/             210 тестов на `node --test`, без графической среды
+└── test/             212 тестов на `node --test`, без графической среды
 ```
 
 ## Запуск

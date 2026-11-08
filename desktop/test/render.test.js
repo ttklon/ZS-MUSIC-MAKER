@@ -169,3 +169,23 @@ test('фильтр жанров работает без повторной за�
   const after = document.getElementById('genre-list').children.length;
   assert.ok(after < before && after > 0, `фильтр не сузил список: ${before} → ${after}`);
 });
+
+test('справка перечисляет и возможности, и ограничения', async (t) => {
+  const { document } = bootWindow({ bridge: realBridge() });
+  t.after(() => {
+    delete global.window;
+    delete global.document;
+  });
+  await flush();
+  const button = [...document.querySelectorAll('[data-view]')].find((b) => b.dataset.view === 'help');
+  assert.ok(button, 'нет пункта навигации «Справка»');
+  button.dispatch('click');
+  await flush();
+  await flush();
+
+  const text = document.getElementById('help-body').textContent;
+  assert.match(text, /Что действительно работает/);
+  assert.match(text, /Чего здесь нет/);
+  // Обещание, которое нельзя проверить, в справке — это ложь интерфейса.
+  assert.match(text, /Подпись кода/, 'ограничение SmartScreen должно быть названо');
+});

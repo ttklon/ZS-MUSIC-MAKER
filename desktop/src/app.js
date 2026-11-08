@@ -101,6 +101,7 @@ const LOADERS = {
   dossiers: () => W.loadDossiers(),
   run: () => W.loadRun(),
   health: () => W.loadHealth(),
+  help: () => W.loadHelp(),
 };
 
 const TITLES = {
@@ -111,6 +112,7 @@ const TITLES = {
   dossiers: 'Досье',
   run: 'Запуск',
   health: 'Диагностика',
+  help: 'Справка',
 };
 
 async function switchView(view, { force = false } = {}) {

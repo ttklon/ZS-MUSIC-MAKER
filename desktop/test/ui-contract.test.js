@@ -60,7 +60,7 @@ test('все id, к которым обращается app.js, есть в ра
 
 test('все разделы навигации имеют панель и заголовок', () => {
   const views = [...html.matchAll(/data-view="([^"]+)"/g)].map((m) => m[1]);
-  assert.ok(views.length >= 5);
+  assert.ok(views.length >= 6, 'в навигации должно быть не меньше шести разделов');
 
   for (const view of views) {
     assert.match(html, new RegExp(`id="view-${view}"`), `нет панели для ${view}`);
