@@ -260,8 +260,10 @@ jobs:
           if (-not $exe) { throw 'unpacked exe not found' }
           $env:ZSMM_SMOKE_OUT = Join-Path $PWD 'smoke.json'
           if (Test-Path $env:ZSMM_SMOKE_OUT) { Remove-Item $env:ZSMM_SMOKE_OUT }
-          & $exe.FullName --smoke
-          $code = $LASTEXITCODE
+          # exe — GUI-подсистема: `& exe` в PowerShell не ждёт завершения и не
+          # даёт код возврата. Start-Process -Wait ждёт и отдаёт ExitCode.
+          $process = Start-Process -FilePath $exe.FullName -ArgumentList '--smoke' -Wait -PassThru
+          $code = $process.ExitCode
           Write-Output "exit=$code"
           if (Test-Path $env:ZSMM_SMOKE_OUT) {
             $raw = Get-Content $env:ZSMM_SMOKE_OUT -Raw
@@ -278,6 +280,18 @@ jobs:
               exit 1
             }
           } else {
+            # Диагностика на случай, если приложение вообще не дошло до smoke:
+            # видно, на месте ли распакованные данные и код.
+            $unpacked = Split-Path $exe.FullName -Parent
+            $tree = Get-ChildItem -Path $unpacked -Directory | Select-Object -ExpandProperty Name
+            Write-Output "рядом с exe: $($tree -join ', ')"
+            $project = Join-Path $unpacked 'resources\project'
+            if (Test-Path $project) {
+              $inside = Get-ChildItem -Path $project | Select-Object -ExpandProperty Name
+              Write-Output "resources/project: $($inside -join ', ')"
+            } else {
+              Write-Output 'resources/project отсутствует'
+            }
             Write-Output "::error title=packaged smoke::приложение не записало отчёт, код $code"
             exit 1
           }
