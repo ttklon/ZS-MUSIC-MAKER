@@ -102,3 +102,17 @@ test('версия приложения совпадает с версией п�
   assert.equal(pkg.version.split('.')[0], '1', 'мажор package.json — 1.x');
   assert.ok(version.version, 'version.json читается');
 });
+
+test('установщик публикуется в релиз, а не только в артефакты CI', () => {
+  // Артефакты CI живут 30 дней и требуют входа в GitHub: ссылку на .exe
+  // человеку нужно дать такую, чтобы она работала без аккаунта.
+  const yaml = fs.readFileSync(path.join(ROOT, '.github', 'workflows', 'build.yml'), 'utf8');
+  const publish = yaml.slice(yaml.indexOf('  publish-release:'));
+  assert.match(publish, /softprops\/action-gh-release/);
+  assert.match(publish, /workflow_dispatch/, 'сборку можно опубликовать запуском из ветки');
+  assert.match(publish, /desktop-v/, 'метка релиза не должна совпадать с Python-сборкой');
+  assert.match(publish, /electron-win\/\*\.exe/, 'в релиз попадают установщик и portable');
+  // Python-сборка (PyInstaller) — отдельная метка и только по тегам.
+  assert.match(publish, /refs\/tags\/v/);
+  assert.match(publish, /ZS-Music-Maker-Windows\.zip/);
+});

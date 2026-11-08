@@ -60,10 +60,21 @@ desktop/
 
 ## Запуск
 
-Windows 11, из установщика: скачать артефакт `ZS-Music-Maker-Windows-Setup`
-из прогона CI (`Actions → Build Windows EXE → нужный запуск`), распаковать,
-запустить `ZS Music Maker-Setup-<версия>.exe` (или portable-EXE без
-установки). Python не нужен: бит считается внутри приложения. Раздел «Запуск»
+Готовый установщик лежит в **релизе** и не требует входа в GitHub:
+
+- страница со всеми сборками: <https://github.com/ttklon/ZS-MUSIC-MAKER/releases>
+- последняя Electron-сборка: <https://github.com/ttklon/ZS-MUSIC-MAKER/releases/latest>
+- прямой файл: `https://github.com/ttklon/ZS-MUSIC-MAKER/releases/latest/download/ZS-Music-Maker-Setup-1.0.0.exe`
+  (пробелы в имени заменяются дефисами, portable — `ZS-Music-Maker-1.0.0-portable.exe`)
+
+Тег релиза — `desktop-v<версия>`, поэтому ссылка `releases/latest` остаётся
+рабочей от сборки к сборке. Сборку публикует job `publish-release` по тегу
+`v*` или по ручному запуску workflow: артефакты CI для этого не годятся —
+они живут 30 дней и открываются только после входа в GitHub.
+
+Если релиза ещё нет, установщик можно взять из артефактов: `Actions → Build
+Windows EXE → нужный запуск → ZS-Music-Maker-Windows-Setup`. Внутри лежат
+`ZS Music Maker-Setup-<версия>.exe` и portable-EXE. Python не нужен: бит считается внутри приложения. Раздел «Запуск»
 (пайплайн на Python) при его отсутствии честно отключается и говорит об этом
 в «Диагностике».
 
