@@ -34,17 +34,23 @@ function makeProject() {
   return root;
 }
 
+// Пути в этих двух тестах строятся от `os.tmpdir()`, а не от «/repo»:
+// на Windows `path.join('/repo', …)` даёт `\repo\…`, и проверка падала бы
+// только в CI на windows-latest.
 test('из репозитория досье пишется в проект', () => {
-  const plan = writable.dossierWriteDir({ packaged: false, projectRoot: '/repo', userData: '/u' });
+  const project = path.join(os.tmpdir(), 'zsmm-repo');
+  const plan = writable.dossierWriteDir({ packaged: false, projectRoot: project, userData: os.tmpdir() });
   assert.equal(plan.source, 'project');
-  assert.equal(plan.dir, path.join(path.resolve('/repo'), 'data', 'artist_dossier'));
+  assert.equal(plan.dir, path.join(project, 'data', 'artist_dossier'));
 });
 
 test('в установленной сборке досье пишется в каталог пользователя', () => {
-  const plan = writable.dossierWriteDir({ packaged: true, projectRoot: '/Program Files/app/resources/project', userData: '/u' });
+  const programFiles = path.join(os.tmpdir(), 'Program Files', 'app', 'resources', 'project');
+  const userData = path.join(os.tmpdir(), 'zsmm-user');
+  const plan = writable.dossierWriteDir({ packaged: true, projectRoot: programFiles, userData });
   assert.equal(plan.source, 'user');
   // Program Files только для чтения: писать туда нельзя.
-  assert.equal(plan.dir, path.join(path.resolve('/u'), 'artist_dossier'));
+  assert.equal(plan.dir, path.join(userData, 'artist_dossier'));
   assert.ok(!plan.dir.includes('Program Files'));
 });
 
