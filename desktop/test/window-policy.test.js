@@ -15,6 +15,7 @@ const path = require('node:path');
 
 const policy = require('../electron/window-policy');
 const appMenu = require('../electron/app-menu');
+const appPaths = require('../electron/app-paths');
 
 const DESKTOP = path.resolve(__dirname, '..');
 const MAIN_SOURCE = fs.readFileSync(path.join(DESKTOP, 'electron', 'main.js'), 'utf8');
@@ -34,10 +35,14 @@ test('идентификатор ставится только у собранн
 });
 
 test('main.js ставит AppUserModelId до создания окна', () => {
-  assert.match(MAIN_SOURCE, /app\.setAppUserModelId\(/, 'без этого вызова иконка в панели задач чужая');
-  const setIndex = MAIN_SOURCE.indexOf('installAppUserModelId();');
-  const windowIndex = MAIN_SOURCE.indexOf('createWindow();');
-  assert.ok(setIndex > 0, 'setAppUserModelId должен вызываться из whenReady');
+  // Сам вызов живёт в startup.js, порядок — в main.js: сначала
+  // идентификатор панели задач, потом окно.
+  const startupSource = fs.readFileSync(path.join(DESKTOP, 'electron', 'startup.js'), 'utf8');
+  assert.match(startupSource, /app\.setAppUserModelId\(/, 'без этого вызова иконка в панели задач чужая');
+
+  const setIndex = MAIN_SOURCE.indexOf('startup.installAppUserModelId(');
+  const windowIndex = MAIN_SOURCE.lastIndexOf('createWindow();');
+  assert.ok(setIndex > 0, 'идентификатор ставится из whenReady');
   assert.ok(windowIndex > setIndex, 'идентификатор ставится раньше окна');
 });
 
@@ -45,9 +50,11 @@ test('единственный экземпляр: второй запуск в�
   assert.equal(policy.shouldContinueStartup({ gotLock: true }), true);
   assert.equal(policy.shouldContinueStartup({ gotLock: false }), false);
   // Ссылка на обработчик second-instance есть только в первом процессе.
-  assert.match(MAIN_SOURCE, /requestSingleInstanceLock\(\)/);
-  assert.match(MAIN_SOURCE, /app\.on\('second-instance'/);
-  assert.match(MAIN_SOURCE, /policy\.focusExisting\(mainWindow\)/);
+  const startupSource = fs.readFileSync(path.join(DESKTOP, 'electron', 'startup.js'), 'utf8');
+  assert.match(startupSource, /requestSingleInstanceLock\(\)/);
+  assert.match(startupSource, /app\.on\('second-instance'/);
+  assert.match(startupSource, /policy\.focusExisting\(getWindow\(\)\)/);
+  assert.match(MAIN_SOURCE, /startup\.installSingleInstance\(/);
 });
 
 test('второй экземпляр поднимает свёрнутое окно, а не просто фокусируется', () => {
@@ -232,4 +239,46 @@ test('размер окна лежит в настройках между зап
   assert.equal(small.width, 960);
   assert.equal(small.height, 600);
   fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test('прогресс рендера показывается на кнопке панели задач', () => {
+  // Свёрнутое окно во время рендера иначе выглядит зависшим.
+  assert.equal(policy.taskbarProgress({ phase: 'section', percent: 16 }), 0.16);
+  assert.equal(policy.taskbarProgress({ phase: 'master', percent: 100 }), 1);
+  // До первого процента — бесконечный индикатор, а не пустой.
+  assert.equal(policy.taskbarProgress({ phase: 'start', percent: 0 }), 2);
+  assert.equal(policy.taskbarProgress({ phase: 'section' }), 2);
+  // Завершённые фазы снимают индикатор.
+  for (const phase of ['done', 'error', 'cancelled', 'idle']) {
+    assert.equal(policy.taskbarProgress({ phase, percent: 100 }), -1, phase);
+  }
+  assert.equal(policy.taskbarProgress(null), -1);
+  // Мусор в процентах не должен давать NaN в системный вызов.
+  assert.equal(policy.taskbarProgress({ phase: 'section', percent: 'много' }), 2);
+  assert.equal(policy.taskbarProgress({ phase: 'section', percent: 500 }), 1);
+});
+
+test('прогресс задачи «Запуск» — бесконечный, пока она идёт', () => {
+  // Пайплайн не печатает проценты: выдумывать их нельзя.
+  for (const type of ['start', 'stdout', 'stderr']) {
+    assert.equal(policy.taskProgress({ type }), 2, type);
+  }
+  for (const type of ['exit', 'error', 'timeout']) {
+    assert.equal(policy.taskProgress({ type }), -1, type);
+  }
+  assert.equal(policy.taskProgress({ type: 'что-то' }), null);
+  assert.equal(policy.taskProgress(null), null);
+});
+
+test('каталог «Музыка» на Windows или запасной путь вместо падения', () => {
+  assert.equal(
+    appPaths.musicDir({ getPath: (name) => (name === 'music' ? 'C:\\Users\\me\\Music' : null) }),
+    'C:\\Users\\me\\Music',
+  );
+  // В урезанном профиле каталога может не быть: приложение не должно писать
+  // в C:\ и не должно падать.
+  const fallback = appPaths.musicDir({ getPath: () => undefined });
+  assert.match(fallback, /zsmm$/);
+  assert.match(appPaths.musicDir({ getPath: () => { throw new Error('нет профиля'); } }), /zsmm$/);
+  assert.match(appPaths.musicDir(null), /zsmm$/);
 });

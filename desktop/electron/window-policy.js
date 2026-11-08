@@ -107,6 +107,47 @@ function focusExisting(window) {
 }
 
 /**
+ * Индикатор для задачи «Запуск» (Python-пайплайн) по строкам её вывода.
+ *
+ * Прогресса в процентах пайплайн не печатает, зато называет этапы. Поэтому
+ * индикатор «бесконечный» (2), пока задача идёт, и снимается при выходе —
+ * это честнее выдуманных процентов.
+ *
+ * @param {{type?: string}} event событие задачи из electron/tasks.js
+ * @returns {number|null} значение для `setProgressBar` либо null — не менять
+ */
+function taskProgress(event) {
+  const type = event && typeof event.type === 'string' ? event.type : '';
+  if (type === 'start' || type === 'stdout' || type === 'stderr') return 2;
+  if (type === 'exit' || type === 'error' || type === 'timeout') return -1;
+  return null;
+}
+
+/**
+ * Что показать на кнопке панели задач Windows 11.
+ *
+ * Долгий рендер без индикатора выглядит как зависшее приложение: окно
+ * свёрнуто, а в панели задач ничего не происходит. Electron принимает
+ * `setProgressBar(0…1)`, `-1` (убрать) и `2` (бесконечный, пока фаза не
+ * известна).
+ *
+ * @param {{phase?: string, percent?: number}|null} progress
+ * @returns {number} значение для `window.setProgressBar`
+ */
+function taskbarProgress(progress) {
+  // Нет данных о рендере — значит, и индикатора быть не должно.
+  if (!progress || typeof progress !== 'object') return -1;
+  const phase = typeof progress.phase === 'string' ? progress.phase : '';
+  if (phase === 'done' || phase === 'error' || phase === 'cancelled' || phase === 'idle') return -1;
+  const percent = Number(progress.percent);
+  if (!Number.isFinite(percent)) return 2;
+  const clamped = Math.min(100, Math.max(0, percent));
+  // 0 % отрисовался бы пустым индикатором, то есть «ничего не идёт».
+  if (clamped === 0) return 2;
+  return clamped / 100;
+}
+
+/**
  * Закрывать ли процесс, когда закрылись все окна.
  *
  * На macOS приложение живёт без окон (поведение системы), на Windows и Linux
@@ -183,6 +224,8 @@ module.exports = {
   APP_USER_MODEL_ID,
   appUserModelId,
   boundsToRemember,
+  taskbarProgress,
+  taskProgress,
   shouldContinueStartup,
   focusExisting,
   quitsOnAllWindowsClosed,

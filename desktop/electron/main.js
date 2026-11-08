@@ -25,6 +25,9 @@ const { createSettingsStore, DEFAULTS } = require('./settings');
 const tasks = require('./tasks');
 const policy = require('./window-policy');
 const appMenu = require('./app-menu');
+const appPaths = require('./app-paths');
+const { registerProjectIpc } = require('./ipc-project');
+const startup = require('./startup');
 
 const IS_DEV = process.argv.includes('--dev');
 // `--smoke`: запустить приложение, проверить данные, напечатать JSON и выйти
@@ -113,6 +116,16 @@ function createWindow() {
   });
 }
 
+/** Каталог для сохранений по умолчанию (Windows 11: «Музыка» пользователя). */
+function safeMusicDir() {
+  return appPaths.musicDir(app);
+}
+
+/** `zsmm:save-copy` вне IPC: окно отчёта не должно зависеть от регистрации. */
+function saveTextCopy(args = {}, window = mainWindow) {
+  return beatService.saveTextCopy({ ...args, dialog, getWindow: () => window, musicDir: safeMusicDir });
+}
+
 /** Меню: шаблон в `app-menu.js`, здесь только сборка в меню Electron. */
 function buildMenu({ isDev = IS_DEV } = {}) {
   return Menu.buildFromTemplate(
@@ -142,26 +155,9 @@ function showAbout() {
 
 /** IPC: один канал на раздел. Возвращаем данные либо {error} — без исключений. */
 function registerIpc(getProject) {
-  const sections = {
-    version: (p) => p.version(),
-    genres: (p) => p.genres(),
-    modules: (p) => p.modules(),
-    readiness: (p) => p.readiness(),
-    dossiers: (p) => p.dossiers(),
-    system: (p) => p.systemInfo(),
-  };
-
-  for (const [name, loader] of Object.entries(sections)) {
-    ipcMain.handle(`zsmm:${name}`, () => {
-      const active = getProject();
-      if (!active) return { error: 'проект не открыт' };
-      try {
-        return { data: loader(active) };
-      } catch (err) {
-        return { error: err && err.message ? err.message : String(err) };
-      }
-    });
-  }
+  // Данные проекта — в ipc-project.js: шесть однотипных загрузчиков не должны
+  // занимать место рядом с окном и задачами.
+  registerProjectIpc({ ipcMain, getProject });
 
   ipcMain.handle('zsmm:tasks', () => ({ ok: true, data: tasks.taskList() }));
 
@@ -173,6 +169,14 @@ function registerIpc(getProject) {
     rootDir: SAMPLE_ROOT || path.resolve(__dirname, '..', '..'),
     getWindow: () => mainWindow,
     musicDir: safeMusicDir,
+    // Прогресс рендера виден и в панели задач: свёрнутое окно иначе выглядит
+    // зависшим. Значение считает window-policy (там же и тест).
+    onProgressSender: (event, progress) => {
+      showTaskbarProgress(progress);
+      if (event && event.sender && !event.sender.isDestroyed()) {
+        event.sender.send('zsmm:beat-progress', progress);
+      }
+    },
   });
 
   ipcMain.handle('zsmm:task-start', async (event, { key, options } = {}) => {
@@ -189,6 +193,7 @@ function registerIpc(getProject) {
         python,
         root: ROOT || path.resolve(__dirname, '..', '..'),
         onEvent: (payload) => {
+          showTaskProgress(payload);
           if (!sender.isDestroyed()) sender.send('zsmm:task-event', payload);
         },
       });
@@ -264,20 +269,26 @@ function registerIpc(getProject) {
   });
 }
 
-/** Каталог для сохранений по умолчанию (Windows 11: «Музыка» пользователя). */
-function safeMusicDir() {
+/** Индикатор на кнопке панели задач; `null`-окно не роняет рендер. */
+function showTaskbarProgress(progress) {
+  if (!mainWindow) return;
   try {
-    const dir = app.getPath('music');
-    if (dir) return dir;
+    mainWindow.setProgressBar(policy.taskbarProgress(progress));
   } catch {
-    /* без графической среды пути может не быть */
+    /* без графической среды панели задач нет */
   }
-  return path.join(require('node:os').tmpdir(), 'zsmm');
 }
 
-/** `zsmm:save-copy` вне IPC: окно отчёта не должно зависеть от регистрации. */
-function saveTextCopy(args = {}, window = mainWindow) {
-  return beatService.saveTextCopy({ ...args, dialog, getWindow: () => window, musicDir: safeMusicDir });
+/** Индикатор для задачи «Запуск»: идёт — бесконечный, вышла — снять. */
+function showTaskProgress(event) {
+  if (!mainWindow) return;
+  const value = policy.taskProgress(event);
+  if (value === null) return;
+  try {
+    mainWindow.setProgressBar(value);
+  } catch {
+    /* без графической среды панели задач нет */
+  }
 }
 
 /** `--smoke`: проверка без окна. Логика — в `electron/smoke.js`. */
@@ -293,44 +304,11 @@ async function runSmoke() {
   app.exit(report.ok ? 0 : 1);
 }
 
-/**
- * Второй запуск открывает уже существующее окно.
- *
- * Без этого двойной клик по ярлыку при открытом приложении поднимал второй
- * процесс, который писал те же настройки и тот же файл банка.
- */
-function installSingleInstance() {
-  const gotLock = app.requestSingleInstanceLock();
-  if (!policy.shouldContinueStartup({ gotLock })) {
-    // Окно живёт в первом процессе: этому остаётся только выйти.
-    app.quit();
-    return false;
-  }
-  app.on('second-instance', () => {
-    policy.focusExisting(mainWindow);
-  });
-  return true;
-}
-
-/**
- * Идентификатор для панели задач Windows 11.
- *
- * Ставится только у собранного приложения: в разработке `electron.exe`
- * группируется по своему пути, и смешивать их не надо.
- */
-function installAppUserModelId() {
-  const id = policy.appUserModelId({ isPackaged: app.isPackaged, platform: process.platform });
-  if (!id) return null;
-  try {
-    app.setAppUserModelId(id);
-    return id;
-  } catch {
-    return null;
-  }
-}
-
 // Замок берётся до `whenReady`: второй процесс не должен успеть подняться.
-const HAS_SINGLE_INSTANCE = installSingleInstance();
+const HAS_SINGLE_INSTANCE = startup.installSingleInstance({
+  app,
+  getWindow: () => mainWindow,
+});
 
 app.whenReady().then(() => {
   if (!HAS_SINGLE_INSTANCE) return;
@@ -350,7 +328,7 @@ app.whenReady().then(() => {
     /* старая версия Electron — тема не критична */
   }
   Menu.setApplicationMenu(buildMenu());
-  installAppUserModelId();
+  startup.installAppUserModelId({ app, platform: process.platform });
 
   if (!ROOT) {
     dialog.showErrorBox('Не удалось найти проект', `${rootInfo.error}\n\nКандидаты:\n${rootInfo.candidates.join('\n')}`);
@@ -394,6 +372,4 @@ module.exports = {
   DEFAULTS,
   ROOT,
   rootInfo,
-  installSingleInstance,
-  installAppUserModelId,
 };
