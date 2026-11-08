@@ -23,9 +23,32 @@ const {
 
 const ROOT = path.resolve(__dirname, '..', '..');
 
+/**
+ * Интерпретатор для настоящего запуска задачи.
+ *
+ * Windows — тоже целевая платформа: набор тестов оболочки идёт и в CI на
+ * `windows-latest`. Поэтому кандидаты платформенные: без `python.exe` тесты
+ * не «пропускались», а падали на `path.existsSync('/usr/bin/python3')`.
+ */
 function python() {
-  for (const candidate of [process.env.ZSMM_PYTHON, '/tmp/v/bin/python', '/usr/bin/python3']) {
-    if (candidate && fs.existsSync(candidate)) return candidate;
+  const candidates = process.platform === 'win32'
+    ? [process.env.ZSMM_PYTHON, 'python', 'py', 'python3']
+    : [process.env.ZSMM_PYTHON, '/tmp/v/bin/python', '/usr/bin/python3', 'python3'];
+  for (const candidate of candidates) {
+    if (!candidate) continue;
+    if (path.isAbsolute(candidate)) {
+      if (fs.existsSync(candidate)) return candidate;
+      continue;
+    }
+    // Имя без пути ищется в PATH — как это сделал бы пользователь.
+    const dirs = (process.env.PATH || '').split(path.delimiter);
+    for (const dir of dirs) {
+      if (!dir) continue;
+      for (const name of process.platform === 'win32' ? [`${candidate}.exe`, candidate] : [candidate]) {
+        const full = path.join(dir, name);
+        if (fs.existsSync(full)) return full;
+      }
+    }
   }
   return null;
 }

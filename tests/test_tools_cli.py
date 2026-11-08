@@ -31,13 +31,24 @@ def test_tool_help_is_safe_and_successful(tool: str) -> None:
         [sys.executable, str(ROOT / "tools" / tool), "--help"],
         cwd=ROOT,
         capture_output=True,
-        text=True,
+        encoding="utf-8",
+        errors="replace",
         timeout=15,
         check=False,
     )
 
     assert result.returncode == 0, result.stderr or result.stdout
-    assert "usage:" in result.stdout.lower()
+    # На Windows консоль может отдать кириллицу в cp1251, и `text=True`
+    # возвращает None вместо строки — это не пустой --help, а кодировка.
+    assert "usage:" in _output(result).lower()
+
+
+def _output(result: subprocess.CompletedProcess) -> str:
+    """stdout инструмента строкой: None или байты после сбоя декодирования — не повод падать."""
+    out = result.stdout
+    if isinstance(out, bytes):
+        out = out.decode("utf-8", "replace")
+    return out or ""
 
 
 def test_readiness_package_help_is_safe() -> None:
@@ -46,10 +57,11 @@ def test_readiness_package_help_is_safe() -> None:
         [sys.executable, "-m", "tools.readiness", "--help"],
         cwd=ROOT,
         capture_output=True,
-        text=True,
+        encoding="utf-8",
+        errors="replace",
         timeout=15,
         check=False,
     )
 
     assert result.returncode == 0, result.stderr or result.stdout
-    assert "usage:" in result.stdout.lower()
+    assert "usage:" in _output(result).lower()

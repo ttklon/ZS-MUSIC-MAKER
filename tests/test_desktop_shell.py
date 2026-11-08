@@ -23,11 +23,14 @@ NODE = shutil.which("node")
 
 
 def _run_node(args: list[str], timeout: int = 300) -> subprocess.CompletedProcess:
+    # Кодировка указана явно: на Windows вывод Node с русскими названиями
+    # тестов иначе декодируется как cp1251 и превращается в None.
     return subprocess.run(
         [NODE, *args],
         cwd=DESKTOP,
         capture_output=True,
-        text=True,
+        encoding="utf-8",
+        errors="replace",
         timeout=timeout,
         check=False,
     )
@@ -69,10 +72,15 @@ def test_shell_suite_passes() -> None:
     files = sorted(f"test/{p.name}" for p in (DESKTOP / "test").glob("*.test.js"))
     assert files, "в desktop/test нет ни одного файла *.test.js"
     run = _run_node(["--test", *files])
+    # Node может ответить без stdout (упал до запуска тестов, или вывод не
+    # декодировался в cp1251 на Windows). Падение должно называть причину,
+    # а не ``argument of type 'NoneType' is not iterable``.
+    stdout = run.stdout if isinstance(run.stdout, str) else (run.stdout or b"").decode("utf-8", "replace")
+    stderr = run.stderr if isinstance(run.stderr, str) else (run.stderr or b"").decode("utf-8", "replace")
     assert run.returncode == 0, (
-        "JS-тесты оболочки упали:\n" + run.stdout[-3000:] + run.stderr[-2000:]
+        f"JS-тесты оболочки упали (node rc={run.returncode}):\n" + stdout[-3000:] + stderr[-2000:]
     )
-    assert "# fail 0" in run.stdout, run.stdout[-1500:]
+    assert "# fail 0" in stdout, stdout[-1500:] or "node --test не вернул stdout"
 
 
 @pytest.mark.skipif(NODE is None, reason="Node.js не установлен в окружении")
