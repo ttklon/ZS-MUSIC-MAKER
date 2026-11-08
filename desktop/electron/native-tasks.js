@@ -46,7 +46,7 @@ function checkFile(fsApi, root, relative, label, validate, format = 'json') {
 }
 
 /** 1. Файлы, без которых окно показывает пустые разделы. */
-function projectCheck({ root, fsApi = createNodeFs() }) {
+function projectCheck({ root, fsApi = createNodeFs(), dossierDir = null }) {
   const lines = [];
   const results = [
     checkFile(fsApi, root, 'version.json', 'версия', (value) => (value && value.version ? null : 'нет поля version')),
@@ -72,14 +72,16 @@ function projectCheck({ root, fsApi = createNodeFs() }) {
   for (const item of results) lines.push(line(item.line));
 
   // Каталоги: наличие проверяется отдельно, потому что это не JSON.
-  for (const [relative, label] of [
-    ['data/genre_presets', 'пресеты жанров'],
-    ['data/artist_dossier', 'каталог досье'],
-  ]) {
-    const listing = fsApi.listDir(path.join(root, relative));
-    if (listing.error) lines.push(line(`ПРОБЛЕМА ${label}: нет ${relative} (${listing.error})`));
-    else lines.push(line(`OK ${label}: ${relative}, файлов ${listing.entries.length}`));
-  }
+  const presets = fsApi.listDir(path.join(root, 'data', 'genre_presets'));
+  if (presets.error) lines.push(line(`ПРОБЛЕМА пресеты жанров: нет data/genre_presets (${presets.error})`));
+  else lines.push(line(`OK пресеты жанров: data/genre_presets, файлов ${presets.entries.length}`));
+
+  // Каталог досье в установленной сборке лежит не в проекте, а в каталоге
+  // пользователя: проверяем именно тот, куда приложение пишет.
+  const dossiers = fsApi.listDir(dossierDir || path.join(root, 'data', 'artist_dossier'));
+  const where = dossierDir ? 'каталог пользователя' : 'data/artist_dossier';
+  if (dossiers.error) lines.push(line(`ПРОБЛЕМА каталог досье: ${where} (${dossiers.error})`));
+  else lines.push(line(`OK каталог досье: ${where}, записей ${dossiers.entries.length}`));
 
   const failed = lines.filter((text) => text.startsWith('ПРОБЛЕМА')).length;
   lines.push(line(failed ? `итог: проблем ${failed}` : 'итог: проблем нет'));
@@ -107,7 +109,7 @@ function readinessCheck({ project }) {
 }
 
 /** 3. Досье: артисты, треки, что ещё не разобрано. */
-function dossierCheck({ root, project, fsApi = createNodeFs() }) {
+function dossierCheck({ root, project, fsApi = createNodeFs(), dossierDir = null }) {
   const lines = [];
   const dossierTracks = require('../src/core/dossier-tracks');
   const list = project.dossiers();
@@ -117,7 +119,7 @@ function dossierCheck({ root, project, fsApi = createNodeFs() }) {
   let pending = 0;
   let analyzed = 0;
   for (const artist of list.artists) {
-    const read = dossierTracks.listTracks(fsApi, root, artist.slug);
+    const read = dossierTracks.listTracks(fsApi, root, artist.slug, dossierDir ? { dataDir: dossierDir } : {});
     // Отсутствие `tracks/` — не поломка: каталог создаётся при первом треке
     // (так же ведёт себя Python-менеджер). Проблема — нечитаемый файл.
     for (const message of read.errors) {
@@ -174,16 +176,19 @@ function nativeTaskList() {
  * @param {string} params.key
  * @param {object} params.project  модель проекта (`src/core/project`)
  * @param {string} params.root
+ * @param {string} [params.dossierDir] каталог досье для записи (установленная сборка)
  * @param {object} [params.fileSystem]
  * @param {Function} [params.onEvent] получает `{type: 'stdout'|'stderr'}`
  * @returns {{ok: boolean, lines: string[], error?: string}}
  */
-function runNativeTask({ key, project, root, fileSystem = createNodeFs(), onEvent = () => {} }) {
+function runNativeTask({
+  key, project, root, fileSystem = createNodeFs(), dossierDir = null, onEvent = () => {},
+}) {
   const task = NATIVE_TASKS[key];
   if (!task) return { ok: false, lines: [], error: `неизвестная задача: ${key}` };
   let result;
   try {
-    result = task.run({ root, project, fsApi: fileSystem });
+    result = task.run({ root, project, fsApi: fileSystem, dossierDir });
   } catch (err) {
     const message = err && err.message ? err.message : String(err);
     onEvent({ type: 'stderr', line: message });

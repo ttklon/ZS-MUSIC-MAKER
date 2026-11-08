@@ -120,3 +120,43 @@ test('нативная задача не запускает процессов',
   const source = fs.readFileSync(path.join(__dirname, '..', 'electron', 'native-tasks.js'), 'utf8');
   assert.doesNotMatch(source, /child_process|spawn\(|exec\(/);
 });
+
+test('каталог досье для проверки берётся из аргумента, а не из проекта', () => {
+  // В установленной сборке досье лежит в каталоге пользователя: проверка
+  // файлов не должна искать его в Program Files и писать «нет каталога».
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'zsmm-native-user-'));
+  const userDir = fs.mkdtempSync(path.join(os.tmpdir(), 'zsmm-native-userdata-'));
+  fs.mkdirSync(path.join(root, 'config'), { recursive: true });
+  fs.writeFileSync(path.join(root, 'version.json'), '{"version":"1.0.0"}');
+  fs.writeFileSync(
+    path.join(root, 'config', 'genres_100.json'),
+    JSON.stringify({ a: Array.from({ length: 120 }, (_, i) => `G${i}`) }),
+  );
+  fs.mkdirSync(path.join(root, 'data', 'desktop'), { recursive: true });
+  fs.writeFileSync(path.join(root, 'data', 'desktop', 'inventory.md'), `| x |\n${'| y |\n'.repeat(20)}`);
+  fs.mkdirSync(path.join(root, 'data', 'samples'), { recursive: true });
+  fs.writeFileSync(
+    path.join(root, 'data', 'samples', 'manifest.json'),
+    JSON.stringify({ instruments: { kick: [{ file: 'a.wav' }] } }),
+  );
+  fs.mkdirSync(path.join(root, 'data', 'genre_presets'), { recursive: true });
+  dossier.addArtist(createNodeFs(), root, { artist: 'Пользовательский' }, { dataDir: userDir });
+
+  // Проект читает досье из того же каталога, что и каналы приложения.
+  const project = createProject(createNodeFs(), root, { dossierDir: userDir });
+  const result = native.runNativeTask({
+    key: 'native-files', project, root, dossierDir: userDir,
+  });
+  const text = result.lines.join('\n');
+  assert.match(text, /OK каталог досье: каталог пользователя/);
+  assert.doesNotMatch(text, /ПРОБЛЕМА каталог досье/);
+
+  // И сводка по досье читает тот же каталог.
+  const summary = native.runNativeTask({
+    key: 'native-dossier', project, root, dossierDir: userDir,
+  });
+  assert.match(summary.lines.join('\n'), /Пользовательский/);
+
+  fs.rmSync(root, { recursive: true, force: true });
+  fs.rmSync(userDir, { recursive: true, force: true });
+});

@@ -187,6 +187,7 @@ function registerIpc(getProject) {
           key,
           project,
           root: ROOT || path.resolve(__dirname, '..', '..'),
+          dossierDir: dossierPlan().source === 'user' ? dossierPlan().dir : null,
           onEvent: send,
         });
         send({ type: 'exit', code: result.ok ? 0 : 1, signal: null, timedOut: false });
