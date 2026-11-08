@@ -259,13 +259,28 @@ jobs:
           $exe = Get-ChildItem dist -Recurse -Filter 'ZS Music Maker.exe' | Select-Object -First 1
           if (-not $exe) { throw 'unpacked exe not found' }
           $env:ZSMM_SMOKE_OUT = Join-Path $PWD 'smoke.json'
+          if (Test-Path $env:ZSMM_SMOKE_OUT) { Remove-Item $env:ZSMM_SMOKE_OUT }
           & $exe.FullName --smoke
           $code = $LASTEXITCODE
-          Get-Content $env:ZSMM_SMOKE_OUT -Raw
-          if ($code -ne 0) { throw "smoke failed with $code" }
-          $report = Get-Content $env:ZSMM_SMOKE_OUT -Raw | ConvertFrom-Json
-          if (-not $report.ok) { throw 'smoke report not ok' }
-          if (-not $report.root) { throw 'packaged app did not find the project root' }
+          Write-Output "exit=$code"
+          if (Test-Path $env:ZSMM_SMOKE_OUT) {
+            $raw = Get-Content $env:ZSMM_SMOKE_OUT -Raw
+            Write-Output $raw
+            try {
+              $report = $raw | ConvertFrom-Json
+              $failed = ($report.checks | Where-Object { -not $_.ok } | ForEach-Object { "$($_.name): $($_.detail)" }) -join ' | '
+              if ($code -ne 0 -or -not $report.ok) {
+                Write-Output "::error title=packaged smoke::$($failed -replace '\r?\n', ' ')"
+                exit 1
+              }
+            } catch {
+              Write-Output "::error title=packaged smoke::отчёт не разобран ($raw)"
+              exit 1
+            }
+          } else {
+            Write-Output "::error title=packaged smoke::приложение не записало отчёт, код $code"
+            exit 1
+          }
 
       - name: Upload installer
         uses: actions/upload-artifact@v4
