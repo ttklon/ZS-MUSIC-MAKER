@@ -79,6 +79,11 @@
   синтаксис всех 49 файлов окна и главного процесса, включая вынесенные
   `bar.js`, `master.js`, `vocal.js`, `vocal-mix.js`, `takes.js`, `hook.js`,
   `tuning.js`, `dossier-edit.js` (раньше они выпадали из проверки).
+- **Свойства файла EXE заполнены.** `signAndEditExecutable: false` выключал
+  не только подпись (её и нет), но и правку ресурсов: в свойствах
+  `ZS Music Maker.exe` не было ни версии, ни описания. Флаг убран, `rcedit`
+  отрабатывает на `windows-latest`; подписи по-прежнему нет, и это сказано в
+  «Справке» и README. Проверка: `desktop/test/packaging.test.js`.
 - **Досье пишется туда, где можно писать (исправление для установленной
   сборки).** NSIS-установщик кладёт данные в
   `C:\Program Files\ZS Music Maker\resources\project`, а этот каталог

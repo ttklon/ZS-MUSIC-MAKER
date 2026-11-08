@@ -32,6 +32,25 @@ test('описание сборки Windows 11 на месте', () => {
   assert.equal(pkg.build.nsis.allowToChangeInstallationDirectory, true);
 });
 
+test('в свойствах EXE будет версия и описание', () => {
+  // `signAndEditExecutable: false` выключал не только подпись, но и правку
+  // ресурсов: в свойствах файла не было ни версии, ни названия. Подписи у нас
+  // нет, а метаданные — есть: rcedit работает на windows-latest.
+  assert.notEqual(pkg.build.win.signAndEditExecutable, false, 'правка ресурсов EXE не должна быть выключена');
+  assert.equal(pkg.build.win.icon, 'build/icon.ico');
+  assert.ok(pkg.build.copyright, 'нужен copyright для свойств файла');
+  assert.ok(pkg.description && pkg.description.length > 10, 'нужно описание для свойств файла');
+  // Подписи кода по-прежнему нет — и это сказано в README и в «Справке».
+  assert.equal(pkg.build.win.signingHashAlgorithms, undefined);
+});
+
+test('productName и artifactName дают имя файла без пробелов', () => {
+  // Установщик и portable EXE названы через productName; пробелы в ссылке на
+  // релиз превращаются в %20, и «скачать» ломается у копирующих ссылку.
+  assert.match(pkg.build.nsis.artifactName, /^ZS-Music-Maker-Setup-\$\{version\}\.\$\{ext\}$/);
+  assert.match(pkg.build.portable.artifactName, /^ZS-Music-Maker-\$\{version\}-portable\.\$\{ext\}$/);
+});
+
 test('поток рендера не остаётся внутри app.asar', () => {
   // worker_threads запускается по пути к файлу: внутри архива его нет.
   assert.ok(pkg.build.asarUnpack.includes('electron/**'), 'electron/** должен быть распакован');

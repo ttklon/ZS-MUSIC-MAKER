@@ -87,7 +87,7 @@
       ],
       "icon": "build/icon.ico",
       "artifactName": "${productName}-${version}-win-${arch}.${ext}",
-      "signAndEditExecutable": false
+      "legalTrademarks": ""
     },
     "nsis": {
       "oneClick": false,
