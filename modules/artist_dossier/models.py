@@ -32,3 +32,8 @@ class ArtistEntry:
     dossier: Dict[str, Any] = field(default_factory=dict)
     added_at: float = 0.0
     updated_at: float = 0.0
+    # Заметка — часть записи, а не досье: окно Electron создаёт артиста с
+    # пояснением («из окна», «демо из поставки»), и без этого поля запись
+    # читалась только окном. Пустое значение не пишется в файл, поэтому
+    # формат старых `artist.json` не меняется.
+    note: Optional[str] = None

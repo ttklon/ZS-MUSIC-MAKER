@@ -111,6 +111,14 @@ function addArtist(fsApi, root, { artist, note = null } = {}) {
   };
   const written = fsApi.writeText(artistFile, `${JSON.stringify(payload, null, 2)}\n`);
   if (written.error) return { ok: false, error: `не удалось записать ${artistFile}: ${written.error}` };
+  // Python-менеджер (`modules/artist_dossier/manager.py`) при сборке досье
+  // перезаписывает `artist.json` и ждёт каталоги `tracks/` и `lyrics/`.
+  // Раньше их создавал только он, и запись, созданная окном, отличалась от
+  // записи Python: `add_track` падал на отсутствующем каталоге.
+  for (const sub of ['tracks', 'lyrics']) {
+    const made = fsApi.writeText(path.join(artistDir, sub, '.gitkeep'), '');
+    if (made.error) return { ok: false, error: `не удалось создать ${sub}/: ${made.error}` };
+  }
   return {
     ok: true,
     data: { artist: name, slug, path: artistFile, tracks: 0, hasDossier: false },

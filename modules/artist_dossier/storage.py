@@ -40,9 +40,21 @@ def save_artist(root: Path, entry: ArtistEntry) -> None:
             )
     path = _artist_path(root, entry.slug)
     path.parent.mkdir(parents=True, exist_ok=True)
+    payload = asdict(entry)
+    # Пустая заметка не пишется: файл остаётся ровно таким, каким его ждал
+    # формат до появления поля.
+    if not payload.get("note"):
+        payload.pop("note", None)
     path.write_text(
-        json.dumps(asdict(entry), ensure_ascii=False, indent=2), encoding="utf-8"
+        json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
     )
+
+
+# Поля записи артиста. Файл могут писать не только Python-менеджер и окно:
+# `data/artist_dossier/<slug>/artist.json` правится руками, а окно Electron
+# кладёт рядом `note`. Раньше `ArtistEntry(**payload)` падал на любом лишнем
+# поле с `TypeError`, и один такой файл ломал список ВСЕХ артистов.
+_ARTIST_FIELDS = ("artist", "slug", "tracks", "dossier", "added_at", "updated_at", "note")
 
 
 def load_artist(root: Path, slug: str) -> Optional[ArtistEntry]:
@@ -54,6 +66,15 @@ def load_artist(root: Path, slug: str) -> Optional[ArtistEntry]:
     payload.setdefault("dossier", {})
     payload.setdefault("added_at", 0.0)
     payload.setdefault("updated_at", 0.0)
+    # Лишние поля не переносим в запись, но и не роняем чтение: они остаются
+    # в файле, а сохранение пишет заново только известные поля.
+    payload = {key: payload[key] for key in _ARTIST_FIELDS if key in payload}
+    payload.setdefault("artist", slug)
+    payload.setdefault("slug", slug)
+    # `note` остаётся строкой или None: иначе окно получит объект и покажет
+    # «[object Object]» вместо пояснения.
+    if payload.get("note") is not None and not isinstance(payload["note"], str):
+        payload.pop("note", None)
     if payload["dossier"] and not is_deferred_artist_dossier(payload["dossier"]):
         payload["dossier"] = normalize_artist_dossier(payload["dossier"])
         quality = validate_artist_dossier(payload["dossier"])

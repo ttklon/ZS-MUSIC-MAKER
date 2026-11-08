@@ -62,6 +62,39 @@ test('артист добавляется в формате Python-менедж�
   fs.rmSync(root, { recursive: true, force: true });
 });
 
+test('окно создаёт ту же структуру каталога, что ждёт Python', () => {
+  const root = makeRoot();
+  const fsApi = createNodeFs();
+  const added = dossier.addArtist(fsApi, root, { artist: 'Структура' });
+  assert.equal(added.ok, true, added.error);
+  const dir = path.join(root, 'data', 'artist_dossier', 'структура');
+  for (const sub of ['tracks', 'lyrics']) {
+    assert.ok(fs.existsSync(path.join(dir, sub)), `нет каталога ${sub}/: Python-менеджер его ждёт`);
+  }
+  fs.rmSync(root, { recursive: true, force: true });
+});
+
+test('запись из окна читается правилами Python-формата', () => {
+  // Файл пишет окно, а читает его и окно, и Python. Здесь проверяется
+  // формальная сторона: только известные поля записи и `note` строкой, иначе
+  // Python-менеджер (`ArtistEntry(**payload)`) не прочитает артиста.
+  const root = makeRoot();
+  const fsApi = createNodeFs();
+  dossier.addArtist(fsApi, root, { artist: 'Формат', note: 'из окна' });
+  const stored = JSON.parse(
+    fs.readFileSync(path.join(root, 'data', 'artist_dossier', 'формат', 'artist.json'), 'utf8'),
+  );
+  for (const key of Object.keys(stored)) {
+    assert.ok(
+      ['artist', 'slug', 'added_at', 'updated_at', 'tracks', 'dossier', 'note'].includes(key),
+      `лишнее поле в artist.json: ${key}`,
+    );
+  }
+  assert.equal(typeof stored.note, 'string');
+  assert.equal(typeof stored.added_at, 'number');
+  fs.rmSync(root, { recursive: true, force: true });
+});
+
 test('повтор и слишком короткое имя отклоняются с текстом, а не молча', () => {
   const root = makeRoot();
   const fsApi = createNodeFs();

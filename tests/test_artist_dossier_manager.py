@@ -475,6 +475,57 @@ class TestPersistence:
 
         assert payload["artist"] == "Kalash" and payload["slug"] == "kalash"
 
+    def test_artist_written_by_desktop_window_is_readable(self, fake_env) -> None:
+        """`artist.json`, созданный окном Electron, читается менеджером.
+
+        Окно пишет запись само (Питон для этого не нужен) и кладёт рядом
+        `note` — пояснение для человека. Раньше `ArtistEntry(**payload)`
+        падал на этом поле с `TypeError`, и один такой файл ломал список
+        ВСЕХ артистов, включая демо-артиста из поставки.
+        """
+        slug_dir = fake_env["root"] / "window_artist"
+        slug_dir.mkdir(parents=True, exist_ok=True)
+        (slug_dir / "artist.json").write_text(
+            json.dumps(
+                {
+                    "artist": "Window Artist",
+                    "slug": "window_artist",
+                    "added_at": 1.0,
+                    "updated_at": 1.0,
+                    "tracks": [],
+                    "dossier": {},
+                    "note": "создан в окне",
+                },
+                ensure_ascii=False,
+            ),
+            encoding="utf-8",
+        )
+
+        dm = mgr.DossierManager()
+        entry = dm._load_artist("window_artist")
+
+        assert entry is not None
+        assert entry.artist == "Window Artist"
+        assert entry.note == "создан в окне"
+        # Список артистов не должен падать из-за одного файла.
+        assert "window_artist" in [item["slug"] for item in dm.list_artists()]
+
+    def test_unknown_fields_do_not_break_loading(self, fake_env) -> None:
+        """Ручная правка `artist.json` не должна ронять чтение."""
+        slug_dir = fake_env["root"] / "ручной_артист"
+        slug_dir.mkdir(parents=True, exist_ok=True)
+        (slug_dir / "artist.json").write_text(
+            json.dumps(
+                {"artist": "Ручной", "slug": "ручной_артист", "unknown_field": {"x": 1}},
+                ensure_ascii=False,
+            ),
+            encoding="utf-8",
+        )
+
+        entry = mgr.DossierManager()._load_artist("ручной_артист")
+
+        assert entry is not None and entry.artist == "Ручной"
+
     def test_saved_artist_with_bad_dossier_is_refused(self, fake_env) -> None:
         dm = mgr.DossierManager()
         dm.add_artist("Kalash")
