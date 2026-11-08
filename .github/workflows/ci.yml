@@ -30,8 +30,8 @@ jobs:
       # берутся строки FAILED, и они попадают в annotation: иначе красный
       # прогон говорит только «exit code 1» и починить его нечем.
       run: |
-        python -m tools.pytest_isolated tests/ -q > /tmp/pytest.log 2>&1
-        status=$?
+        status=0
+        python -m tools.pytest_isolated tests/ -q > /tmp/pytest.log 2>&1 || status=$?
         tail -60 /tmp/pytest.log
         if [ "$status" -ne 0 ]; then
           detail=$(grep -E '^(FAILED|ERROR)|^E  ' /tmp/pytest.log | head -15 | tr '\n' '|')
@@ -73,8 +73,8 @@ jobs:
       run: python tools/ast_dead_imports.py
     - name: Pytest
       run: |
-        python -m tools.pytest_isolated tests/ -q > /tmp/pytest.log 2>&1
-        status=$?
+        status=0
+        python -m tools.pytest_isolated tests/ -q > /tmp/pytest.log 2>&1 || status=$?
         tail -60 /tmp/pytest.log
         if [ "$status" -ne 0 ]; then
           detail=$(grep -E '^(FAILED|ERROR)|^E  ' /tmp/pytest.log | head -15 | tr '\n' '|')
@@ -110,8 +110,8 @@ jobs:
     - name: Pytest
       shell: bash
       run: |
-        python -m tools.pytest_isolated tests/ -q -p no:cacheprovider > pytest.log 2>&1
-        status=$?
+        status=0
+        python -m tools.pytest_isolated tests/ -q -p no:cacheprovider > pytest.log 2>&1 || status=$?
         tail -60 pytest.log
         if [ "$status" -ne 0 ]; then
           detail=$(grep -E '^(FAILED|ERROR)|^E  ' pytest.log | head -15 | tr '\n' '|')
