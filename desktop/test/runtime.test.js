@@ -119,3 +119,28 @@ test('без Python возвращается текст с объяснение�
   assert.match(result.error, /рендер бита\s+работает/);
   assert.match(result.error, /ZSMM_PYTHON/);
 });
+
+test('корень пайплайна проверяется по коду, а не по данным', () => {
+  const fs = require('node:fs');
+  const os = require('node:os');
+  const { resolvePipelineRoot } = require('../electron/runtime');
+
+  // Установщик: данные проекта есть, main.py нет.
+  const dataOnly = fs.mkdtempSync(path.join(os.tmpdir(), 'zsmm-data-only-'));
+  fs.writeFileSync(path.join(dataOnly, 'version.json'), '{}');
+  const missing = resolvePipelineRoot({ root: dataOnly });
+  assert.equal(missing.root, null);
+  assert.match(missing.error, /main\.py/);
+  // Сообщение должно объяснять выход, а не просто «нет».
+  assert.match(missing.error, /ZSMM_PIPELINE_ROOT/);
+
+  // Репозиторий: main.py и app/ на месте.
+  const repo = path.resolve(__dirname, '..', '..');
+  assert.equal(resolvePipelineRoot({ root: repo }).root, repo);
+
+  // Переопределение через переменную окружения.
+  const overridden = resolvePipelineRoot({ root: dataOnly, env: { ZSMM_PIPELINE_ROOT: repo } });
+  assert.equal(overridden.root, repo);
+
+  fs.rmSync(dataOnly, { recursive: true, force: true });
+});

@@ -38,6 +38,10 @@ async function loadRun() {
       if (reply && reply.ok === true) {
         state.python = reply.data.python || null;
         state.pythonError = reply.data.python_error || null;
+        // Пайплайн и интерпретатор — разные условия: в установщике есть
+        // только данные проекта, и `python main.py` там просто нет.
+        state.pipeline = reply.data.pipeline_root || null;
+        state.pipelineError = reply.data.pipeline_error || null;
       }
     } catch (err) {
       state.pythonError = `окружение недоступно: ${err.message}`;
@@ -119,6 +123,13 @@ function updatePythonNote() {
     : null;
   if (selected && selected.native) {
     note.textContent = 'Эту задачу считает само окно: Python не нужен.';
+    return;
+  }
+  if (state.python && !state.pipeline) {
+    // Худший случай для доверия: интерпретатор есть, а запускать нечего.
+    note.textContent = `Python найден (${state.python}), но ${(state.pipelineError || 'пайплайн не найден')
+      .replace(/\.$/, '')
+      .replace(/^П/, 'п')}`;
     return;
   }
   if (state.python) {

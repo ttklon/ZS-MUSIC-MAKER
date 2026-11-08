@@ -141,4 +141,44 @@ function resolvePython({ root = null, env = process.env, platform = process.plat
   };
 }
 
-module.exports = { ROOT_MARKERS, hasMarkers, rootCandidates, resolveRoot, resolvePython, findInPath };
+/**
+ * Корень для задач Python.
+ *
+ * Данные проекта (`resources/project`: version.json, конфиг жанров, сэмплы) и
+ * код пайплайна (`main.py`, `app/`, `modules/`) — разные вещи. В установщик
+ * попадают только данные, поэтому `python <root>/main.py` упал бы с «can't
+ * open file», а окно уже сказало бы «Python найден» — то есть соврало бы.
+ *
+ * Здесь корень проверяется по маркерам кода, а не только данных.
+ *
+ * @returns {{root: string|null, error: string|null}}
+ */
+function resolvePipelineRoot({ root = null, env = process.env, exists = (p) => fs.existsSync(p) } = {}) {
+  const candidates = [env.ZSMM_PIPELINE_ROOT, root, env.ZSMM_ROOT].filter(Boolean);
+  for (const candidate of candidates) {
+    try {
+      if (exists(path.join(candidate, 'main.py')) && exists(path.join(candidate, 'app'))) {
+        return { root: candidate, error: null };
+      }
+    } catch {
+      /* недоступный путь — пробуем следующий */
+    }
+  }
+  return {
+    root: null,
+    error: 'Пайплайн на Python в поставку не входит: в установщике есть только '
+      + 'данные проекта, а main.py и app/ остаются в репозитории. Укажите '
+      + 'ZSMM_PIPELINE_ROOT=путь к копии репозитория (или запускайте из него). '
+      + 'Рендер бита, жанры, досье и три задачи без Python работают всегда.',
+  };
+}
+
+module.exports = {
+  ROOT_MARKERS,
+  hasMarkers,
+  rootCandidates,
+  resolveRoot,
+  resolvePipelineRoot,
+  resolvePython,
+  findInPath,
+};

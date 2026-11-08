@@ -20,10 +20,9 @@ const { createNodeFs } = require('../src/core/fs-node');
 const { createProject } = require('../src/core/project');
 const beatService = require('./beat-service');
 const smoke = require('./smoke');
-const { resolveRoot, resolvePython } = require('./runtime');
+const { resolveRoot, resolvePython, resolvePipelineRoot } = require('./runtime');
 const { createSettingsStore, DEFAULTS } = require('./settings');
-const tasks = require('./tasks');
-const nativeTasks = require('./native-tasks');
+const { registerTaskIpc } = require('./task-runner');
 const policy = require('./window-policy');
 const appMenu = require('./app-menu');
 const appPaths = require('./app-paths');
@@ -53,7 +52,8 @@ const SAMPLE_ROOT = ROOT;
 
 let windows = null;
 let project = null;
-let activeTask = null;
+// Запущенная задача живёт здесь: её видит и `task-runner.js`, и выход.
+const taskState = { activeTask: null, dossierDir: null };
 let settingsStore = null;
 
 function settings() {
@@ -141,98 +141,18 @@ function registerIpc(getProject) {
     dataDir: dossierPlan().source === 'user' ? dossierPlan().dir : null,
   });
 
-  ipcMain.handle('zsmm:tasks', () => ({ ok: true, data: tasks.taskList() }));
-
-  // Рендер, банк и сохранения бита живут в beat-service.js. Отсюда передаём
-  // только то, что умеет Electron: диалоги и путь к каталогу музыки.
-  beatService.registerBeatIpc({
+  // Запуск задач — в `task-runner.js`: там же проверка, что пайплайн на
+  // месте (в установщике есть только данные проекта), и одна активная
+  // задача на окно.
+  // `dossierDir` нужен нативной сводке по досье: в установленной сборке она
+  // читает каталог пользователя, а не `resources/project`.
+  taskState.dossierDir = dossierPlan().source === 'user' ? dossierPlan().dir : null;
+  registerTaskIpc({
     ipcMain,
-    dialog,
-    rootDir: SAMPLE_ROOT || path.resolve(__dirname, '..', '..'),
-    getWindow: () => (windows ? windows.get() : null),
-    musicDir: safeMusicDir,
-    // Открытие готового WAV в системном плеере: `shell.openPath` — то же,
-    // что двойной щелчок по файлу в проводнике Windows.
-    openPath: async (file) => {
-      const error = await shell.openPath(file);
-      return error || null;
-    },
-    // Прогресс рендера виден и в панели задач: свёрнутое окно иначе выглядит
-    // зависшим. Значение считает window-policy (там же и тест).
-    onProgressSender: (event, progress) => {
-      if (windows) windows.showTaskbarProgress(progress);
-      if (event && event.sender && !event.sender.isDestroyed()) {
-        event.sender.send('zsmm:beat-progress', progress);
-      }
-    },
-  });
-
-  ipcMain.handle('zsmm:task-start', async (event, { key, options } = {}) => {
-    if (activeTask) {
-      return { ok: false, error: 'уже выполняется другая задача: сначала остановите её' };
-    }
-    // Задачи без Python считает сам главный процесс (native-tasks.js): это
-    // чтение файлов и пересчёт готовности, а не движок. Поток событий тот же,
-    // что у задач Python, — окну не нужно знать разницу.
-    if (nativeTasks.NATIVE_TASKS[key]) {
-      const sender = event.sender;
-      if (!project) return { ok: false, error: 'проект не открыт' };
-      const send = (payload) => {
-        if (!sender.isDestroyed()) sender.send('zsmm:task-event', payload);
-      };
-      const task = nativeTasks.NATIVE_TASKS[key];
-      send({ type: 'start', command: [task.label], label: task.label });
-      try {
-        const result = nativeTasks.runNativeTask({
-          key,
-          project,
-          root: ROOT || path.resolve(__dirname, '..', '..'),
-          dossierDir: dossierPlan().source === 'user' ? dossierPlan().dir : null,
-          onEvent: send,
-        });
-        send({ type: 'exit', code: result.ok ? 0 : 1, signal: null, timedOut: false });
-        if (!sender.isDestroyed()) {
-          sender.send('zsmm:task-done', { ok: result.ok, code: result.ok ? 0 : 1, signal: null, timedOut: false });
-        }
-        return {
-          ok: true,
-          data: { pid: null, command: [task.label], native: true },
-        };
-      } catch (err) {
-        if (!sender.isDestroyed()) {
-          sender.send('zsmm:task-done', { ok: false, code: null, signal: null, timedOut: false });
-        }
-        return { ok: false, error: err.message };
-      }
-    }
-    const { python, error } = resolvePython({ root: ROOT, env: process.env });
-    if (!python) return { ok: false, error };
-    try {
-      const sender = event.sender;
-      activeTask = tasks.runTask({
-        key,
-        options: options || {},
-        python,
-        root: ROOT || path.resolve(__dirname, '..', '..'),
-        onEvent: (payload) => {
-          if (windows) windows.showTaskProgress(payload);
-          if (!sender.isDestroyed()) sender.send('zsmm:task-event', payload);
-        },
-      });
-      activeTask.done.then((result) => {
-        activeTask = null;
-        if (!sender.isDestroyed()) sender.send('zsmm:task-done', result);
-      });
-      return { ok: true, data: { pid: activeTask.pid, command: activeTask.command } };
-    } catch (err) {
-      activeTask = null;
-      return { ok: false, error: err.message };
-    }
-  });
-
-  ipcMain.handle('zsmm:task-stop', () => {
-    if (!activeTask) return { ok: false, error: 'нет запущенной задачи' };
-    return { ok: true, data: { stopped: activeTask.stop() } };
+    root: ROOT,
+    getProject,
+    getWindows: () => windows,
+    state: taskState,
   });
 
   ipcMain.handle('zsmm:reveal-root', async () => {
@@ -262,6 +182,7 @@ function registerIpc(getProject) {
   // после установки»: пути, наличие Python, каталог настроек.
   ipcMain.handle('zsmm:environment', () => {
     const python = resolvePython({ root: ROOT, env: process.env });
+    const pipeline = resolvePipelineRoot({ root: ROOT });
     return {
       ok: true,
       data: {
@@ -286,6 +207,10 @@ function registerIpc(getProject) {
           : 'каталог проекта: приложение запущено из репозитория',
         python: python.python,
         python_error: python.error,
+        // Пайплайн — отдельная вещь от интерпретатора: «Python есть» не
+        // значит «задачи раздела „Запуск“ заработают».
+        pipeline_root: pipeline.root,
+        pipeline_error: pipeline.error,
         platform: process.platform,
         arch: process.arch,
         electron: process.versions.electron || null,
@@ -370,12 +295,12 @@ app.whenReady().then(() => {
 
 app.on('window-all-closed', () => {
   // Дочерний процесс не должен переживать окно.
-  if (activeTask) activeTask.stop();
+  if (taskState.activeTask) taskState.activeTask.stop();
   if (policy.quitsOnAllWindowsClosed(process.platform)) app.quit();
 });
 
 app.on('before-quit', () => {
-  if (activeTask) activeTask.stop();
+  if (taskState.activeTask) taskState.activeTask.stop();
 });
 
 app.on('activate', () => {

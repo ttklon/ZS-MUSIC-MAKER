@@ -12,7 +12,7 @@ const path = require('node:path');
 
 const { renderBeatPayload } = require('./pipeline');
 const { createBankProvider } = require('./pipeline');
-const { resolvePython } = require('./runtime');
+const { resolvePython, resolvePipelineRoot } = require('./runtime');
 
 /**
  * Собрать отчёт о состоянии приложения.
@@ -145,6 +145,16 @@ async function runSmoke({
   // Python в собранном приложении не обязателен: это не провал сборки,
   // а состояние, о котором говорит «Диагностика».
   push('Python для задач', true, python.python || 'не найден (не обязателен)');
+
+  // Отдельно от интерпретатора: в установщик входит только data-часть
+  // проекта, и `python main.py` там запускать нечего — окно обязано это
+  // знать, иначе оно пообещает то, чего не сможет.
+  const pipeline = resolvePipelineRoot({ root, env });
+  push(
+    'пайплайн на Python',
+    true,
+    pipeline.root ? pipeline.root : 'не входит в поставку (задачи без Python работают)',
+  );
 
   return {
     ok: checks.every((check) => check.ok),

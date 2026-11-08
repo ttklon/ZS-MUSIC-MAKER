@@ -311,3 +311,33 @@ test('нативная задача запускается без Python и по
   document.getElementById('task-select').dispatch('change');
   assert.match(document.getElementById('task-python-note').textContent, /не найден/i);
 });
+
+test('Python есть, а пайплайна нет — раздел не обещает запуск', async (t) => {
+  const api = bridge({
+    environment: async () => ({
+      ok: true,
+      data: {
+        python: 'C:/Python311/python.exe',
+        python_error: null,
+        pipeline_root: null,
+        pipeline_error: 'Пайплайн на Python в поставку не входит: укажите ZSMM_PIPELINE_ROOT.',
+      },
+    }),
+  });
+  const { document } = bootWindow(api);
+  t.after(() => {
+    delete global.window;
+    delete global.document;
+  });
+  await flush();
+  const button = [...document.querySelectorAll('[data-view]')].find((b) => b.dataset.view === 'run');
+  button.dispatch('click');
+  await flush();
+  await flush();
+
+  const note = document.getElementById('task-python-note').textContent;
+  // Главное: окно не говорит «всё хорошо» на основании одного интерпретатора.
+  assert.match(note, /Python найден/);
+  assert.match(note, /не входит/);
+  assert.match(note, /ZSMM_PIPELINE_ROOT/);
+});
