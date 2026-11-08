@@ -109,6 +109,11 @@ test('установщик публикуется в релиз, а не тол�
   const yaml = fs.readFileSync(path.join(ROOT, '.github', 'workflows', 'build.yml'), 'utf8');
   const publish = yaml.slice(yaml.indexOf('  publish-release:'));
   assert.match(publish, /softprops\/action-gh-release/);
+  // Версия приложения читается из desktop/package.json, значит репозиторий
+  // должен быть выкачан: без checkout шаг падал на отсутствующем файле.
+  const steps = publish.slice(0, publish.indexOf('read app version') > 0
+    ? publish.indexOf('Read app version') : publish.length);
+  assert.match(steps, /actions\/checkout@v4/, 'без checkout нет desktop/package.json');
   // Публикация привязана к успеху сборки, а не к тегу: иначе ссылку на
   // установщик неоткуда взять, пока не выпущен тег.
   assert.match(publish, /needs\.desktop-windows\.result == 'success'/);
