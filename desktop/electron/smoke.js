@@ -86,6 +86,12 @@ async function runSmoke({
         vocal ? `${vocal.label}, ${vocal.mixed_seconds} с в миксе` : (withVocal.error || 'вокала нет в отчёте'),
       );
 
+      // Задачи без Python: раздел «Запуск» должен уметь хоть что-то в
+      // установленном приложении, где интерпретатора нет.
+      const nativeTasks = require('./native-tasks');
+      const files = nativeTasks.runNativeTask({ key: 'native-files', project, root });
+      push('проверка файлов без Python', files.ok === true, files.lines.at(-1) || 'нет вывода');
+
       // Досье читается и правится тем же кодом, что в окне. Пишем во
       // временный каталог: у установленного приложения `resources` может быть
       // только для чтения, и smoke не должен ничего ломать.

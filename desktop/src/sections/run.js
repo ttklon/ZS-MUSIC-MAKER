@@ -69,6 +69,9 @@ async function loadRun() {
   if (!loadRun.wired) {
     loadRun.wired = true;
     $('task-start').addEventListener('click', startTask);
+    // Подпись про Python зависит от выбранной задачи: окно умеет три задачи
+    // само, и предупреждение не должно висеть над ними.
+    $('task-select').addEventListener('change', () => updatePythonNote());
     $('task-stop').addEventListener('click', () => {
       window.zsmm.stopTask().then((reply) => {
         if (!reply || reply.ok !== true) showError((reply && reply.error) || 'не удалось остановить');
@@ -108,6 +111,16 @@ async function loadRun() {
 function updatePythonNote() {
   const note = $('task-python-note');
   if (!note) return;
+  // Задачи без Python (проверка файлов, пересчёт готовности, сводка по досье)
+  // считает само окно: предупреждение к ним не относится, иначе человек
+  // решит, что не работает вообще ничего.
+  const selected = Array.isArray(state.tasks)
+    ? state.tasks.find((task) => task && task.key === $('task-select').value)
+    : null;
+  if (selected && selected.native) {
+    note.textContent = 'Эту задачу считает само окно: Python не нужен.';
+    return;
+  }
   if (state.python) {
     note.textContent = `Python найден: ${state.python}. Задача запускается тем же CLI, что в терминале.`;
     return;
@@ -146,7 +159,8 @@ async function startTask() {
     showError((reply && reply.error) || 'задача не запустилась');
     return;
   }
-  setTaskStatus(`Запущено: ${reply.data.command.join(' ')} (pid ${reply.data.pid})`, true);
+  const pid = reply.data.pid ? ` (pid ${reply.data.pid})` : '';
+  setTaskStatus(`Запущено: ${reply.data.command.join(' ')}${pid}`, true);
 }
 
 W.loadRun = loadRun;

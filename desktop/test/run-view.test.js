@@ -268,3 +268,46 @@ test('без Python раздел «Запуск» говорит об этом �
   // И кнопка не спрятана: пользователь должен видеть, что она есть.
   assert.equal(document.getElementById('task-start').disabled, false);
 });
+
+test('нативная задача запускается без Python и подпись это говорит', async (t) => {
+  const api = bridge({
+    // Python «не найден» — а задача всё равно должна работать.
+    environment: async () => ({ ok: true, data: { python: null, python_error: 'Python не найден' } }),
+    listTasks: async () => ({ ok: true, data: [
+      { key: 'native-files', label: 'Проверка файлов проекта (без Python)', accepts: [], native: true },
+      { key: 'readiness', label: 'Готовность через Python', accepts: [] },
+    ] }),
+    startTask: async (key) => ({
+      ok: true,
+      data: { pid: null, command: ['Проверка файлов проекта (без Python)'], native: true },
+    }),
+  });
+  const { document } = bootWindow(api);
+  t.after(() => {
+    delete global.window;
+    delete global.document;
+  });
+  await flush();
+  const button = [...document.querySelectorAll('[data-view]')].find((b) => b.dataset.view === 'run');
+  button.dispatch('click');
+  await flush();
+  await flush();
+
+  // Выбрана нативная задача — про Python не предупреждаем.
+  document.getElementById('task-select').value = 'native-files';
+  document.getElementById('task-select').dispatch('change');
+  assert.match(document.getElementById('task-python-note').textContent, /Python не нужен/);
+
+  document.getElementById('task-start').dispatch('click');
+  await flush();
+  await flush();
+  const status = document.getElementById('task-status').textContent;
+  assert.match(status, /Запущено: Проверка файлов проекта/);
+  // pid у нативной задачи нет — окно не пишет «(pid null)».
+  assert.doesNotMatch(status, /pid/);
+
+  // Переключились на задачу Python — предупреждение вернулось.
+  document.getElementById('task-select').value = 'readiness';
+  document.getElementById('task-select').dispatch('change');
+  assert.match(document.getElementById('task-python-note').textContent, /не найден/i);
+});

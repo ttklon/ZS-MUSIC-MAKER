@@ -13,6 +13,8 @@
 const { spawn } = require('node:child_process');
 const path = require('node:path');
 
+const { nativeTaskList } = require('./native-tasks');
+
 /**
  * Разрешённые задачи. `args` — фиксированные флаги; пользователь может задать
  * только жанр/тему/сид, и они проходят проверку формата.
@@ -200,12 +202,19 @@ function runTask({ key, options = {}, python, root, env = process.env, onEvent =
   };
 }
 
+/**
+ * Полный список задач для окна: сначала те, что считает само окно, потом
+ * вызовы Python. `native: true` — окну не нужен интерпретатор, и оно не
+ * должно показывать рядом с ними предупреждение про Python.
+ */
 function taskList() {
-  return Object.entries(TASKS).map(([key, task]) => ({
+  const pythonTasks = Object.entries(TASKS).map(([key, task]) => ({
     key,
     label: task.label,
     accepts: [...task.accepts],
+    native: false,
   }));
+  return [...nativeTaskList(), ...pythonTasks];
 }
 
 module.exports = { TASKS, TaskError, runTask, buildCommand, sanitizeOptions, taskList };

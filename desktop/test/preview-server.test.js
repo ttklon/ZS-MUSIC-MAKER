@@ -84,7 +84,10 @@ test('шим отдаёт настоящие данные проекта и не
 
   assert.equal(response.status, 200);
   assert.match(response.body, /zsmm/);
-  assert.match(response.body, /задачи запускает только приложение Electron/);
+  // Задачи Python в браузере не запускаются — сказано текстом; нативные
+  // задачи при этом работают, иначе предпросмотр показывал бы мёртвый раздел.
+  assert.match(response.body, /задачи Python запускает только приложение Electron/);
+  assert.match(response.body, /native-files/);
   assert.doesNotMatch(response.body, /require\(|child_process/);
 });
 

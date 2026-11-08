@@ -50,12 +50,27 @@ function shim(project) {
   window.zsmm = {
     ${Object.keys(payload).map((name) => `${name}: () => Promise.resolve(reply('${name}')),`).join('\n    ')}
     listTasks: () => Promise.resolve([
-      { key: 'readiness', label: 'Готовность (в браузере не запускается)', accepts: [] },
+      { key: 'native-files', label: 'Проверка файлов проекта (без Python)', accepts: [], native: true },
+      { key: 'native-readiness', label: 'Готовность: снимок против пересчёта (без Python)', accepts: [], native: true },
+      { key: 'native-dossier', label: 'Сводка по досье (без Python)', accepts: [], native: true },
+      { key: 'readiness', label: 'Готовность через Python (только в приложении)', accepts: [] },
     ]),
-    startTask: () => Promise.resolve({
-      ok: false,
-      error: 'предпросмотр в браузере: задачи запускает только приложение Electron',
-    }),
+    startTask: async (key) => {
+      // Нативные задачи считает тот же модуль, что в приложении: предпросмотр
+      // не должен показывать мёртвую кнопку там, где окно работает.
+      if (String(key || '').startsWith('native-')) {
+        const response = await fetch('/native-task', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ key }),
+        });
+        return response.json();
+      }
+      return {
+        ok: false,
+        error: 'предпросмотр в браузере: задачи Python запускает только приложение Electron',
+      };
+    },
     // Рендер идёт на сервере предпросмотра (POST /beat-render): странице
     // не нужен ни движок, ни Buffer. Это тот же код, что в Electron.
     renderBeat: async (options) => {
@@ -279,6 +294,38 @@ function createServer(project, options = {}) {
           ? dossier.addArtist(fsApi, ROOT, parsed)
           : dossier.removeArtist(fsApi, ROOT, parsed);
         send(200, JSON.stringify(reply), MIME['.json']);
+      });
+      return;
+    }
+
+    if (url.pathname === '/native-task' && req.method === 'POST') {
+      const chunks = [];
+      req.on('data', (chunk) => chunks.push(chunk));
+      req.on('end', () => {
+        let parsed = {};
+        try {
+          parsed = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
+        } catch {
+          send(200, JSON.stringify({ ok: false, error: 'тело запроса — не JSON' }), MIME['.json']);
+          return;
+        }
+        const nativeTasks = require('../electron/native-tasks');
+        const task = nativeTasks.NATIVE_TASKS[parsed.key];
+        if (!task) {
+          send(200, JSON.stringify({ ok: false, error: 'неизвестная задача' }), MIME['.json']);
+          return;
+        }
+        const lines = [];
+        const result = nativeTasks.runNativeTask({
+          key: parsed.key,
+          project,
+          root: ROOT,
+          onEvent: (event) => lines.push(event.line),
+        });
+        send(200, JSON.stringify({
+          ok: true,
+          data: { pid: null, command: [task.label], native: true, result: { ok: result.ok, lines } },
+        }), MIME['.json']);
       });
       return;
     }

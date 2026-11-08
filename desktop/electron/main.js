@@ -23,6 +23,7 @@ const smoke = require('./smoke');
 const { resolveRoot, resolvePython } = require('./runtime');
 const { createSettingsStore, DEFAULTS } = require('./settings');
 const tasks = require('./tasks');
+const nativeTasks = require('./native-tasks');
 const policy = require('./window-policy');
 const appMenu = require('./app-menu');
 const appPaths = require('./app-paths');
@@ -138,6 +139,39 @@ function registerIpc(getProject) {
   ipcMain.handle('zsmm:task-start', async (event, { key, options } = {}) => {
     if (activeTask) {
       return { ok: false, error: 'уже выполняется другая задача: сначала остановите её' };
+    }
+    // Задачи без Python считает сам главный процесс (native-tasks.js): это
+    // чтение файлов и пересчёт готовности, а не движок. Поток событий тот же,
+    // что у задач Python, — окну не нужно знать разницу.
+    if (nativeTasks.NATIVE_TASKS[key]) {
+      const sender = event.sender;
+      if (!project) return { ok: false, error: 'проект не открыт' };
+      const send = (payload) => {
+        if (!sender.isDestroyed()) sender.send('zsmm:task-event', payload);
+      };
+      const task = nativeTasks.NATIVE_TASKS[key];
+      send({ type: 'start', command: [task.label], label: task.label });
+      try {
+        const result = nativeTasks.runNativeTask({
+          key,
+          project,
+          root: ROOT || path.resolve(__dirname, '..', '..'),
+          onEvent: send,
+        });
+        send({ type: 'exit', code: result.ok ? 0 : 1, signal: null, timedOut: false });
+        if (!sender.isDestroyed()) {
+          sender.send('zsmm:task-done', { ok: result.ok, code: result.ok ? 0 : 1, signal: null, timedOut: false });
+        }
+        return {
+          ok: true,
+          data: { pid: null, command: [task.label], native: true },
+        };
+      } catch (err) {
+        if (!sender.isDestroyed()) {
+          sender.send('zsmm:task-done', { ok: false, code: null, signal: null, timedOut: false });
+        }
+        return { ok: false, error: err.message };
+      }
     }
     const { python, error } = resolvePython({ root: ROOT, env: process.env });
     if (!python) return { ok: false, error };

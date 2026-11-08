@@ -35,6 +35,12 @@ test('белый список задач не пуст и каждая прин�
   assert.ok(list.length >= 5);
 
   for (const task of list) {
+    // Нативные задачи описаны в `native-tasks.js`: окно считает их само и
+    // Python для них не нужен, поэтому в белом списке процессов их нет.
+    if (task.native) {
+      assert.equal(TASKS[task.key], undefined, `${task.key} не должна запускать процесс`);
+      continue;
+    }
     assert.ok(TASKS[task.key], `нет описания для ${task.key}`);
     for (const accepted of task.accepts) {
       assert.ok(['genre', 'theme', 'seed', 'artist'].includes(accepted), `неизвестный параметр ${accepted}`);
