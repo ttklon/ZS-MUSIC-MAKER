@@ -108,6 +108,15 @@ function buildVocal(sanitized, context = {}) {
   }
 }
 
+/** WAV вокального дубля: только если он не гигантский. */
+const MAX_TAKE_BYTES = 25 * 1024 * 1024;
+
+function encodeTakeWav(take) {
+  const bytes = take.signal.length * 2 + 44;
+  if (bytes > MAX_TAKE_BYTES) return null;
+  return require('../src/core/audio/wav').encodeWav([take.signal], take.sampleRate);
+}
+
 /**
  * Собрать бит.
  *
@@ -154,7 +163,21 @@ async function renderBeatRequest(options, context = {}) {
         isCancelled: typeof context.isCancelled === 'function' ? context.isCancelled : undefined,
       },
     );
-    return { ok: true, data: { wav, report } };
+    // Дубль отдаём отдельным WAV, чтобы его можно было сохранить и послушать
+    // ровно в том виде, в каком он попал в микс. Ограничение по размеру: гнать
+    // через IPC 20 МБ base64 ради кнопки — плохая идея.
+    const vocalWav = vocal.take && vocal.take.signal
+      ? encodeTakeWav(vocal.take)
+      : null;
+    return {
+      ok: true,
+      data: {
+        wav,
+        report,
+        vocalWav,
+        vocalName: vocal.take ? takes.takeFileName(vocal.take.source, Math.round(vocal.take.durationSec), sanitized.value.seed ?? 0) : null,
+      },
+    };
   } catch (err) {
     if (err && err.name === 'RenderCancelled') {
       return { ok: false, error: 'рендер отменён', cancelled: true };
@@ -177,6 +200,10 @@ async function renderBeatPayload(options, context = {}) {
     data: {
       report: result.data.report,
       wavBase64: result.data.wav.toString('base64'),
+      // Дубль может быть не приложен (слишком длинный) — тогда окно честно
+      // отключает кнопку сохранения вместо пустого файла.
+      vocalWavBase64: result.data.vocalWav ? result.data.vocalWav.toString('base64') : null,
+      vocalName: result.data.vocalName || null,
     },
   };
 }

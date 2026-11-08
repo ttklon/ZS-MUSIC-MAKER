@@ -10,6 +10,7 @@
 const path = require('node:path');
 const fsp = require('node:fs/promises');
 const { existsSync, readFileSync } = require('node:fs');
+const os = require('node:os');
 
 /** Минимальное файловое API для чтения вокального WAV. */
 function readBinary(target) {
@@ -33,7 +34,10 @@ const { renderInWorker, createCancelSignal } = require('./render-host');
  * @param {Function} [params.python]  для сообщений о разделе «Запуск»
  * @returns {{bankProvider: object, handlers: object}}
  */
-function registerBeatIpc({ ipcMain, dialog, rootDir, getWindow, musicDir, onProgressSender }) {
+function registerBeatIpc({
+  ipcMain, dialog, rootDir, getWindow, musicDir, onProgressSender,
+  openPath = null, tempDir = require('node:os').tmpdir(),
+}) {
   // Банк один на процесс: декодированные one-shot'ы кэшируются, повторный
   // рендер не перечитывает 32 файла.
   const bankProvider = createBankProvider({ rootDir });
@@ -111,6 +115,18 @@ function registerBeatIpc({ ipcMain, dialog, rootDir, getWindow, musicDir, onProg
     // это честно, а не притворяется, что пишет с микрофона.
     'zsmm:vocal-input': async () => ({ ok: true, data: describeInput() }),
 
+    // «Открыть в плеере»: готовый WAV пишется во временный файл и отдаётся
+    // системе — в окне нет аудиоплеера, который умел бы всё (m4a, flac и т. п.).
+    'zsmm:beat-open-external': async (_event, wavBase64) => openInPlayer({
+      getWindow, wavBase64, openPath, tmpDir: tempDir,
+    }),
+
+    // Тестовый дубль как файл: пользователь может послушать его отдельно и
+    // убедиться, что это именно сгенерированная дорожка, а не «микрофон».
+    'zsmm:vocal-export': async (_event, payload) => exportVocalTake({
+      dialog, getWindow, musicDir, payload,
+    }),
+
     'zsmm:beat-save': async (_event, wavBase64) => saveBeat({ dialog, getWindow, musicDir, wavBase64 }),
 
     'zsmm:save-copy': async (_event, { name, text } = {}) => saveTextCopy({ dialog, getWindow, musicDir, name, text }),
@@ -133,6 +149,63 @@ async function pickVocalFile({ dialog, getWindow }) {
     return { ok: true, data: { path: filePaths[0] } };
   } catch (err) {
     return { ok: false, error: err && err.message ? err.message : String(err) };
+  }
+}
+
+/**
+ * Открыть WAV в системном плеере.
+ *
+ * Возвращаем не «ок», а путь: пользователь должен видеть, какой файл открыт.
+ * Временный файл с уникальным именем — чтобы два рендера подряд не
+ * перезаписывали друг другу прослушивание.
+ */
+async function openInPlayer({ getWindow, wavBase64, openPath, tmpDir = os.tmpdir() }) {
+  if (typeof wavBase64 !== 'string' || wavBase64.length < 64) {
+    return { ok: false, error: 'нет данных для воспроизведения' };
+  }
+  if (typeof openPath !== 'function') {
+    return { ok: false, error: 'системное открытие файлов недоступно' };
+  }
+  const buffer = Buffer.from(wavBase64, 'base64');
+  if (buffer.length < 44 || buffer.subarray(0, 4).toString('ascii') !== 'RIFF') {
+    return { ok: false, error: 'это не WAV: воспроизведение отменено' };
+  }
+  const file = path.join(tmpDir, `zsmm-${Date.now()}-${process.pid}.wav`);
+  try {
+    await fsp.writeFile(file, buffer);
+  } catch (err) {
+    return { ok: false, error: `временный файл не записан: ${err.message}` };
+  }
+  const error = await openPath(file);
+  if (error) return { ok: false, error: `плеер не открылся: ${error}` };
+  return { ok: true, data: { path: file, seconds: Math.round((buffer.length / 176400) * 10) / 10 } };
+}
+
+/**
+ * Сохранить тестовый/синтезированный дубль в WAV через диалог.
+ *
+ * Окно присылает уже готовый WAV в base64 (его собрал движок): главный
+ * процесс не синтезирует заново, иначе файл мог бы отличаться от того, что
+ * играл в миксе.
+ */
+async function exportVocalTake({ dialog, getWindow, musicDir, payload = {} }) {
+  const { wavBase64, name } = payload;
+  if (typeof wavBase64 !== 'string' || wavBase64.length < 64) {
+    return { ok: false, error: 'нет данных дубля' };
+  }
+  const base = String(name || 'vocal-take').replace(/[^\w.-]+/g, '_').slice(0, 80) || 'vocal-take';
+  const suggestion = path.join(typeof musicDir === 'function' ? musicDir() : musicDir, `${base}.wav`);
+  const { canceled, filePath } = await dialog.showSaveDialog(getWindow() || undefined, {
+    title: 'Сохранить вокальный дубль',
+    defaultPath: suggestion,
+    filters: [{ name: 'WAV', extensions: ['wav'] }],
+  });
+  if (canceled || !filePath) return { ok: true, data: { path: null, cancelled: true } };
+  try {
+    await fsp.writeFile(filePath, Buffer.from(wavBase64, 'base64'));
+    return { ok: true, data: { path: filePath } };
+  } catch (err) {
+    return { ok: false, error: `файл не записан: ${err.message}` };
   }
 }
 
@@ -215,6 +288,8 @@ function defaultBeatPath(musicDir = () => path.join(require('node:os').tmpdir(),
 }
 
 module.exports = {
+  openInPlayer,
+  exportVocalTake,
   pickVocalFile,
   describeInput,
   registerBeatIpc,

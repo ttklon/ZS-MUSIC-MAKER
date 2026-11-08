@@ -33,7 +33,11 @@ function renderArtists(artists) {
       remove.textContent = 'Удалить';
       remove.addEventListener('click', async () => {
         try {
-          await W.askWith('dossierRemove', { slug: artist.slug });
+          const reply = await W.askWith('dossierRemove', { slug: artist.slug });
+          if (!reply || reply.ok !== true) {
+            showError(`Не удалено: ${(reply && reply.error) || 'нет ответа'}`);
+            return;
+          }
           await W.loadDossiers();
         } catch (err) {
           showError(`Не удалено: ${err.message}`);
@@ -67,13 +71,19 @@ async function loadDossiers() {
     }
     addButton.disabled = true;
     try {
-      const data = await W.askWith('dossierAdd', {
+      const reply = await W.askWith('dossierAdd', {
         artist: name,
         note: ($('dossier-note').value || '').trim(),
       });
+      if (!reply || reply.ok !== true) {
+        // Отказ сервиса («артист уже есть») — это текст для пользователя, а не
+        // повод ронять раздел: форму оставляем заполненной.
+        showError(`Артист не добавлен: ${(reply && reply.error) || 'нет ответа'}`);
+        return;
+      }
       $('dossier-name').value = '';
       $('dossier-note').value = '';
-      state.lastArtist = data;
+      state.lastArtist = reply.data;
       await loadDossiers();
     } catch (err) {
       showError(`Артист не добавлен: ${err.message}`);

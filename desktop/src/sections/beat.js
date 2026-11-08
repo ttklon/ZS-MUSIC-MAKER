@@ -257,6 +257,7 @@ async function loadBeat() {
     const cancelButton = $('beat-cancel');
     cancelButton.disabled = !(window.zsmm && typeof window.zsmm.cancelBeat === 'function');
     $('beat-status').textContent = 'Собираю бит в окне…';
+    $('vocal-save').disabled = true;
     // Прогресс по секциям: рендер длинного бита идёт десятки секунд, и без
     // этого счётчика окно выглядело бы зависшим.
     const unsubscribe = typeof window.zsmm.onBeatProgress === 'function'
@@ -282,11 +283,17 @@ async function loadBeat() {
       const { report, wavBase64 } = reply.data;
       renderBeatReport(report);
       state.beat = wavBase64;
+      // Тот же дубль, что попал в микс: главный процесс отдаёт его отдельным
+      // WAV. Сохранять «по описанию» нельзя — файл должен быть ровно тот.
+      state.vocalTake = reply.data.vocalWavBase64 || null;
+      state.vocalName = reply.data.vocalName || null;
       const audio = $('beat-audio');
       audio.src = `data:audio/wav;base64,${wavBase64}`;
       audio.classList.remove('is-hidden');
       $('beat-save').disabled = false;
+      $('beat-open').disabled = false;
       $('beat-copy').disabled = false;
+      $('vocal-save').disabled = !state.vocalTake;
       rememberBeatOptions(options);
       $('beat-status').textContent =
         `Готово: ${report.sections.length} секций, ${report.duration_sec} с. Можно слушать.`;
@@ -313,6 +320,29 @@ async function loadBeat() {
       : 'Нечего отменять: рендер уже завершился';
   });
 
+  $('beat-open').addEventListener('click', async () => {
+    if (!state.beat) return;
+    if (typeof window.zsmm.openBeatExternal !== 'function') {
+      showError('Открытие в плеере доступно только в приложении');
+      return;
+    }
+    // Состояние кнопки говорит правду: пока плеер не ответил, второй щелчок
+    // не должен открывать второй файл.
+    $('beat-open').disabled = true;
+    try {
+      const reply = await window.zsmm.openBeatExternal(state.beat);
+      if (!reply || reply.ok !== true) {
+        showError(`Плеер не открылся: ${(reply && reply.error) || 'нет ответа'}`);
+        return;
+      }
+      $('beat-status').textContent = reply.data.path
+        ? `Открыто в системном плеере: ${reply.data.path}`
+        : 'Системный плеер открыт';
+    } finally {
+      $('beat-open').disabled = false;
+    }
+  });
+
   $('beat-save').addEventListener('click', async () => {
     if (!state.beat) return;
     const reply = await window.zsmm.saveBeat(state.beat);
@@ -321,6 +351,30 @@ async function loadBeat() {
       return;
     }
     $('beat-status').textContent = `WAV сохранён: ${reply.data.path}`;
+  });
+
+  $('vocal-save').addEventListener('click', async () => {
+    if (!state.vocalTake) {
+      showError('Сначала соберите трек с вокалом');
+      return;
+    }
+    if (typeof window.zsmm.exportVocalTake !== 'function') {
+      showError('Сохранение дубля доступно только в приложении');
+      return;
+    }
+    const reply = await window.zsmm.exportVocalTake({
+      wavBase64: state.vocalTake,
+      name: state.vocalName || 'vocal-take',
+    });
+    if (!reply || reply.ok !== true) {
+      showError(`Дубль не сохранён: ${(reply && reply.error) || 'нет ответа'}`);
+      return;
+    }
+    if (!reply.data.path) {
+      $('beat-status').textContent = 'Сохранение дубля отменено';
+      return;
+    }
+    $('beat-status').textContent = `Вокальный дубль сохранён: ${reply.data.path}`;
   });
 
   $('beat-copy').addEventListener('click', async () => {

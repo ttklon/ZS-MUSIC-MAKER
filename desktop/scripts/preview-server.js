@@ -39,6 +39,8 @@ function shim(project) {
     dossiers: () => project.dossiers(),
     system: () => project.systemInfo(),
   };
+  // Снимок строится при каждом запросе шима: после правки досье окно
+  // перезагружает раздел и должно увидеть новый список, а не старый.
   const payload = {};
   for (const [name, loader] of Object.entries(sections)) payload[name] = loader();
 
@@ -96,6 +98,57 @@ function shim(project) {
     beatBank: async () => {
       const response = await fetch('/beat-bank');
       return response.json();
+    },
+    // Досье в предпросмотре правится по-настоящему: тот же dossier-edit и тот
+    // же корень проекта, что в приложении. Иначе кнопки «Добавить/Удалить»
+    // выглядели бы рабочими, но ничего не делали.
+    dossierAdd: async (payload) => {
+      const response = await fetch('/dossier-add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload || {}),
+      });
+      return response.json();
+    },
+    dossierRemove: async (payload) => {
+      const response = await fetch('/dossier-remove', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload || {}),
+      });
+      return response.json();
+    },
+    // Входа записи в браузере нет — и предпросмотр так и говорит.
+    vocalInput: () => Promise.resolve({
+      ok: true,
+      data: {
+        recording: false,
+        label: 'захват с микрофона не встроен',
+        reason: 'в предпросмотре нет доступа к устройствам записи',
+        simulatedAvailable: true,
+      },
+    }),
+    pickVocalFile: () => Promise.resolve({
+      ok: false,
+      error: 'выбор файла с диска доступен только в приложении Electron',
+    }),
+    openBeatExternal: () => Promise.resolve({
+      ok: false,
+      error: 'системный плеер доступен только в приложении Electron',
+    }),
+    // Дубль в браузере скачивается как файл — без диалога сохранения.
+    exportVocalTake: (payload) => {
+      const base64 = (payload && payload.wavBase64) || '';
+      if (base64.length < 64) return Promise.resolve({ ok: false, error: 'нет данных дубля' });
+      const name = String((payload && payload.name) || 'vocal-take').replace(/[^\w.-]+/g, '_');
+      const bytes = Uint8Array.from(atob(base64), (ch) => ch.charCodeAt(0));
+      const url = URL.createObjectURL(new Blob([bytes], { type: 'audio/wav' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = name + '.wav';
+      link.click();
+      URL.revokeObjectURL(url);
+      return Promise.resolve({ ok: true, data: { path: link.download } });
     },
     // В браузере диалога сохранения нет — но данные отчёта скачиваются,
     // чтобы проверять его было чем-то, кроме глаз.
@@ -193,6 +246,27 @@ function createServer(project, options = {}) {
 
     if (url.pathname === '/beat-progress') {
       send(200, JSON.stringify({ ok: true, data: lastProgress }), MIME['.json']);
+      return;
+    }
+
+    if ((url.pathname === '/dossier-add' || url.pathname === '/dossier-remove') && req.method === 'POST') {
+      const chunks = [];
+      req.on('data', (chunk) => chunks.push(chunk));
+      req.on('end', () => {
+        let parsed = {};
+        try {
+          parsed = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
+        } catch {
+          send(200, JSON.stringify({ ok: false, error: 'тело запроса — не JSON' }), MIME['.json']);
+          return;
+        }
+        const dossier = require('../src/core/dossier-edit');
+        const fsApi = createNodeFs();
+        const reply = url.pathname === '/dossier-add'
+          ? dossier.addArtist(fsApi, ROOT, parsed)
+          : dossier.removeArtist(fsApi, ROOT, parsed);
+        send(200, JSON.stringify(reply), MIME['.json']);
+      });
       return;
     }
 

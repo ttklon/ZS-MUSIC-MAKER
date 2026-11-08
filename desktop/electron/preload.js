@@ -90,6 +90,16 @@ function vocalInput() {
   return ipcRenderer.invoke('zsmm:vocal-input');
 }
 
+/** Открыть готовый WAV в системном плеере (двойной щелчок по файлу). */
+function openBeatExternal(wavBase64) {
+  return ipcRenderer.invoke('zsmm:beat-open-external', wavBase64);
+}
+
+/** Сохранить вокальный дубль отдельным WAV через диалог. */
+function exportVocalTake(payload) {
+  return ipcRenderer.invoke('zsmm:vocal-export', payload);
+}
+
 /** Сохранить готовый WAV через диалог сохранения. */
 function saveBeat(wavBase64) {
   return ipcRenderer.invoke('zsmm:beat-save', wavBase64);
@@ -140,6 +150,8 @@ contextBridge.exposeInMainWorld('zsmm', {
   onBeatProgress,
   saveBeat,
   saveReport,
+  openBeatExternal,
+  exportVocalTake,
   pickVocalFile,
   vocalInput,
   dossierAdd,

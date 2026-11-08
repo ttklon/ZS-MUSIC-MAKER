@@ -63,11 +63,11 @@ test('конвейер регистрирует все каналы бита', (
   assert.deepEqual(
     [...ipc.handlers.keys()].sort(),
     [
-      'zsmm:beat-bank', 'zsmm:beat-cancel', 'zsmm:beat-render', 'zsmm:beat-save',
-      'zsmm:save-copy',
-      // Вокал: выбор WAV и честный статус входа записи.
-      'zsmm:vocal-input', 'zsmm:vocal-pick',
-    ],
+      'zsmm:beat-bank', 'zsmm:beat-cancel', 'zsmm:beat-open-external', 'zsmm:beat-render',
+      'zsmm:beat-save', 'zsmm:save-copy',
+      // Вокал: выбор WAV, честный статус входа и выгрузка дубля.
+      'zsmm:vocal-export', 'zsmm:vocal-input', 'zsmm:vocal-pick',
+    ].sort(),
   );
 });
 
@@ -240,4 +240,109 @@ test('отмена во время рендера возвращает отме�
   // После отмены канал снова свободен.
   const again = await ipc.handlers.get('zsmm:beat-cancel')();
   assert.equal(again.data.cancelled, false);
+});
+
+
+test('готовый WAV открывается в системном плеере, мусор — нет', async () => {
+  const ipc = fakeIpc();
+  const opened = [];
+  registerBeatIpc({
+    ipcMain: ipc,
+    dialog: fakeDialog(null),
+    rootDir: ROOT,
+    getWindow: () => null,
+    musicDir: tempDir,
+    openPath: async (file) => {
+      opened.push(file);
+      return null;
+    },
+    tempDir: tempDir(),
+  });
+
+  const wav = await realWav();
+  const reply = await ipc.handlers.get('zsmm:beat-open-external')({}, wav.toString('base64'));
+  assert.equal(reply.ok, true, reply.error);
+  assert.equal(opened.length, 1, 'плеер не получил файл');
+  assert.ok(opened[0].endsWith('.wav'));
+  assert.ok(fs.existsSync(opened[0]), 'временный файл не создан');
+  assert.ok(fs.statSync(opened[0]).size > 1000);
+  fs.rmSync(opened[0], { force: true });
+
+  // Не-WAV и пустая строка отвергаются: открывать «что-то» в плеере нельзя.
+  // Достаточно длинный, но не RIFF: проверка «это не WAV» срабатывает после
+  // проверки длины, поэтому мусор должен быть длиннее 64 символов.
+  const junk = await ipc.handlers.get('zsmm:beat-open-external')(
+    {}, Buffer.from('это точно не wav, а просто текст длиной больше шестидесяти четырёх символов').toString('base64'),
+  );
+  assert.equal(junk.ok, false);
+  assert.match(junk.error, /не WAV/);
+  const empty = await ipc.handlers.get('zsmm:beat-open-external')({}, '');
+  assert.equal(empty.ok, false);
+
+  // Ошибка плеера возвращается текстом, а не тишиной.
+  const failing = fakeIpc();
+  registerBeatIpc({
+    ipcMain: failing,
+    dialog: fakeDialog(null),
+    rootDir: ROOT,
+    getWindow: () => null,
+    musicDir: tempDir,
+    openPath: async () => 'нет приложения для .wav',
+    tempDir: tempDir(),
+  });
+  const failed = await failing.handlers.get('zsmm:beat-open-external')({}, wav.toString('base64'));
+  assert.equal(failed.ok, false);
+  assert.match(failed.error, /плеер не открылся/);
+});
+
+test('вокальный дубль сохраняется отдельным WAV', async () => {
+  const dir = tempDir();
+  const ipc = fakeIpc();
+  const dialog = fakeDialog(path.join(dir, 'vocal-test.wav'));
+  registerBeatIpc({ ipcMain: ipc, dialog, rootDir: ROOT, getWindow: () => null, musicDir: () => dir });
+
+  const takes = require('../src/core/audio/takes');
+  const { encodeWav } = require('../src/core/audio/wav');
+  const take = takes.testTake({ seconds: 1, seed: 2 });
+  const payload = { wavBase64: encodeWav([take.signal], 44100).toString('base64'), name: 'vocal-test-1s-seed2' };
+
+  const saved = await ipc.handlers.get('zsmm:vocal-export')({}, payload);
+  assert.equal(saved.ok, true, saved.error);
+  assert.ok(fs.existsSync(saved.data.path), 'дубль не записан');
+  const bytes = fs.readFileSync(saved.data.path);
+  assert.equal(bytes.subarray(0, 4).toString('ascii'), 'RIFF');
+
+  // Пустая нагрузка и отмена диалога — не ошибка приложения, но и не файл.
+  const empty = await ipc.handlers.get('zsmm:vocal-export')({}, {});
+  assert.equal(empty.ok, false);
+  const cancelling = fakeIpc();
+  registerBeatIpc({ ipcMain: cancelling, dialog: fakeDialog(null), rootDir: ROOT, getWindow: () => null, musicDir: () => dir });
+  const cancelled = await cancelling.handlers.get('zsmm:vocal-export')({}, payload);
+  assert.equal(cancelled.ok, true);
+  assert.equal(cancelled.data.path, null);
+});
+
+test('рендер с вокалом отдаёт окну WAV дубля, без вокала — нет', async () => {
+  const ipc = fakeIpc();
+  registerBeatIpc({ ipcMain: ipc, dialog: fakeDialog(null), rootDir: ROOT, getWindow: () => null, musicDir: tempDir });
+  const sender = { isDestroyed: () => false, send: () => {} };
+
+  const withVocal = await ipc.handlers.get('zsmm:beat-render')(
+    { sender },
+    { bpm: 120, genre: 'phonk', seed: 3, durationSec: 2, vocal: { mode: 'test' } },
+  );
+  assert.equal(withVocal.ok, true, withVocal.error);
+  assert.ok(withVocal.data.vocalWavBase64, 'дубль не приложен');
+  const bytes = Buffer.from(withVocal.data.vocalWavBase64, 'base64');
+  assert.equal(bytes.subarray(0, 4).toString('ascii'), 'RIFF');
+  assert.match(withVocal.data.vocalName, /^vocal-test-/);
+  assert.equal(withVocal.data.report.vocal.source, 'test');
+
+  const dry = await ipc.handlers.get('zsmm:beat-render')(
+    { sender },
+    { bpm: 120, genre: 'phonk', seed: 3, durationSec: 2 },
+  );
+  assert.equal(dry.ok, true, dry.error);
+  assert.equal(dry.data.vocalWavBase64, null);
+  assert.equal(dry.data.vocalName, null);
 });

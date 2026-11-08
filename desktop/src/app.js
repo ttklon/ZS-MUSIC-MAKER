@@ -70,15 +70,18 @@ W.ask = ask;
 /**
  * Как `ask`, но с аргументом: каналы, которые что-то меняют (добавить
  * артиста, удалить), принимают объект и отвечают `{ok, data|error}`.
+ *
+ * Вызывающий код при этом ждёт `{ok, data|error}` — как у `window.zsmm.*`:
+ * у `ask` ошибка летит исключением, а у правки данных вызывающему нужен и
+ * текст ошибки, и признаки вроде `cancelled`. Смешивать два вида ответа в
+ * одном помощнике — значит получить тихую ошибку в каждом втором месте.
  */
 async function askWith(section, payload) {
   if (!window.zsmm || typeof window.zsmm[section] !== 'function') {
     setStatus(false, 'мост не подключён');
     throw new Error(BRIDGE_MISSING);
   }
-  const reply = await window.zsmm[section](payload);
-  if (!reply || reply.ok !== true) throw new Error((reply && reply.error) || 'нет ответа');
-  return reply.data;
+  return window.zsmm[section](payload);
 }
 W.askWith = askWith;
 

@@ -234,3 +234,44 @@ test('отмена рендера в предпросмотре отвечает
   assert.equal(progress.data.phase, 'cancelled');
   assert.ok(address.port > 0);
 });
+
+
+test('предпросмотр правит досье тем же кодом, что приложение', async (t) => {
+  const server = await withServer(t);
+  const listing = await get(server, '/preview-shim.js');
+  for (const method of ['dossierAdd', 'dossierRemove', 'vocalInput', 'pickVocalFile', 'exportVocalTake', 'openBeatExternal']) {
+    assert.match(listing.body, new RegExp(method), `в шиме нет ${method}`);
+  }
+
+  // Добавляем и удаляем настоящего артиста: сервер пишет в корень проекта.
+  const dir = path.join(ROOT, 'data', 'artist_dossier', 'тест_предпросмотра');
+  fs.rmSync(dir, { recursive: true, force: true });
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+
+  const added = await postTo(server, '/dossier-add', { artist: 'Тест Предпросмотра', note: 'из теста' });
+  assert.equal(added.ok, true, added.error);
+  assert.ok(fs.existsSync(path.join(dir, 'artist.json')));
+
+  const duplicate = await postTo(server, '/dossier-add', { artist: 'Тест Предпросмотра' });
+  assert.equal(duplicate.ok, false);
+  assert.match(duplicate.error, /уже есть/);
+
+  // Выход за каталог досье запрещён и здесь, а не только в приложении.
+  const escape = await postTo(server, '/dossier-remove', { slug: '../..' });
+  assert.equal(escape.ok, false);
+
+  const removed = await postTo(server, '/dossier-remove', { slug: 'тест_предпросмотра' });
+  assert.equal(removed.ok, true, removed.error);
+  assert.ok(!fs.existsSync(dir));
+});
+
+test('предпросмотр прикладывает дубль к рендеру и честно говорит про микрофон', async (t) => {
+  const server = await withServer(t);
+  const reply = await postTo(server, '/beat-render', { bpm: 120, durationSec: 2, vocal: { mode: 'test' } });
+  assert.equal(reply.ok, true, reply.error);
+  assert.equal(reply.data.report.vocal.source, 'test');
+  assert.equal(reply.data.report.vocal.simulated, true);
+  const bytes = Buffer.from(reply.data.vocalWavBase64, 'base64');
+  assert.equal(bytes.subarray(0, 4).toString('ascii'), 'RIFF');
+  assert.match(reply.data.vocalName, /^vocal-test-2s-/);
+});

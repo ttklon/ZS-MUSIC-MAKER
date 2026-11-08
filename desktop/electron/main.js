@@ -119,6 +119,12 @@ function registerIpc(getProject) {
     rootDir: SAMPLE_ROOT || path.resolve(__dirname, '..', '..'),
     getWindow: () => (windows ? windows.get() : null),
     musicDir: safeMusicDir,
+    // Открытие готового WAV в системном плеере: `shell.openPath` — то же,
+    // что двойной щелчок по файлу в проводнике Windows.
+    openPath: async (file) => {
+      const error = await shell.openPath(file);
+      return error || null;
+    },
     // Прогресс рендера виден и в панели задач: свёрнутое окно иначе выглядит
     // зависшим. Значение считает window-policy (там же и тест).
     onProgressSender: (event, progress) => {
