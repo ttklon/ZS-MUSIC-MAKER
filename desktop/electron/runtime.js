@@ -77,21 +77,55 @@ function resolveRoot({ appPath, resourcesPath, env } = {}) {
  * раздел «Запуск» тогда честно отключается, а рендер бита работает, потому
  * что движок на JavaScript. Windows-кандидаты идут первыми.
  */
-function resolvePython({ root = null, env = process.env, platform = process.platform, exists = (p) => fs.existsSync(p) } = {}) {
-  const candidates = [
-    env.ZSMM_PYTHON,
-    root && platform === 'win32' ? path.join(root, '.venv', 'Scripts', 'python.exe') : null,
-    root ? path.join(root, '.venv', 'bin', 'python3') : null,
-    root ? path.join(root, '.venv', 'Scripts', 'python.exe') : null,
-    platform === 'win32' ? 'python.exe' : null,
-    platform === 'win32' ? 'py.exe' : null,
-    '/usr/bin/python3',
-    '/usr/local/bin/python3',
-  ].filter(Boolean);
+/**
+ * Найти команду в PATH.
+ *
+ * Спрашивать ОС «есть ли python.exe» из главного процесса нельзя: это либо
+ * запуск процесса, либо гадание. Поэтому PATH просматривается по каталогам —
+ * результат один и тот же в тестах и в приложении.
+ */
+function findInPath(command, env = process.env, exists = (p) => fs.existsSync(p)) {
+  const pathValue = env.PATH || env.Path || '';
+  const dirs = String(pathValue).split(path.delimiter).filter(Boolean);
+  const names = process.platform === 'win32'
+    ? [command, `${command}.exe`, `${command}.bat`, `${command}.cmd`]
+    : [command];
+  for (const dir of dirs) {
+    for (const name of names) {
+      const candidate = path.join(dir, name);
+      try {
+        if (exists(candidate)) return candidate;
+      } catch {
+        /* недоступный каталог — идём дальше */
+      }
+    }
+  }
+  return null;
+}
 
-  for (const candidate of candidates) {
-    // Короткое имя (`python.exe`) ищется в PATH, а не как путь от cwd.
-    if (!candidate.includes(path.sep)) return { python: candidate, error: null, source: 'PATH' };
+function resolvePython({ root = null, env = process.env, platform = process.platform, exists = (p) => fs.existsSync(p) } = {}) {
+  // `viaPath` — имя команды, которое ищет сама ОС. Раньше это угадывалось по
+  // отсутствию `path.sep`, и на Windows «/usr/bin/python3» (без обратных
+  // слэшей) считался командой из PATH — то есть «Python найден» там, где его
+  // нет. Признак задаётся явно.
+  const candidates = [
+    { value: env.ZSMM_PYTHON, viaPath: false },
+    { value: root && platform === 'win32' ? path.join(root, '.venv', 'Scripts', 'python.exe') : null, viaPath: false },
+    { value: root ? path.join(root, '.venv', 'bin', 'python3') : null, viaPath: false },
+    { value: root ? path.join(root, '.venv', 'Scripts', 'python.exe') : null, viaPath: false },
+    { value: platform === 'win32' ? 'python.exe' : null, viaPath: true },
+    { value: platform === 'win32' ? 'py.exe' : null, viaPath: true },
+    { value: platform !== 'win32' ? 'python3' : null, viaPath: true },
+    { value: '/usr/bin/python3', viaPath: false },
+    { value: '/usr/local/bin/python3', viaPath: false },
+  ].filter((entry) => entry.value);
+
+  for (const { value: candidate, viaPath } of candidates) {
+    if (viaPath) {
+      const found = findInPath(candidate, env, exists);
+      if (found) return { python: found, error: null, source: 'PATH' };
+      continue;
+    }
     try {
       if (exists(candidate)) return { python: candidate, error: null, source: candidate };
     } catch {
@@ -107,4 +141,4 @@ function resolvePython({ root = null, env = process.env, platform = process.plat
   };
 }
 
-module.exports = { ROOT_MARKERS, hasMarkers, rootCandidates, resolveRoot, resolvePython };
+module.exports = { ROOT_MARKERS, hasMarkers, rootCandidates, resolveRoot, resolvePython, findInPath };

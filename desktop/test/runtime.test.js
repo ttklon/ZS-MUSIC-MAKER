@@ -72,21 +72,48 @@ test('кандидаты не содержат дублей после норм�
   assert.equal(new Set(normalized).size, normalized.length);
 });
 
+test('POSIX-путь не считается командой из PATH на Windows', () => {
+  // Регрессия: признак «команда из PATH» раньше угадывался по отсутствию
+  // `path.sep`, и «/usr/bin/python3» на Windows объявлялся найденным Python.
+  const result = resolvePython({
+    root: path.resolve(path.sep, 'project'),
+    platform: 'win32',
+    env: {},
+    exists: () => false,
+  });
+
+  assert.equal(result.python, null);
+  assert.match(result.error, /Python не найден/);
+});
+
 test('Python ищется сначала в .venv Windows, потом в PATH', () => {
   const root = path.resolve(path.sep, 'project');
 
   const windows = resolvePython({ root, platform: 'win32', env: {}, exists: (p) => p === path.join(root, '.venv', 'Scripts', 'python.exe') });
   assert.equal(windows.python, path.join(root, '.venv', 'Scripts', 'python.exe'));
 
-  const pathOnly = resolvePython({ root, platform: 'win32', env: {}, exists: () => false });
-  assert.equal(pathOnly.python, 'python.exe', 'без .venv остаётся системный python из PATH');
+  // Без .venv остаётся системный python из PATH — он ищется по каталогам PATH.
+  const inPath = path.join(root, 'Python311', 'python.exe');
+  const pathOnly = resolvePython({
+    root,
+    platform: 'win32',
+    env: { PATH: path.join(root, 'Python311') },
+    exists: (candidate) => candidate === inPath,
+  });
+  assert.equal(pathOnly.python, inPath, 'python.exe из PATH должен находиться');
+  assert.equal(pathOnly.source, 'PATH');
 });
 
 test('без Python возвращается текст с объяснением, а не пустота', () => {
-  // `platform: 'win32'` нарочно не используется: на Windows-раннере короткие
-  // имена `python.exe`/`py.exe` считаются найденными в PATH, и проверка
-  // «Python нет» зависела бы от того, что установлено на машине.
-  const result = resolvePython({ root: path.resolve(path.sep, 'project'), platform: 'linux', env: {}, exists: () => false });
+  // Проверяется «нет ни одного файла»: команды из PATH (`python3`, `py.exe`)
+  // в этом режиме не ищутся вовсе, поэтому результат не зависит от того, что
+  // установлено на машине.
+  const result = resolvePython({
+    root: path.resolve(path.sep, 'project'),
+    platform: 'win32',
+    env: {},
+    exists: () => false,
+  });
 
   assert.equal(result.python, null);
   assert.match(result.error, /рендер бита\s+работает/);

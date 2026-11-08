@@ -1,17 +1,17 @@
 {
-  "generated_at": "2026-11-08T10:02:05.549Z",
+  "generated_at": "2026-11-08T10:10:42.882Z",
   "percent": 65,
   "module_inventory": {
-    "tracked_modules": 299,
-    "REAL_PASS": 263,
+    "tracked_modules": 300,
+    "REAL_PASS": 264,
     "REAL_FAIL": 0,
     "PLANNED": 1,
     "DEPRECATED": 35
   },
-  "module_reachability_share": 0.8796,
+  "module_reachability_share": 0.88,
   "block_scores": {
     "architecture": 100,
-    "core_modules": 83.96,
+    "core_modules": 84,
     "audio_pipeline": 62.5,
     "voice_recording": 71.43,
     "release": 100,
@@ -90,7 +90,7 @@
       "heavy engines unavailable: ['musicgen_runtime', 'demucs_runtime']"
     ]
   ],
-  "weighted_sum": 80.9,
+  "weighted_sum": 80.91,
   "cap_min": 65,
   "final_floor": 65
 }
