@@ -186,19 +186,23 @@ loop, и отдаёт стадии списком `AsyncStage`. Раньше у 
   `electron/preload.js` (единственный мост, `contextIsolation: true`),
   `electron/tasks.js` (белый список задач: окно не может запустить произвольный
   процесс), `src/core/*` (жанры, пресеты, inventory, расчёт готовности),
-  `src/app.js` (разделы «Обзор», «Модули», «Жанры», «Досье», «Запуск»,
-  «Диагностика»). Данные читаются из файлов проекта; числа готовности
-  готовит `npm run snapshot` вызовом штатного `python -m tools.readiness` и
-  окно **сверяет** их с собственным расчётом. Тяжёлые операции выполняет Python —
-  окно запускает ту же команду, что и терминал, и показывает вывод построчно.
-  Упаковка описана в `package.json` (`electron-builder`), но инсталлятор
-  не собирался: в окружении сборки нет Electron и целевых платформ.
+  `src/app.js` (разделы «Обзор», «Модули», «Жанры», «Бит», «Досье»,
+  «Запуск», «Диагностика»). Данные читаются из файлов проекта; числа
+  готовности готовит `npm run snapshot` вызовом штатного
+  `python -m tools.readiness`, и окно **сверяет** их с собственным расчётом.
+  Звук считает тоже окно: `src/core/audio/*` — порт `modules/beat/` на
+  JavaScript (синтез ударных, фильтры Баттерворта, ритм и акценты,
+  гармония, драматургия, сборка и запись WAV). Python остаётся эталоном и
+  источником тяжёлых моделей: свои задачи окно запускает той же командой,
+  что и терминал, и показывает вывод построчно. Упаковка описана в
+  `package.json` (`electron-builder`), но инсталлятор не собирался: в
+  окружении сборки нет Electron и целевых платформ.
 
 ## 8. Проверки
 
 | Команда | Что ловит |
 |---|---|
-| `python -m pytest tests/` | 2020 тестов: unit, аудио, e2e, property, контракты GUI/CLI |
+| `python -m pytest tests/` | 2021 тест: unit, аудио, e2e, property, контракты GUI/CLI, порт движка в окно |
 | `python tools/smoke_audio.py` | стерео, громкость, drop (6 проверок) |
 | `python tools/smoke_god.py` | God Mode E2E, master 120 с, true-peak (8 проверок) |
 | `python tools/fallback_audit.py` | fallback-пути и маркеры заглушек |
@@ -207,6 +211,7 @@ loop, и отдаёт стадии списком `AsyncStage`. Раньше у 
 | `python tools/ast_dead_imports.py` | мёртвые импорты |
 | `python tools/ast_undefined_names.py` | имена, использующиеся без определения (`NameError`) |
 | `python -m tools.readiness` | честный процент готовности + матрица модулей |
-| `cd desktop && npm test` | 64 теста оболочки на Electron: каталог, готовность, задачи, рендер окна в DOM-двойнике (пакет `electron` не нужен) |
+| `cd desktop && npm test` | 122 теста оболочки на Electron: каталог, готовность, задачи, рендер окна в DOM-двойнике, аудио-движок (фильтры против чисел scipy, детерминизм seed, WAV) — пакет `electron` не нужен |
+| `python -m pytest tests/test_desktop_audio_port.py` | сверка JS-таблиц ритма и акцентов с `modules/beat/patterns.py`, проекция 120 жанров, чтение готового WAV через `soundfile` |
 | `cd desktop && npm run snapshot` | снимок чисел через штатный Python-инструмент → `data/desktop/` |
 | `python -m pytest tests/test_desktop_shell.py` | сверка расчёта готовности в JS с эталоном Python |

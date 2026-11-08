@@ -3,7 +3,7 @@
  * preload.js — единственный мост между окном и системой.
  *
  * Контекст изоляции включён: страница не получает ни `require`, ни
- * `ipcRenderer`. Наружу отдаётся ровно пять функций.
+ * `ipcRenderer`. Наружу отдаются только готовые функции, без объекта IPC.
  */
 
 const { contextBridge, ipcRenderer } = require('electron');
@@ -47,6 +47,16 @@ function onTaskDone(callback) {
   return () => ipcRenderer.removeListener('zsmm:task-done', listener);
 }
 
+/** Собрать бит в главном процессе: движок живёт там, странице он не виден. */
+function renderBeat(options) {
+  return ipcRenderer.invoke('zsmm:beat-render', options);
+}
+
+/** Сохранить готовый WAV через диалог сохранения. */
+function saveBeat(wavBase64) {
+  return ipcRenderer.invoke('zsmm:beat-save', wavBase64);
+}
+
 function revealRoot() {
   return ipcRenderer.invoke('zsmm:reveal-root');
 }
@@ -67,6 +77,8 @@ contextBridge.exposeInMainWorld('zsmm', {
   stopTask,
   onTaskEvent,
   onTaskDone,
+  renderBeat,
+  saveBeat,
   revealRoot,
   openExternal,
 });

@@ -14,6 +14,7 @@ const state = {
   tasks: [],
   taskRunning: false,
   taskLines: [],
+  beat: null,
 };
 
 const $ = (id) => document.getElementById(id);
@@ -168,6 +169,107 @@ async function loadGenres() {
   renderGenres();
 }
 
+
+// -------------------------------------------------------------------- бит
+// Рендер идёт внутри окна: `window.zsmm.renderBeat` в приложении уходит в
+// главный процесс, в предпросмотре — в тот же `src/core/audio/engine.js`.
+function beatOptions() {
+  const durationSec = Number($('beat-duration').value);
+  const bpm = Number($('beat-bpm').value);
+  const seedText = ($('beat-seed').value || '').trim();
+  if (!bpm || bpm < 40 || bpm > 220) throw new Error('BPM должен быть числом от 40 до 220');
+  if (!durationSec || durationSec < 2 || durationSec > 600) {
+    throw new Error('длительность должна быть от 2 до 600 секунд');
+  }
+  return {
+    genre: ($('beat-genre').value || '').trim() || 'phonk',
+    bpm,
+    durationSec,
+    seed: seedText === '' ? null : Number(seedText),
+  };
+}
+
+function reportLine(key, value) {
+  return `${key}: ${value}`;
+}
+
+function renderBeatReport(report) {
+  const rows = report.sections.map((section) => {
+    const tr = document.createElement('tr');
+    tr.append(
+      el('td', null, section.name),
+      el('td', null, String(section.bars)),
+      el('td', null, String(section.start_sec)),
+      el('td', null, String(section.energy)),
+      el('td', null, section.layers.join(', ')),
+    );
+    return tr;
+  });
+  $('beat-body').replaceChildren(...rows);
+
+  const drift = (report.humanity || {}).tempo_drift || {};
+  $('beat-report').textContent = [
+    reportLine('жанр', `${report.genre} (семейство ${report.groove_family})`),
+    reportLine('BPM / тональность', `${report.bpm} / ${report.key}`),
+    reportLine('длительность', `${report.duration_sec} с, ${report.channels} канала, ${report.bits} бит`),
+    reportLine('сид', report.seed === null ? 'нет (не детерминировано)' : report.seed),
+    reportLine('движок ударных', `${report.drum_engine.status} — ${report.drum_engine.reason}`),
+    reportLine('секций / тактов', `${report.sections.length} / ${report.total_bars}`),
+    reportLine('хук в первые 15 с', report.dramaturgy.hook_within_15s ? 'да' : 'нет'),
+    reportLine('дрейф темпа', `${drift.drift_pct || 0} % (пик ${drift.peak_deviation_ms || 0} мс)`),
+    reportLine('пик', report.humanity.peak),
+    reportLine('размер WAV', `${Math.round(report.bytes / 1024)} КБ`),
+  ].join('\n');
+}
+
+async function loadBeat() {
+  if (!window.zsmm || typeof window.zsmm.renderBeat !== 'function') {
+    throw new Error('окно открыто вне Electron: рендер бита недоступен');
+  }
+  if (loadBeat.wired) return;
+  loadBeat.wired = true;
+
+  $('beat-render').addEventListener('click', async () => {
+    let options;
+    try {
+      options = beatOptions();
+    } catch (err) {
+      showError(err.message);
+      return;
+    }
+    $('beat-render').disabled = true;
+    $('beat-status').textContent = 'Собираю бит в окне…';
+    try {
+      const reply = await window.zsmm.renderBeat(options);
+      if (!reply || reply.ok !== true) throw new Error((reply && reply.error) || 'рендер не удался');
+      const { report, wavBase64 } = reply.data;
+      renderBeatReport(report);
+      state.beat = wavBase64;
+      const audio = $('beat-audio');
+      audio.src = `data:audio/wav;base64,${wavBase64}`;
+      audio.classList.remove('is-hidden');
+      $('beat-save').disabled = false;
+      $('beat-status').textContent =
+        `Готово: ${report.sections.length} секций, ${report.duration_sec} с. Можно слушать.`;
+    } catch (err) {
+      $('beat-status').textContent = 'Бит не собран';
+      showError(err.message);
+    } finally {
+      $('beat-render').disabled = false;
+    }
+  });
+
+  $('beat-save').addEventListener('click', async () => {
+    if (!state.beat) return;
+    const reply = await window.zsmm.saveBeat(state.beat);
+    if (!reply || reply.ok !== true) {
+      showError(`Не удалось сохранить: ${(reply && reply.error) || 'нет ответа'}`);
+      return;
+    }
+    $('beat-status').textContent = `WAV сохранён: ${reply.data.path}`;
+  });
+}
+
 // ------------------------------------------------------------------ досье
 async function loadDossiers() {
   const data = await ask('dossiers');
@@ -300,6 +402,7 @@ const LOADERS = {
   overview: loadOverview,
   modules: loadModules,
   genres: loadGenres,
+  beat: loadBeat,
   dossiers: loadDossiers,
   run: loadRun,
   health: loadHealth,
@@ -309,6 +412,7 @@ const TITLES = {
   overview: 'Обзор',
   modules: 'Модули',
   genres: 'Жанры',
+  beat: 'Бит',
   dossiers: 'Досье',
   run: 'Запуск',
   health: 'Диагностика',
@@ -360,5 +464,5 @@ if (typeof document !== 'undefined') {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { state, TITLES };
+  module.exports = { state, TITLES, LOADERS, beatOptions };
 }

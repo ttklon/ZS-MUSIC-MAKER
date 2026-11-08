@@ -95,11 +95,26 @@ test('main.js держит изоляцию контекста включённ�
   assert.match(main, /contextIsolation:\s*true/);
   assert.match(main, /nodeIntegration:\s*false/);
   assert.match(main, /setWindowOpenHandler/, 'всплывающие окна должны блокироваться');
-  assert.doesNotMatch(main, /child_process|spawn\(/, 'Python-процессов в оболочке нет');
+  // Раньше здесь стоял запрет на child_process: оболочка была без Python.
+  // Задачи проекта запускают `python main.py …` осознанно и только через
+  // `electron/tasks.js`; прямой spawn в main.js по-прежнему запрещён.
+  assert.doesNotMatch(main, /child_process/, 'главный процесс не запускает процессы сам');
+  assert.doesNotMatch(main, /spawn\(/, 'запуск процессов живёт в electron/tasks.js');
 });
 
 test('в стилях нет внешних шрифтов и картинок', () => {
   const css = fs.readFileSync(path.join(SRC, 'styles.css'), 'utf8');
 
   assert.doesNotMatch(css, /@import|url\(https?:/);
+});
+
+test('бит рендерится в главном процессе, а не в странице', () => {
+  const main = fs.readFileSync(path.join(ELECTRON, 'main.js'), 'utf8');
+
+  assert.match(main, /zsmm:beat-render/, 'нет IPC-канала рендера бита');
+  assert.match(main, /sanitizeBeatOptions/, 'параметры из окна должны проверяться');
+  assert.match(main, /zsmm:beat-save/, 'нет канала сохранения WAV');
+  // Движок тянет fs/Buffer — в окне ему не место.
+  assert.doesNotMatch(appJs, /require\(/, 'страница не должна получать require');
+  assert.match(appJs, /window\.zsmm\.renderBeat/, 'окно должно звать мост рендера');
 });

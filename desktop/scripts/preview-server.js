@@ -15,6 +15,8 @@ const path = require('node:path');
 
 const { createNodeFs } = require('../src/core/fs-node');
 const { createProject } = require('../src/core/project');
+const { renderBeat } = require('../src/core/audio/engine');
+const { sanitizeBeatOptions } = require('../src/core/beat-options');
 
 const DESKTOP = path.resolve(__dirname, '..');
 const ROOT = path.resolve(DESKTOP, '..');
@@ -52,6 +54,20 @@ function shim(project) {
       ok: false,
       error: 'предпросмотр в браузере: задачи запускает только приложение Electron',
     }),
+    // Рендер идёт на сервере предпросмотра (POST /beat-render): странице
+    // не нужен ни движок, ни Buffer. Это тот же код, что в Electron.
+    renderBeat: async (options) => {
+      const response = await fetch('/beat-render', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(options || {}),
+      });
+      return response.json();
+    },
+    saveBeat: () => Promise.resolve({
+      ok: false,
+      error: 'в браузере файл не сохраняется: откройте приложение Electron',
+    }),
     stopTask: () => Promise.resolve({ ok: false, error: 'нет задачи' }),
     onTaskEvent: () => () => {},
     onTaskDone: () => () => {},
@@ -69,6 +85,34 @@ function createServer(project) {
       res.end(body);
     };
 
+    if (url.pathname === '/beat-render' && req.method === 'POST') {
+      // Те же границы, что в Electron: окно не диктует главному процессу,
+      // что рендерить.
+      const chunks = [];
+      req.on('data', (chunk) => chunks.push(chunk));
+      req.on('end', () => {
+        let parsed = {};
+        try {
+          parsed = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
+        } catch {
+          send(400, JSON.stringify({ ok: false, error: 'тело запроса — не JSON' }), MIME['.json']);
+          return;
+        }
+        const sanitized = sanitizeBeatOptions(parsed);
+        if (sanitized.error) {
+          send(200, JSON.stringify({ ok: false, error: sanitized.error }), MIME['.json']);
+          return;
+        }
+        try {
+          const { wav, report } = renderBeat(sanitized.value);
+          send(200, JSON.stringify({ ok: true, data: { report, wavBase64: wav.toString('base64') } }), MIME['.json']);
+        } catch (err) {
+          send(200, JSON.stringify({ ok: false, error: err.message }), MIME['.json']);
+        }
+      });
+      return;
+    }
+
     if (url.pathname === '/preview-shim.js') {
       send(200, shim(project), MIME['.js']);
       return;
@@ -84,11 +128,16 @@ function createServer(project) {
     if (requested === '/index.html') {
       // В разработке шим подключается до app.js; CSP остаётся прежней
       // (скрипт отдаётся с этого же origin, поэтому 'self' его разрешает).
+      // В предпросмотре рендер бита идёт на этот же сервер, поэтому
+      // `connect-src` расширяется до 'self' — и только здесь. В приложении
+      // CSP остаётся `connect-src 'none'`.
       body = Buffer.from(
-        body.toString('utf8').replace(
-          '<script src="app.js"></script>',
-          '<script src="preview-shim.js"></script>\n    <script src="app.js"></script>',
-        ),
+        body.toString('utf8')
+          .replace("connect-src 'none'", "connect-src 'self'")
+          .replace(
+            '<script src="app.js"></script>',
+            '<script src="preview-shim.js"></script>\n    <script src="app.js"></script>',
+          ),
         'utf8',
       );
     }

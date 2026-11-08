@@ -24,6 +24,7 @@
           <button class="nav-item is-active" data-view="overview">Обзор</button>
           <button class="nav-item" data-view="modules">Модули</button>
           <button class="nav-item" data-view="genres">Жанры</button>
+          <button class="nav-item" data-view="beat">Бит</button>
           <button class="nav-item" data-view="dossiers">Досье</button>
           <button class="nav-item" data-view="run">Запуск</button>
           <button class="nav-item" data-view="health">Диагностика</button>
@@ -83,6 +84,42 @@
               <span class="muted" id="genre-count"></span>
             </div>
             <ul class="chips" id="genre-list"></ul>
+          </div>
+        </section>
+
+        <section class="view is-hidden" id="view-beat">
+          <div class="panel">
+            <h2>Бит прямо в окне</h2>
+            <p class="muted">
+              Движок написан на JavaScript и работает внутри приложения: ни Python,
+              ни сэмплового банка тут нет. Ударные синтезируются, поэтому статус
+              движка честно <code>FALLBACK</code>, а не «REAL_PASS».
+            </p>
+            <div class="row">
+              <input id="beat-genre" placeholder="жанр (phonk, trap, house…)" value="phonk" />
+              <input id="beat-bpm" placeholder="BPM" value="140" />
+              <input id="beat-seed" placeholder="сид" value="7" />
+              <input id="beat-duration" placeholder="секунд" value="20" />
+              <button class="ghost" id="beat-render">Собрать бит</button>
+              <button class="ghost" id="beat-save" disabled>Сохранить WAV</button>
+            </div>
+            <p class="muted" id="beat-status">Бит ещё не собран</p>
+            <audio id="beat-audio" controls class="is-hidden"></audio>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Секция</th>
+                    <th>Такты</th>
+                    <th>Старт, с</th>
+                    <th>Энергия</th>
+                    <th>Слои</th>
+                  </tr>
+                </thead>
+                <tbody id="beat-body"></tbody>
+              </table>
+            </div>
+            <pre class="output" id="beat-report"></pre>
           </div>
         </section>
 

@@ -13,6 +13,8 @@ const path = require('node:path');
 
 const { createNodeFs } = require('../src/core/fs-node');
 const { createProject } = require('../src/core/project');
+const { renderBeat } = require('../src/core/audio/engine');
+const { sanitizeBeatOptions, BEAT_LIMITS } = require('../src/core/beat-options');
 const tasks = require('./tasks');
 
 const ROOT = path.resolve(__dirname, '..', '..');
@@ -112,6 +114,42 @@ function registerIpc(getProject) {
 
   ipcMain.handle('zsmm:tasks', () => ({ ok: true, data: tasks.taskList() }));
 
+  // Бит считается здесь, в главном процессе: страница не получает ни `fs`,
+  // ни доступа к движку. Наружу уходит готовый WAV в base64 и отчёт.
+  ipcMain.handle('zsmm:beat-render', (_event, options) => {
+    const sanitized = sanitizeBeatOptions(options);
+    if (sanitized.error) return { ok: false, error: sanitized.error };
+    try {
+      const { wav, report } = renderBeat(sanitized.value);
+      return { ok: true, data: { report, wavBase64: wav.toString('base64') } };
+    } catch (err) {
+      return { ok: false, error: err && err.message ? err.message : String(err) };
+    }
+  });
+
+  ipcMain.handle('zsmm:beat-save', async (_event, wavBase64) => {
+    if (typeof wavBase64 !== 'string' || wavBase64.length < 64) {
+      return { ok: false, error: 'нет данных для сохранения' };
+    }
+    const { canceled, filePath } = await dialog.showSaveDialog(mainWindow || undefined, {
+      title: 'Сохранить бит',
+      defaultPath: path.join(ROOT, 'data', 'beats', `beat_${Date.now()}.wav`),
+      filters: [{ name: 'WAV', extensions: ['wav'] }],
+    });
+    if (canceled || !filePath) return { ok: false, error: 'сохранение отменено' };
+    try {
+      const buffer = Buffer.from(wavBase64, 'base64');
+      if (buffer.length < 44 || buffer.toString('ascii', 0, 4) !== 'RIFF') {
+        return { ok: false, error: 'это не WAV: сохранять нечего' };
+      }
+      await require('node:fs/promises').mkdir(path.dirname(filePath), { recursive: true });
+      await require('node:fs/promises').writeFile(filePath, buffer);
+      return { ok: true, data: { path: filePath, bytes: buffer.length } };
+    } catch (err) {
+      return { ok: false, error: err && err.message ? err.message : String(err) };
+    }
+  });
+
   ipcMain.handle('zsmm:task-start', async (event, { key, options } = {}) => {
     if (activeTask) {
       return { ok: false, error: 'уже выполняется другая задача: сначала остановите её' };
@@ -185,4 +223,4 @@ app.on('activate', () => {
   if (BrowserWindow.getAllWindows().length === 0) createWindow();
 });
 
-module.exports = { projectFor, registerIpc, resolvePython, ROOT };
+module.exports = { projectFor, registerIpc, resolvePython, sanitizeBeatOptions, BEAT_LIMITS, ROOT };

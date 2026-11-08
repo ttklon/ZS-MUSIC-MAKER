@@ -10,6 +10,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const http = require('node:http');
+const fs = require('node:fs');
 const path = require('node:path');
 
 const { createServer, shim } = require('../scripts/preview-server');
@@ -102,4 +103,51 @@ test('css отдаётся с правильным типом', async (t) => {
 
   assert.equal(response.status, 200);
   assert.match(response.headers['content-type'], /text\/css/);
+});
+
+test('предпросмотр рендерит бит тем же движком, что приложение', async (t) => {
+  const project = createProject(createNodeFs(), ROOT);
+  const server = createServer(project);
+  t.after(() => server.close());
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const { port } = server.address();
+
+  const post = (payload) => new Promise((resolve, reject) => {
+    const body = JSON.stringify(payload);
+    const req = http.request(
+      { host: '127.0.0.1', port, path: '/beat-render', method: 'POST', headers: { 'Content-Type': 'application/json' } },
+      (res) => {
+        const chunks = [];
+        res.on('data', (chunk) => chunks.push(chunk));
+        res.on('end', () => resolve(JSON.parse(Buffer.concat(chunks).toString('utf8'))));
+      },
+    );
+    req.on('error', reject);
+    req.end(body);
+  });
+
+  const ok = await post({ bpm: 120, genre: 'house', seed: 3, durationSec: 2 });
+  assert.equal(ok.ok, true, ok.error);
+  assert.equal(ok.data.report.bpm, 120);
+  assert.equal(ok.data.report.deterministic, true);
+  assert.ok(ok.data.wavBase64.length > 1000, 'должен вернуться готовый WAV, а не заглушка');
+  assert.equal(Buffer.from(ok.data.wavBase64, 'base64').toString('ascii', 0, 4), 'RIFF');
+
+  const bad = await post({ bpm: 5000 });
+  assert.equal(bad.ok, false);
+  assert.match(bad.error, /BPM/);
+});
+
+test('CSP предпросмотра разрешает свой же сервер, приложение — нет', async (t) => {
+  const project = createProject(createNodeFs(), ROOT);
+  const server = createServer(project);
+  t.after(() => server.close());
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+
+  const page = await get(server, '/');
+  assert.match(page.body, /connect-src 'self'/, 'предпросмотру нужен свой origin для рендера');
+  assert.doesNotMatch(page.body, /connect-src 'none'/);
+
+  const source = fs.readFileSync(path.join(ROOT, 'desktop', 'src', 'index.html'), 'utf8');
+  assert.match(source, /connect-src 'none'/, 'в приложении окно не должно ходить даже к себе по HTTP');
 });
