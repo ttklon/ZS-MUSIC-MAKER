@@ -79,6 +79,17 @@
   синтаксис всех 49 файлов окна и главного процесса, включая вынесенные
   `bar.js`, `master.js`, `vocal.js`, `vocal-mix.js`, `takes.js`, `hook.js`,
   `tuning.js`, `dossier-edit.js` (раньше они выпадали из проверки).
+- **Треки досье ведутся в окне (без Python).** Новый раздел «Треки»:
+  выбираете артиста, вводите название, необязательные ссылку и текст —
+  окно пишет `tracks/<id>.json` и `lyrics/<id>.txt` в формате
+  Python-менеджера. Идентификатор считается по той же формуле, что
+  `modules/artist_dossier/schema.py::_track_id` (проверено на трёх
+  значениях: `Intro Track` → `intro_track_223d85c6`). Статус записи —
+  `pending`, `features` пустой: разбор (темп, тональность, вокал) делает
+  Python при сборке досье, и окно об этом пишет. Проверка:
+  `desktop/test/dossier-tracks.test.js` и `test/tracks-view.test.js`
+  (раздел в DOM-двойнике), каналы `zsmm:dossier-tracks|dossier-track-add`,
+  маршруты `/dossier-tracks|/dossier-track-add` в предпросмотре.
 - **Запись досье, созданная окном, читается Python-менеджером.**
   Окно пишет `artist.json` с пояснением `note`, а
   `modules/artist_dossier/storage.py::load_artist` собирал запись как

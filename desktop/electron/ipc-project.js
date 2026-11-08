@@ -13,6 +13,7 @@
 
 const { createNodeFs } = require('../src/core/fs-node');
 const dossierEdit = require('../src/core/dossier-edit');
+const dossierTracks = require('../src/core/dossier-tracks');
 
 /**
  * Зарегистрировать каналы данных проекта.
@@ -62,7 +63,26 @@ function registerProjectIpc({ ipcMain, getProject, root = null, fileSystem = nul
     ipcMain.handle('zsmm:dossier-remove', (_event, payload) => dossierEdit.removeArtist(
       fsApi, root, payload && typeof payload === 'object' ? payload : {},
     ));
-    registered.push('zsmm:dossier-add', 'zsmm:dossier-remove');
+    // Треки досье: запись `<slug>/tracks/<id>.json` в формате Python-менеджера.
+    // Анализ (bpm, тональность, разбор вокала) по-прежнему делает Python —
+    // окно только заводит трек и честно ставит статус `pending`.
+    ipcMain.handle('zsmm:dossier-tracks', (_event, payload) => {
+      const { slug } = payload && typeof payload === 'object' ? payload : {};
+      const clean = String(slug || '').trim();
+      if (!clean) return { ok: false, error: 'не указан артист' };
+      const list = dossierTracks.listTracks(fsApi, root, clean);
+      return {
+        ok: true,
+        data: { slug: clean, tracks: list.tracks, errors: list.errors },
+      };
+    });
+    ipcMain.handle('zsmm:dossier-track-add', (_event, payload) => dossierTracks.addTrack(
+      fsApi, root, payload && typeof payload === 'object' ? payload : {},
+    ));
+    registered.push(
+      'zsmm:dossier-add', 'zsmm:dossier-remove',
+      'zsmm:dossier-tracks', 'zsmm:dossier-track-add',
+    );
   }
   return registered;
 }

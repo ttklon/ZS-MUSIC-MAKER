@@ -118,6 +118,19 @@ function shim(project) {
       });
       return response.json();
     },
+    // Треки досье — те же правила, что в приложении: формат один.
+    dossierTracks: async (slug) => {
+      const response = await fetch('/dossier-tracks?slug=' + encodeURIComponent(slug || ''));
+      return response.json();
+    },
+    dossierTrackAdd: async (payload) => {
+      const response = await fetch('/dossier-track-add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload || {}),
+      });
+      return response.json();
+    },
     // Входа записи в браузере нет — и предпросмотр так и говорит.
     vocalInput: () => Promise.resolve({
       ok: true,
@@ -266,6 +279,35 @@ function createServer(project, options = {}) {
           ? dossier.addArtist(fsApi, ROOT, parsed)
           : dossier.removeArtist(fsApi, ROOT, parsed);
         send(200, JSON.stringify(reply), MIME['.json']);
+      });
+      return;
+    }
+
+    if (url.pathname === '/dossier-tracks' && req.method === 'GET') {
+      const dossierTracks = require('../src/core/dossier-tracks');
+      const slug = String(url.searchParams.get('slug') || '').trim();
+      if (!slug) {
+        send(200, JSON.stringify({ ok: false, error: 'не указан артист' }), MIME['.json']);
+        return;
+      }
+      const list = dossierTracks.listTracks(createNodeFs(), ROOT, slug);
+      send(200, JSON.stringify({ ok: true, data: { slug, tracks: list.tracks, errors: list.errors } }), MIME['.json']);
+      return;
+    }
+
+    if (url.pathname === '/dossier-track-add' && req.method === 'POST') {
+      const chunks = [];
+      req.on('data', (chunk) => chunks.push(chunk));
+      req.on('end', () => {
+        let parsed = {};
+        try {
+          parsed = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
+        } catch {
+          send(200, JSON.stringify({ ok: false, error: 'тело запроса — не JSON' }), MIME['.json']);
+          return;
+        }
+        const dossierTracks = require('../src/core/dossier-tracks');
+        send(200, JSON.stringify(dossierTracks.addTrack(createNodeFs(), ROOT, parsed)), MIME['.json']);
       });
       return;
     }

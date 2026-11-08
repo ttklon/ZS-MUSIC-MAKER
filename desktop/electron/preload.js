@@ -124,6 +124,15 @@ function environment() {
   return ipcRenderer.invoke('zsmm:environment');
 }
 
+/** Треки артиста и добавление трека: досье ведётся из окна, без Python. */
+function dossierTracks(slug) {
+  return ipcRenderer.invoke('zsmm:dossier-tracks', { slug });
+}
+
+function dossierTrackAdd(payload) {
+  return ipcRenderer.invoke('zsmm:dossier-track-add', payload);
+}
+
 function revealRoot() {
   return ipcRenderer.invoke('zsmm:reveal-root');
 }
@@ -156,6 +165,8 @@ contextBridge.exposeInMainWorld('zsmm', {
   vocalInput,
   dossierAdd,
   dossierRemove,
+  dossierTracks,
+  dossierTrackAdd,
   loadSettings,
   saveSettings,
   environment,

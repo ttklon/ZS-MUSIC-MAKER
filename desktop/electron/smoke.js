@@ -95,11 +95,21 @@ async function runSmoke({
       const tmp = require('node:fs').mkdtempSync(require('node:path').join(require('node:os').tmpdir(), 'zsmm-smoke-'));
       const { createNodeFs } = require('../src/core/fs-node');
       const added = dossier.addArtist(createNodeFs(), tmp, { artist: 'Smoke Artist' });
+      // Трек заводится тем же кодом, что в разделе «Треки»: проверяем, что
+      // запись создаётся и читается, и что статус не выдуман («не разобран»).
+      const tracks = require('../src/core/dossier-tracks');
+      const track = added.ok
+        ? tracks.addTrack(createNodeFs(), tmp, { slug: added.data.slug, title: 'Smoke Track' })
+        : { ok: false, error: 'артист не добавлен' };
+      const trackList = added.ok ? tracks.listTracks(createNodeFs(), tmp, added.data.slug) : { tracks: [] };
       const removed = added.ok ? dossier.removeArtist(createNodeFs(), tmp, { slug: added.data.slug }) : { ok: false };
       push(
         'досье правится без Python',
-        added.ok === true && removed.ok === true,
-        added.ok ? `добавлен и удалён ${added.data.slug}` : added.error,
+        added.ok === true && track.ok === true && trackList.tracks.length === 1
+          && trackList.tracks[0].status === 'pending' && removed.ok === true,
+        added.ok
+          ? `артист и трек ${track.ok ? track.data.track_id : track.error} добавлены и удалены`
+          : added.error,
       );
       try {
         require('node:fs').rmSync(tmp, { recursive: true, force: true });

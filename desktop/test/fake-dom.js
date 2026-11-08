@@ -162,7 +162,9 @@ function documentFromHtml(html) {
   const body = doc.createElement('body');
   doc.append(body);
 
-  for (const match of html.matchAll(/<(button|section|div|span|p|ul|tbody|pre|h1|h2|h3|input|table|select|option|code)\b([^>]*)>/g)) {
+  // `textarea` в списке: без него раздел, где есть поле текста, падал бы в
+  // тесте на «нет элемента», хотя в настоящем окне поле есть.
+  for (const match of html.matchAll(/<(button|section|div|span|p|ul|tbody|pre|h1|h2|h3|input|textarea|table|select|option|code)\b([^>]*)>/g)) {
     const tag = match[1];
     const attributes = match[2];
     const element = doc.createElement(tag);
@@ -175,7 +177,7 @@ function documentFromHtml(html) {
     }
     // Как в браузере: value из разметки — начальное значение поля, иначе
     // тест видит пустые поля там, где у пользователя уже стоит «140».
-    if (tag === 'input') {
+    if (tag === 'input' || tag === 'textarea') {
       const valueMatch = /\svalue="([^"]*)"/.exec(attributes);
       element.value = valueMatch ? valueMatch[1] : '';
     }

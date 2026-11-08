@@ -26,6 +26,7 @@
           <button class="nav-item" data-view="genres">Жанры</button>
           <button class="nav-item" data-view="beat">Бит</button>
           <button class="nav-item" data-view="dossiers">Досье</button>
+          <button class="nav-item" data-view="tracks">Треки</button>
           <button class="nav-item" data-view="run">Запуск</button>
           <button class="nav-item" data-view="health">Диагностика</button>
           <button class="nav-item" data-view="help">Справка</button>
@@ -165,6 +166,28 @@
           </div>
         </section>
 
+        <section class="view is-hidden" id="view-tracks">
+          <div class="panel">
+            <h2>Треки артиста</h2>
+            <p class="muted" id="tracks-lead">
+              Треки ведутся в окне: название, ссылка и текст сохраняются сразу.
+              Разбор (темп, тональность, вокал) делает Python при сборке досье —
+              до этого статус трека честно «не разобран».
+            </p>
+            <div class="row">
+              <select id="tracks-artist"></select>
+              <input id="tracks-title" placeholder="название трека" />
+              <input id="tracks-url" placeholder="ссылка (необязательно)" />
+              <button class="ghost" id="tracks-add">Добавить трек</button>
+            </div>
+            <div class="row">
+              <textarea id="tracks-lyrics" rows="4" placeholder="текст трека (необязательно)"></textarea>
+            </div>
+            <p class="muted" id="tracks-status">Треков пока нет</p>
+            <ul class="list" id="tracks-list"></ul>
+          </div>
+        </section>
+
         <section class="view is-hidden" id="view-run">
           <div class="panel">
             <h2>Запуск задач проекта</h2>
@@ -230,6 +253,7 @@
     <script src="sections/genres.js"></script>
     <script src="sections/beat.js"></script>
     <script src="sections/dossiers.js"></script>
+    <script src="sections/tracks.js"></script>
     <script src="sections/run.js"></script>
     <script src="sections/health.js"></script>
     <script src="sections/help.js"></script>
