@@ -347,3 +347,38 @@ test('закрытие окна во время рендера не выбрас
   assert.match(source, /defaultId:\s*0/);
   assert.match(source, /cancelId:\s*0/);
 });
+
+test('модули главного процесса достижимы из точки входа', () => {
+  // Тот же класс ошибки, что и потерянный `registerBeatIpc`: файл есть,
+  // тесты его зовут напрямую, а из `main.js` он не подключён — значит в
+  // приложении его код не работает вовсе. Идём по `require` от точки входа.
+  const seen = new Set();
+  const queue = [path.join(ELECTRON, 'main.js')];
+  while (queue.length) {
+    const file = queue.pop();
+    if (seen.has(file)) continue;
+    seen.add(file);
+    const source = fs.readFileSync(file, 'utf8');
+    for (const match of source.matchAll(/require\('(\.[^']+)'\)/g)) {
+      let target = path.normalize(path.join(path.dirname(file), match[1]));
+      if (!target.endsWith('.js')) target += '.js';
+      if (fs.existsSync(target)) queue.push(target);
+    }
+  }
+
+  // Часть файлов подключается не через `require`, а строкой пути:
+  // `window.js` передаёт preload в BrowserWindow, `render-host.js` — путь к
+  // рендер-потоку. Такие файлы считаем достижимыми, если их имя встречается
+  // в коде подключённых модулей.
+  const sources = [...seen].map((file) => fs.readFileSync(file, 'utf8')).join('\n');
+  const names = new Set([...seen].map((file) => path.basename(file)));
+  for (const extra of ['preload.js', 'render-worker.js']) {
+    assert.match(sources, new RegExp(`'${extra.replace('.', '\\.')}'`), `${extra} нигде не подключается`);
+    names.add(extra);
+  }
+
+  const unreachable = fs.readdirSync(ELECTRON)
+    .filter((file) => file.endsWith('.js'))
+    .filter((file) => !names.has(file));
+  assert.deepEqual(unreachable, [], `модули вне графа main.js: ${unreachable.join(', ')}`);
+});
