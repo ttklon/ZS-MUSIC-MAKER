@@ -122,13 +122,21 @@ async function runSmoke({
         ? tracks.addTrack(createNodeFs(), tmp, { slug: added.data.slug, title: 'Smoke Track' })
         : { ok: false, error: 'артист не добавлен' };
       const trackList = added.ok ? tracks.listTracks(createNodeFs(), tmp, added.data.slug) : { tracks: [] };
+      // Удаление трека — тоже путь окна: проверяем в упакованной сборке, что
+      // запись, текст и ссылка из досье убираются, а артист остаётся.
+      const trackGone = added.ok && track.ok
+        ? tracks.removeTrack(createNodeFs(), tmp, { slug: added.data.slug, trackId: track.data.track_id })
+        : { ok: false, error: 'трек не добавлен' };
+      const afterRemove = added.ok ? tracks.listTracks(createNodeFs(), tmp, added.data.slug) : { tracks: [] };
       const removed = added.ok ? dossier.removeArtist(createNodeFs(), tmp, { slug: added.data.slug }) : { ok: false };
       push(
         'досье правится без Python',
         added.ok === true && track.ok === true && trackList.tracks.length === 1
-          && trackList.tracks[0].status === 'pending' && removed.ok === true,
+          && trackList.tracks[0].status === 'pending' && trackGone.ok === true
+          && afterRemove.tracks.length === 0 && removed.ok === true,
         added.ok
-          ? `артист и трек ${track.ok ? track.data.track_id : track.error} добавлены и удалены`
+          ? `артист и трек ${track.ok ? track.data.track_id : track.error} добавлены, `
+            + `трек ${trackGone.ok ? 'удалён' : trackGone.error}, артист удалён`
           : added.error,
       );
       try {
