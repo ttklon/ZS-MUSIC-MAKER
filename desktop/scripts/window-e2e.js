@@ -285,7 +285,34 @@ async function main() {
       `карточек ${genresEmpty}, подпись «${genresCount.slice(0, 60)}»`,
     );
 
-    // --- 7. Задача без Python: живой вывод и итог
+    // --- 7. Маленький экран: ноутбук 1280×800 при масштабе 125 % даёт около
+    // 1024 CSS-пикселей. Горизонтальная прокрутка и обрезанный текст — то, что
+    // видно только человеку, поэтому проверяем числами.
+    await page.setViewport({ width: 1024, height: 700 });
+    await new Promise((resolve) => { setTimeout(resolve, 600); });
+    const cramped = [];
+    for (const view of ['overview', 'beat', 'dossiers', 'tracks', 'run', 'health']) {
+      await page.click(`[data-view="${view}"]`);
+      await new Promise((resolve) => { setTimeout(resolve, 500); });
+      const box = await page.evaluate(() => {
+        const root = document.documentElement;
+        const wide = [...document.querySelectorAll('.view:not(.is-hidden) *')]
+          .filter((node) => node.getBoundingClientRect().width > root.clientWidth + 1)
+          .map((node) => `${node.tagName.toLowerCase()}${node.id ? `#${node.id}` : ''}`)
+          .slice(0, 3);
+        return { overflow: root.scrollWidth - root.clientWidth, wide };
+      });
+      if (box.overflow > 1 || box.wide.length) cramped.push(`${view}: прокрутка ${box.overflow}px, ${box.wide.join(', ')}`);
+    }
+    record(
+      'на 1024 пикселях нет горизонтальной прокрутки',
+      cramped.length === 0,
+      cramped.length ? cramped.join('; ') : 'все разделы укладываются по ширине',
+    );
+    await page.setViewport({ width: 1440, height: 1000 });
+    await new Promise((resolve) => { setTimeout(resolve, 400); });
+
+    // --- 8. Задача без Python: живой вывод и итог
     await page.click('[data-view="run"]');
     await new Promise((resolve) => { setTimeout(resolve, 800); });
     await page.select('#task-select', 'native-files');
