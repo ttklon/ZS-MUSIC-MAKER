@@ -30,6 +30,12 @@
 - **Манифест бэкапа — всегда через `/`.** `app/core/auto_backup.py` писал
   `data\settings.json` на Windows: восстановление на другой машине и сверка с
   документацией ломались из-за разделителя. Теперь `Path.as_posix()`.
+- **UTF-8 для консоли на Windows.** Шаг «Smoke — audio quality» падал с
+  `UnicodeEncodeError: 'charmap' codec can't encode character '≤'`: консоль
+  Windows по умолчанию cp1251, а инструменты печатают `→`, `≥`, `≤`. У job-а
+  `windows` теперь `PYTHONUTF8=1` и `PYTHONIOENCODING=utf-8` — это про вывод,
+  файлы не меняются. Шаги smoke и аудита на Windows идут через `shell: bash`:
+  в pwsh `status=$?` и `grep` не работают, и аннотация не появлялась.
 - **`--help` инструментов читается независимо от кодировки консоли:**
   `tests/test_tools_cli.py` — `encoding="utf-8", errors="replace"`; падение
   `test_shell_suite_passes` теперь называет код возврата Node, а не

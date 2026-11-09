@@ -125,6 +125,12 @@ jobs:
     # на Ubuntu: проверяем ровно ту платформу, на которой работает владелец.
     runs-on: windows-latest
     timeout-minutes: 45
+    env:
+      # Консоль Windows по умолчанию cp1251: `print("→")` в инструментах валит
+      # шаг с UnicodeEncodeError, и это выглядит как ошибка аудио. UTF-8 в
+      # окружении (PEP 540) относится только к выводу, файлы не меняются.
+      PYTHONUTF8: '1'
+      PYTHONIOENCODING: utf-8
     steps:
     - uses: actions/checkout@v4
 
