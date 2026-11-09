@@ -10,6 +10,7 @@
  * ни при каких настройках не превращается в «запись с микрофона».
  */
 
+(function () {
 const W = window.ZSMM_UI;
 const { $, showError, state } = W;
 
@@ -206,3 +207,11 @@ function updateVocalNote() {
 W.vocalOptions = vocalOptions;
 W.wireVocal = wireVocal;
 W.describeRecording = describeRecording;
+  // В браузере все `<script>` делят одну глобальную область: второй
+  // верхнеуровневый `const` с тем же именем роняет файл целиком
+  // (`Identifier 'W' has already been declared`). Поэтому код раздела
+  // живёт в своей функции, а наружу отдаёт только одно имя.
+  // У раздела «Вокал» нет своей панели: его код встраивается в «Бит» через
+  // `wireVocal`/`vocalOptions`, которые регистрируются телом файла.
+  window.ZSMM_SECTIONS.initVocal = function () {};
+})();

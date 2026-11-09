@@ -130,3 +130,24 @@ test('битый файл трека не прячет остальные', () =
   assert.match(list.errors[0], /сломанный\.json/);
   fs.rmSync(root, { recursive: true, force: true });
 });
+
+test('у артиста без треков нет ошибки чтения — просто пусто', () => {
+  const tmp = makeRoot();
+  const api = createNodeFs();
+  const added = dossier.addArtist(api, tmp, { artist: 'Без треков' });
+  const listed = tracks.listTracks(api, tmp, added.data.slug);
+  assert.deepEqual(listed.tracks, []);
+  // Раньше отсутствие каталога отдавалось как ENOENT в `errors`, и окно
+  // показывало красный баннер «Треки прочитаны не полностью» на каждом
+  // свежем досье. Это не ошибка чтения, а «треков ещё нет».
+  assert.deepEqual(listed.errors, []);
+
+  // А настоящая поломка (каталог есть, файл битый) по-прежнему называется.
+  const dir = path.join(tmp, 'data', 'artist_dossier', added.data.slug, 'tracks');
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, 'сломанный.json'), '{не json');
+  const broken = tracks.listTracks(api, tmp, added.data.slug);
+  assert.equal(broken.tracks.length, 0);
+  assert.ok(broken.errors.length >= 1, 'битый файл должен быть назван');
+  fs.rmSync(tmp, { recursive: true, force: true });
+});

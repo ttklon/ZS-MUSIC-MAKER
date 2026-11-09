@@ -5,6 +5,7 @@
  * Использует общие помощники из `app.js` через `window.ZSMM_UI`.
  */
 
+(function () {
 const W = window.ZSMM_UI;
 const { $, el, ask, showError, setStatus, card, statusTag, state } = W;
 
@@ -91,3 +92,11 @@ function renderModules() {
 W.loadOverview = loadOverview;
 W.loadModules = loadModules;
 W.renderModules = renderModules;
+  // В браузере все `<script>` делят одну глобальную область: второй
+  // верхнеуровневый `const` с тем же именем роняет файл целиком
+  // (`Identifier 'W' has already been declared`). Поэтому код раздела
+  // живёт в своей функции, а наружу отдаёт только одно имя.
+  window.ZSMM_SECTIONS.initOverview = function () {
+    W.loadOverview = loadOverview;
+  };
+})();

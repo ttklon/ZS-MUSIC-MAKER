@@ -242,15 +242,21 @@ function bootWindow({ srcDir, html, bridge }) {
   global.window = window;
   global.document = document;
 
-  for (const script of windowScripts(srcDir)) {
-    // eslint-disable-next-line no-new-func
-    new Function('window', 'document', 'setTimeout', 'clearTimeout', script.source)(
-      window,
-      document,
-      window.setTimeout,
-      window.clearTimeout,
-    );
-  }
+  // Разбор как в браузере: все `<script>` делят одну глобальную область, и
+  // второй `const` с тем же именем роняет файл целиком. Раньше каждый скрипт
+  // шёл отдельной функцией, поэтому ошибка «Identifier 'W' has already been
+  // declared» не ловилась в тестах 3 дня — а в настоящем окне она означала,
+  // что из девяти разделов работал только первый.
+  const scripts = windowScripts(srcDir);
+  const parse = new Function('window', 'document', 'setTimeout', 'clearTimeout',
+    scripts.map((script) => script.source).join('\n;\n'));
+  parse(window, document, window.setTimeout, window.clearTimeout);
+
+  // Инициализаторы разделов — как в `app.js`: раздел, упавший при разборе,
+  // не оставляет после себя инициализатора, и это видно списком.
+  window.ZSMM_SECTIONS = window.ZSMM_SECTIONS || {};
+  for (const init of Object.values(window.ZSMM_SECTIONS)) init();
+
   document.dispatch('DOMContentLoaded');
   return { document, window };
 }

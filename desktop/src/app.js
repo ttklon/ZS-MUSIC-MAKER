@@ -15,6 +15,11 @@
 
 /** Пространство имён окна: сюда пишут все скрипты, отсюда читают. */
 const W = (window.ZSMM_UI = window.ZSMM_UI || {});
+// Разделы (`sections/*.js`) в браузере делят с этим файлом одну глобальную
+// область, поэтому наружу каждый отдаёт ровно одно имя — сюда. Так видно,
+// какие разделы действительно загрузились: если файл упал с ошибкой, его
+// инициализатора тут не будет, и окно скажет об этом, а не покажет пустоту.
+window.ZSMM_SECTIONS = {};
 
 const state = {
   view: 'overview',
@@ -110,6 +115,26 @@ W.statusTag = statusTag;
 // ----------------------------------------------------------- навигация
 // Загрузчики берутся из разделов: `sections/*.js` уже выполнились, потому
 // что подключены раньше этого файла.
+
+/**
+ * Запустить разделы: один сломанный файл не должен ронять остальные.
+ *
+ * `init` каждого раздела регистрирует свои загрузчики в `W`. Если скрипт
+ * упал при разборе, инициализатора не будет — и это лучше видно причиной,
+ * чем пустой панелью.
+ */
+function bootSections() {
+  const sections = window.ZSMM_SECTIONS || {};
+  const missing = [];
+  for (const [name, init] of Object.entries(sections)) {
+    try {
+      init();
+    } catch (err) {
+      missing.push(`${name}: ${(err && err.message) || 'ошибка'}`);
+    }
+  }
+  return missing;
+}
 
 const LOADERS = {
   overview: () => W.loadOverview(),
@@ -226,6 +251,11 @@ async function startView() {
 if (typeof document !== 'undefined') {
   document.addEventListener('DOMContentLoaded', () => {
     wire();
+    // Разделы инициализируются после разбора всех скриптов и до первого
+    // переключения: иначе `switchView` позвал бы ещё не зарегистрированный
+    // загрузчик и показал бы «загрузчик отсутствует» вместо раздела.
+    const failed = bootSections();
+    if (failed.length) showError(`Раздел не загрузился: ${failed.join('; ')}`);
     // Настройки читаются ДО первого переключения, иначе `saveSettings` мог бы
     // записать «Обзор» поверх запомненного раздела.
     startView().then((view) => switchView(view));
@@ -234,5 +264,5 @@ if (typeof document !== 'undefined') {
 
 if (typeof module !== 'undefined' && module.exports) {
   // Для тестов: состояние, названия разделов и переход между ними.
-  module.exports = { state, TITLES, LOADERS, switchView, startView, W };
+  module.exports = { state, TITLES, LOADERS, switchView, startView, bootSections, W };
 }

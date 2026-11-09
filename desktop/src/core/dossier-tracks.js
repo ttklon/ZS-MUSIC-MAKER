@@ -54,7 +54,13 @@ function tracksDir(root, slug, dataDir = null) {
 function listTracks(fsApi, root, slug, opts = {}) {
   const dir = tracksDir(root, slug, opts.dataDir);
   const listing = fsApi.listDir(dir);
-  if (listing.error) return { tracks: [], errors: [`tracks/: ${listing.error}`] };
+  if (listing.error) {
+    // Каталога `tracks/` может не быть просто потому, что у артиста ещё нет
+    // треков: это не «ошибка чтения», и пугать ею в окне нельзя — иначе
+    // красный баннер висит на каждом свежем досье.
+    const missing = fsApi.exists ? !fsApi.exists(dir) : listing.error === 'ENOENT';
+    return { tracks: [], errors: missing ? [] : [`tracks/: ${listing.error}`] };
+  }
   const tracks = [];
   const errors = [];
   for (const entry of listing.entries) {

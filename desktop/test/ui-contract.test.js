@@ -84,6 +84,52 @@ test('app.js вызывает только то, что отдаёт preload', (
   assert.ok(exposed.size >= 6, `preload отдаёт слишком мало: ${[...exposed].join(', ')}`);
 });
 
+test('скрипты окна делят одну глобальную область и не конфликтуют именами', () => {
+  // В браузере все `<script>` из index.html исполняются в одной глобальной
+  // области. Раньше каждый раздел объявлял верхнеуровневый `const W`, и
+  // второй файл падал с «Identifier 'W' has already been declared» — то есть
+  // из девяти разделов работал только первый. DOM-двойник этого не видел,
+  // потому что грузил каждый скрипт отдельной функцией.
+  const scripts = windowScripts(SRC);
+  const sources = scripts.map((script) => script.source).join('\n;\n');
+  assert.doesNotThrow(
+    () => new Function('window', 'document', 'setTimeout', 'clearTimeout', sources),
+    'скрипты не собираются в одну область видимости',
+  );
+
+  // Каждый раздел обёрнут в функцию: только так он не выбрасывает свои имена
+  // в общую область. Проверяем структурно, а не по отступам.
+  for (const { name, source } of scripts) {
+    if (name === 'app.js' || name === 'sections/recorder.js') continue;
+    const live = source
+      .replace(/^\s*\/\*[\s\S]*?\*\//gm, '')
+      .split('\n')
+      .filter((line) => line.trim() && !line.trim().startsWith('//'))
+      .join('\n');
+    assert.match(live, /^\(function \(\) \{/m, `${name} не обёрнут в функцию: его имена попадут в общую область`);
+    assert.match(live, /window\.ZSMM_SECTIONS\.init\w+ = function/, `${name} не регистрирует инициализатор`);
+  }
+});
+
+test('каждый раздел отдаёт ровно один инициализатор, и все они на месте', () => {
+  // Раздел, упавший при разборе, не оставит инициализатора — тогда `app.js`
+  // скажет причину, вместо пустой панели. Проверяем, что список совпадает
+  // с файлами в index.html (vocal.js своей панели не имеет).
+  const html = fs.readFileSync(path.join(SRC, 'index.html'), 'utf8');
+  const files = [...html.matchAll(/<script src="(sections\/[^"]+)\.js"><\/script>/g)]
+    .map((match) => match[1].replace('sections/', ''))
+    .filter((name) => name !== 'recorder' && name !== 'vocal');
+  const expected = files.map((name) => `init${name[0].toUpperCase()}${name.slice(1)}`);
+
+  const combined = windowScripts(SRC).map((script) => script.source).join('\n');
+  for (const init of expected) {
+    assert.match(combined, new RegExp(`ZSMM_SECTIONS\\.${init}\\s*=`), `нет инициализатора ${init}`);
+  }
+  // Каждый файл регистрирует свой инициализатор ровно один раз.
+  const registrations = [...combined.matchAll(/ZSMM_SECTIONS\.(init\w+)\s*=/g)].map((m) => m[1]);
+  assert.equal(new Set(registrations).size, registrations.length, `повтор инициализатора: ${registrations}`);
+});
+
 test('каждый файл окна и главного процесса не длиннее 400 строк', () => {
   // Правило проекта: длинные файлы не читаются. Раньше оно проверялось
   // только для Python, и `engine.js` успел вырасти до 843 строк при лимите

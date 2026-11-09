@@ -11,6 +11,7 @@
  * Использует общие помощники из `app.js` через `window.ZSMM_UI`.
  */
 
+(function () {
 const W = window.ZSMM_UI;
 const { $, ask, showError, state } = W;
 
@@ -129,3 +130,11 @@ async function loadDossiers() {
 }
 
 W.loadDossiers = loadDossiers;
+  // В браузере все `<script>` делят одну глобальную область: второй
+  // верхнеуровневый `const` с тем же именем роняет файл целиком
+  // (`Identifier 'W' has already been declared`). Поэтому код раздела
+  // живёт в своей функции, а наружу отдаёт только одно имя.
+  window.ZSMM_SECTIONS.initDossiers = function () {
+    W.loadDossiers = loadDossiers;
+  };
+})();

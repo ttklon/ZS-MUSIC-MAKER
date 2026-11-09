@@ -11,6 +11,7 @@
  * Использует общие помощники из `app.js` через `window.ZSMM_UI`.
  */
 
+(function () {
 const W = window.ZSMM_UI;
 const { $, el, showError, state } = W;
 
@@ -149,3 +150,11 @@ function openArtistTracks(slug) {
 
 W.openArtistTracks = openArtistTracks;
 W.loadTracks = loadTracks;
+  // В браузере все `<script>` делят одну глобальную область: второй
+  // верхнеуровневый `const` с тем же именем роняет файл целиком
+  // (`Identifier 'W' has already been declared`). Поэтому код раздела
+  // живёт в своей функции, а наружу отдаёт только одно имя.
+  window.ZSMM_SECTIONS.initTracks = function () {
+    W.loadTracks = loadTracks;
+  };
+})();
