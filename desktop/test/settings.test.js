@@ -100,3 +100,44 @@ test('ошибка записи возвращается текстом, а не
   assert.match(result.error, /EACCES/);
   assert.equal(result.value.bpm, DEFAULTS.bpm);
 });
+
+test('режим вокала запоминается, а звуковые данные — нет', () => {
+  const dir = tempDir();
+  // Ровно то, что окно отправляло после рендера с записью: параметры и
+  // сами сэмплы в base64. Файл настроек не должен пухнуть от звука.
+  createSettingsStore({ dir }).save({
+    genre: 'phonk',
+    bpm: 120,
+    vocalMode: 'record',
+    vocalText: 'строка',
+    vocalGain: 0.5,
+    vocal: { mode: 'record', pcmBase64: 'A'.repeat(700000) },
+    pcmBase64: 'A'.repeat(700000),
+  });
+
+  const saved = JSON.parse(fs.readFileSync(path.join(dir, 'settings.json'), 'utf8'));
+
+  assert.equal(saved.vocalMode, 'record');
+  assert.equal(saved.vocalText, 'строка');
+  assert.equal(saved.vocalGain, 0.5);
+  assert.equal(saved.vocal, undefined, 'звук мелодии в настройках не хранится');
+  assert.equal(saved.pcmBase64, undefined);
+  // Главное: файл остался маленьким. Раньше он весил десятки мегабайт.
+  const size = fs.statSync(path.join(dir, 'settings.json')).size;
+  assert.ok(size < 4096, `settings.json раздулся до ${size} байт`);
+});
+
+test('чужие поля внутри вокала не проходят белый список', () => {
+  const dir = tempDir();
+  createSettingsStore({ dir }).save({
+    vocalMode: 'файл с диска',       // не режим из списка
+    vocalGain: 99,                    // вне диапазона 0…1
+    vocalText: 'я'.repeat(5000),      // длиннее предела
+  });
+
+  const saved = JSON.parse(fs.readFileSync(path.join(dir, 'settings.json'), 'utf8'));
+
+  assert.equal(saved.vocalMode, DEFAULTS.vocalMode);
+  assert.equal(saved.vocalGain, DEFAULTS.vocalGain);
+  assert.ok(saved.vocalText.length <= 120, `текст не обрезан: ${saved.vocalText.length}`);
+});

@@ -127,12 +127,15 @@ class FakeElement {
     }
   }
 
-  /** Поддержаны только те селекторы, которые реально использует app.js. */
+  /** Поддержаны только те селекторы, которые реально использует окно. */
   matches(selector) {
     if (selector === '[data-view]') return this.dataset.view !== undefined;
     if (selector.startsWith('.')) {
       return this.classList.contains(selector.slice(1));
     }
+    // Селектор по тегу (`select`, `audio`): без него нельзя ни собрать все
+    // списки разметки, ни проверить, что пункт попал в свой `<select>`.
+    if (/^[a-zA-Z][\w-]*$/.test(selector)) return this.tagName === selector.toUpperCase();
     return false;
   }
 
@@ -185,10 +188,17 @@ function documentFromHtml(html) {
   const doc = new FakeDocument();
   const body = doc.createElement('body');
   doc.append(body);
+  // Какой `<select>` открыт прямо сейчас: `<option>` обязан попасть внутрь
+  // него, иначе `select.value` в тесте не выставляется, а настоящий браузер
+  // показывает выбранный режим. Без этого проверка «сохранённый режим вокала
+  // вернулся» проходила бы на пустом значении.
+  let openSelect = null;
 
   // `textarea` в списке: без него раздел, где есть поле текста, падал бы в
-  // тесте на «нет элемента», хотя в настоящем окне поле есть.
-  for (const match of html.matchAll(/<(button|section|div|span|p|ul|tbody|pre|h1|h2|h3|input|textarea|table|select|option|code)\b([^>]*)>/g)) {
+  // тесте на «нет элемента», хотя в настоящем окне поле есть. `audio` — по
+  // той же причине: рендер в двойнике падал на `#beat-audio`, и проверка
+  // настроек не доходила до сохранения вовсе.
+  for (const match of html.matchAll(/<(button|section|div|span|p|ul|tbody|pre|h1|h2|h3|input|textarea|table|select|option|code|audio)\b([^>]*)>/g)) {
     const tag = match[1];
     const attributes = match[2];
     const element = doc.createElement(tag);
@@ -217,7 +227,29 @@ function documentFromHtml(html) {
     // последним (`... id="x" disabled`).
     if (hasBooleanAttribute(attributes, 'disabled')) element.disabled = true;
     if (hasBooleanAttribute(attributes, 'checked')) element.checked = true;
+
+    // Вложенность для `<option>`: только внутри своего `<select>`.
+    if (tag === 'option' && openSelect) {
+      openSelect.append(element);
+      continue;
+    }
     body.append(element);
+    if (tag === 'select') {
+      openSelect = element;
+      // Настоящий `<select>` показывает первый пункт. Это видно только после
+      // разбора пунктов, поэтому выбор откладывается до конца функции.
+    } else if (tag === 'div' || tag === 'section' || tag === 'fieldset') {
+      // Разметка полей идёт блоками: новый блок закрывает предыдущий список.
+      // Для `option` это неважно, а для `select` важно не «прилипнуть» к
+      // чужому `<select>` из предыдущего блока.
+      openSelect = null;
+    }
+  }
+
+  // `<select>` без выбранного пункта в браузере показывает первый. Делаем это
+  // после разбора всех `<option>`: раньше пунктов ещё не было.
+  for (const select of doc.querySelectorAll('select')) {
+    if (!select.value && select.options.length) select.value = select.options[0].value;
   }
   return doc;
 }

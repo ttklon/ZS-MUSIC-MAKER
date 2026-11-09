@@ -111,13 +111,48 @@ function renderBeatReport(report) {
   state.beatReport = report;
 }
 
+/**
+ * Что из параметров рендера запоминается.
+ *
+ * Дефект, который закрывает эта функция: сюда приходил весь объект
+ * `options`, включая `options.vocal` с `pcmBase64` записанного дубля или
+ * `wavBase64` выбранного файла. Всё это уходило в `saveSettings`, то есть в
+ * `settings.json`: 30 секунд записи — это 6,7 МБ base64, минута — 13,5 МБ.
+ * Файл настроек раздувался, перечитывался и перезаписывался целиком на каждое
+ * «сохранить» (смена раздела, движение окна) и в итоге мог не записаться
+ * вовсе — вместе с жанром, темпом и местом окна.
+ *
+ * Запоминается только то, что имеет смысл помнить: жанр, темп, зерно,
+ * длительность, банк и НАЗВАНИЕ режима вокала. Сами сэмплы не запоминаются
+ * намеренно — при следующем запуске их нет, и делать вид, что есть, нельзя.
+ *
+ * @param {{genre: string, bpm: number, seed: number|null, durationSec: number,
+ *          useBank: boolean, vocal?: {mode?: string}}} options
+ * @returns {{genre: string, bpm: number, seed: number|null, durationSec: number,
+ *            useBank: boolean, vocalMode: string}}
+ */
+function settingsFromOptions(options) {
+  const vocalMode = (options && options.vocal && options.vocal.mode) || 'none';
+  return {
+    genre: options.genre,
+    bpm: options.bpm,
+    seed: options.seed === undefined ? null : options.seed,
+    durationSec: options.durationSec,
+    useBank: Boolean(options.useBank),
+    // `file` не помним: файл мог исчезнуть, и молча рендерить «тишину» хуже,
+    // чем попросить выбрать его заново (см. `applyBeatSettings`).
+    vocalMode: vocalMode === 'file' ? 'none' : vocalMode,
+  };
+}
+
 /** Запомнить параметры бита, чтобы следующий запуск окна их не забыл. */
 function rememberBeatOptions(options) {
   if (!window.zsmm || typeof window.zsmm.saveSettings !== 'function') return;
   window.clearTimeout(state.settingsTimer);
+  const patch = settingsFromOptions(options);
   // Пауза на складку: пользователь правит поля мышью, а не по буквам.
   state.settingsTimer = window.setTimeout(() => {
-    window.zsmm.saveSettings(options).then((reply) => {
+    window.zsmm.saveSettings(patch).then((reply) => {
       if (reply && reply.ok !== true) showError(`Настройки не сохранены: ${(reply && reply.error) || 'нет ответа'}`);
     });
   }, 400);
