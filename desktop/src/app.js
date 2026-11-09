@@ -42,11 +42,21 @@ W.$ = $;
 
 function showError(message) {
   const banner = $('error-banner');
-  banner.textContent = message;
+  // Текст отдельным узлом: в баннере теперь ещё и кнопка закрытия, и
+  // `textContent` на весь баннер стёр бы её.
+  const text = $('error-text');
+  text.textContent = message;
   banner.classList.remove('is-hidden');
   window.clearTimeout(showError._timer);
-  showError._timer = window.setTimeout(() => banner.classList.add('is-hidden'), 9000);
+  showError._timer = window.setTimeout(() => hideError(), 9000);
 }
+
+function hideError() {
+  window.clearTimeout(showError._timer);
+  $('error-banner').classList.add('is-hidden');
+}
+
+W.hideError = hideError;
 W.showError = showError;
 
 function setStatus(ok, label) {
@@ -232,6 +242,8 @@ function wire() {
     state.loaded.clear();
     await switchView(state.view, { force: true });
   });
+  // Сообщение об ошибке можно закрыть рукой, не дожидаясь таймера.
+  $('error-close').addEventListener('click', () => hideError());
   $('genre-filter').addEventListener('input', () => W.renderGenres && W.renderGenres());
   // Фильтр модулей перерисовывает уже загруженный список: каждый символ не
   // должен заново читать inventory.md (300 строк) с диска.

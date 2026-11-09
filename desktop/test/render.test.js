@@ -124,7 +124,7 @@ test('ошибка моста показывается, а не прячется
   await flush();
   await flush();
 
-  const banner = document.getElementById('error-banner');
+  const banner = document.getElementById('error-text');
   assert.equal(banner.classList.contains('is-hidden'), false, 'баннер обязан быть виден');
   assert.match(banner.textContent, /снимок не найден/);
   // панель обзора грузится параллельно: причина обязана быть либо в ней,
@@ -142,7 +142,7 @@ test('без моста окно говорит об этом прямо', async
   await flush();
   await flush();
 
-  const banner = document.getElementById('error-banner');
+  const banner = document.getElementById('error-text');
   assert.match(banner.textContent, /window\.zsmm недоступен/);
   assert.match(document.getElementById('backend-state').textContent, /не подключён/);
 });
@@ -321,4 +321,26 @@ test('в блоке вокала есть запись с микрофона и 
   // Подпись под блоком помнит, что запись — это микрофон, а не имитация.
   const note = document.getElementById('vocal-note');
   assert.ok(note, 'нет подписи под блоком вокала');
+});
+
+test('сообщение об ошибке закрывается рукой, а не только таймером', async (t) => {
+  const bridge = realBridge();
+  bridge.readiness = async () => ({ ok: false, error: 'снимок не найден' });
+  const { document } = bootWindow({ bridge });
+  t.after(() => {
+    delete global.window;
+    delete global.document;
+  });
+  await flush();
+  await flush();
+
+  const banner = document.getElementById('error-banner');
+  assert.equal(banner.classList.contains('is-hidden'), false);
+  // Текст живёт в отдельном узле: иначе `textContent` на баннере стёр бы
+  // кнопку закрытия, и сообщение стало бы незакрываемым.
+  assert.match(document.getElementById('error-text').textContent, /снимок не найден/);
+  assert.ok(document.getElementById('error-close'), 'кнопки закрытия нет');
+
+  document.getElementById('error-close').dispatch('click');
+  assert.equal(banner.classList.contains('is-hidden'), true, 'сообщение не закрылось');
 });

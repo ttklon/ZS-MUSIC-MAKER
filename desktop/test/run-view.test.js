@@ -195,7 +195,7 @@ test('некорректный сид: ошибка видна, задача н�
   await flush();
   await flush();
 
-  const banner = document.getElementById('error-banner');
+  const banner = document.getElementById('error-text');
   assert.equal(banner.classList.contains('is-hidden'), false);
   assert.match(banner.textContent, /сид/);
   assert.equal(document.getElementById('task-start').disabled, false);
@@ -220,7 +220,7 @@ test('нет Python — понятное сообщение, а не завис�
   await flush();
   await flush();
 
-  assert.match(document.getElementById('error-banner').textContent, /ZSMM_PYTHON/);
+  assert.match(document.getElementById('error-text').textContent, /ZSMM_PYTHON/);
   assert.equal(document.getElementById('task-status').textContent, 'Не запущено');
 });
 

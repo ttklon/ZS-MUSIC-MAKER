@@ -138,7 +138,7 @@ async function main() {
 
     // --- 1б. Отказ сохранять без диалога — сказан причиной, а не молчанием
     await click(page, 'beat-save');
-    const saveRefusal = await page.evaluate(() => document.getElementById('error-banner').innerText.trim());
+    const saveRefusal = await page.evaluate(() => document.getElementById('error-text').textContent.trim());
     record(
       'отказ сохранения назван причиной',
       /browser|браузер|приложени/i.test(saveRefusal),
@@ -146,7 +146,7 @@ async function main() {
     );
     // Отчёт целиком — файлом: из него собирают баг-репорт, не пересказывая
     // цифры с экрана. В браузере это скачивание, в приложении — диалог.
-    await page.evaluate(() => { document.getElementById('error-banner').textContent = ''; });
+    await click(page, 'error-close');
     await click(page, 'beat-copy');
     const copyStatus = await page.evaluate(() => document.getElementById('beat-status').textContent.trim());
     record('отчёт сохраняется файлом', /Отчёт сохранён: .+\.json/.test(copyStatus), copyStatus.slice(0, 90));
@@ -170,8 +170,18 @@ async function main() {
     // --- 3. Ошибка ввода: причина, а не тишина
     await page.evaluate(() => { document.getElementById('beat-bpm').value = '999'; });
     await click(page, 'beat-render');
-    const banner = await page.evaluate(() => document.getElementById('error-banner').innerText.trim());
-    record('неверный BPM назван причиной', /BPM/.test(banner), banner.slice(0, 90));
+    const banner = await page.evaluate(() => ({
+      text: document.getElementById('error-text').textContent.trim(),
+      visible: !document.getElementById('error-banner').classList.contains('is-hidden'),
+    }));
+    record('неверный BPM назван причиной', /BPM/.test(banner.text), banner.text.slice(0, 90));
+    // Сообщение закрывается рукой: ждать девять секунд, чтобы оно ушло,
+    // человек не должен.
+    await click(page, 'error-close');
+    const closed = await page.evaluate(
+      () => document.getElementById('error-banner').classList.contains('is-hidden'),
+    );
+    record('сообщение об ошибке закрывается', banner.visible && closed, 'баннер скрыт по нажатию');
 
     // --- 4. Досье: добавить и удалить артиста
     await page.click('[data-view="dossiers"]');
@@ -222,13 +232,13 @@ async function main() {
     await waitFor(
       page,
       (title) => document.getElementById('tracks-list').innerText.includes(title)
-        || /ошибк/i.test(document.getElementById('error-banner').innerText || ''),
+        || /ошибк/i.test(document.getElementById('error-text').textContent || ''),
       { timeout: 20000, label: 'трек появился', arg: trackTitle },
     );
     const tracks = await page.evaluate(() => ({
       list: document.getElementById('tracks-list').innerText,
       status: document.getElementById('tracks-status').innerText,
-      banner: document.getElementById('error-banner').innerText.trim(),
+      banner: document.getElementById('error-text').textContent.trim(),
     }));
     record('трек заведён из окна', tracks.list.includes(trackTitle), tracks.status.slice(0, 80));
     record(

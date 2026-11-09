@@ -149,13 +149,13 @@ test('повтор трека и пустое название дают текс
   document.getElementById('tracks-add').dispatch('click');
   await flush();
   await flush();
-  assert.match(document.getElementById('error-banner').textContent, /название/i);
+  assert.match(document.getElementById('error-text').textContent, /название/i);
 
   document.getElementById('tracks-title').value = 'Уже есть';
   document.getElementById('tracks-add').dispatch('click');
   await flush();
   await flush();
-  assert.match(document.getElementById('error-banner').textContent, /уже есть/);
+  assert.match(document.getElementById('error-text').textContent, /уже есть/);
   // Форма не очищена: человек должен видеть, что именно он ввёл.
   assert.equal(document.getElementById('tracks-title').value, 'Уже есть');
 });

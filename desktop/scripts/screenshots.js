@@ -79,13 +79,15 @@ async function main() {
     const state = await page.evaluate((name) => {
       const title = document.getElementById('view-title');
       const panel = document.getElementById(`view-${name}`);
-      const banner = document.getElementById('error-banner');
+      // Текст ошибки живёт в своём узле внутри баннера: у баннера теперь
+      // есть ещё и кнопка закрытия, и `innerText` баннера тянул бы «×».
+      const banner = document.getElementById('error-text');
       return {
         title: title ? title.textContent : null,
         hasPanel: Boolean(panel),
         textLength: panel ? panel.innerText.trim().length : 0,
         sample: panel ? panel.innerText.replace(/\s+/g, ' ').trim().slice(0, 120) : '',
-        errorBanner: banner && banner.innerText.trim() ? banner.innerText.trim() : null,
+        errorBanner: banner && banner.textContent.trim() ? banner.textContent.trim() : null,
       };
     }, view);
     report.views[view] = state;
