@@ -267,3 +267,37 @@ test('меню приложения не отдаёт «перезагрузит
   const devRoles = menuTemplate({ isDev: true }).flatMap((item) => (item.submenu || []).map((sub) => sub.role));
   assert.ok(devRoles.includes('reload') && devRoles.includes('toggleDevTools'));
 });
+
+test('каждое поле ввода названо словами, а не только подсказкой', () => {
+  // Placeholder исчезает при вводе, и Narrator в Windows 11 читает поле как
+  // «поле ввода» без имени. У всех полей должна быть подпись.
+  const fields = html.match(/<(input|select|textarea)\b[^>]*>/g) || [];
+  const nameless = fields.filter((tag) => {
+    if (/type="checkbox"/.test(tag)) return false;
+    return !/aria-label=/.test(tag) && !/aria-labelledby=/.test(tag) && !/\bid="[^"]+"/.test(tag.replace(/aria-label[^>]*/, ''));
+  });
+  assert.deepEqual(nameless, [], 'поля без доступного имени');
+  const labelled = fields.filter((tag) => /aria-label=/.test(tag));
+  // Минус флажок «банк сэмплов»: он подписан текстом в <label>.
+  assert.equal(labelled.length, fields.length - 1, 'имя должно быть у каждого поля, а не у половины');
+  // Флажок «банк сэмплов» подписан текстом внутри <label> — это допустимо.
+  assert.match(html, /<label class="muted check"><input type="checkbox" id="beat-use-bank"/);
+});
+
+test('сообщения об ошибке и о ходе работы объявлены живыми областями', () => {
+  // Иначе человек с экранным диктором не узнает, что нажатие привело к
+  // отказу: баннер появляется молча.
+  assert.match(html, /id="error-banner"[^>]*role="alert"/);
+  for (const id of ['beat-status', 'tracks-status', 'task-status']) {
+    const tag = (html.match(new RegExp(`<[^>]*id="${id}"[^>]*>`)) || [])[0] || '';
+    assert.match(tag, /role="status"/, `${id} должен объявлять изменения`);
+    assert.match(tag, /aria-live="polite"/, `${id} должен быть вежливой живой областью`);
+  }
+});
+
+test('фокус клавиатуры виден, движение отключаемо', () => {
+  const css = fs.readFileSync(path.join(SRC, 'styles.css'), 'utf8');
+  assert.match(css, /:focus-visible/, 'без видимой рамки фокуса Tab теряется');
+  assert.match(css, /outline:\s*2px/, 'рамка фокуса должна быть видимой');
+  assert.match(css, /prefers-reduced-motion/, 'анимация должна отключаться по настройке системы');
+});

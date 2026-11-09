@@ -1,5 +1,5 @@
 {
-  "url": "http://127.0.0.1:4173/",
+  "url": "http://127.0.0.1:4180/",
   "viewport": "1440x900",
   "views": {
     "overview": {
@@ -26,7 +26,7 @@
     "beat": {
       "title": "Бит",
       "hasPanel": true,
-      "textLength": 794,
+      "textLength": 793,
       "sample": "Бит прямо в окне Банк сэмплов подключён: 32 one-shot (kick, snare, clap, hat, open_hat, 808). Ударные играют живые запис",
       "errorBanner": null
     },
@@ -61,7 +61,7 @@
     "help": {
       "title": "Справка",
       "hasPanel": true,
-      "textLength": 4170,
+      "textLength": 4428,
       "sample": "Справка Коротко: что приложение делает само, что требует Python и чего здесь принципиально нет. Что действительно работа",
       "errorBanner": null
     }

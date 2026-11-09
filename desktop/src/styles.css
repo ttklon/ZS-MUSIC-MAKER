@@ -356,9 +356,40 @@ input {
 
 .row {
   display: flex;
+  flex-wrap: wrap;
   gap: 12px;
   align-items: center;
   margin-bottom: 12px;
+}
+
+/* Кнопки и подписи не сжимаются по слогам: в тесном ряду flex сужал их до
+   одной буквы в строке («банк / сэмплов» столбиком). Тянутся только поля. */
+.row > button,
+.row > label {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+/* Список задач содержит длинные подписи и раньше забирал всю строку: поля
+   рядом сжимались, и подсказка обрывалась на середине. Даём списку предел,
+   а остальное отдаём полям. */
+.row > select {
+  flex: 0 1 320px;
+  min-width: 160px;
+}
+
+.row > input {
+  flex: 1 1 140px;
+  min-width: 120px;
+}
+
+/* Флажок с подписью — одна строка, а не два блока друг под другом. */
+.check {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  cursor: pointer;
 }
 
 .fieldset {
@@ -430,4 +461,26 @@ code {
 #task-genre,
 #task-seed {
   max-width: 220px;
+}
+
+/* ---- доступность ----
+   Окно живёт в Windows 11, где человек может ходить по нему Tab и читать
+   экран Narrator. Без видимой рамки фокуса клавиатура «теряется»: не видно,
+   где ты. `:focus-visible` — чтобы мышью рамка не мигала на каждой кнопке. */
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid #6aa9ff;
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+/* Меньше движения для тех, кому анимация мешает. */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
 }
