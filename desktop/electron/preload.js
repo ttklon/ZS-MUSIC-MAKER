@@ -85,7 +85,12 @@ function pickVocalFile() {
   return ipcRenderer.invoke('zsmm:vocal-pick');
 }
 
-/** Состояние входа записи: есть ли захват с микрофона (сейчас — нет). */
+/**
+ * Что приложение знает о входе записи.
+ *
+ * Захват делает само окно (Web Audio): здесь только состояние — можно ли
+ * пробовать и сколько секунд разрешено записать.
+ */
 function vocalInput() {
   return ipcRenderer.invoke('zsmm:vocal-input');
 }
@@ -103,6 +108,15 @@ function exportVocalTake(payload) {
 /** Сохранить готовый WAV через диалог сохранения. */
 function saveBeat(wavBase64) {
   return ipcRenderer.invoke('zsmm:beat-save', wavBase64);
+}
+
+/**
+ * Сохранить дубль, записанный с микрофона в окне.
+ *
+ * @param {{wavBase64: string, seconds?: number, name?: string}} payload
+ */
+function saveRecording(payload) {
+  return ipcRenderer.invoke('zsmm:vocal-save-recording', payload);
 }
 
 /** Сохранить текстовый отчёт (JSON/MD) через диалог сохранения. */
@@ -177,6 +191,7 @@ contextBridge.exposeInMainWorld('zsmm', {
   exportVocalTake,
   pickVocalFile,
   vocalInput,
+  saveRecording,
   dossierAdd,
   dossierRemove,
   dossierTracks,

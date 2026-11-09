@@ -13,7 +13,9 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const { registerBeatIpc, saveBeat, saveTextCopy, defaultBeatPath } = require('../electron/beat-service');
+const {
+  registerBeatIpc, saveBeat, saveTextCopy, defaultBeatPath, describeInput,
+} = require('../electron/beat-service');
 
 const ROOT = path.resolve(__dirname, '..', '..');
 
@@ -65,20 +67,63 @@ test('конвейер регистрирует все каналы бита', (
     [
       'zsmm:beat-bank', 'zsmm:beat-cancel', 'zsmm:beat-open-external', 'zsmm:beat-render',
       'zsmm:beat-save', 'zsmm:save-copy',
-      // Вокал: выбор WAV, честный статус входа и выгрузка дубля.
+      // Вокал: выбор WAV, статус входа, запись с микрофона и выгрузка дубля.
       'zsmm:vocal-export', 'zsmm:vocal-input', 'zsmm:vocal-pick',
+      'zsmm:vocal-save-recording',
     ].sort(),
   );
 });
 
-test('состояние входа записи честное: захвата с микрофона нет', async () => {
+test('состояние входа записи: захват делает окно, подмены нет', async () => {
   const ipc = fakeIpc();
   registerBeatIpc({ ipcMain: ipc, dialog: fakeDialog(null), rootDir: ROOT, getWindow: () => null, musicDir: tempDir });
   const reply = await ipc.handlers.get('zsmm:vocal-input')();
   assert.equal(reply.ok, true);
-  assert.equal(reply.data.recording, false, 'окно не должно считать, что микрофон подключён');
-  assert.match(reply.data.reason, /микрофон|входа/);
-  assert.equal(reply.data.simulatedAvailable, true);
+  // Главный процесс не может проверить микрофон — и не утверждает ни «есть»,
+  // ни «нет»: `available: null` значит «пробовать можно, отказ покажет окно».
+  assert.equal(reply.data.available, null);
+  assert.equal(reply.data.recording, true);
+  assert.match(reply.data.reason, /микрофон/i);
+  assert.match(reply.data.reason, /никуда не|не отправляется/i);
+  assert.equal(reply.data.simulatedAvailable, true, 'тестовый дубль остаётся доступен');
+  assert.equal(reply.data.maxSeconds, 60);
+
+  // Отказ доступа из окна — единственный источник «микрофона нет».
+  assert.equal(describeInput({ available: false }).recording, false);
+  assert.match(describeInput({ available: false }).reason, /не получило доступ/);
+});
+
+test('запись с микрофона сохраняется только как настоящий WAV', async () => {
+  const ipc = fakeIpc();
+  const dialog = fakeDialog(null);
+  registerBeatIpc({ ipcMain: ipc, dialog, rootDir: ROOT, getWindow: () => null, musicDir: tempDir });
+
+  // Тишина — не дубль: скорее всего микрофон не дал звука.
+  const silent = Buffer.alloc(4 * 4410).toString('base64');
+  const empty = await ipc.handlers.get('zsmm:vocal-save-recording')({}, { pcmBase64: silent, sampleRate: 44100 });
+  assert.equal(empty.ok, false);
+  assert.match(empty.error, /тишина/);
+
+  // Мусор и неверная частота отвергаются до диалога: имя файла — не доказательство.
+  const junk = await ipc.handlers.get('zsmm:vocal-save-recording')({}, { pcmBase64: 'AAAA', sampleRate: 44100 });
+  assert.equal(junk.ok, false);
+  assert.match(junk.error, /повреждены|пуста/);
+
+  // Настоящая запись: полусекунда синуса, сохраняется через диалог.
+  const frames = 22050;
+  const raw = Buffer.alloc(frames * 4);
+  for (let i = 0; i < frames; i += 1) raw.writeFloatLE(0.4 * Math.sin((2 * Math.PI * 220 * i) / 44100), i * 4);
+  const path = require('node:path').join(tempDir(), 'record-saved.wav');
+  dialog.showSaveDialog = async () => ({ canceled: false, filePath: path });
+  const saved = await ipc.handlers.get('zsmm:vocal-save-recording')(
+    {}, { pcmBase64: raw.toString('base64'), sampleRate: 44100, seconds: 0.5 },
+  );
+  assert.equal(saved.ok, true, saved.error);
+  assert.equal(saved.data.recorded, true);
+  const written = fs.readFileSync(path);
+  assert.equal(written.toString('ascii', 0, 4), 'RIFF');
+  assert.ok(written.length > 44, 'в WAV есть данные');
+  fs.rmSync(path, { force: true });
 });
 
 test('выбор вокального WAV: отмена и выбранный путь', async () => {

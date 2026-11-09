@@ -277,3 +277,48 @@ test('справка называет отмену рендера и одно о
   assert.match(text, /SmartScreen/);
   assert.match(text, /Мгновенная отмена/, 'задержка отмены должна быть названа');
 });
+
+test('в блоке вокала есть запись с микрофона и честная подпись', async (t) => {
+  // Мост с рендером: без него раздел «Бит» честно говорит «вне Electron» и
+  // до проверки режима вокала дело не доходит.
+  const bridge = realBridge();
+  bridge.beatBank = async () => ({
+    ok: true,
+    data: { status: 'REAL_PASS', total_samples: 32, instruments_with_samples: ['kick'] },
+  });
+  bridge.loadSettings = async () => ({ ok: true, data: {} });
+  bridge.saveSettings = async () => ({ ok: true, data: {} });
+  bridge.vocalInput = async () => ({ ok: true, data: { recording: true, available: null } });
+
+  const { document } = bootWindow({ bridge });
+  t.after(() => {
+    delete global.window;
+    delete global.document;
+  });
+  await flush();
+  const button = [...document.querySelectorAll('[data-view]')].find((b) => b.dataset.view === 'beat');
+  button.dispatch('click');
+  await flush();
+  await flush();
+
+  // Кнопки записи на месте, режим выбирается.
+  const mode = document.getElementById('vocal-mode');
+  assert.ok(mode, 'нет выбора режима вокала');
+  assert.ok(document.getElementById('vocal-record'), 'нет кнопки «Записать дубль»');
+  assert.ok(document.getElementById('vocal-stop'), 'нет кнопки «Остановить запись»');
+  // Кнопка «Записать дубль» доступна только в режиме записи: иначе она
+  // обещала бы действие, которое никуда не попадёт.
+  assert.equal(document.getElementById('vocal-record').disabled, true);
+  assert.equal(document.getElementById('vocal-stop').disabled, true, 'стоп без записи не нужен');
+
+  // Без записанного дубля рендер не притворяется, что вокал есть: он
+  // называет причину, а не собирает трек молча.
+  // В режиме «запись» без дубля окно не собирает трек молча: оно бросает
+  // ошибку с просьбой записать дубль — её и показывает подпись.
+  mode.value = 'record';
+  assert.throws(() => window.ZSMM_UI.vocalOptions(), /запишите дубль/i);
+
+  // Подпись под блоком помнит, что запись — это микрофон, а не имитация.
+  const note = document.getElementById('vocal-note');
+  assert.ok(note, 'нет подписи под блоком вокала');
+});

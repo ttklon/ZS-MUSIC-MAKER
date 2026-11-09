@@ -21,6 +21,7 @@ function readBinary(target) {
   }
 }
 
+const vocalService = require('./vocal-service');
 const { renderBeatPayload, createBankProvider } = require('./pipeline');
 const { renderInWorker, createCancelSignal } = require('./render-host');
 
@@ -113,12 +114,19 @@ function registerBeatIpc({
 
     // Готовность входа: есть ли в системе устройства записи. Окно показывает
     // это честно, а не притворяется, что пишет с микрофона.
-    'zsmm:vocal-input': async () => ({ ok: true, data: describeInput() }),
+    'zsmm:vocal-input': async () => ({ ok: true, data: vocalService.describeInput() }),
 
     // «Открыть в плеере»: готовый WAV пишется во временный файл и отдаётся
     // системе — в окне нет аудиоплеера, который умел бы всё (m4a, flac и т. п.).
     'zsmm:beat-open-external': async (_event, wavBase64) => openInPlayer({
       getWindow, wavBase64, openPath, tmpDir: tempDir,
+    }),
+
+    // Дубль, записанный с микрофона в окне: окно присылает те же байты WAV,
+    // что держит в памяти. Главный процесс проверяет размер и формат, а не
+    // верит на слово: иначе «записью» можно назвать что угодно.
+    'zsmm:vocal-save-recording': async (_event, payload) => vocalService.saveRecording({
+      dialog, getWindow, musicDir, payload,
     }),
 
     // Тестовый дубль как файл: пользователь может послушать его отдельно и
@@ -209,23 +217,6 @@ async function exportVocalTake({ dialog, getWindow, musicDir, payload = {} }) {
   }
 }
 
-/**
- * Что известно о входе записи.
- *
- * Честно: в приложении нет захвата звука (для него нужен отдельный
- * native-модуль). Поэтому здесь нет `recording: true` — вместо этого
- * окно предлагает файл или тестовый дубль.
- */
-function describeInput() {
-  return {
-    recording: false,
-    label: 'захват с микрофона не встроен',
-    reason: 'в приложении нет модуля записи со входа; доступны WAV-файл и тестовый дубль',
-    simulatedAvailable: true,
-  };
-}
-
-/** Сохранить WAV через диалог. base64 проверяется до записи. */
 async function saveBeat({ dialog, getWindow, musicDir, wavBase64 }) {
   if (typeof wavBase64 !== 'string' || wavBase64.length < 64) {
     return { ok: false, error: 'нет данных для сохранения' };
@@ -291,7 +282,11 @@ module.exports = {
   openInPlayer,
   exportVocalTake,
   pickVocalFile,
-  describeInput,
+  // Вокальный вход живёт в `vocal-service.js`; имена оставлены здесь, чтобы
+  // не ломать тех, кто уже обращается к сервису бита.
+  describeInput: vocalService.describeInput,
+  recordingToWav: vocalService.recordingToWav,
+  saveRecording: vocalService.saveRecording,
   registerBeatIpc,
   saveBeat,
   saveTextCopy,

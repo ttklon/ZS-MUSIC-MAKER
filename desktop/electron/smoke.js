@@ -137,6 +137,30 @@ async function runSmoke({
         /* временный каталог мог остаться — это не провал проверки */
       }
 
+      // Запись с микрофона: в CI устройства нет, поэтому проверяется путь
+      // «окно прислало PCM → главный процесс собрал WAV → он читается».
+      // Это то, что сможет проверить установленная сборка на машине человека.
+      const vocalService = require('./vocal-service');
+      const frames = 4410;
+      const raw = Buffer.alloc(frames * 4);
+      for (let i = 0; i < frames; i += 1) {
+        raw.writeFloatLE(0.4 * Math.sin((2 * Math.PI * 220 * i) / 44100), i * 4);
+      }
+      const recorded = vocalService.recordingToWav({
+        pcmBase64: raw.toString('base64'), sampleRate: 44100, seconds: frames / 44100,
+      });
+      const silent = vocalService.recordingToWav({
+        pcmBase64: Buffer.alloc(frames * 4).toString('base64'), sampleRate: 44100,
+      });
+      push(
+        'запись с микрофона (путь без устройства)',
+        recorded.ok === true && silent.ok === false
+          && recorded.data.buffer.toString('ascii', 0, 4) === 'RIFF',
+        recorded.ok === true
+          ? `WAV ${recorded.data.buffer.length} байт, ${recorded.data.seconds.toFixed(2)} с; тишина отвергается`
+          : recorded.error,
+      );
+
       // Самодиагностика окна: в упакованной сборке она проверяет запись в
       // каталог пользователя и поток рендера так же, как это сделал бы
       // человек кнопкой. Без этого «работает» в отчёте было бы обещанием.

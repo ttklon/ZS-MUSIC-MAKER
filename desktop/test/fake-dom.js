@@ -181,6 +181,12 @@ function documentFromHtml(html) {
       const valueMatch = /\svalue="([^"]*)"/.exec(attributes);
       element.value = valueMatch ? valueMatch[1] : '';
     }
+    // `<option value="record">`: без этого тест не смог бы выбрать режим,
+    // который есть в разметке, и «режима нет» проходило бы незамеченным.
+    if (tag === 'option') {
+      const valueMatch = /\svalue="([^"]*)"/.exec(attributes);
+      if (valueMatch) element.value = valueMatch[1];
+    }
     // Булевы атрибуты разметки: без них тест не отличит изначально
     // заблокированную кнопку от доступной. Границу слова проверяем явно:
     // `(?=[\s>/])` не срабатывает в конце строки, а атрибут может быть

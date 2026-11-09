@@ -115,9 +115,11 @@
             <fieldset class="fieldset" id="vocal-box">
               <legend>Вокал</legend>
               <p class="muted">
-                Голос миксуется в трек до мастеринга. Микрофона в приложении нет:
-                <strong>тестовый дубль</strong> — это сгенерированная дорожка, она
-                помечается как имитация и никогда не выдаётся за запись с микрофона.
+                Голос миксуется в трек до мастеринга. Дубль можно записать с
+                микрофона (захват делает само окно, разрешение спрашивает Windows),
+                принести WAV-файлом или получить синтезом. <strong>Тестовый
+                дубль</strong> — сгенерированная дорожка: она помечается как
+                имитация и никогда не выдаётся за запись с микрофона.
               </p>
               <div class="row">
                 <select id="vocal-mode">
@@ -125,10 +127,14 @@
                   <option value="synth">синтез голоса</option>
                   <option value="test">тестовый дубль (имитация входа)</option>
                   <option value="file">WAV-файл с диска</option>
+                  <option value="record">запись с микрофона</option>
                 </select>
                 <input id="vocal-text" placeholder="текст строки" value="я читаю твой трек наизусть" />
                 <input id="vocal-gain" placeholder="уровень 0…1" value="0.5" />
                 <button class="ghost" id="vocal-pick" disabled>Выбрать WAV…</button>
+                <button class="ghost" id="vocal-record" disabled>Записать дубль</button>
+                <button class="ghost" id="vocal-stop" disabled>Остановить запись</button>
+                <span class="muted" id="vocal-record-status"></span>
                 <button class="ghost" id="vocal-save" disabled>Сохранить дубль как WAV</button>
               </div>
               <p class="muted" id="vocal-note">Вокал выключен: трек будет без голоса.</p>
@@ -251,6 +257,8 @@
     <script src="app.js"></script>
     <script src="sections/overview.js"></script>
     <script src="sections/genres.js"></script>
+    <script src="sections/recorder.js"></script>
+    <script src="sections/vocal.js"></script>
     <script src="sections/beat.js"></script>
     <script src="sections/dossiers.js"></script>
     <script src="sections/tracks.js"></script>

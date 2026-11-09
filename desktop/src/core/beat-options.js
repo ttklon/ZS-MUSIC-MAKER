@@ -9,8 +9,14 @@
  * память процесса.
  */
 
-/** Режимы вокала: без голоса, синтез движком, тестовый дубль, файл. */
-const VOCAL_MODES = ['none', 'synth', 'test', 'file'];
+/**
+ * Режимы вокала: без голоса, синтез движком, тестовый дубль, файл и запись
+ * с микрофона (её делает окно — Web Audio, см. `src/sections/beat.js`).
+ */
+const VOCAL_MODES = ['none', 'synth', 'test', 'file', 'record'];
+
+/** Предел одной записи: дольше — это уже не «строка для трека». */
+const VOCAL_RECORD_MAX_SEC = 60;
 
 const VOCAL_LIMITS = {
   maxTextLength: 600,
@@ -110,7 +116,9 @@ function sanitizeVocalOptions(source = {}) {
   if (!VOCAL_MODES.includes(mode)) {
     return { error: `режим вокала должен быть один из: ${VOCAL_MODES.join(', ')}` };
   }
-  if (mode === 'none') return { value: { mode: 'none', text: '', gain: 0, file: null } };
+  if (mode === 'none') {
+    return { value: { mode: 'none', text: '', gain: 0, file: null, pcmBase64: null, sampleRate: null } };
+  }
 
   const text = typeof input.text === 'string'
     ? input.text.replace(/\s+/g, ' ').trim().slice(0, VOCAL_LIMITS.maxTextLength)
@@ -119,6 +127,40 @@ function sanitizeVocalOptions(source = {}) {
   const gain = Number.isFinite(rawGain)
     ? Math.min(VOCAL_LIMITS.maxGain, Math.max(VOCAL_LIMITS.minGain, rawGain))
     : 0.5;
+
+  if (mode === 'record') {
+    // Ручек захвата из страницы нет: длительность и сохранение WAV решает
+    // главный процесс. Здесь проверяется только то, что пришло бы с окном.
+    if (input.simulated === true) {
+      return { error: 'запись с микрофона нельзя пометить как имитацию' };
+    }
+    const seconds = Number(input.seconds);
+    if (input.seconds !== undefined && (!Number.isFinite(seconds) || seconds <= 0 || seconds > VOCAL_RECORD_MAX_SEC)) {
+      return { error: `длительность записи должна быть от 0 до ${VOCAL_RECORD_MAX_SEC} с` };
+    }
+    // PCM приходит из окна: проверяем только то, что от него зависит здесь —
+    // что это похоже на Float32-запись с правдоподобной частотой. Данные
+    // разбирает главный процесс, он же собирает WAV.
+    const pcm = typeof input.pcmBase64 === 'string' ? input.pcmBase64 : '';
+    if (pcm && (pcm.length < 32 || !/^[A-Za-z0-9+/=]+$/.test(pcm))) {
+      return { error: 'данные записи повреждены: ожидались PCM-сэмплы в base64' };
+    }
+    const rate = Number(input.sampleRate);
+    if (pcm && (!Number.isFinite(rate) || rate < 8000 || rate > 192000)) {
+      return { error: 'частота записи вне диапазона 8000…192000 Гц' };
+    }
+    return {
+      value: {
+        mode,
+        text: text || '',
+        gain,
+        file: null,
+        seconds: Number.isFinite(seconds) ? seconds : null,
+        pcmBase64: pcm || null,
+        sampleRate: pcm ? rate : null,
+      },
+    };
+  }
 
   let file = null;
   if (mode === 'file') {
@@ -148,6 +190,7 @@ module.exports = {
   DEFAULT_BEAT,
   VOCAL_MODES,
   VOCAL_LIMITS,
+  VOCAL_RECORD_MAX_SEC,
   sanitizeBeatOptions,
   sanitizeVocalOptions,
 };

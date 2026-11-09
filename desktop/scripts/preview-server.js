@@ -146,16 +146,36 @@ function shim(project) {
       });
       return response.json();
     },
-    // Входа записи в браузере нет — и предпросмотр так и говорит.
+    // Запись с микрофона в браузере возможна (getUserMedia разрешён только
+    // на localhost), но проверять это за пользователя нельзя: предпросмотр
+    // говорит «попробовать можно», а отказ покажет окно.
     vocalInput: () => Promise.resolve({
       ok: true,
       data: {
-        recording: false,
-        label: 'захват с микрофона не встроен',
-        reason: 'в предпросмотре нет доступа к устройствам записи',
+        recording: true,
+        available: null,
+        label: 'запись с микрофона: захват делает окно',
+        reason: 'в предпросмотре браузер спросит разрешение на микрофон сам',
         simulatedAvailable: true,
+        maxSeconds: 60,
       },
     }),
+
+    // Сохранить запись в предпросмотре — скачать WAV: диалога сохранения нет.
+    saveRecording: async (payload) => {
+      const base64 = (payload && payload.wavBase64) || '';
+      if (base64.length < 88) return { ok: false, error: 'запись пуста: окно не передало аудио' };
+      const bytes = Uint8Array.from(atob(base64), (ch) => ch.charCodeAt(0));
+      const url = URL.createObjectURL(new Blob([bytes], { type: 'audio/wav' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = String((payload && payload.name) || 'vocal-record').replace(/[^\w.-]+/g, '_') + '.wav';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      return { ok: true, data: { path: null, downloaded: true } };
+    },
     pickVocalFile: () => Promise.resolve({
       ok: false,
       error: 'выбор файла с диска доступен только в приложении Electron',

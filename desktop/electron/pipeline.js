@@ -81,6 +81,31 @@ function buildVocal(sanitized, context = {}) {
     };
   }
 
+  if (options.mode === 'record') {
+    // Дубль, записанный окном с микрофона: пришли PCM-сэмплы, а не путь.
+    // WAV собирает главный процесс тем же кодировщиком, что и для бита.
+    if (typeof options.pcmBase64 !== 'string' || options.pcmBase64.length < 32) {
+      return { take: null, gain: 0, error: 'запись пуста: окно не передало аудио' };
+    }
+    const raw = Buffer.from(options.pcmBase64, 'base64');
+    if (raw.length % 4 !== 0) {
+      return { take: null, gain: 0, error: 'данные записи повреждены' };
+    }
+    const rate = Number(options.sampleRate) || 44100;
+    const frames = raw.length / 4;
+    const signal = new Float32Array(frames);
+    for (let i = 0; i < frames; i += 1) signal[i] = raw.readFloatLE(i * 4);
+    const { encodeWav } = require('../src/core/audio/wav');
+    try {
+      return {
+        take: takes.loadTake(encodeWav([signal], rate)),
+        gain: options.gain,
+      };
+    } catch (err) {
+      return { take: null, gain: 0, error: `запись не разобрана: ${err.message}` };
+    }
+  }
+
   // Файл: путь пришёл из диалога, но читаем через файловое API проекта,
   // чтобы ошибка была текстом, а не исключением из fs.
   // Читалка вокала может приходить отдельным объектом: у рендер-потока нет
