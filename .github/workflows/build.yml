@@ -136,6 +136,39 @@ jobs:
           cache: npm
           cache-dependency-path: desktop/package.json
 
+      # Подпись включается только тогда, когда в репозитории реально заведены
+      # секреты Azure Trusted Signing. Иначе electron-builder пытался бы
+      # подписывать с пустыми значениями и валил сборку — то есть отсутствие
+      # сертификата ломало бы выпуск приложения.
+      - name: Detect code signing credentials
+        id: signing
+        shell: pwsh
+        run: |
+          $ready = $true
+          foreach ($name in @(
+            'AZURE_CODE_SIGNING_ENDPOINT',
+            'AZURE_CODE_SIGNING_ACCOUNT_NAME',
+            'AZURE_CERTIFICATE_PROFILE_NAME',
+            'AZURE_CLIENT_ID',
+            'AZURE_TENANT_ID',
+            'AZURE_CLIENT_SECRET'
+          )) {
+            if (-not [Environment]::GetEnvironmentVariable($name)) { $ready = $false }
+          }
+          if ($ready) {
+            "ZSMM_CODE_SIGNING=1" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+            Write-Output 'секреты подписи есть — сборка будет подписана'
+          } else {
+            Write-Output 'секретов подписи нет — сборка выйдет без подписи (это не ошибка)'
+          }
+        env:
+          AZURE_CODE_SIGNING_ENDPOINT: ${{ secrets.AZURE_CODE_SIGNING_ENDPOINT }}
+          AZURE_CODE_SIGNING_ACCOUNT_NAME: ${{ secrets.AZURE_CODE_SIGNING_ACCOUNT_NAME }}
+          AZURE_CERTIFICATE_PROFILE_NAME: ${{ secrets.AZURE_CERTIFICATE_PROFILE_NAME }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+
       - name: Install JS dependencies (scripts skipped)
         working-directory: desktop
         shell: pwsh
@@ -252,6 +285,28 @@ jobs:
         shell: pwsh
         run: Get-ChildItem dist | Format-Table Name, Length
 
+      # Проверяем подпись у готовых файлов, а не у переменных окружения:
+      # `Get-AuthenticodeSignature` отвечает по существу. Отчёт едет в
+      # артефакты и в релиз, поэтому «подписано / не подписано» в тексте
+      # релиза — факт, а не обещание.
+      - name: Verify Authenticode signature of the artifacts
+        working-directory: desktop
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem dist -Filter '*.exe' -File | Select-Object -ExpandProperty FullName
+          if (-not $exe) { throw 'в dist нет ни одного .exe' }
+          node scripts/verify-signature.js @exe --json | Tee-Object -FilePath dist/signature.json
+          $status = $LASTEXITCODE
+          if ($status -eq 0) {
+            Write-Output 'подпись действительна у всех файлов'
+          } elseif ($env:ZSMM_CODE_SIGNING -eq '1') {
+            # Секреты есть, а подписи нет — это провал сборки, а не «мелочь».
+            Write-Output '::error title=кодовая подпись::секреты заданы, но файлы не подписаны'
+            exit 1
+          } else {
+            Write-Output '::notice title=кодовая подпись::сертификата нет, сборка без подписи (SmartScreen предупредит)'
+          }
+
       - name: Smoke-test the packaged app (unpacked build)
         working-directory: desktop
         shell: pwsh
@@ -308,6 +363,7 @@ jobs:
             desktop/dist/*.exe
             desktop/dist/*.blockmap
             desktop/dist/smoke.json
+            desktop/dist/signature.json
           retention-days: 30
 
   publish-release:
@@ -355,13 +411,15 @@ jobs:
             - `ZS-Music-Maker-<версия>-portable.exe` — без установки;
             - `smoke.json` — отчёт проверки упакованного приложения на Windows.
 
-            Подпись кода не настроена: Windows 11 покажет предупреждение
-            SmartScreen при первом запуске. Это ограничение сертификата, а не
-            сборки.
+            Подпись кода проверяется после сборки (`signature.json` в
+            ассетах). Если она не настроена, Windows 11 покажет предупреждение
+            SmartScreen при первом запуске — это состояние сертификата, а не
+            сборки, и в отчёте оно названо прямо.
           files: |
             electron-win/*.exe
             electron-win/*.blockmap
             electron-win/smoke.json
+            electron-win/signature.json
           fail_on_unmatched_files: false
 
       # Старая Python-сборка (PyInstaller, onedir) публикуется отдельной

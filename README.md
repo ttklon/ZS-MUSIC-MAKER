@@ -47,6 +47,10 @@ python main.py --smoke               :: smoke-набор (God Mode + аудио-
 (или [portable-EXE](https://github.com/ttklon/ZS-MUSIC-MAKER/releases/latest/download/ZS-Music-Maker-1.0.0-portable.exe),
 все сборки — в [релизах](https://github.com/ttklon/ZS-MUSIC-MAKER/releases)).
 Сборка не подписана: Windows 11 покажет SmartScreen при первом запуске.
+Подпись кода настроена «на один секрет» — [политика подписи](CODE_SIGNING_POLICY.md),
+варианты (SignPath Foundation для OSS, Azure Trusted Signing, свой сертификат)
+и проверка `desktop/scripts/verify-signature.js`, которая спрашивает у Windows,
+а не у переменных окружения.
 
 Оболочка приложения живёт в `desktop/` и не требует Python для просмотра
 данных: версия, 120 жанров с пресетами, матрица модулей, досье и честный
@@ -63,7 +67,7 @@ cd desktop
 npm install
 npm start              :: окно
 npm run snapshot       :: обновить снимок чисел (нужен Python)
-npm test               :: 378 тестов оболочки и аудио-движка, графика не нужна
+npm test               :: 403 теста оболочки и аудио-движка, графика не нужна
 npm run preview        :: посмотреть окно в браузере
 ```
 

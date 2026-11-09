@@ -89,6 +89,8 @@ desktop/node_modules/
 desktop/dist/
 desktop/out/
 desktop/*.log
+# Конфигурация сборки генерируется: блок подписи появляется только при секретах.
+desktop/build-config.generated.json
 # Снимок чисел (data/desktop/readiness.json, inventory.md) версионируется:
 # именно его читает окно и именно по нему проверяется устаревание.
 

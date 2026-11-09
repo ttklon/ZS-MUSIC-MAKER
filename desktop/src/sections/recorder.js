@@ -21,6 +21,99 @@ const DEFAULT_SECONDS = 20;
 const MAX_SECONDS = 60;
 
 /**
+ * Откуда берётся звук.
+ *
+ * Обычный путь — `getUserMedia` (настоящий микрофон). Второй транспорт —
+ * проверочный: тот же самый код записи получает сэмплы из функции, а не из
+ * устройства. Это нужно, чтобы сквозной путь «захват → PCM → WAV → микс»
+ * прогонялся без железа, но при этом ничего не выдавалось за микрофон:
+ * телефонная метка `source: 'simulated-device'` едет в отчёт.
+ */
+
+/** Симулированный вход: сигнал считается функцией, а не приходит с устройства. */
+const SIMULATED_SOURCE = 'simulated-device';
+
+/**
+ * Симулированное устройство записи.
+ *
+ * Отдаёт ровно то, что вернул бы микрофон: поток с одной дорожкой и
+ * `getUserMedia`. Звук — `fill(chunkIndex)` в диапазоне −1…1.
+ *
+ * @param {{fill: Function, sampleRate?: number}} params
+ * @returns {{mediaDevices: object, AudioContext: Function, stopDevice: Function}}
+ */
+function simulatedDevice({ fill, sampleRate = 48000 } = {}) {
+  if (typeof fill !== 'function') throw new Error('симулированному входу нужна функция сигнала');
+  const tracks = [];
+  let processor = null;
+  let closed = false;
+  let chunk = 0;
+
+  class SimulatedContext {
+    constructor() {
+      this.sampleRate = sampleRate;
+    }
+
+    createMediaStreamSource() {
+      return { connect() {}, disconnect() {} };
+    }
+
+    createScriptProcessor() {
+      const self = this;
+      processor = {
+        onaudioprocess: null,
+        connect() {},
+        disconnect() {},
+      };
+      // «Устройство» само отдаёт блоки: 10 мс звука за шаг.
+      const step = Math.max(1, Math.round(sampleRate / 100));
+      this._timer = setInterval(() => {
+        if (closed || !processor || typeof processor.onaudioprocess !== 'function') return;
+        const block = new Float32Array(step);
+        for (let i = 0; i < step; i += 1) {
+          const value = Number(fill(chunk * step + i));
+          block[i] = Number.isFinite(value) ? Math.max(-1, Math.min(1, value)) : 0;
+        }
+        chunk += 1;
+        processor.onaudioprocess({ inputBuffer: { getChannelData: () => block } });
+      }, 10);
+      void self;
+      return processor;
+    }
+
+    get destination() {
+      return {};
+    }
+
+    close() {
+      closed = true;
+      clearInterval(this._timer);
+    }
+  }
+
+  return {
+    mediaDevices: {
+      async getUserMedia() {
+        const track = {
+          stopped: false,
+          stop() { this.stopped = true; },
+        };
+        tracks.push(track);
+        return { getTracks: () => tracks };
+      },
+    },
+    AudioContext: SimulatedContext,
+    stopDevice() {
+      closed = true;
+      clearInterval(processor && processor._timer);
+    },
+    get tracks() {
+      return tracks;
+    },
+  };
+}
+
+/**
  * Начать запись.
  *
  * @param {object} params
@@ -29,6 +122,7 @@ const MAX_SECONDS = 60;
  * @param {number} [params.seconds]     сколько писать, 1…60
  * @param {number} [params.sampleRate]  частота для WAV
  * @param {Function} [params.onTick]    обратный отсчёт: (осталось секунд)
+ * @param {{fill: Function}} [params.simulated] симулированный вход вместо устройства
  * @returns {Promise<{stop: Function, cancel: Function, seconds: number}>}
  */
 async function startRecording({
@@ -37,7 +131,31 @@ async function startRecording({
   seconds = DEFAULT_SECONDS,
   sampleRate = 44100,
   onTick = () => {},
+  simulated = null,
 } = {}) {
+  // Симулированный вход подменяет только транспорт: всё остальное — тот же
+  // код, что и с микрофоном.
+  if (simulated) {
+    const device = simulatedDevice(simulated);
+    const started = await startRecording({
+      mediaDevices: device.mediaDevices, AudioContext: device.AudioContext, seconds, sampleRate, onTick,
+    });
+    const originalStop = started.stop;
+    return {
+      ...started,
+      stop: async () => {
+        const take = await originalStop();
+        device.stopDevice();
+        return take
+          ? { ...take, source: SIMULATED_SOURCE, simulated: true, label: 'симулированный вход (проверка)' }
+          : take;
+      },
+      cancel: () => {
+        device.stopDevice();
+        started.cancel();
+      },
+    };
+  }
   if (!mediaDevices || typeof mediaDevices.getUserMedia !== 'function') {
     throw new Error('окно не умеет обращаться к микрофону: нет доступа к устройствам');
   }

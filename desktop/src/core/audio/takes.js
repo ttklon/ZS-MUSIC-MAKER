@@ -28,12 +28,20 @@ const SOURCES = {
   FILE: 'file',
   SYNTH: 'synth',
   TEST: 'test',
+  // Микрофон: захват в окне. Настоящая запись, а не имитация.
+  RECORD: 'record',
+  // Симулированный вход: тот же код записи, но звук пришёл из функции.
+  // Существует, чтобы сквозной путь прогонялся без устройства — и обязан
+  // называться собой, иначе проверка выдала бы себя за микрофон.
+  SIMULATED: 'simulated-device',
 };
 
 const LABELS = {
   file: 'запись из файла',
   synth: 'синтезированный вокал',
   test: 'тестовый дубль (не с микрофона)',
+  record: 'запись с микрофона',
+  'simulated-device': 'симулированный вход (не микрофон)',
 };
 
 /** Микрофон в этом окружении недоступен — так и говорим. */
@@ -72,6 +80,32 @@ function loadTake(buffer, targetRate = null) {
     simulated: false,
     label: LABELS.file,
     note: null,
+  };
+}
+
+/**
+ * Дубль, пришедший из окна записью.
+ *
+ * `simulated: true` — проверочный прогон: звук сгенерирован, а не записан.
+ * Поэтому источник `simDevice`, а не `record`: отчёт не должен называть
+ * сгенерированный сигнал микрофоном.
+ *
+ * @param {{signal: Float32Array, sampleRate: number, simulated?: boolean}} params
+ * @returns {object}
+ */
+function recordedTake({ signal, sampleRate, simulated = false } = {}) {
+  if (!signal || !signal.length) throw new Error('recordedTake: пустая запись');
+  const source = simulated ? SOURCES.SIMULATED : SOURCES.RECORD;
+  return {
+    signal,
+    sampleRate,
+    durationSec: signal.length / sampleRate,
+    source,
+    simulated: Boolean(simulated),
+    label: LABELS[source],
+    note: simulated
+      ? 'проверка пути записи: звук сгенерирован, микрофон не использовался'
+      : null,
   };
 }
 
@@ -197,7 +231,7 @@ function synthTake({ text = 'я читаю твой трек', seconds = 8, seed
  */
 function describeTake(take = {}) {
   const source = take.source || SOURCES.FILE;
-  const simulated = source === SOURCES.TEST || take.simulated === true;
+  const simulated = source === SOURCES.TEST || source === SOURCES.SIMULATED || take.simulated === true;
   return {
     source,
     simulated,
@@ -218,11 +252,23 @@ function describeTake(take = {}) {
 function assertHonest(take) {
   const declared = take && take.simulated === true;
   const source = take && take.source;
-  if (declared && source !== SOURCES.TEST) {
+  // Симулированный вход — это проверка, а не микрофон: выдать его за запись
+  // с микрофона значит соврать в отчёте. Проверяем это первым, чтобы причина
+  // называлась точно.
+  if (source === SOURCES.RECORD && declared) {
+    throw new Error('симулированный вход нельзя называть записью с микрофона');
+  }
+  // `simulated: true` допустим только у честно названных проверочных
+  // источников: тестового дубля и симулированного входа.
+  const checkSources = [SOURCES.TEST, SOURCES.SIMULATED];
+  if (declared && !checkSources.includes(source)) {
     throw new Error('дубль помечен как тестовый, но источник указан как запись');
   }
   if (source === SOURCES.TEST && !declared) {
     throw new Error('тестовый дубль обязан нести simulated: true');
+  }
+  if (source === SOURCES.SIMULATED && !declared) {
+    throw new Error('симулированный вход обязан нести simulated: true');
   }
   // `describeTake` всегда выставляет `simulated` по источнику, поэтому
   // проверять его результат бессмысленно: смотреть надо исходные поля.
@@ -239,6 +285,7 @@ function takeFileName(source = SOURCES.TEST, seconds = 8, seed = 7) {
 module.exports = {
   SOURCES,
   LABELS,
+  recordedTake,
   microphoneStatus,
   loadTake,
   testTake,

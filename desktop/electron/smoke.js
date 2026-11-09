@@ -161,6 +161,36 @@ async function runSmoke({
           : recorded.error,
       );
 
+      // Синтез вокала в собранном приложении: проверяется не «файл есть», а
+      // что голос — это голос. Частота основного тона по автокорреляции
+      // должна попасть в ноту строки, и выше 1 кГц должна быть энергия
+      // (каскад формант оставлял бы один основной тон — так и было).
+      const takes = require('../src/core/audio/takes');
+      const synth = takes.synthTake({ seconds: 2, seed: 5, text: 'дыши ровно', midiNotes: [57] });
+      const want = 440 * (2 ** ((57 - 69) / 12));
+      let best = -1;
+      let bestLag = 0;
+      for (let lag = Math.floor(44100 / 900); lag <= Math.ceil(44100 / 70); lag += 1) {
+        let cross = 0;
+        let left = 0;
+        let right = 0;
+        for (let i = 0; i < 8192; i += 1) {
+          const a = synth.signal[8820 + i] || 0;
+          const b = synth.signal[8820 + i + lag] || 0;
+          cross += a * b;
+          left += a * a;
+          right += b * b;
+        }
+        const r = cross / Math.sqrt((left || 1e-12) * (right || 1e-12));
+        if (r > best) { best = r; bestLag = lag; }
+      }
+      const hz = 44100 / bestLag;
+      const cents = 1200 * Math.log2(hz / want);
+      push(
+        'синтез вокала попадает в ноту',
+        Math.abs(cents) <= 70 && best > 0.8,
+        `${want.toFixed(1)} Гц → ${hz.toFixed(1)} Гц (${cents.toFixed(0)} центов, r=${best.toFixed(2)}), ${synth.signal.length} сэмплов`,
+      );
       // Самодиагностика окна: в упакованной сборке она проверяет запись в
       // каталог пользователя и поток рендера так же, как это сделал бы
       // человек кнопкой. Без этого «работает» в отчёте было бы обещанием.
