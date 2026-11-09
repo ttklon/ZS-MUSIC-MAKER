@@ -320,6 +320,7 @@ backend, не с настоящей моделью или на Windows. См. `I
 | [`docs/ROADMAP.md`](docs/ROADMAP.md) | план рефакторинга 2026 |
 | [`CHANGELOG.md`](CHANGELOG.md) | история изменений |
 | [`INSTALL.md`](INSTALL.md) | установка и зависимости |
+| [`docs/HARDWARE.md`](docs/HARDWARE.md) | требования «в пике», сборки ПК и что покупать б/у |
 
 ## Проверки
 
