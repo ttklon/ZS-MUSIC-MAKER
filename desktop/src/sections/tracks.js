@@ -106,15 +106,25 @@ async function loadTracks() {
   const artists = data.artists || [];
   if (data.error) showError(data.error);
   fillArtists(artists);
+
+  // Обработчики навешиваются ДО проверки «артистов нет». Раньше `return` стоял
+  // выше, и на свежей установке кнопка «Добавить» оставалась мёртвой: человек
+  // видел подсказку про «Досье», но нажатие не отвечало вообще ничем.
+  if (!loadTracks.wired) {
+    loadTracks.wired = true;
+    wireTracks();
+  }
+
   if (!artists.length) {
     $('tracks-status').textContent = 'Артистов нет: добавьте имя в разделе «Досье», трек заводится у артиста.';
     $('tracks-list').replaceChildren();
     return;
   }
   await loadArtistTracks();
+}
 
-  if (loadTracks.wired) return;
-  loadTracks.wired = true;
+/** Навесить обработчики раздела один раз: повторный вход их не дублирует. */
+function wireTracks() {
 
   $('tracks-artist').addEventListener('change', () => {
     loadArtistTracks().catch((err) => showError(`Треки: ${err.message}`));
@@ -124,7 +134,11 @@ async function loadTracks() {
     const slug = $('tracks-artist').value;
     const title = ($('tracks-title').value || '').trim();
     if (!slug) {
-      showError('Сначала выберите артиста');
+      // Причина называется та, которая есть на самом деле: пустой список
+      // артистов — это не «выберите», а «заводить негде».
+      showError($('tracks-artist').options.length === 0
+        ? 'Артистов нет: добавьте имя в разделе «Досье», трек заводится у артиста'
+        : 'Сначала выберите артиста');
       return;
     }
     if (!title) {

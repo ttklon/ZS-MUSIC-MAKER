@@ -108,6 +108,8 @@ async function wireVocal() {
   }
   if (recordButton) recordButton.addEventListener('click', startVocalRecording);
   if (stopButton) stopButton.addEventListener('click', stopVocalRecording);
+  const saveRecordingButton = $('vocal-save-recording');
+  if (saveRecordingButton) saveRecordingButton.addEventListener('click', saveVocalRecording);
 }
 
 /** Начать запись: разрешение и устройства — у окна, а не у главного процесса. */
@@ -169,6 +171,55 @@ async function stopVocalRecording() {
   updateVocalNote();
 }
 
+/**
+ * Сохранить саму запись отдельным WAV — не дожидаясь сборки трека.
+ *
+ * Зачем отдельная кнопка: `vocal-save` отдаёт дубль, который попал в микс, и
+ * включается только после `renderBeat`. Записанный дубль существовал лишь в
+ * памяти окна: закрыл приложение — потерял запись, хотя она уже состоялась.
+ * Канал `zsmm:vocal-save-recording` в главном процессе был готов и покрыт
+ * тестами, но из окна его никто не звал.
+ *
+ * Кодирует WAV главный процесс: страница живёт в контексте изоляции и не
+ * имеет ни `Buffer`, ни доступа к файловой системе.
+ */
+async function saveVocalRecording() {
+  const status = $('vocal-record-status');
+  if (!recordedTake) {
+    showError('Сначала запишите дубль — сохранять пока нечего');
+    return;
+  }
+  if (typeof window.zsmm.saveRecording !== 'function') {
+    showError('Сохранение записи доступно только в приложении');
+    return;
+  }
+  const button = $('vocal-save-recording');
+  if (button) button.disabled = true;
+  try {
+    const reply = await window.zsmm.saveRecording({
+      pcmBase64: recordedTake.pcmBase64,
+      sampleRate: recordedTake.sampleRate,
+      seconds: recordedTake.seconds,
+      name: `vocal-record_${Math.round(recordedTake.seconds)}s`,
+    });
+    if (!reply || reply.ok !== true) {
+      showError(`Запись не сохранена: ${(reply && reply.error) || 'нет ответа'}`);
+      return;
+    }
+    // Отмена диалога — не ошибка: человек сам закрыл окно выбора файла.
+    // Успех без пути тоже бывает: в предпросмотре браузер скачивает файл, и
+    // «отменено» здесь было бы неправдой — рядом лежал только что записанный WAV.
+    const saved = reply.data || {};
+    if (status) {
+      if (saved.path) status.textContent = `запись сохранена: ${saved.path}`;
+      else if (saved.downloaded) status.textContent = 'запись скачана файлом (браузер)';
+      else status.textContent = 'сохранение записи отменено';
+    }
+  } finally {
+    if (button) button.disabled = !recordedTake;
+  }
+}
+
 /** Дубль записи для отчёта: источник назван, а не подразумевается. */
 function describeRecording() {
   return recordedTake ? `запись с микрофона, ${recordedTake.seconds.toFixed(1)} с` : null;
@@ -182,6 +233,10 @@ function updateVocalNote() {
   if (pick) pick.disabled = mode !== 'file';
   const recordBtn = $('vocal-record');
   const stopBtn = $('vocal-stop');
+  // Сохранение записи доступно ровно тогда, когда есть что сохранять, и не
+  // зависит от того, собран трек или нет.
+  const saveRecordingBtn = $('vocal-save-recording');
+  if (saveRecordingBtn) saveRecordingBtn.disabled = !recordedTake || Boolean(recording);
   // Запись нужна модулю захвата: без него кнопка остаётся заблокированной, а
   // причина написана рядом, а не выясняется нажатием.
   if (recordBtn) recordBtn.disabled = mode !== 'record' || !recorder || Boolean(recording);

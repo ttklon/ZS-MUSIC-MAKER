@@ -335,3 +335,43 @@ test('задача без Python присылает события и итог, 
   assert.equal(reply.ok, true, reply.error);
   assert.ok(reply.data.result.lines.length > 0, 'нативная задача печатает строки, а не молчит');
 });
+
+test('предпросмотр сохраняет запись с микрофона из PCM, а не ищет готовый WAV', async (t) => {
+  const server = await withServer(t);
+
+  // Окно присылает ровно то же, что и главному процессу: сырой Float32 PCM.
+  const frames = 4410;
+  const pcm = Buffer.alloc(frames * 4);
+  for (let i = 0; i < frames; i += 1) {
+    pcm.writeFloatLE(0.4 * Math.sin((2 * Math.PI * 220 * i) / 44100), i * 4);
+  }
+
+  const reply = await postTo(server, '/vocal-save-recording', {
+    pcmBase64: pcm.toString('base64'),
+    sampleRate: 44100,
+    seconds: frames / 44100,
+  });
+
+  assert.equal(reply.ok, true, reply.error || 'сохранение должно пройти');
+  const wav = Buffer.from(reply.data.wavBase64, 'base64');
+  // Настоящий WAV, а не подделка: заголовок RIFF/WAVE и ненулевые данные.
+  assert.equal(wav.toString('ascii', 0, 4), 'RIFF');
+  assert.equal(wav.toString('ascii', 8, 12), 'WAVE');
+  assert.ok(wav.length > 44 + frames, 'в файле есть сэмплы');
+  assert.ok(Math.abs(reply.data.seconds - frames / 44100) < 0.01, 'длительность посчитана по данным');
+});
+
+test('пустая запись и тишина не превращаются в файл', async (t) => {
+  const server = await withServer(t);
+
+  const empty = await postTo(server, '/vocal-save-recording', { pcmBase64: '', sampleRate: 44100 });
+  assert.equal(empty.ok, false, 'без данных сохранять нечего');
+
+  const silence = Buffer.alloc(4410 * 4); // ровные нули — микрофон не дал звука
+  const quiet = await postTo(server, '/vocal-save-recording', {
+    pcmBase64: silence.toString('base64'),
+    sampleRate: 44100,
+  });
+  assert.equal(quiet.ok, false);
+  assert.match(quiet.error, /тишин/i, 'причина названа, а не «ошибка»');
+});

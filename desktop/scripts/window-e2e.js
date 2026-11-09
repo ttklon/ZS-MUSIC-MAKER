@@ -61,7 +61,13 @@ async function main() {
   const browser = await puppeteer.launch({
     executablePath: CHROME,
     headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu', '--single-process'],
+    // Фейковый вход: Chrome подставляет свой тон вместо микрофона, поэтому
+    // путь «запись → сохранение» проверяется без железа. Разрешение при этом
+    // выдаётся автоматически — как если бы человек уже нажал «Разрешить».
+    args: [
+      '--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu', '--single-process',
+      '--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream',
+    ],
     defaultViewport: { width: 1440, height: 1000 },
     timeout: 120000,
   });
@@ -208,6 +214,44 @@ async function main() {
       withVocal.split('\n').find((line) => line.startsWith('вокал:')) || 'строки про вокал нет',
     );
 
+    // --- 2б. Запись с микрофона: дубль сохраняется, не дожидаясь новой сборки.
+    // Раньше сохранение записи было доступно только через кнопку дубля, а она
+    // включалась лишь после рендера: записанное пропадало при закрытии окна.
+    await page.select('#vocal-mode', 'record');
+    await new Promise((resolve) => { setTimeout(resolve, 300); });
+    const saveRecordingLocked = await page.$eval('#vocal-save-recording', (node) => node.disabled);
+    await click(page, 'vocal-record');
+    await new Promise((resolve) => { setTimeout(resolve, 1500); });
+    await click(page, 'vocal-stop');
+    await waitFor(
+      page,
+      () => /записано/i.test(document.getElementById('vocal-record-status').textContent || ''),
+      { timeout: 20000, label: 'запись с микрофона' },
+    );
+    const recorded = await page.evaluate(() => ({
+      status: document.getElementById('vocal-record-status').textContent.trim(),
+      canSave: !document.getElementById('vocal-save-recording').disabled,
+    }));
+    record(
+      'запись с микрофона доступна и её можно сохранить',
+      saveRecordingLocked && recorded.canSave,
+      `${recorded.status}; кнопка сохранения ${recorded.canSave ? 'доступна' : 'заблокирована'}`,
+    );
+    await click(page, 'vocal-save-recording');
+    await waitFor(
+      page,
+      () => /скачан|сохранена/i.test(document.getElementById('vocal-record-status').textContent || ''),
+      { timeout: 20000, label: 'запись сохранена' },
+    );
+    const savedRecording = await page.$eval('#vocal-record-status', (node) => node.textContent.trim());
+    record(
+      'запись сохраняется файлом, а не считается отменённой',
+      /скачан|сохранена/i.test(savedRecording) && !/отмен/i.test(savedRecording),
+      savedRecording.slice(0, 90),
+    );
+    await page.select('#vocal-mode', 'test');
+    await new Promise((resolve) => { setTimeout(resolve, 300); });
+
     // --- 3. Ошибка ввода: причина, а не тишина
     await page.evaluate(() => { document.getElementById('beat-bpm').value = '999'; });
     await click(page, 'beat-render');
@@ -277,6 +321,22 @@ async function main() {
     }
 
     // --- 5. Треки: завести трек с текстом и увидеть его в списке
+    //
+    // Артиста заводим заново: предыдущий шаг его удалил (проверяли удаление),
+    // а трек живёт у артиста. Раньше здесь сценарий противоречил сам себе:
+    // «Добавить» молчала, и шаг висел до таймаута — дефект раздела «Треки»
+    // прятался за ошибкой самого сценария.
+    await page.click('[data-view="dossiers"]');
+    await new Promise((resolve) => { setTimeout(resolve, 500); });
+    const trackArtist = `${artistName} треки`;
+    await page.type('#dossier-name', trackArtist);
+    await click(page, 'dossier-add');
+    await waitFor(
+      page,
+      (name) => [...document.querySelectorAll('#dossier-list li')].some((li) => li.textContent.includes(name)),
+      { timeout: 20000, label: 'артист для трека', arg: trackArtist },
+    );
+
     await page.click('[data-view="tracks"]');
     await new Promise((resolve) => { setTimeout(resolve, 900); });
     const trackTitle = `Проверочный трек ${Date.now().toString().slice(-6)}`;
@@ -285,8 +345,7 @@ async function main() {
     await click(page, 'tracks-add');
     await waitFor(
       page,
-      (title) => document.getElementById('tracks-list').innerText.includes(title)
-        || /ошибк/i.test(document.getElementById('error-text').textContent || ''),
+      (title) => document.getElementById('tracks-list').innerText.includes(title),
       { timeout: 20000, label: 'трек появился', arg: trackTitle },
     );
     const tracks = await page.evaluate(() => ({

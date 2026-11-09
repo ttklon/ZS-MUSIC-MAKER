@@ -138,6 +138,10 @@
                 <button class="ghost" id="vocal-pick" disabled>Выбрать WAV…</button>
                 <button class="ghost" id="vocal-record" disabled>Записать дубль</button>
                 <button class="ghost" id="vocal-stop" disabled>Остановить запись</button>
+                <!-- Сохранение самой записи — сразу после «Стоп», а не только
+                     после сборки трека: иначе дубль жил лишь в памяти окна и
+                     пропадал при закрытии, хотя запись уже состоялась. -->
+                <button class="ghost" id="vocal-save-recording" disabled>Сохранить запись как WAV</button>
                 <span class="muted" id="vocal-record-status" role="status" aria-live="polite"></span>
               </div>
               <!-- Сохранение дубля — отдельной строкой: в общем ряду кнопка

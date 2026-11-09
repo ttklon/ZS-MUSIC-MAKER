@@ -13,6 +13,11 @@ const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
 
+// Кодирование записи с микрофона — то же, что делает главный процесс в
+// `electron/vocal-service.js`. Шим не повторяет формулу: если окно начнёт
+// присылать другой формат, предпросмотр увидит это там же, где приложение.
+const { recordingToWav } = require('../electron/vocal-service');
+
 const { createNodeFs } = require('../src/core/fs-node');
 const { createProject } = require('../src/core/project');
 const { createBankProvider, renderBeatPayload } = require('../electron/pipeline');
@@ -215,10 +220,21 @@ function shim(project) {
     }),
 
     // Сохранить запись в предпросмотре — скачать WAV: диалога сохранения нет.
+    //
+    // Окно присылает сырой PCM — ровно то же сообщение, что получает главный
+    // процесс, — поэтому WAV собирает сервер тем же кодировщиком, а страница
+    // только скачивает готовые байты. Раньше здесь читалось поле wavBase64,
+    // которого окно никогда не передавало: кнопка молча отвечала «запись
+    // пуста», а тесты модуля этого не видели, потому что звали функцию сами.
     saveRecording: async (payload) => {
-      const base64 = (payload && payload.wavBase64) || '';
-      if (base64.length < 88) return { ok: false, error: 'запись пуста: окно не передало аудио' };
-      const bytes = Uint8Array.from(atob(base64), (ch) => ch.charCodeAt(0));
+      const response = await fetch('/vocal-save-recording', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload || {}),
+      });
+      const reply = await response.json();
+      if (!reply || reply.ok !== true) return reply || { ok: false, error: 'нет ответа' };
+      const bytes = Uint8Array.from(atob(reply.data.wavBase64), (ch) => ch.charCodeAt(0));
       const url = URL.createObjectURL(new Blob([bytes], { type: 'audio/wav' }));
       const link = document.createElement('a');
       link.href = url;
@@ -452,6 +468,37 @@ function createServer(project, options = {}) {
         }
         const dossierTracks = require('../src/core/dossier-tracks');
         send(200, JSON.stringify(dossierTracks.addTrack(createNodeFs(), ROOT, parsed, { dataDir: DATA_DIR })), MIME['.json']);
+      });
+      return;
+    }
+
+    if (url.pathname === '/vocal-save-recording' && req.method === 'POST') {
+      // Проверка и кодирование — общей функцией главного процесса: в браузере
+      // нет ни `Buffer`, ни `encodeWav`, и дублировать формат WAV здесь нельзя.
+      const chunks = [];
+      req.on('data', (chunk) => chunks.push(chunk));
+      req.on('end', () => {
+        let parsed = {};
+        try {
+          parsed = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
+        } catch {
+          send(400, JSON.stringify({ ok: false, error: 'тело запроса — не JSON' }), MIME['.json']);
+          return;
+        }
+        const converted = recordingToWav(parsed);
+        if (!converted.ok) {
+          send(200, JSON.stringify({ ok: false, error: converted.error }), MIME['.json']);
+          return;
+        }
+        send(200, JSON.stringify({
+          ok: true,
+          data: {
+            wavBase64: converted.data.buffer.toString('base64'),
+            bytes: converted.data.buffer.length,
+            seconds: converted.data.seconds,
+            sampleRate: converted.data.sampleRate,
+          },
+        }), MIME['.json']);
       });
       return;
     }

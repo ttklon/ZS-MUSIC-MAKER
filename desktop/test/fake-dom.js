@@ -52,6 +52,16 @@ class FakeElement {
     return this.classList.toString();
   }
 
+  /**
+   * `<option>` внутри `<select>` — как в браузере.
+   *
+   * Без этого раздел «Треки» на пустом списке артистов не мог отличить «нет
+   * из чего выбирать» от «выбирать не стал», и подсказка была бы неверной.
+   */
+  get options() {
+    return this.children.filter((child) => child.tagName === 'OPTION');
+  }
+
   set className(value) {
     this.classList.set = new Set(String(value).split(/\s+/).filter(Boolean));
   }
@@ -83,6 +93,12 @@ class FakeElement {
     this.children = [];
     this._text = '';
     this.append(...nodes);
+    // Настоящий `<select>` после замены пунктов сам выбирает первый: без
+    // этого окно в тесте видело пустое значение там, где у человека уже
+    // стоит артист, и «Добавить» отвечало «выберите артиста» на ровном месте.
+    if (this.tagName === 'SELECT' && !this.value && this.options.length) {
+      this.value = this.options[0].value;
+    }
   }
 
   appendChild(node) {
