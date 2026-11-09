@@ -183,6 +183,14 @@ function shim(project) {
       const response = await fetch('/dossier-tracks?slug=' + encodeURIComponent(slug || ''));
       return response.json();
     },
+    dossierTrackRemove: async (payload) => {
+      const response = await fetch('/dossier-track-remove', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload || {}),
+      });
+      return response.json();
+    },
     dossierTrackAdd: async (payload) => {
       const response = await fetch('/dossier-track-add', {
         method: 'POST',
@@ -409,6 +417,25 @@ function createServer(project, options = {}) {
       }
       const list = dossierTracks.listTracks(createNodeFs(), ROOT, slug, { dataDir: DATA_DIR });
       send(200, JSON.stringify({ ok: true, data: { slug, tracks: list.tracks, errors: list.errors } }), MIME['.json']);
+      return;
+    }
+
+    if (url.pathname === '/dossier-track-remove' && req.method === 'POST') {
+      const chunks = [];
+      req.on('data', (chunk) => chunks.push(chunk));
+      req.on('end', () => {
+        let parsed = {};
+        try {
+          parsed = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
+        } catch {
+          send(200, JSON.stringify({ ok: false, error: 'тело запроса — не JSON' }), MIME['.json']);
+          return;
+        }
+        const dossierTracks = require('../src/core/dossier-tracks');
+        send(200, JSON.stringify(
+          dossierTracks.removeTrack(createNodeFs(), ROOT, parsed, { dataDir: DATA_DIR }),
+        ), MIME['.json']);
+      });
       return;
     }
 

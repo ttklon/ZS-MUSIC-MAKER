@@ -57,7 +57,11 @@ class FakeElement {
   }
 
   get textContent() {
-    if (this.children.length) return this.children.map((child) => child.textContent).join('');
+    // Текст, заданный через `textContent = '…'`, и добавленные после него
+    // узлы живут вместе — как в браузере. Раньше потомки полностью вытесняли
+    // текст, и двойник расходился с настоящим DOM там, где к готовой строке
+    // пририсовывают кнопку («трек — не разобран [Удалить]»).
+    if (this.children.length) return this._text + this.children.map((child) => child.textContent).join('');
     return this._text;
   }
 

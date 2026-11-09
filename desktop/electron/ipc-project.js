@@ -85,9 +85,13 @@ function registerProjectIpc({ ipcMain, getProject, root = null, fileSystem = nul
     ipcMain.handle('zsmm:dossier-track-add', (_event, payload) => dossierTracks.addTrack(
       fsApi, root, payload && typeof payload === 'object' ? payload : {}, opts,
     ));
+    // Удаление трека: опечатку в названии иначе не исправить без проводника.
+    ipcMain.handle('zsmm:dossier-track-remove', (_event, payload) => dossierTracks.removeTrack(
+      fsApi, root, payload && typeof payload === 'object' ? payload : {}, opts,
+    ));
     registered.push(
       'zsmm:dossier-add', 'zsmm:dossier-remove',
-      'zsmm:dossier-tracks', 'zsmm:dossier-track-add',
+      'zsmm:dossier-tracks', 'zsmm:dossier-track-add', 'zsmm:dossier-track-remove',
     );
   }
   return registered;

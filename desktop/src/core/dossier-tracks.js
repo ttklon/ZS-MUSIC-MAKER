@@ -169,4 +169,67 @@ function addTrack(fsApi, root, { slug, title, externalUrl = null, lyrics = null 
   };
 }
 
-module.exports = { STATUSES, trackId, tracksDir, listTracks, addTrack };
+/**
+ * Удалить трек у артиста.
+ *
+ * Зачем: трек заводят руками, и опечатка в названии — обычное дело. Пока
+ * удаления не было, единственным способом исправить ошибку было лезть в
+ * `data/artist_dossier` проводником.
+ *
+ * Удаляются `<id>.json`, `<id>.txt` (текст) и запись в `artist.json`. Каталог
+ * `tracks/` не трогается: у артиста могут быть другие треки. Имя `id`
+ * проверяется по разрешённому пути, как у удаления артиста.
+ *
+ * @param {object} fsApi файловое API проекта (нужен `removeFile`)
+ * @param {string} root
+ * @param {object} params `{ slug, trackId }`
+ * @param {object} [opts] `{ dataDir }`
+ * @returns {{ok: true, data: object} | {ok: false, error: string}}
+ */
+function removeTrack(fsApi, root, { slug, trackId: id } = {}, opts = {}) {
+  const cleanSlug = String(slug || '').trim();
+  if (!cleanSlug || cleanSlug !== slugify(cleanSlug)) {
+    return { ok: false, error: 'некорректное имя каталога артиста' };
+  }
+  const cleanId = String(id || '').trim();
+  // Идентификатор трека — `<slug названия>_<8 hex>`. Разрешаем только буквы,
+  // цифры и подчёркивание (названия бывают русскими), но не `.` и не `/`:
+  // иначе через `trackId` можно попросить удалить файл вне каталога треков.
+  if (!/^[\p{L}\p{N}_]{2,40}_[0-9a-f]{8}$/u.test(cleanId)) {
+    return { ok: false, error: 'некорректный идентификатор трека' };
+  }
+  if (typeof fsApi.removeFile !== 'function') {
+    return { ok: false, error: 'файловое API не умеет удалять файлы' };
+  }
+  const dir = dossierDir(root, opts.dataDir);
+  const artistDir = path.join(dir, cleanSlug);
+  const artistFile = path.join(artistDir, 'artist.json');
+  const trackFile = path.join(artistDir, 'tracks', `${cleanId}.json`);
+  const allowed = path.resolve(path.join(artistDir, 'tracks'));
+  if (path.dirname(path.resolve(trackFile)) !== allowed) {
+    return { ok: false, error: 'путь вне каталога треков' };
+  }
+  if (!fsApi.exists(trackFile)) {
+    return { ok: false, error: `трека «${cleanId}» у артиста нет` };
+  }
+  const artist = fsApi.readJson(artistFile);
+  if (artist.error) return { ok: false, error: `artist.json: ${artist.error}` };
+
+  // Сначала запись в artist.json, потом файлы: если второй шаг сорвётся,
+  // трек останется сиротой в `tracks/`, а не «битой» ссылкой в досье.
+  const record = artist.value || {};
+  const tracks = Array.isArray(record.tracks) ? record.tracks.filter((item) => item !== cleanId) : [];
+  record.tracks = tracks;
+  record.updated_at = Date.now() / 1000;
+  const resaved = fsApi.writeText(artistFile, `${JSON.stringify(record, null, 2)}\n`);
+  if (resaved.error) return { ok: false, error: `не удалось обновить artist.json: ${resaved.error}` };
+
+  const removed = fsApi.removeFile(trackFile);
+  if (removed && removed.error) return { ok: false, error: `не удалось удалить трек: ${removed.error}` };
+  const lyricsFile = path.join(artistDir, 'lyrics', `${cleanId}.txt`);
+  if (fsApi.exists(lyricsFile)) fsApi.removeFile(lyricsFile);
+
+  return { ok: true, data: { slug: cleanSlug, trackId: cleanId, tracks: tracks.length } };
+}
+
+module.exports = { STATUSES, trackId, tracksDir, listTracks, addTrack, removeTrack };

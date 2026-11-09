@@ -136,6 +136,21 @@ async function main() {
     );
     await page.screenshot({ path: path.join(OUT, 'beat-after-render.png') });
 
+    // --- 1б. Отказ сохранять без диалога — сказан причиной, а не молчанием
+    await click(page, 'beat-save');
+    const saveRefusal = await page.evaluate(() => document.getElementById('error-banner').innerText.trim());
+    record(
+      'отказ сохранения назван причиной',
+      /browser|браузер|приложени/i.test(saveRefusal),
+      saveRefusal.slice(0, 90),
+    );
+    // Отчёт целиком — файлом: из него собирают баг-репорт, не пересказывая
+    // цифры с экрана. В браузере это скачивание, в приложении — диалог.
+    await page.evaluate(() => { document.getElementById('error-banner').textContent = ''; });
+    await click(page, 'beat-copy');
+    const copyStatus = await page.evaluate(() => document.getElementById('beat-status').textContent.trim());
+    record('отчёт сохраняется файлом', /Отчёт сохранён: .+\.json/.test(copyStatus), copyStatus.slice(0, 90));
+
     // --- 2. Вокал: тестовый дубль в миксе и честная подпись
     await page.select('#vocal-mode', 'test');
     await new Promise((resolve) => { setTimeout(resolve, 300); });
@@ -223,7 +238,54 @@ async function main() {
     );
     await page.screenshot({ path: path.join(OUT, 'tracks-after-add.png') });
 
-    // --- 6. Задача без Python: живой вывод и итог
+    // Удалить заведённый трек кнопкой в строке: опечатку в названии иначе
+    // исправить было нечем.
+    const dropped = await page.evaluate((title) => {
+      const row = [...document.querySelectorAll('#tracks-list li')].find((li) => li.textContent.includes(title));
+      if (!row) return { ok: false, error: 'строки трека нет' };
+      const button = [...row.querySelectorAll('button')].find((b) => /Удалить/.test(b.textContent));
+      if (!button) return { ok: false, error: 'кнопки «Удалить» нет' };
+      button.click();
+      return { ok: true };
+    }, trackTitle);
+    if (!dropped.ok) {
+      record('трек удаляется из окна', false, dropped.error);
+    } else {
+      await waitFor(
+        page,
+        (title) => !document.getElementById('tracks-list').innerText.includes(title),
+        { timeout: 20000, label: 'трек удалён', arg: trackTitle },
+      );
+      const left = await page.evaluate(() => document.getElementById('tracks-list').innerText.trim());
+      record('трек удаляется из окна', true, left ? `осталось: ${left.split('\n').length} строк` : 'список пуст');
+    }
+
+    // --- 6. Фильтры: набранный текст сужает список, «крестик» возвращает
+    await page.click('[data-view="genres"]');
+    await new Promise((resolve) => { setTimeout(resolve, 600); });
+    const genresAll = await page.$$eval('#genre-list li', (items) => items.length);
+    await page.click('#genre-filter');
+    await page.type('#genre-filter', 'phonk');
+    await new Promise((resolve) => { setTimeout(resolve, 400); });
+    const genresFiltered = await page.$$eval('#genre-list li', (items) => items.map((li) => li.textContent.trim()));
+    record(
+      'фильтр жанров сужает список',
+      genresAll > 0 && genresFiltered.length > 0 && genresFiltered.length < genresAll
+        && genresFiltered.some((text) => /phonk/i.test(text)),
+      `было ${genresAll}, по «phonk» — ${genresFiltered.length}`,
+    );
+    await page.evaluate(() => { document.getElementById('genre-filter').value = ''; });
+    await page.type('#genre-filter', 'жанра-которого-нет');
+    await new Promise((resolve) => { setTimeout(resolve, 400); });
+    const genresEmpty = await page.$$eval('#genre-list li', (items) => items.length);
+    const genresCount = await page.evaluate(() => document.getElementById('genre-count').textContent.trim());
+    record(
+      'пустой фильтр объясняет себя',
+      genresEmpty === 0 && /^0 из \d+/.test(genresCount),
+      `карточек ${genresEmpty}, подпись «${genresCount.slice(0, 60)}»`,
+    );
+
+    // --- 7. Задача без Python: живой вывод и итог
     await page.click('[data-view="run"]');
     await new Promise((resolve) => { setTimeout(resolve, 800); });
     await page.select('#task-select', 'native-files');

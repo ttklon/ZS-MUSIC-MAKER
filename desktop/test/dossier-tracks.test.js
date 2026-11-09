@@ -151,3 +151,53 @@ test('у артиста без треков нет ошибки чтения —
   assert.ok(broken.errors.length >= 1, 'битый файл должен быть назван');
   fs.rmSync(tmp, { recursive: true, force: true });
 });
+
+test('трек удаляется: файлы, текст и запись в artist.json', () => {
+  const root = makeRoot();
+  const fsApi = createNodeFs();
+  const artist = dossier.addArtist(fsApi, root, { artist: 'Тест Артист' });
+  assert.equal(artist.ok, true, artist.error);
+  const added = tracks.addTrack(fsApi, root, {
+    slug: artist.data.slug,
+    title: 'Черновик для удаления',
+    lyrics: 'первая строка',
+  });
+  assert.equal(added.ok, true, added.error);
+  const id = added.data.track_id;
+  const dir = path.join(root, 'data', 'artist_dossier', artist.data.slug);
+  assert.ok(fs.existsSync(path.join(dir, 'tracks', `${id}.json`)));
+  assert.ok(fs.existsSync(path.join(dir, 'lyrics', `${id}.txt`)));
+
+  const removed = tracks.removeTrack(fsApi, root, { slug: artist.data.slug, trackId: id });
+
+  assert.equal(removed.ok, true, removed.error);
+  assert.equal(removed.data.tracks, 0);
+  assert.equal(fs.existsSync(path.join(dir, 'tracks', `${id}.json`)), false, 'файл трека удалён');
+  assert.equal(fs.existsSync(path.join(dir, 'lyrics', `${id}.txt`)), false, 'текст трека удалён');
+  const record = JSON.parse(fs.readFileSync(path.join(dir, 'artist.json'), 'utf8'));
+  assert.deepEqual(record.tracks, [], 'ссылка на трек убрана из досье');
+  // Артист и каталог треков остаются: у него могут быть другие треки.
+  assert.equal(fs.existsSync(path.join(dir, 'artist.json')), true);
+});
+
+test('удаление трека отказывает по делу, а не молча', () => {
+  const root = makeRoot();
+  const fsApi = createNodeFs();
+  const artist = dossier.addArtist(fsApi, root, { artist: 'Тест Артист' });
+  assert.equal(artist.ok, true, artist.error);
+  const slug = artist.data.slug;
+
+  const noArtist = tracks.removeTrack(fsApi, root, { slug: '../vault', trackId: 'abc_12345678' });
+  assert.equal(noArtist.ok, false);
+  assert.match(noArtist.error, /имя каталога/);
+
+  // Идентификатор — только `<slug>_<8 hex>`: иначе через него просили бы
+  // удалить файл вне каталога треков.
+  const badId = tracks.removeTrack(fsApi, root, { slug, trackId: '../../artist' });
+  assert.equal(badId.ok, false);
+  assert.match(badId.error, /идентификатор/);
+
+  const noTrack = tracks.removeTrack(fsApi, root, { slug, trackId: 'demo_01_8f1f9480' });
+  assert.equal(noTrack.ok, false);
+  assert.match(noTrack.error, /нет/);
+});

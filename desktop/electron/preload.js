@@ -160,6 +160,10 @@ function dossierTrackAdd(payload) {
   return ipcRenderer.invoke('zsmm:dossier-track-add', payload);
 }
 
+function dossierTrackRemove(payload) {
+  return ipcRenderer.invoke('zsmm:dossier-track-remove', payload);
+}
+
 function revealRoot() {
   return ipcRenderer.invoke('zsmm:reveal-root');
 }
@@ -196,6 +200,7 @@ contextBridge.exposeInMainWorld('zsmm', {
   dossierRemove,
   dossierTracks,
   dossierTrackAdd,
+  dossierTrackRemove,
   loadSettings,
   saveSettings,
   environment,

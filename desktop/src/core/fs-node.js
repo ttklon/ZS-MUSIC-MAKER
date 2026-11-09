@@ -72,6 +72,22 @@ function createNodeFs(fileSystem = fs) {
       }
     },
 
+    /**
+     * Удалить файл.
+     *
+     * Отдельно от `removeDir`: трек — это `<id>.json` и, возможно,
+     * `<id>.txt` с текстом, и удалять каталог артиста ради одного трека
+     * нельзя.
+     */
+    removeFile(target) {
+      try {
+        fileSystem.unlinkSync(target);
+        return { value: target };
+      } catch (err) {
+        return { error: `${err.code || 'ERR'}: ${err.message}` };
+      }
+    },
+
     /** Записать файл, создав родительские каталоги. */
     writeText(target, contents) {
       try {

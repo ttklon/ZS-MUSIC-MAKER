@@ -40,6 +40,28 @@ function renderTracks(tracks, errors) {
   $('tracks-list').replaceChildren(
     ...tracks.map((track) => {
       const item = el('li', 'row', trackLine(track));
+      // Трек заводят руками, и опечатка в названии — обычное дело. Без
+      // удаления исправить её можно было только проводником.
+      const remove = el('button', 'ghost', 'Удалить');
+      remove.addEventListener('click', async () => {
+        remove.disabled = true;
+        try {
+          const reply = await W.askWith('dossierTrackRemove', {
+            slug: state.trackArtist,
+            trackId: track.track_id,
+          });
+          if (!reply || reply.ok !== true) {
+            showError(`Трек не удалён: ${(reply && reply.error) || 'нет ответа'}`);
+            return;
+          }
+          await loadArtistTracks();
+        } catch (err) {
+          showError(`Трек не удалён: ${err.message}`);
+        } finally {
+          remove.disabled = false;
+        }
+      });
+      item.append(remove);
       return item;
     }),
   );
