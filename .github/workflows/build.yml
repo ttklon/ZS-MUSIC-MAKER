@@ -369,6 +369,31 @@ jobs:
             exit 1
           }
 
+      # Содержимое отчёта печатается в лог: сам файл из внешней среды не
+      # скачать (артефакты и ассеты релиза отдают 403/EOF), а аннотация
+      # показывает только 1-2 строки. Здесь видно каждый файл и подпись.
+      - name: Summary of signature report
+        if: always()
+        working-directory: desktop
+        shell: pwsh
+        run: |
+          if (Test-Path dist/signature.json) {
+            $report = Get-Content dist/signature.json -Raw | ConvertFrom-Json
+            Write-Output "подпись: $($report.summary)"
+            foreach ($row in $report.files) {
+              Write-Output ("  {0}: {1} ({2})" -f (Split-Path $row.file -Leaf), $row.status, $row.signer)
+            }
+          } else {
+            Write-Output 'signature.json не появился: шаг сборки не дошёл до проверки подписи'
+          }
+          if (Test-Path dist/smoke.json) {
+            $smoke = Get-Content dist/smoke.json -Raw | ConvertFrom-Json
+            Write-Output ("smoke: ok={0}, проверок {1}" -f $smoke.ok, $smoke.checks.Count)
+            foreach ($check in $smoke.checks) {
+              Write-Output ("  {0} {1}: {2}" -f $(if ($check.ok) { 'ok' } else { 'FAIL' }), $check.name, $check.detail)
+            }
+          }
+
       - name: Upload installer
         uses: actions/upload-artifact@v4
         with:
