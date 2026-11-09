@@ -244,6 +244,13 @@ function wire() {
   });
   // Сообщение об ошибке можно закрыть рукой, не дожидаясь таймера.
   $('error-close').addEventListener('click', () => hideError());
+  // Esc — привычный способ убрать сообщение в настольном окне. Слушаем на
+  // документе: фокус может стоять где угодно, в том числе на поле ввода.
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && !$('error-banner').classList.contains('is-hidden')) {
+      hideError();
+    }
+  });
   $('genre-filter').addEventListener('input', () => W.renderGenres && W.renderGenres());
   // Фильтр модулей перерисовывает уже загруженный список: каждый символ не
   // должен заново читать inventory.md (300 строк) с диска.

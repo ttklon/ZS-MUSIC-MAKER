@@ -95,8 +95,12 @@ class FakeElement {
     this.listeners.get(event).push(handler);
   }
 
-  dispatch(event) {
-    for (const handler of this.listeners.get(event) || []) handler({ type: event, target: this });
+  dispatch(event, payload = {}) {
+    // `payload` передаёт поля события: `key` для клавиатуры, `dataset` для
+    // клика по кнопке. Без этого обработчик Esc нельзя было проверить.
+    for (const handler of this.listeners.get(event) || []) {
+      handler({ type: event, target: this, ...payload });
+    }
   }
 
   /** Все потомки (depth-first), включая сам элемент. */

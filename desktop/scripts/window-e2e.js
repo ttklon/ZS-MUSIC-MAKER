@@ -182,6 +182,19 @@ async function main() {
       () => document.getElementById('error-banner').classList.contains('is-hidden'),
     );
     record('сообщение об ошибке закрывается', banner.visible && closed, 'баннер скрыт по нажатию');
+    // Esc — привычный способ убрать сообщение в настольном окне.
+    await page.evaluate(() => { document.getElementById('beat-bpm').value = '999'; });
+    await click(page, 'beat-render');
+    const reopened = await page.evaluate(
+      () => !document.getElementById('error-banner').classList.contains('is-hidden'),
+    );
+    await page.keyboard.press('Escape');
+    await new Promise((resolve) => { setTimeout(resolve, 300); });
+    const escaped = await page.evaluate(
+      () => document.getElementById('error-banner').classList.contains('is-hidden'),
+    );
+    record('Esc закрывает сообщение', reopened && escaped, 'сообщение снова показано и снято клавишей');
+    await page.evaluate(() => { document.getElementById('beat-bpm').value = '120'; });
 
     // --- 4. Досье: добавить и удалить артиста
     await page.click('[data-view="dossiers"]');

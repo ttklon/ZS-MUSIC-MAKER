@@ -344,3 +344,24 @@ test('сообщение об ошибке закрывается рукой, а
   document.getElementById('error-close').dispatch('click');
   assert.equal(banner.classList.contains('is-hidden'), true, 'сообщение не закрылось');
 });
+
+test('Esc закрывает сообщение об ошибке', async (t) => {
+  const bridge = realBridge();
+  bridge.readiness = async () => ({ ok: false, error: 'снимок не найден' });
+  const { document } = bootWindow({ bridge });
+  t.after(() => {
+    delete global.window;
+    delete global.document;
+  });
+  await flush();
+  await flush();
+
+  const banner = document.getElementById('error-banner');
+  assert.equal(banner.classList.contains('is-hidden'), false);
+  // Фокус может стоять где угодно, поэтому слушаем документ — и проверяем
+  // именно клавишу, а не любой keydown: стрелки и Tab сообщение не трогают.
+  document.dispatch('keydown', { key: 'Tab' });
+  assert.equal(banner.classList.contains('is-hidden'), false, 'не Esc не должен закрывать');
+  document.dispatch('keydown', { key: 'Escape' });
+  assert.equal(banner.classList.contains('is-hidden'), true, 'Esc не закрыл сообщение');
+});
