@@ -293,3 +293,45 @@ test('предпросмотр прикладывает дубль к ренде
   assert.equal(bytes.subarray(0, 4).toString('ascii'), 'RIFF');
   assert.match(reply.data.vocalName, /^vocal-test-2s-/);
 });
+
+test('раздел читается заново, а не из снимка на момент загрузки страницы', async (t) => {
+  const server = await withServer(t);
+
+  // Шим отдаёт функции, которые спрашивают сервер при каждом обращении.
+  // Раньше в нём лежал снимок: «Добавить артиста» писало на диск, а список
+  // в окне оставался прежним — выглядело как сломанная кнопка.
+  const shimCode = (await get(server, '/preview-shim.js')).body;
+  assert.match(shimCode, /preview-section\?name=dossiers/, 'список досье должен читаться по запросу');
+
+  const first = JSON.parse((await get(server, '/preview-section?name=dossiers')).body);
+  assert.ok(Array.isArray(first.artists), 'раздел обязан отдать список артистов');
+  const second = JSON.parse((await get(server, '/preview-section?name=dossiers')).body);
+  assert.equal(second.error, null);
+  // Совпадение содержимого при двух чтениях — признак живого чтения, а не
+  // закешированного объекта, который мог остаться разделяемым.
+  assert.notEqual(first, second, 'каждое чтение — свежий объект');
+});
+
+test('неизвестный раздел — 404, а не пустой ответ', async (t) => {
+  const server = await withServer(t);
+
+  const reply = await get(server, `/preview-section?name=${encodeURIComponent('секрет')}`);
+
+  assert.equal(reply.status, 404);
+  assert.equal(JSON.parse(reply.body).ok, false);
+});
+
+test('задача без Python присылает события и итог, как Electron', async (t) => {
+  const server = await withServer(t);
+
+  const shimCode = (await get(server, '/preview-shim.js')).body;
+  // Раздел «Запуск» ждёт три вещи: строки вывода, подписку и итог. Без них
+  // окно навсегда оставалось на «Выполняется», хотя задача закончилась.
+  assert.match(shimCode, /onTaskEvent: \(handler\) => subscribe\('event'/);
+  assert.match(shimCode, /onTaskDone: \(handler\) => subscribe\('done'/);
+  assert.match(shimCode, /__zsmmTask\.done\(/, 'итог задачи должен доходить до подписчика');
+
+  const reply = await postTo(server, '/native-task', { key: 'native-files' });
+  assert.equal(reply.ok, true, reply.error);
+  assert.ok(reply.data.result.lines.length > 0, 'нативная задача печатает строки, а не молчит');
+});

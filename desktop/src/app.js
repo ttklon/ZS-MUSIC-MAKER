@@ -29,6 +29,9 @@ const state = {
   taskRunning: false,
   taskLines: [],
   beat: null,
+  // `blob:`-адрес готового WAV: нужен, чтобы освобождать его перед следующим
+  // рендером. `data:`-адрес здесь не годится — его блокирует CSP окна.
+  beatUrl: null,
   beatReport: null,
   settingsTimer: null,
 };
@@ -117,6 +120,26 @@ W.statusTag = statusTag;
 // что подключены раньше этого файла.
 
 /**
+ * Base64 → `Blob` для проигрывания.
+ *
+ * `data:audio/wav;base64,…` в адресе плеера **не работает в собранном
+ * приложении**: CSP окна (`default-src 'self'`) блокирует такие источники, и
+ * кнопка «Слушать» молча ничего не играла — это видел только настоящий
+ * браузер, DOM-двойник CSP не применяет. `blob:` разрешён отдельной
+ * директивой `media-src`, а сеть остаётся закрытой: `connect-src 'none'`.
+ *
+ * @param {string} base64
+ * @param {string} mime
+ * @returns {string} адрес для `audio.src`
+ */
+function blobUrl(base64, mime = 'audio/wav') {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+  return URL.createObjectURL(new Blob([bytes], { type: mime }));
+}
+
+/**
  * Запустить разделы: один сломанный файл не должен ронять остальные.
  *
  * `init` каждого раздела регистрирует свои загрузчики в `W`. Если скрипт
@@ -199,6 +222,7 @@ async function switchView(view, { force = false } = {}) {
 // Раздел «Бит» должен быть доступен из других разделов (жанр → бит), поэтому
 // переключение отдаётся через общий объект, как и остальные помощники.
 W.switchView = switchView;
+W.blobUrl = blobUrl;
 
 function wire() {
   for (const button of document.querySelectorAll('.nav-item')) {

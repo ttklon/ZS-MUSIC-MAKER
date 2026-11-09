@@ -233,7 +233,11 @@ async function loadBeat() {
       state.vocalTake = reply.data.vocalWavBase64 || null;
       state.vocalName = reply.data.vocalName || null;
       const audio = $('beat-audio');
-      audio.src = `data:audio/wav;base64,${wavBase64}`;
+      // Прошлый адрес освобождаем: каждые 20 секунд бита — это мегабайты,
+      // а blob живёт, пока его не отозвать.
+      if (state.beatUrl) URL.revokeObjectURL(state.beatUrl);
+      state.beatUrl = W.blobUrl(wavBase64);
+      audio.src = state.beatUrl;
       audio.classList.remove('is-hidden');
       $('beat-save').disabled = false;
       $('beat-open').disabled = false;

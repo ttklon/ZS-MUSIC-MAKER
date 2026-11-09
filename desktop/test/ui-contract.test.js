@@ -47,6 +47,12 @@ test('CSP запрещает сеть и inline-скрипты', () => {
 
   assert.match(csp[1], /connect-src 'none'/, 'окно не должно ходить в сеть');
   assert.doesNotMatch(csp[1], /unsafe-inline/, 'inline-скрипты запрещены');
+  // `blob:` нужен для проигрывания готового WAV. С `data:`-адресом плеер
+  // молчал в собранном приложении: CSP блокировал источник, а DOM-двойник
+  // CSP не применяет — это увидел только настоящий браузер.
+  assert.match(csp[1], /media-src 'self' blob:/, 'плееру нужен blob:, иначе бит не играется');
+  assert.doesNotMatch(csp[1], /media-src[^;]*\bdata:/, 'data: в media не нужен и опаснее blob:');
+  assert.doesNotMatch(csp[1], /script-src[^;]*blob:/, 'blob: не должен попадать в script-src');
 });
 
 test('все id, к которым обращается app.js, есть в разметке', () => {
@@ -163,6 +169,20 @@ test('страница зовёт только существующие мето
   for (const match of appJs.matchAll(/askWith\('(\w+)'/g)) used.add(match[1]);
   const unknown = [...used].filter((name) => !exposed.has(name));
   assert.deepEqual(unknown, [], `окно зовёт несуществующие методы: ${unknown.join(', ')}`);
+});
+
+test('готовый WAV отдаётся плееру через blob, а не через data:', () => {
+  // Регрессия: `audio.src = data:audio/wav;base64,…` не работает в собранном
+  // приложении из-за CSP. Проверяем на уровне исходников, потому что
+  // DOM-двойник политику безопасности не применяет.
+  const beat = fs.readFileSync(path.join(SRC, 'sections', 'beat.js'), 'utf8');
+  assert.doesNotMatch(beat, /data:audio\//, 'источник плеера не должен быть data:-адресом');
+  assert.match(beat, /W\.blobUrl\(wavBase64\)/, 'WAV должен превращаться в blob-адрес');
+  assert.match(beat, /revokeObjectURL/, 'прошлый blob надо освобождать, иначе мегабайты копятся');
+  // И сам помощник действительно делает Blob из байтов.
+  const app = fs.readFileSync(path.join(SRC, 'app.js'), 'utf8');
+  assert.match(app, /new Blob\(\[bytes\], \{ type: mime \}\)/);
+  assert.match(app, /URL\.createObjectURL/);
 });
 
 test('app.js не содержит сетевых вызовов', () => {

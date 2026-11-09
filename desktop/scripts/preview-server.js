@@ -19,6 +19,12 @@ const { createBankProvider, renderBeatPayload } = require('../electron/pipeline'
 const { createCancelSignal } = require('../electron/render-host');
 
 const DESKTOP = path.resolve(__dirname, '..');
+// Куда писать правки (артисты, треки). По умолчанию — в репозиторий, как в
+// `npm run preview`. Для проверок и скриншотов каталог подменяется копией:
+// иначе одно нажатие «Добавить» в браузере правила бы реальные данные.
+const DATA_DIR = process.env.ZSMM_PREVIEW_DATA
+  ? path.resolve(process.env.ZSMM_PREVIEW_DATA)
+  : null;
 const ROOT = path.resolve(DESKTOP, '..');
 const PORT = Number(process.env.ZSMM_PREVIEW_PORT || 4173);
 const HOST = '0.0.0.0';
@@ -30,8 +36,8 @@ const MIME = {
   '.json': 'application/json; charset=utf-8',
 };
 
-function shim(project) {
-  const sections = {
+function sectionsOf(project) {
+  const read = {
     version: () => project.version(),
     genres: () => project.genres(),
     modules: () => project.modules(),
@@ -39,6 +45,14 @@ function shim(project) {
     dossiers: () => project.dossiers(),
     system: () => project.systemInfo(),
   };
+  // Раздел читается заново на каждое обращение страницы. Снимок, снятый при
+  // первом запросе шима, замирал: «Добавить артиста» писало на диск, а список
+  // в окне оставался прежним.
+  return Object.fromEntries(Object.entries(read).map(([name, loader]) => [name, () => JSON.parse(JSON.stringify(loader()))]));
+}
+
+function shim(project) {
+  const sections = sectionsOf(project);
   // Снимок строится при каждом запросе шима: после правки досье окно
   // перезагружает раздел и должно увидеть новый список, а не старый.
   const payload = {};
@@ -47,8 +61,27 @@ function shim(project) {
   return `(() => {
   const data = ${JSON.stringify(payload)};
   const reply = (name) => ({ ok: true, data: data[name] });
+  // Реестры подписок раздела «Запуск». В приложении их держит preload и
+  // пересылает события главного процесса; здесь события рождает сам шим,
+  // но окно не должно знать разницы.
+  const listeners = { event: [], done: [] };
+  window.__zsmmTask = {
+    emit: (event) => listeners.event.forEach((handler) => handler(event)),
+    done: (result) => listeners.done.forEach((handler) => handler(result)),
+  };
+  const subscribe = (kind, handler) => {
+    if (typeof handler !== 'function') return () => {};
+    listeners[kind].push(handler);
+    return () => {
+      const index = listeners[kind].indexOf(handler);
+      if (index >= 0) listeners[kind].splice(index, 1);
+    };
+  };
   window.zsmm = {
-    ${Object.keys(payload).map((name) => `${name}: () => Promise.resolve(reply('${name}')),`).join('\n    ')}
+    ${Object.keys(payload).map((name) => `${name}: () => fetch('/preview-section?name=${name}')
+      .then((response) => response.json())
+      .then((fresh) => ({ ok: true, data: fresh }))
+      .catch(() => reply('${name}')),`).join('\n    ')}
     listTasks: () => Promise.resolve([
       { key: 'native-files', label: 'Проверка файлов проекта (без Python)', accepts: [], native: true },
       { key: 'native-readiness', label: 'Готовность: снимок против пересчёта (без Python)', accepts: [], native: true },
@@ -64,7 +97,19 @@ function shim(project) {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ key }),
         });
-        return response.json();
+        const reply = await response.json();
+        const result = (reply.data && reply.data.result) || { ok: false, lines: [] };
+        // События — как в Electron: раздел «Запуск» слушает живые строки и
+        // итог, а не поле в ответе. Без этого окно навсегда застревало на
+        // «Выполняется», хотя задача давно закончилась.
+        // События уходят следующим тиком: запрос на запуск успевает вернуть
+        // ответ, и раздел не перетирает «Завершено» более ранним «Запущено».
+        setTimeout(() => {
+          window.__zsmmTask.emit({ type: 'start', label: key, command: [key], pid: null });
+          (result.lines || []).forEach((line) => window.__zsmmTask.emit({ type: 'stdout', line }));
+          window.__zsmmTask.done({ ok: Boolean(result.ok), code: result.ok ? 0 : 1, signal: null, timedOut: false });
+        }, 0);
+        return { ok: true, data: { pid: null, command: [key], native: true } };
       }
       return {
         ok: false,
@@ -218,8 +263,8 @@ function shim(project) {
     loadSettings: () => Promise.resolve({ ok: true, data: {} }),
     saveSettings: () => Promise.resolve({ ok: true, data: {} }),
     stopTask: () => Promise.resolve({ ok: false, error: 'нет задачи' }),
-    onTaskEvent: () => () => {},
-    onTaskDone: () => () => {},
+    onTaskEvent: (handler) => subscribe('event', handler),
+    onTaskDone: (handler) => subscribe('done', handler),
     // В браузере меню нет: подписка нужна, чтобы раздел не падал на её поиске.
     onRefresh: () => () => {},
     revealRoot: () => Promise.resolve({ ok: false, error: 'доступно только в приложении' }),
@@ -313,8 +358,8 @@ function createServer(project, options = {}) {
         const dossier = require('../src/core/dossier-edit');
         const fsApi = createNodeFs();
         const reply = url.pathname === '/dossier-add'
-          ? dossier.addArtist(fsApi, ROOT, parsed)
-          : dossier.removeArtist(fsApi, ROOT, parsed);
+          ? dossier.addArtist(fsApi, ROOT, parsed, { dataDir: DATA_DIR })
+          : dossier.removeArtist(fsApi, ROOT, parsed, { dataDir: DATA_DIR });
         send(200, JSON.stringify(reply), MIME['.json']);
       });
       return;
@@ -342,6 +387,9 @@ function createServer(project, options = {}) {
           key: parsed.key,
           project,
           root: ROOT,
+          // Самодиагностика пишет в каталог пользователя; в предпросмотре
+          // подменяем его, чтобы проверка не трогала настоящий.
+          userData: DATA_DIR ? path.dirname(DATA_DIR) : undefined,
           onEvent: (event) => lines.push(event.line),
         });
         send(200, JSON.stringify({
@@ -359,7 +407,7 @@ function createServer(project, options = {}) {
         send(200, JSON.stringify({ ok: false, error: 'не указан артист' }), MIME['.json']);
         return;
       }
-      const list = dossierTracks.listTracks(createNodeFs(), ROOT, slug);
+      const list = dossierTracks.listTracks(createNodeFs(), ROOT, slug, { dataDir: DATA_DIR });
       send(200, JSON.stringify({ ok: true, data: { slug, tracks: list.tracks, errors: list.errors } }), MIME['.json']);
       return;
     }
@@ -376,7 +424,7 @@ function createServer(project, options = {}) {
           return;
         }
         const dossierTracks = require('../src/core/dossier-tracks');
-        send(200, JSON.stringify(dossierTracks.addTrack(createNodeFs(), ROOT, parsed)), MIME['.json']);
+        send(200, JSON.stringify(dossierTracks.addTrack(createNodeFs(), ROOT, parsed, { dataDir: DATA_DIR })), MIME['.json']);
       });
       return;
     }
@@ -390,6 +438,17 @@ function createServer(project, options = {}) {
       } catch (err) {
         send(200, JSON.stringify({ ok: false, error: err.message }), MIME['.json']);
       }
+      return;
+    }
+
+    if (url.pathname === '/preview-section') {
+      const name = url.searchParams.get('name');
+      const read = sectionsOf(project);
+      if (!Object.prototype.hasOwnProperty.call(read, name)) {
+        send(404, JSON.stringify({ ok: false, error: `нет раздела ${name}` }), MIME['.json']);
+        return;
+      }
+      send(200, JSON.stringify(read[name]()), MIME['.json']);
       return;
     }
 
@@ -427,9 +486,11 @@ function createServer(project, options = {}) {
 }
 
 if (require.main === module) {
-  const project = createProject(createNodeFs(), ROOT);
+  // Проект читает досье оттуда же, куда пишут правки: иначе после «Добавить»
+  // список оставался старым, и окно выглядело сломанным.
+  const project = createProject(createNodeFs(), ROOT, { dossierDir: DATA_DIR });
   createServer(project).listen(PORT, HOST, () => {
-    console.log(`предпросмотр окна: http://localhost:${PORT} (данные из ${ROOT})`);
+    console.log(`предпросмотр окна: http://localhost:${PORT} (правки в ${DATA_DIR || `${ROOT}/data`})`);
   });
 }
 
