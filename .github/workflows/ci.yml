@@ -162,6 +162,7 @@ jobs:
         fi
 
     - name: Smoke — audio quality
+      shell: bash
       run: |
         status=0
         python tools/smoke_audio.py > smoke_audio.log 2>&1 || status=$?
