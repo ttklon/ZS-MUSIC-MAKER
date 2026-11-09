@@ -142,7 +142,13 @@ function registerBeatIpc({
 
   for (const [channel, handler] of Object.entries(handlers)) ipcMain.handle(channel, handler);
 
-  return { bankProvider, handlers };
+  // Идёт ли рендер прямо сейчас. Нужно главному процессу: закрытие окна
+  // посреди сборки молча выбрасывало десятки секунд работы.
+  const isRendering = () => Boolean(activeRender);
+  // Отмена для закрытия: тот же сигнал, что у кнопки «Отменить».
+  const cancelRender = () => (activeRender ? activeRender.abort() : false);
+
+  return { bankProvider, handlers, isRendering, cancelRender };
 }
 
 /** Диалог выбора WAV для вокального дубля. */

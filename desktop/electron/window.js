@@ -27,7 +27,13 @@ const policy = require('./window-policy');
  * @returns {{create: Function, get: Function, setTaskbar: Function,
  *            showTaskProgress: Function, showTaskbarProgress: Function}}
  */
-function createWindowManager({ BrowserWindow, shell, dialog, settings, screen = null, dev = false }) {
+function createWindowManager({
+  BrowserWindow, shell, dialog, settings, screen = null, dev = false,
+  // Идёт ли рендер и как его остановить. Нужны при закрытии окна: иначе
+  // собранный наполовину бит пропадал без предупреждения.
+  isRendering = null,
+  cancelRender = null,
+}) {
   let current = null;
 
   const setTaskbar = (value) => {
@@ -139,6 +145,28 @@ function createWindowManager({ BrowserWindow, shell, dialog, settings, screen = 
     });
 
     if (dev) current.webContents.openDevTools({ mode: 'detach' });
+
+    // Закрытие во время рендера: десятки секунд работы пропадали молча.
+    // Спрашиваем внятно и по умолчанию оставляем окно открытым.
+    current.on('close', (event) => {
+      if (typeof isRendering !== 'function' || !isRendering()) return;
+      const choice = dialog.showMessageBoxSync(current, {
+        type: 'question',
+        buttons: ['Не закрывать', 'Отменить рендер и закрыть'],
+        defaultId: 0,
+        cancelId: 0,
+        title: 'Идёт сборка бита',
+        message: 'Бит ещё собирается. Если закрыть окно, работа пропадёт.',
+        detail: 'Можно подождать окончания или отменить рендер и закрыть окно.',
+      });
+      if (choice !== 1) {
+        event.preventDefault();
+        return;
+      }
+      // Пользователь выбрал закрыть — останавливаем рендер, чтобы поток
+      // не считал впустую, пока приложение завершается.
+      if (typeof cancelRender === 'function') cancelRender();
+    });
 
     // Размер запоминается до закрытия: после `closed` границ уже нет.
     current.on('close', () => {

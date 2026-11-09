@@ -136,6 +136,47 @@ async function main() {
     );
     await page.screenshot({ path: path.join(OUT, 'beat-after-render.png') });
 
+    // --- 1а. Отмена долгого рендера: прогресс идёт, «Отменить» работает,
+    // отмена не считается ошибкой.
+    await page.evaluate(() => { document.getElementById('beat-duration').value = '90'; });
+    await click(page, 'beat-render');
+    const progress = await waitFor(
+      page,
+      () => {
+        const text = document.getElementById('beat-status').textContent || '';
+        return /секция|мастеринг/i.test(text) ? text : false;
+      },
+      { timeout: 60000, label: 'прогресс рендера' },
+    ).then(() => page.evaluate(() => document.getElementById('beat-status').textContent));
+    const cancelEnabled = await page.evaluate(() => !document.getElementById('beat-cancel').disabled);
+    record('прогресс рендера виден', Boolean(progress) && cancelEnabled, progress.slice(0, 80));
+    await click(page, 'beat-cancel');
+    await waitFor(
+      page,
+      () => /отмен/i.test(document.getElementById('beat-status').textContent || ''),
+      { timeout: 60000, label: 'рендер отменён' },
+    );
+    const cancelled = await page.evaluate(() => ({
+      status: document.getElementById('beat-status').textContent.trim(),
+      banner: document.getElementById('error-text').textContent.trim(),
+      hiddenBanner: document.getElementById('error-banner').classList.contains('is-hidden'),
+    }));
+    record(
+      'отмена названа отменой, а не ошибкой',
+      /отмен/i.test(cancelled.status) && (cancelled.hiddenBanner || !cancelled.banner),
+      `${cancelled.status}${cancelled.banner ? ` | баннер: ${cancelled.banner}` : ''}`,
+    );
+    await page.evaluate(() => {
+      document.getElementById('beat-duration').value = '4';
+      document.getElementById('error-text').textContent = '';
+    });
+    await click(page, 'beat-render');
+    await waitFor(
+      page,
+      () => /Готово/i.test(document.getElementById('beat-status').textContent || ''),
+      { timeout: 120000, label: 'бит снова собран' },
+    );
+
     // --- 1б. Отказ сохранять без диалога — сказан причиной, а не молчанием
     await click(page, 'beat-save');
     const saveRefusal = await page.evaluate(() => document.getElementById('error-text').textContent.trim());

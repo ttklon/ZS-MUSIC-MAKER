@@ -301,3 +301,49 @@ test('фокус клавиатуры виден, движение отключ�
   assert.match(css, /outline:\s*2px/, 'рамка фокуса должна быть видимой');
   assert.match(css, /prefers-reduced-motion/, 'анимация должна отключаться по настройке системы');
 });
+
+test('каждый канал из preload регистрируется в главном процессе', () => {
+  // Этот тест ловит то, что уже случилось однажды: при разборе main.js на
+  // модули вызов `beatService.registerBeatIpc(...)` потерялся. Импорт остался,
+  // тесты сервиса проходили (они вызывают функцию напрямую), а в приложении
+  // каналы `zsmm:beat-*` и `zsmm:vocal-*` никто не регистрировал — «Собрать
+  // бит» не работал бы вовсе. Проверяем не тесты модуля, а связку preload ↔
+  // регистрация.
+  const channels = [...new Set([...preload.matchAll(/invoke\('([^']+)'/g)].map((m) => m[1]))];
+  assert.ok(channels.length >= 20, `каналов в preload: ${channels.length}`);
+
+  // Где канал может быть зарегистрирован: прямой `ipcMain.handle('…')` либо
+  // таблица обработчиков вида `'zsmm:beat-render': …`.
+  const electronSources = fs.readdirSync(ELECTRON)
+    .filter((file) => file.endsWith('.js'))
+    .map((file) => fs.readFileSync(path.join(ELECTRON, file), 'utf8'))
+    .join('\n');
+  const handled = new Set([
+    ...[...electronSources.matchAll(/ipcMain\.handle\('([^']+)'/g)].map((m) => m[1]),
+    ...[...electronSources.matchAll(/^\s*'([a-z-]+:[a-z-]+)':/gm)].map((m) => m[1]),
+  ]);
+  const missing = channels.filter((channel) => !handled.has(channel));
+  assert.deepEqual(missing, [], 'каналы без обработчика: ' + missing.join(', '));
+
+  // Табличные обработчики должны быть кем-то вызваны: модуль, который
+  // экспортирует регистрацию, обязан быть подключён в main.js.
+  const main = fs.readFileSync(path.join(ELECTRON, 'main.js'), 'utf8');
+  for (const file of fs.readdirSync(ELECTRON).filter((name) => name.endsWith('.js'))) {
+    const source = fs.readFileSync(path.join(ELECTRON, file), 'utf8');
+    const exported = /module\.exports\s*=\s*{[^}]*register([A-Za-z]+)Ipc/s.exec(source);
+    if (!exported || file === 'main.js') continue;
+    const fn = `register${exported[1]}Ipc`;
+    assert.match(main, new RegExp(`${fn}\\(`), `${file}: ${fn} не вызывается из main.js`);
+  }
+});
+
+test('закрытие окна во время рендера не выбрасывает работу молча', () => {
+  const source = fs.readFileSync(path.join(ELECTRON, 'window.js'), 'utf8');
+  assert.match(source, /isRendering/, 'окно должно знать, идёт ли рендер');
+  assert.match(source, /event\.preventDefault\(\)/, 'закрытие должно отменяться по умолчанию');
+  assert.match(source, /button[^]*Не закрывать|Не закрывать/, 'нужен внятный выбор, а не да/нет');
+  // Кнопка по умолчанию — оставить окно открытым: случайное нажатие Enter
+  // не должно терять работу.
+  assert.match(source, /defaultId:\s*0/);
+  assert.match(source, /cancelId:\s*0/);
+});

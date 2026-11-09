@@ -54,6 +54,8 @@ let windows = null;
 let project = null;
 // Запущенная задача живёт здесь: её видит и `task-runner.js`, и выход.
 const taskState = { activeTask: null, dossierDir: null, userData: null };
+// Сервис бита: нужен, чтобы знать, идёт ли рендер, когда окно закрывают.
+let beatIpc = null;
 let settingsStore = null;
 
 function settings() {
@@ -176,6 +178,37 @@ function registerIpc(getProject) {
     state: taskState,
   });
 
+  // Рендер, банк сэмплов, сохранения бита и вокальный вход — в
+  // `beat-service.js`. Здесь передаём только то, что умеет Electron: диалоги,
+  // выход в системный плеер и каталог «Музыка».
+  //
+  // Это место однажды уже потерялось при разборе main.js на модули:
+  // `registerBeatIpc` остался в модуле, но его перестали звать, и все каналы
+  // бита (`zsmm:beat-*`, `zsmm:vocal-*`) оказались не зарегистрированы —
+  // «Собрать бит» в собранном приложении не работал бы вовсе. Структурный
+  // тест `ui-contract` теперь сверяет preload с регистрацией каналов.
+  beatIpc = beatService.registerBeatIpc({
+    ipcMain,
+    dialog,
+    rootDir: SAMPLE_ROOT || path.resolve(__dirname, '..', '..'),
+    getWindow: () => (windows ? windows.get() : null),
+    musicDir: safeMusicDir,
+    // Открытие готового WAV в системном плеере: `shell.openPath` — то же,
+    // что двойной щелчок по файлу в проводнике Windows.
+    openPath: async (file) => {
+      const error = await shell.openPath(file);
+      return error || null;
+    },
+    // Прогресс рендера виден и в панели задач: свёрнутое окно иначе выглядит
+    // зависшим. Значение считает window-policy (там же и тест).
+    onProgressSender: (event, progress) => {
+      if (windows) windows.showTaskbarProgress(progress);
+      if (event && event.sender && !event.sender.isDestroyed()) {
+        event.sender.send('zsmm:beat-progress', progress);
+      }
+    },
+  });
+
   ipcMain.handle('zsmm:reveal-root', async () => {
     if (!ROOT) return { ok: false, error: rootInfo.error };
     const error = await shell.openPath(ROOT);
@@ -267,6 +300,10 @@ windows = createWindowManager({
   // могли отключить между запусками.
   screen,
   dev: IS_DEV,
+  // Рендер идёт в главном процессе: только он знает, что окно закрывают
+  // посреди сборки.
+  isRendering: () => Boolean(beatIpc && beatIpc.isRendering && beatIpc.isRendering()),
+  cancelRender: () => (beatIpc && beatIpc.cancelRender ? beatIpc.cancelRender() : false),
 });
 
 // Замок берётся до `whenReady`: второй процесс не должен успеть подняться.
