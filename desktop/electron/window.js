@@ -22,11 +22,12 @@ const policy = require('./window-policy');
  * @param {object} params.shell         открытие внешних ссылок
  * @param {object} params.dialog        сообщения о падении окна
  * @param {Function} params.settings    () => хранилище настроек
+ * @param {object} [params.screen]      `screen` из Electron: какие экраны подключены
  * @param {boolean} [params.dev]        открыть инструменты разработчика
  * @returns {{create: Function, get: Function, setTaskbar: Function,
  *            showTaskProgress: Function, showTaskbarProgress: Function}}
  */
-function createWindowManager({ BrowserWindow, shell, dialog, settings, dev = false }) {
+function createWindowManager({ BrowserWindow, shell, dialog, settings, screen = null, dev = false }) {
   let current = null;
 
   const setTaskbar = (value) => {
@@ -76,12 +77,34 @@ function createWindowManager({ BrowserWindow, shell, dialog, settings, dev = fal
   const create = (project = null) => {
     // Размер, цвет фона и webPreferences — в window-policy.js.
     const saved = settings().load().value;
-    current = new BrowserWindow(policy.windowOptions({
+    const options = policy.windowOptions({
       iconPath: path.join(__dirname, '..', 'build', 'icon.png'),
       preloadPath: path.join(__dirname, 'preload.js'),
       width: saved.windowWidth,
       height: saved.windowHeight,
-    }));
+    });
+    // Позиция из прошлого запуска — только если она видна на подключённом
+    // экране: монитор мог отключиться, и окно иначе оказалось бы вне стола.
+    let displays = [];
+    try {
+      displays = screen && typeof screen.getAllDisplays === 'function'
+        ? screen.getAllDisplays().map((display) => ({ workArea: display.workArea }))
+        : [];
+    } catch {
+      // Список экранов недоступен — окно откроется там, куда положит Windows.
+      displays = [];
+    }
+    const position = policy.restorePosition({
+      x: saved.windowX,
+      y: saved.windowY,
+      width: saved.windowWidth,
+      height: saved.windowHeight,
+    }, displays);
+    if (position) {
+      options.x = position.x;
+      options.y = position.y;
+    }
+    current = new BrowserWindow(options);
 
     // В заголовке — версия проекта: в списке задач Windows должно быть видно,
     // какая сборка открыта.
@@ -120,7 +143,18 @@ function createWindowManager({ BrowserWindow, shell, dialog, settings, dev = fal
     // Размер запоминается до закрытия: после `closed` границ уже нет.
     current.on('close', () => {
       const bounds = policy.boundsToRemember(current);
-      if (bounds) settings().save(bounds);
+      if (!bounds) return;
+      const patch = {
+        windowWidth: bounds.width,
+        windowHeight: bounds.height,
+      };
+      // Позиция пишется вместе с размером: по отдельности они разъедутся,
+      // и окно откроется со старой шириной в новой точке.
+      if (Number.isFinite(bounds.x) && Number.isFinite(bounds.y)) {
+        patch.windowX = bounds.x;
+        patch.windowY = bounds.y;
+      }
+      settings().save(patch);
     });
     current.on('closed', () => {
       current = null;

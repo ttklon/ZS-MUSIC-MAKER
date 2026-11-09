@@ -136,6 +136,21 @@ async function runSmoke({
       } catch {
         /* временный каталог мог остаться — это не провал проверки */
       }
+
+      // Самодиагностика окна: в упакованной сборке она проверяет запись в
+      // каталог пользователя и поток рендера так же, как это сделал бы
+      // человек кнопкой. Без этого «работает» в отчёте было бы обещанием.
+      const self = nativeTasks.runNativeTask({
+        key: 'native-selfcheck',
+        project,
+        root,
+        userData: require('node:os').tmpdir(),
+      });
+      push(
+        'самодиагностика окна',
+        self.ok === true,
+        self.ok === true ? self.lines.at(-1) : self.lines.filter((row) => row.startsWith('ПРОБЛЕМА')).join('; '),
+      );
     } catch (err) {
       push('чтение проекта', false, err.message);
     }

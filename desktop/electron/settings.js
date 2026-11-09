@@ -26,6 +26,16 @@ const DEFAULTS = {
   // монитор, и каждый запуск с 1280×820 выглядит как сброс настроек.
   windowWidth: 1280,
   windowHeight: 820,
+  // Позиция окна. `null` — «куда положит Windows»: выдумывать координаты
+  // хуже, чем открыть окно по центру экрана по умолчанию.
+  windowX: null,
+  windowY: null,
+};
+
+/** Координаты окна: экраны бывают и с отрицательным началом (монитор слева). */
+const POSITION_LIMITS = {
+  windowX: [-32000, 32000],
+  windowY: [-32000, 32000],
 };
 
 const LIMITS = {
@@ -58,6 +68,17 @@ function sanitizeSettings(raw) {
   }
 
   for (const [field, [min, max]] of Object.entries(LIMITS)) {
+    const number = Number(value[field]);
+    if (Number.isFinite(number) && number >= min && number <= max) out[field] = Math.trunc(number);
+    else if (value[field] !== undefined) errors.push(field);
+  }
+
+  for (const [field, [min, max]] of Object.entries(POSITION_LIMITS)) {
+    // `null` — законное значение: позиция не запоминалась.
+    if (value[field] === null) {
+      out[field] = null;
+      continue;
+    }
     const number = Number(value[field]);
     if (Number.isFinite(number) && number >= min && number <= max) out[field] = Math.trunc(number);
     else if (value[field] !== undefined) errors.push(field);
@@ -120,5 +141,5 @@ function createSettingsStore({ dir, fileSystem = require('node:fs') } = {}) {
 }
 
 module.exports = {
-  DEFAULTS, LIMITS, GENRE_RE, VIEWS, sanitizeSettings, createSettingsStore,
+  DEFAULTS, LIMITS, POSITION_LIMITS, GENRE_RE, VIEWS, sanitizeSettings, createSettingsStore,
 };

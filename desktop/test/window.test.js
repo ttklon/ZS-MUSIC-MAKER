@@ -67,7 +67,11 @@ function fakeBrowserWindow(calls) {
     }
 
     getBounds() {
-      return { width: 1100, height: 720 };
+      return { x: 200, y: 120, width: 1100, height: 720 };
+    }
+
+    getNormalBounds() {
+      return { x: 200, y: 120, width: 1100, height: 720 };
     }
 
     isMaximized() {
@@ -92,7 +96,7 @@ function memorySettings(initial = {}) {
   };
 }
 
-function makeManager({ settings = memorySettings(), dev = false } = {}) {
+function makeManager({ settings = memorySettings(), dev = false, screen = null } = {}) {
   const calls = [];
   const dialogs = [];
   const manager = createWindowManager({
@@ -105,6 +109,7 @@ function makeManager({ settings = memorySettings(), dev = false } = {}) {
       },
     },
     settings: () => settings,
+    screen,
     dev,
   });
   return { manager, calls, dialogs, settings };
@@ -155,7 +160,10 @@ test('размер запоминается при закрытии окна', (
   const { manager, settings } = makeManager();
   const window = manager.create();
   window.handlers.close();
-  assert.deepEqual(settings.saved, [{ width: 1100, height: 720 }]);
+  // Размер и позиция пишутся одной записью: по отдельности они разъедутся.
+  assert.deepEqual(settings.saved, [
+    { windowWidth: 1100, windowHeight: 720, windowX: 200, windowY: 120 },
+  ]);
   // После closed ссылки на окно нет: обработчик второго запуска не должен
   // трогать уничтоженное окно.
   window.handlers.closed();
@@ -257,4 +265,39 @@ test('размер окна читается из настоящего settings.
   assert.equal(created[1].width, 1400);
   assert.equal(created[1].height, 880);
   fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test('позиция окна восстанавливается и проверяется по экранам', () => {
+  const settings = memorySettings({ windowX: 300, windowY: 150, windowWidth: 1200, windowHeight: 800 });
+  const screen = { getAllDisplays: () => [{ workArea: { x: 0, y: 0, width: 1920, height: 1040 } }] };
+  const { manager, calls } = makeManager({ settings, screen });
+  manager.create();
+
+  const [created] = find(calls, 'new');
+  assert.equal(created[1].x, 300);
+  assert.equal(created[1].y, 150);
+  assert.equal(created[1].width, 1200);
+});
+
+test('позиция вне всех экранов не применяется', () => {
+  // Монитор, на котором окно закрыли, отключили — окно должно открыться
+  // видимым, а не за пределами рабочего стола.
+  const settings = memorySettings({ windowX: 3000, windowY: 150 });
+  const screen = { getAllDisplays: () => [{ workArea: { x: 0, y: 0, width: 1920, height: 1040 } }] };
+  const { manager, calls } = makeManager({ settings, screen });
+  manager.create();
+
+  const [created] = find(calls, 'new');
+  assert.equal(created[1].x, undefined, 'позиция не задана — решает Windows');
+  assert.equal(created[1].y, undefined);
+});
+
+test('при закрытии сохраняются размер и позиция вместе', () => {
+  const settings = memorySettings();
+  const { manager, calls } = makeManager({ settings });
+  const window = manager.create();
+  window.handlers.close();
+
+  const [saved] = settings.saved;
+  assert.deepEqual(saved, { windowWidth: 1100, windowHeight: 720, windowX: 200, windowY: 120 });
 });

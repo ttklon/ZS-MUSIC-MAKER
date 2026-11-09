@@ -305,3 +305,68 @@ test('меню умеет открыть каталог досье и переч
   assert.ok(!bare.some((sub) => sub.label === 'Каталог досье'));
   assert.ok(!bare.some((sub) => sub.label && sub.label.startsWith('Обновить раздел')));
 });
+
+test('позиция окна запоминается вместе с размером', () => {
+  // Монитор слева от основного имеет отрицательные координаты — это норма,
+  // и такие значения обязаны сохраняться.
+  const bounds = policy.boundsToRemember({
+    getBounds: () => ({ x: -1720, y: 40, width: 1200, height: 800 }),
+    isMaximized: () => false,
+  });
+  assert.deepEqual(bounds, { width: 1200, height: 800, x: -1720, y: 40 });
+
+  // Развёрнутое окно даёт обычные границы — и позицию тоже.
+  const maximized = policy.boundsToRemember({
+    getBounds: () => ({ x: 0, y: 0, width: 1920, height: 1080 }),
+    getNormalBounds: () => ({ x: 120, y: 80, width: 1100, height: 700 }),
+    isMaximized: () => true,
+  });
+  assert.deepEqual(maximized, { width: 1100, height: 700, x: 120, y: 80 });
+});
+
+test('позиция на отключённом мониторе не восстанавливается', () => {
+  const displays = [{ workArea: { x: 0, y: 0, width: 1920, height: 1040 } }];
+
+  // Окно на месте — восстанавливаем как есть.
+  assert.deepEqual(
+    policy.restorePosition({ x: 100, y: 50, width: 1200, height: 800 }, displays),
+    { x: 100, y: 50 },
+  );
+  // Второй монитор отключили: окно оказалось бы вне рабочего стола.
+  assert.equal(
+    policy.restorePosition({ x: 2400, y: 50, width: 1200, height: 800 }, displays),
+    null,
+  );
+  // Заголовок окна за верхней границей экрана тоже не поймать мышью.
+  assert.equal(
+    policy.restorePosition({ x: 100, y: -900, width: 1200, height: 800 }, displays),
+    null,
+  );
+  // Позиции нет вовсе — окно откроется там, куда положит Windows.
+  assert.equal(policy.restorePosition({ x: null, y: null }, displays), null);
+  assert.equal(policy.restorePosition(null, displays), null);
+  // Список экранов недоступен — не выдумываем координаты.
+  assert.equal(policy.restorePosition({ x: 100, y: 50 }, []), null);
+});
+
+test('координаты окна сохраняются в settings.json', () => {
+  const os = require('node:os');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'zsmm-pos-'));
+  const { createSettingsStore } = require('../electron/settings');
+  const store = createSettingsStore({ dir });
+
+  assert.equal(store.load().value.windowX, null, 'по умолчанию позиция не задана');
+  assert.equal(store.save({ windowX: -1720, windowY: 40 }).error, null);
+  assert.equal(store.load().value.windowX, -1720);
+
+  // Мусор вместо координаты — поле называется в отчёте, а значение берётся
+  // по умолчанию (null = «куда положит Windows»), как и у размера окна.
+  const junk = store.save({ windowX: 'слева' });
+  assert.deepEqual(junk.invalid, ['windowX']);
+  assert.equal(store.load().value.windowX, null);
+
+  // Сброс позиции — законное значение, а не ошибка.
+  assert.deepEqual(store.save({ windowX: null, windowY: null }).invalid, []);
+  assert.equal(store.load().value.windowX, null);
+  fs.rmSync(dir, { recursive: true, force: true });
+});

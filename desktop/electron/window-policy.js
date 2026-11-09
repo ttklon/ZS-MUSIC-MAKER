@@ -43,10 +43,81 @@ function boundsToRemember(window) {
     if (!Number.isFinite(width) || !Number.isFinite(height) || width < 400 || height < 300) {
       return null;
     }
-    return { width, height };
+    const x = Math.round(Number(bounds.x));
+    const y = Math.round(Number(bounds.y));
+    const remembered = { width, height };
+    // Позицию запоминаем только если она известна: без неё окно откроется
+    // там, куда его положит Windows, — это лучше выдуманных координат.
+    if (Number.isFinite(x) && Number.isFinite(y)) {
+      remembered.x = x;
+      remembered.y = y;
+    }
+    return remembered;
   } catch {
     return null;
   }
+}
+
+/**
+ * Стоит ли восстанавливать позицию окна на этом мониторе.
+ *
+ * Windows 11 меняет конфигурацию мониторов: закрыл окно на втором экране,
+ * отключил его — и окно оказалось бы за пределами рабочего стола, то есть
+ * «приложение не запускается». Поэтому заголовок окна обязан быть виден
+ * хотя бы на одном из экранов, иначе позиция отбрасывается.
+ *
+ * @param {{x: number, y: number, width: number, height: number}} bounds
+ * @param {Array<{x: number, y: number, width: number, height: number}>} displays
+ * @returns {boolean}
+ */
+function isVisibleOnSomeDisplay(bounds, displays) {
+  const list = Array.isArray(displays) ? displays.filter(Boolean) : [];
+  if (!bounds || !Number.isFinite(bounds.x) || !Number.isFinite(bounds.y)) return false;
+  if (!list.length) return false;
+  const width = Number.isFinite(bounds.width) ? bounds.width : 0;
+  const height = Number.isFinite(bounds.height) ? bounds.height : 0;
+  // Заголовок окна — полоса сверху высотой ~40 px и шириной от левого края:
+  // именно она должна попадать на экран, иначе окно не за что ухватить.
+  const gripHeight = Math.min(48, Math.max(1, height));
+  const gripWidth = Math.min(240, Math.max(1, width));
+  return list.some((display) => {
+    const area = display.workArea || display.bounds || display;
+    const dx = Number(area.x) || 0;
+    const dy = Number(area.y) || 0;
+    const dw = Number(area.width) || 0;
+    const dh = Number(area.height) || 0;
+    return (
+      bounds.x + gripWidth > dx
+      && bounds.x < dx + dw
+      && bounds.y + gripHeight > dy
+      && bounds.y < dy + dh
+    );
+  });
+}
+
+/**
+ * Параметры окна с учётом запомненной позиции.
+ *
+ * @param {{x?: number, y?: number, width?: number, height?: number}} saved
+ * @param {Array<object>} displays список экранов (`screen.getAllDisplays()`)
+ * @returns {{x: number, y: number}|null}
+ */
+function restorePosition(saved, displays) {
+  if (!saved || typeof saved !== 'object') return null;
+  // `Number(null)` — это 0, то есть «окно в левом верхнем углу». Пустое
+  // значение обязано отличаться от нулевой координаты.
+  const known = (value) => value !== null && value !== undefined && value !== ''
+    && Number.isFinite(Number(value));
+  if (!known(saved.x) || !known(saved.y)) return null;
+  const bounds = {
+    x: Math.round(Number(saved.x)),
+    y: Math.round(Number(saved.y)),
+    width: Math.round(Number(saved.width)),
+    height: Math.round(Number(saved.height)),
+  };
+  if (!Number.isFinite(bounds.x) || !Number.isFinite(bounds.y)) return null;
+  if (!isVisibleOnSomeDisplay(bounds, displays)) return null;
+  return { x: bounds.x, y: bounds.y };
 }
 
 /**
@@ -264,6 +335,8 @@ module.exports = {
   APP_USER_MODEL_ID,
   appUserModelId,
   boundsToRemember,
+  isVisibleOnSomeDisplay,
+  restorePosition,
   taskbarProgress,
   taskProgress,
   crashRecovery,

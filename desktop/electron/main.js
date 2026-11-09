@@ -11,7 +11,7 @@
  * репозитория не существуют.
  */
 
-const { app, BrowserWindow, ipcMain, shell, dialog, Menu, nativeTheme } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, dialog, Menu, nativeTheme, screen } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
 const fsp = require('node:fs/promises');
@@ -263,6 +263,9 @@ windows = createWindowManager({
   shell,
   dialog,
   settings,
+  // Позиция окна восстанавливается только на подключённом экране: монитор
+  // могли отключить между запусками.
+  screen,
   dev: IS_DEV,
 });
 
