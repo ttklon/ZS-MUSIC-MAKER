@@ -300,17 +300,26 @@ jobs:
         run: |
           $exe = Get-ChildItem dist -Filter '*.exe' -File | Select-Object -ExpandProperty FullName
           if (-not $exe) { throw 'в dist нет ни одного .exe' }
-          node scripts/verify-signature.js @exe --json | Tee-Object -FilePath dist/signature.json
+          # Вывод — в файл, а не через Tee-Object: в конвейере $LASTEXITCODE
+          # относится к последней native-команде не всегда, и однажды это
+          # дало ложный провал шага при нормальной сборке.
+          node scripts/verify-signature.js @exe --json > dist/signature.json
           $status = $LASTEXITCODE
+          Get-Content dist/signature.json
           if ($status -eq 0) {
             Write-Output 'подпись действительна у всех файлов'
-          } elseif ($env:ZSMM_CODE_SIGNING -eq '1') {
+            exit 0
+          }
+          if ($env:ZSMM_CODE_SIGNING -eq '1') {
             # Секреты есть, а подписи нет — это провал сборки, а не «мелочь».
             Write-Output '::error title=кодовая подпись::секреты заданы, но файлы не подписаны'
             exit 1
-          } else {
-            Write-Output '::notice title=кодовая подпись::сертификата нет, сборка без подписи (SmartScreen предупредит)'
           }
+          # Код 1 («не подписано») без секретов — ожидаемое состояние, и
+          # выходить из шага с ним нельзя: PowerShell вернул бы 1, и сборка
+          # падала бы из-за отсутствия сертификата.
+          Write-Output '::notice title=кодовая подпись::сертификата нет, сборка без подписи (SmartScreen предупредит)'
+          exit 0
 
       - name: Smoke-test the packaged app (unpacked build)
         working-directory: desktop

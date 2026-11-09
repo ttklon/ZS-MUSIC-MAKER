@@ -191,6 +191,12 @@ test('workflow определяет секреты, подписывает и п
   assert.match(workflow, /signature\.json/);
   // Секреты есть, а подпись не встала — это провал, а не предупреждение.
   assert.match(workflow, /секреты заданы, но файлы не подписаны/);
+  // А без секретов шаг обязан завершиться успешно: иначе отсутствие
+  // сертификата валит сборку (так и случилось на прогоне 42602470188 —
+  // PowerShell вернул код 1 от node).
+  const verifyStep = workflow.slice(workflow.indexOf('Verify Authenticode signature'), workflow.indexOf('Upload installer'));
+  assert.match(verifyStep, /exit 0/);
+  assert.doesNotMatch(verifyStep, /\| Tee-Object/, 'в конвейере $LASTEXITCODE ненадёжен');
 
   // Отчёт о подписи едет и в артефакты, и в релиз.
   const artifactBlocks = workflow.split('retention-days').length - 1;
