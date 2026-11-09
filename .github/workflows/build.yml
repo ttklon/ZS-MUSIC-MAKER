@@ -262,9 +262,14 @@ jobs:
         run: |
           # Повтор на случай обрыва скачивания nsis/winCodeSign: конфигурация
           # та же, поэтому вторая попытка обычно попадает в кэш первого шага.
+          # Сборка идёт через `npm run dist`: он сначала генерирует
+          # build-config.generated.json, и только при полном наборе секретов
+          # в конфигурации появляется блок подписи Azure Trusted Signing.
+          # Прямой вызов electron-builder собрал бы без подписи даже тогда,
+          # когда секреты есть, — молча и незаметно.
           $ok = $false
           for ($i = 1; $i -le 2; $i++) {
-            $output = (& npx electron-builder --win --x64 --publish never 2>&1 | Out-String)
+            $output = (& npm run dist 2>&1 | Out-String)
             $output
             if ($LASTEXITCODE -eq 0) { $ok = $true; break }
             Write-Output "::warning title=electron-builder::попытка $i не удалась, повтор"
