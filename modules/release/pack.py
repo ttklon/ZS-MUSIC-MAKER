@@ -16,7 +16,12 @@ from pathlib import Path
 from typing import Any
 
 from modules.release.channels import build_all_channels
-from modules.release.export import export_release, refresh_zip, sha256_file
+from modules.release.export import (
+    export_release,
+    refresh_zip,
+    fill_missing_facts,
+    sha256_file,
+)
 
 
 def _copy_masters(masters_map: dict[str, str] | None, out: Path) -> list[str]:
@@ -91,6 +96,9 @@ def build_pack(
     meta.setdefault("title", Path(master_wav).stem)
     meta.setdefault("artist", "ZS Music Maker")
     meta.setdefault("lyrics_text", lyrics_text)
+    # Пакеты площадок собираются до экспорта: длительность и тональность им
+    # нужны здесь. Живой прогон отправил в shazam `"duration": "PT0S"`.
+    fill_missing_facts(meta, master_wav)
 
     masters = _copy_masters(masters_map, out)
     if masters_map and not masters:

@@ -34,13 +34,13 @@
 
 ## Гейты
 
-- `python -m pytest tests/` — 1036 passed, 3 skipped (Linux, 2026-11-07; тесты моделей используют фальшивые backend-контракты); Windows 11 отдельно не проверен
+- `python -m pytest tests/` — 2039 passed, 3 skipped (Linux, 2026-11-11, `requirements.txt` установлен целиком; тесты моделей используют фальшивые backend-контракты); Windows 11 отдельно не проверен
 - `tools/smoke_audio.py` — 6/6 PASS (без MusicGen и вокальных движков)
 - `tools/smoke_god.py` — 8/8 PASS (120 с DSP fallback, без тяжёлого AI и живого вокала)
 - `tools/ast_dead_imports.py` — CLEAN (0)
 - `python -m tools.readiness` — 65 %, 35 модулей `DEPRECATED`, 0 фантомных `REAL_PASS`
 - `python -m compileall` — 0 ошибок
-- `python -m tools.audit_honesty` — CLEAN (277 файлов, 0 находок)
+- `python -m tools.audit_honesty` — CLEAN (281 файл, 0 находок)
 - `tools/gitignore_guard.py` — CLEAN
 - покрытие `updater/` — 69 % (было 15 %), `modules/render_queue.py` — 87 % (было 0 %)
 

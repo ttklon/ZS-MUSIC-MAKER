@@ -112,6 +112,56 @@ def _write_report(report: dict[str, Any], out_root: Path, warnings: list[str]) -
         warnings.append(f"report.json not written: {exc}")
 
 
+def _release_meta(
+    recipe: dict[str, Any],
+    lyrics_dict: dict[str, Any],
+    style_vector: dict[str, Any],
+    beat_stage: Any,
+    hit_stage: Any,
+    lyrics_text: str,
+) -> dict[str, Any]:
+    """Метаданные релиза. Темп, корень и лад — у стадии бита.
+
+    Она знает их даже там, где style_vector пуст (генерация с нуля по
+    жанру). Раньше в пакет уходили только `target_bpm` и лад без корня,
+    поэтому в `metadata.json` оставались пустые `key` и `bpm: None`, а
+    площадки получали трек без тональности. Длительность здесь не пишем:
+    её измеряет пакет релиза по мастеру.
+    """
+    hit = _output(hit_stage)
+    return {
+        "title": lyrics_dict.get("title", "ZS Track"),
+        "artist": recipe["artist"],
+        "genre": recipe["genre"],
+        "theme": recipe["theme"],
+        **_style_meta(style_vector, _output(beat_stage) if beat_stage.ok else {}),
+        "hit_score": hit.get("hit_score") if hit_stage.ok else None,
+        "verdict": hit.get("verdict") if hit_stage.ok else None,
+        "lyrics_text": lyrics_text,
+    }
+
+
+def _style_meta(style_vector: dict[str, Any], beat_output: dict[str, Any]) -> dict[str, Any]:
+    """Темп, корень и лад для метаданных релиза — из style_vector или бита."""
+    style = style_vector or {}
+    beat = beat_output or {}
+    bpm = style.get("target_bpm") or beat.get("bpm")
+    # Бит отдаёт готовую строку «A minor»; style_vector — корень и лад отдельно.
+    key_name = str(beat.get("key") or "").strip()
+    key_root = str(style.get("key_root") or (key_name.split()[0] if key_name else "")).strip()
+    mode = str(
+        style.get("target_mode") or style.get("mode") or (key_name.split()[-1] if len(key_name.split()) > 1 else "")
+    ).strip().lower()
+    meta: dict[str, Any] = {}
+    if bpm:
+        meta["bpm"] = bpm
+    if key_root:
+        meta["key_root"] = key_root
+    if mode in ("major", "minor"):
+        meta["mode"] = mode
+    return meta
+
+
 def run_full_pipeline(
     project_id: str,
     wizard_state: dict[str, Any],
@@ -205,16 +255,7 @@ def run_full_pipeline(
     add(*blocks._run_post_master_stages(streaming_master, recipe, out_root, only))
 
     hit_stage = stages[-1]
-    meta = {
-        "title": lyrics_dict.get("title", "ZS Track"),
-        "artist": recipe["artist"],
-        "genre": recipe["genre"],
-        "theme": recipe["theme"],
-        "bpm": style_vector.get("target_bpm"),
-        "hit_score": _output(hit_stage).get("hit_score") if hit_stage.ok else None,
-        "verdict": _output(hit_stage).get("verdict") if hit_stage.ok else None,
-        "lyrics_text": lyrics_text,
-    }
+    meta = _release_meta(recipe, lyrics_dict, style_vector, beat_stage, hit_stage, lyrics_text)
 
     release_stage = blocks._run_release_stage(
         streaming_master, meta, out_root, stages, lyrics_text, hit_stage, stand_map, only

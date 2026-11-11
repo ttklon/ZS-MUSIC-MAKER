@@ -194,6 +194,89 @@ def tag_release_master(path: str | Path, meta: dict[str, Any]) -> dict[str, Any]
         }
 
 
+def _wav_duration_sec(path: str | Path | None) -> float:
+    """Длительность WAV по заголовку: RIFF → fmt (каналы, частота) → data.
+
+    Читаем только заголовок, без numpy и librosa: выпуск релиза не должен
+    требовать тяжёлых зависимостей ради одного числа. Нужна точность до
+    сэмпла, а не анализ — площадка получает `duration` в структурированных
+    данных, и «PT0S» там означает битый файл.
+    """
+    import struct
+
+    if not path:
+        return 0.0
+    try:
+        with open(path, "rb") as handle:
+            header = handle.read(12)
+            if len(header) < 12 or header[:4] != b"RIFF" or header[8:12] != b"WAVE":
+                return 0.0
+            channels = sample_rate = bits = 0
+            data_size = 0
+            while True:
+                chunk = handle.read(8)
+                if len(chunk) < 8:
+                    break
+                chunk_id = chunk[:4]
+                size = struct.unpack("<I", chunk[4:])[0]
+                if chunk_id == b"fmt ":
+                    fmt = handle.read(size)
+                    if len(fmt) >= 16:
+                        channels = struct.unpack("<H", fmt[2:4])[0]
+                        sample_rate = struct.unpack("<I", fmt[4:8])[0]
+                        bits = struct.unpack("<H", fmt[14:16])[0]
+                    if size % 2:
+                        handle.seek(1, 1)
+                elif chunk_id == b"data":
+                    data_size = size
+                    break
+                else:
+                    handle.seek(size + (size % 2), 1)
+        if channels and sample_rate and bits and data_size:
+            frames = data_size / max(1, channels * (bits // 8))
+            return round(frames / sample_rate, 3)
+    except OSError:
+        return 0.0
+    return 0.0
+
+
+def _resolve_key(meta: dict[str, Any]) -> str:
+    """Тональность одной строкой: «A minor».
+
+    Оркестратор кладёт в рецепт корень и лад отдельными полями (`key_root`,
+    `mode`, лад приходит как `target_mode`), а площадки ждут одну строку.
+    Раньше в `metadata.json` оставалась пустая строка при известной тональности.
+    """
+    key = str(meta.get("key") or "").strip()
+    if key:
+        return key
+    root = str(meta.get("key_root") or "").strip()
+    mode = str(
+        meta.get("mode") or meta.get("target_mode") or meta.get("scale") or ""
+    ).strip().lower()
+    if not root:
+        return ""
+    return f"{root} {mode}".strip() if mode else root
+
+
+def fill_missing_facts(meta: dict[str, Any], master_path: str | Path | None) -> dict[str, Any]:
+    """Дописать в метаданные то, что знает сам мастер: длительность и тональность.
+
+    Пакет каналов собирается раньше экспорта, поэтому обе точки входа зовут
+    этот помощник: иначе `shazam.jsonld` утверждал `"duration": "PT0S"`.
+    """
+    if not meta.get("duration_sec"):
+        meta["duration_sec"] = _wav_duration_sec(master_path)
+    if not meta.get("key"):
+        meta["key"] = _resolve_key(meta)
+    return meta
+
+
+# Открытые имена для `pack.py`.
+wav_duration_sec = _wav_duration_sec
+resolve_key = _resolve_key
+
+
 def export_release(
     beat_path: str,
     vocal_path: str,
@@ -212,15 +295,16 @@ def export_release(
         release_dir = Path(out_dir) if out_dir else RELEASES_DIR / f"{safe_name}_{stamp}"
         release_dir.mkdir(parents=True, exist_ok=True)
 
-        meta = {
+        source = dict(recipe or {})
+        meta = fill_missing_facts({
             "title": title or project_name,
             "artist": _resolve_artist_name(artist_name),
-            "genre": (recipe or {}).get("genre", ""),
-            "bpm": (recipe or {}).get("bpm", ""),
-            "key": (recipe or {}).get("key", ""),
-            "duration_sec": (recipe or {}).get("duration_sec", ""),
-            "isrc": (recipe or {}).get("isrc", ""),
-        }
+            "genre": source.get("genre", ""),
+            "bpm": source.get("bpm", ""),
+            "key": _resolve_key(source),
+            "duration_sec": source.get("duration_sec", ""),
+            "isrc": source.get("isrc", ""),
+        }, master_path)
         isrc, isrc_status = _isrc_for(meta)
         meta["isrc"] = isrc
         meta["isrc_status"] = isrc_status
