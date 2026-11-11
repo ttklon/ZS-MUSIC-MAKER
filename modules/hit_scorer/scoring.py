@@ -17,28 +17,17 @@ except Exception:  # pragma: no cover - зависит от окружения
     np = None  # type: ignore
 
 from modules.hit_scorer.audio import HAS_LIBROSA, HAS_SF, _load_audio_cached
-from modules.hit_scorer.hook_metrics import (
-    _bpm_dance_fitness,
-    _chorus_catchiness,
-    _drop_impact,
-    _hook_energy,
-    _hook_repeatability,
-    _tiktok_hookability,
-)
-from modules.hit_scorer.mix_metrics import (
-    _loudness_lufs_status,
-    _low_end_power,
-    _novelty,
-    _stereo_width,
-    _structure_clarity,
-    _vocal_presence,
-)
+from modules.hit_scorer.mix_metrics import _metric_set
 
 
 # ============================================================ verdict
 _LOG = logging.getLogger(__name__)
 
 WEIGHTS = {
+    # Клиппинг слышен на всех площадках и не лечится после релиза, поэтому
+    # вес выше среднего: раньше вдавленный в потолок трек получал те же
+    # баллы, что чистый.
+    "distortion": 1.3,
     "hook_energy": 1.5,
     "hook_repeatability": 1.3,
     "chorus_catchiness": 1.4,
@@ -95,6 +84,24 @@ def _silence_guard(metrics: dict, y, sr) -> None:
                 f"звука в файле почти нет: метрика не считается (RMS {level:.1f} dBFS)"
             )
 
+# Что именно мерила метрика: раньше эти строки лежали в вызовах внутри
+# `score_track` и съедали её бюджет длины.
+_HINTS = {
+    "hook_energy": "loud-quiet dynamic between chorus and verse",
+    "hook_repeatability": "how many times main motif repeats",
+    "chorus_catchiness": "harmonic simplicity + rhythmic regularity",
+    "drop_impact": "biggest RMS jump = drop",
+    "tiktok_hookability": "instant-hook 25 sec slice for TikTok",
+    "bpm_dance_fitness": "BPM in dance/trap sweet spot",
+    "loudness_lufs": "integrated dBFS ≈ LUFS streaming target",
+    "stereo_width": "channel correlation 0.6-0.85",
+    "low_end_power": "20-80 Hz vs 200-2000 Hz ratio",
+    "vocal_presence": "2-5 kHz vocal readability",
+    "structure_clarity": "distinct intro/verse/chorus/outro",
+    "novelty": "non-formulaic spectral variety",
+    "distortion": "clipping and flat tops at the ceiling",
+}
+
 
 def _verdict(score: float) -> str:
     if score >= 82.0:
@@ -106,65 +113,67 @@ def _verdict(score: float) -> str:
     return "flop_risk"
 
 
+# Готовая формулировка совета на каждую метрику: держать их отдельным
+# словарём дешевле, чем лестницу elif в горячем пути отчёта.
+_FIX_HINTS = {
+    "hook_energy": (
+        "Припев тише куплета — подними RMS припева на +2 dB "
+        "или сделай drop громче"
+    ),
+    "hook_repeatability": "Повторяй главный мотив ≥3 раза (chorus/hook loop)",
+    "chorus_catchiness": "Упрости гармонию припева до 2-3 аккордов, ритм — равномерные 4/4",
+    "drop_impact": (
+        "Добавь build-up (риз) перед drop и полусекунду тишины перед first-beat drop"
+    ),
+    "tiktok_hookability": (
+        "Сделай моментальный вход в первые 2 сек (без длинного intro) — для TikTok/Reels"
+    ),
+    "bpm_dance_fitness": (
+        "BPM вне dance-диапазонов. Целься в 120-140 (dance/phonk) или 70-95 (trap)"
+    ),
+    "loudness_lufs": (
+        "LUFS вне streaming-target. Смастеринг под -9 dBFS интегрированной громкости"
+    ),
+    "stereo_width": (
+        "Стерео-картинка слишком узкая или слишком широкая. Целься в correlation 0.6-0.85"
+    ),
+    "low_end_power": "Проработай sub-bass 20-80 Hz — добавь 808 или sub-sine",
+    "vocal_presence": (
+        "Вокал не читается в 2-5 kHz. Подними presence-полку +2 dB на 3 kHz"
+    ),
+    "structure_clarity": (
+        "Секции слишком похожи. Добавь контраст между куплетом и припевом "
+        "(плотность, элементы)"
+    ),
+    "novelty": (
+        "Трек звучит формульно. Добавь уникальный саунд-дизайн элемент "
+        "(FX, стоп, воб, риверс)"
+    ),
+}
+
+
 def _actions(metrics: dict) -> list[str]:
+    """Советы только по провалившимся метрикам, без повторов."""
     out = []
     for name, m in metrics.items():
-        s = m.get("score", 0.0)
-        if s >= 65.0:
+        if m.get("score", 0.0) >= 65.0:
             continue
-        if name == "hook_energy":
-            out.append(
-                "Припев тише куплета — подними RMS припева на +2 dB "
-                "или сделай drop громче"
-            )
-        elif name == "hook_repeatability":
-            out.append("Повторяй главный мотив ≥3 раза (chorus/hook loop)")
-        elif name == "chorus_catchiness":
-            out.append(
-                "Упрости гармонию припева до 2-3 аккордов, ритм — " "равномерные 4/4"
-            )
-        elif name == "drop_impact":
-            out.append(
-                "Добавь build-up (риз) перед drop и полусекунду тишины "
-                "перед first-beat drop"
-            )
-        elif name == "tiktok_hookability":
-            out.append(
-                "Сделай моментальный вход в первые 2 сек (без длинного "
-                "intro) — для TikTok/Reels"
-            )
-        elif name == "bpm_dance_fitness":
-            out.append(
-                "BPM вне dance-диапазонов. Целься в 120-140 "
-                "(dance/phonk) или 70-95 (trap)"
-            )
-        elif name == "loudness_lufs":
-            out.append(
-                "LUFS вне streaming-target. Смастеринг под -9 dBFS "
-                "интегрированной громкости"
-            )
-        elif name == "stereo_width":
-            out.append(
-                "Стерео-картинка слишком узкая или слишком широкая. "
-                "Целься в correlation 0.6-0.85"
-            )
-        elif name == "low_end_power":
-            out.append("Проработай sub-bass 20-80 Hz — добавь 808 или " "sub-sine")
-        elif name == "vocal_presence":
-            out.append(
-                "Вокал не читается в 2-5 kHz. Подними presence-полку " "+2 dB на 3 kHz"
-            )
-        elif name == "structure_clarity":
-            out.append(
-                "Секции слишком похожи. Добавь контраст между "
-                "куплетом и припевом (плотность, элементы)"
-            )
-        elif name == "novelty":
-            out.append(
-                "Трек звучит формульно. Добавь уникальный саунд-дизайн "
-                "элемент (FX, стоп, воб, риверс)"
-            )
+        hint = _FIX_HINTS.get(name) or _hint_for(name, m)
+        if hint:
+            out.append(hint)
     return out
+
+
+def _hint_for(name: str, metric: dict) -> str:
+    """Подсказки, которым нужны сырые значения метрики (не просто порог)."""
+    if name != "distortion":
+        return ""
+    raw = metric.get("raw") or {}
+    share = float(raw.get("clipped_share") or 0.0) * 100.0
+    return (
+        f"Клиппинг: {share:.1f}% сэмплов у потолка. Опусти лимитер на "
+        "-1 dBTP и убери перегруз на шине — искажения слышны на всех площадках"
+    )
 
 
 def _build_report(*, path: str, hit_score: float, metrics: dict, slice_info, y, sr, elapsed: float) -> dict:
@@ -206,8 +215,6 @@ def score_track(master_wav: str, out_json: str | None = None, sr: int = 22050) -
     except Exception as e:
         return {"error": f"load failed: {e}", "hit_score": 0.0, "verdict": "flop_risk"}
 
-    metrics = {}
-
     # Пустой файл — это не «плохой хит», а отсутствие звука. Раньше тишина
     # получала 37 баллов и вердикт flop_risk: оценка делала вид, что слушала
     # трек.
@@ -219,45 +226,20 @@ def score_track(master_wav: str, out_json: str | None = None, sr: int = 22050) -
             )
         return report
 
-    def _add(name, val_tuple, hint=""):
-        score, raw = val_tuple if isinstance(val_tuple, tuple) else (val_tuple, None)
-        metrics[name] = {"score": round(float(score), 2), "raw": raw, "hint": hint}
-
-    _add(
-        "hook_energy", _hook_energy(y, s), "loud-quiet dynamic between chorus and verse"
-    )
-    _add(
-        "hook_repeatability",
-        _hook_repeatability(y, s),
-        "how many times main motif repeats",
-    )
-    _add(
-        "chorus_catchiness",
-        _chorus_catchiness(y, s),
-        "harmonic simplicity + rhythmic regularity",
-    )
-    _add("drop_impact", _drop_impact(y, s), "biggest RMS jump = drop")
-    tt_score, tt_slice = _tiktok_hookability(y, s)
-    _add(
-        "tiktok_hookability",
-        (tt_score, tt_slice),
-        "instant-hook 25 sec slice for TikTok",
-    )
-    _add("bpm_dance_fitness", _bpm_dance_fitness(y, s), "BPM in dance/trap sweet spot")
-    loudness_result, loudness_provenance = _loudness_lufs_status(y, s)
-    _add(
-        "loudness_lufs", loudness_result, "integrated dBFS ≈ LUFS streaming target"
-    )
-    metrics["loudness_lufs"]["provenance"] = loudness_provenance
-    _add("stereo_width", _stereo_width(str(p)), "channel correlation 0.6-0.85")
-    _add("low_end_power", _low_end_power(y, s), "20-80 Hz vs 200-2000 Hz ratio")
-    _add("vocal_presence", _vocal_presence(y, s), "2-5 kHz vocal readability")
-    _add(
-        "structure_clarity",
-        _structure_clarity(y, s),
-        "distinct intro/verse/chorus/outro",
-    )
-    _add("novelty", _novelty(y, s), "non-formulaic spectral variety")
+    metrics = {}
+    values = _metric_set(str(p), y, s)
+    provenance = values.pop("_provenance")
+    tt_slice = values.pop("_slice")
+    for name, val in values.items():
+        score, raw = val if isinstance(val, tuple) else (val, None)
+        metrics[name] = {
+            "score": round(float(score), 2),
+            "raw": raw,
+            "hint": _HINTS.get(name, ""),
+        }
+    for name, prov in provenance.items():
+        if name in metrics:
+            metrics[name]["provenance"] = prov
 
     _silence_guard(metrics, y, s)
 

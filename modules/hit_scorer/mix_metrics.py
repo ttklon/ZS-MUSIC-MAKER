@@ -18,7 +18,16 @@ from modules.hit_scorer.audio import (
     pyln,
     sf,
 )
-from modules.hit_scorer.hook_metrics import _db, _rms
+from modules.hit_scorer.hook_metrics import (
+    _bpm_dance_fitness,
+    _chorus_catchiness,
+    _db,
+    _drop_impact,
+    _hook_energy,
+    _hook_repeatability,
+    _rms,
+    _tiktok_hookability,
+)
 
 _LOG = logging.getLogger("modules.hit_scorer")
 
@@ -124,6 +133,36 @@ def _low_end_power(y, sr) -> tuple[float, float]:
         return 60.0, 0.0
 
 
+def _distortion(y, sr) -> tuple[float, float]:
+    """Сколько сэмплов упёрлось в потолок: клиппинг — это брак, а не стиль.
+
+    Замер на настоящем бите: `клиппинг ×6` давал −0,12 балла к оценке хита,
+    то есть трек, вдавленный в потолок, проходил как чистый. Здесь считается
+    доля сэмплов у потолка и «плоских» верхушек: у клиппированного сигнала
+    соседние сэмплы равны максимуму, у чистого — нет.
+    """
+    if np is None or y is None or len(y) == 0:
+        return 60.0, {"clipped_share": 0.0, "flat_top_share": 0.0}
+    peak = float(np.max(np.abs(y)))
+    if peak <= 0.0:
+        return 60.0, {"clipped_share": 0.0, "flat_top_share": 0.0}
+    # Потолок — это 0 dBFS (−0.2 дБ), а не максимум файла. Считать от
+    # максимума нельзя: `librosa.load` ресемплит на 22050, и кольцевые
+    # артефакты передискретизации уходят выше 1.0 (замер: пик 1.25 у
+    # клиппированного бита). Тогда «потолок» уезжал вместе с ними, и реальный
+    # клиппинг давал долю 1e-05 вместо 0.63.
+    ceiling = min(0.977, peak * 0.977)
+    at_ceiling = np.abs(y) >= ceiling
+    clipped_share = float(np.mean(at_ceiling))
+    # Плоские верхушки: два сэмпла подряд на потолке. В чистом сигнале такое
+    # почти не встречается, у клиппированного — на каждом пике.
+    flat = at_ceiling[1:] & at_ceiling[:-1]
+    flat_share = float(np.mean(flat)) if flat.size else 0.0
+    bad = max(clipped_share - 0.005, 0.0) + flat_share
+    score = float(max(0.0, min(100.0, 100.0 - bad * 900.0)))
+    return score, {"clipped_share": round(clipped_share, 5), "flat_top_share": round(flat_share, 5)}
+
+
 def _vocal_presence(y, sr) -> tuple[float, float]:
     if not HAS_LIBROSA:
         return 60.0, 0.0
@@ -177,3 +216,31 @@ def _novelty(y, sr) -> tuple[float, float]:
         return score, combined_var
     except Exception:
         return 60.0, 0.0
+
+
+def _metric_set(path: str, y, sr) -> dict:
+    """Все метрики, которые не зависят от сборки отчёта.
+
+    Вынесено из `score_track`: функция упиралась в бюджет 60 строк, а это
+    ровно список независимых измерений — ему место рядом с самими метриками.
+    Значения — `(score, raw)` или просто score, как их отдают функции выше.
+    """
+    tt_score, tt_slice = _tiktok_hookability(y, sr)
+    loudness_result, loudness_provenance = _loudness_lufs_status(y, sr)
+    return {
+        "hook_energy": _hook_energy(y, sr),
+        "hook_repeatability": _hook_repeatability(y, sr),
+        "chorus_catchiness": _chorus_catchiness(y, sr),
+        "drop_impact": _drop_impact(y, sr),
+        "tiktok_hookability": (tt_score, tt_slice),
+        "bpm_dance_fitness": _bpm_dance_fitness(y, sr),
+        "loudness_lufs": loudness_result,
+        "stereo_width": _stereo_width(path),
+        "low_end_power": _low_end_power(y, sr),
+        "vocal_presence": _vocal_presence(y, sr),
+        "structure_clarity": _structure_clarity(y, sr),
+        "novelty": _novelty(y, sr),
+        "distortion": _distortion(y, sr),
+        "_provenance": {"loudness_lufs": loudness_provenance},
+        "_slice": tt_slice,
+    }

@@ -66,7 +66,6 @@ LONG_FUNCTIONS: dict[tuple[str, str], int] = {
     ("modules/chanson_engine.py", "synthesize_chanson_track"): 87,
     ("modules/cover_art_gen.py", "generate"): 80,
     ("modules/groove_extractor.py", "extract_groove"): 73,
-    ("modules/hit_scorer/scoring.py", "score_track"): 85,
     ("modules/kpi_monitor.py", "finalize_session"): 71,
     ("modules/llm/router.py", "complete"): 126,
     ("modules/lyrics/generate.py", "generate_lyrics"): 79,
