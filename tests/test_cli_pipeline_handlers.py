@@ -227,6 +227,37 @@ class TestRunGod:
         assert "out/god.wav" in text
         assert backups == ["god"]
 
+    def test_partial_verdict_says_so_instead_of_master_none(self, monkeypatch, printed) -> None:
+        """Вердикт PARTIAL не должен выглядеть как «мастера нет».
+
+        Живой прогон `--god --genre phonk` закончился строкой
+        `GOD MODE COMPLETED: elapsed=513.401s master=None`, хотя мастер лежал
+        в `output/god_cli/masters/master_streaming.wav`: оркестратор отдаёт
+        `master_path` только при статусе `completed`, а консоль печатала
+        `None` без причины. Шесть стадий были BLOCKED (нет TTS, RVC, demucs),
+        и человек не мог понять, где искать файл.
+        """
+        import app.cli.backup as backup_mod
+        import app.core.orchestrator_god as og
+
+        monkeypatch.setattr(backup_mod, "preflight_backup", lambda mode: None)
+        monkeypatch.setattr(
+            og,
+            "run_god_pipeline",
+            lambda rid, ws: {
+                "elapsed_sec": 12.5,
+                "status": "partial",
+                "master_path": None,
+                "report_path": "out/god_cli/report.json",
+                "blocked": ["_stage_voice_synth", "_stage_stems"],
+            },
+        )
+        assert pipeline_cmds.run_god(make_args()) == 0
+        text = "\n".join(printed)
+        assert "master=None" not in text, "нет мастера — так и надо писать, а не None"
+        assert "частично" in text.lower()
+        assert "report.json" in text
+
     def test_pipeline_failure_returns_two(self, monkeypatch, printed) -> None:
         import app.core.orchestrator_god as og
         import app.cli.backup as backup_mod

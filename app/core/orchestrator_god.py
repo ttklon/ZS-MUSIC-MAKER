@@ -90,6 +90,11 @@ def run_god_pipeline(
         "vocal_status": vocal_status,
         "vocal_reason": vocal_reason,
         "master_path": report.get("master_path") if status == "completed" else None,
+        # Имена заблокированных стадий: по ним человек видит, чего не хватило
+        # (TTS, RVC, demucs), вместо «master=None» без причины.
+        "blocked": [
+            stage["name"] for stage in stages if stage.get("status") == "BLOCKED"
+        ],
         "report_path": str(root / "report.json"),
         "warnings": report.get("warnings", []),
     }
