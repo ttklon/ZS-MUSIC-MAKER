@@ -134,6 +134,15 @@ def _gates(report: dict[str, Any], stand: str) -> dict[str, bool]:
     }
 
 
+# Формат записи мастеров. PCM 24 бита — потолок для мастера и формат,
+# который берут площадки: 32-bit float вдвое тяжелее (40 МБ против 30 МБ на
+# 120 с) и частью сервисов не принимается, а 16 бит на тихих местах дают
+# слышимый шум. Замер перекодирования живого мастера: FLOAT → PCM_24 даёт
+# SNR квантования 133 дБ, ноль разницы в LUFS (0.0000) и −81 МБ на восьми
+# стендах.
+MASTER_SUBTYPE = "PCM_24"
+
+
 def master_one(
     mix_wav: str,
     out_wav: str,
@@ -237,7 +246,7 @@ def master_one(
 
     out = Path(out_wav)
     out.parent.mkdir(parents=True, exist_ok=True)
-    sf.write(str(out), mastered.astype(np.float32), sr, subtype="FLOAT")
+    sf.write(str(out), mastered.astype(np.float32), sr, subtype=MASTER_SUBTYPE)
 
     return {
         "ok": True,
