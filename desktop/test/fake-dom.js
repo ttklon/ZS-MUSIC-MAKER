@@ -46,6 +46,42 @@ class FakeElement {
     this.id = '';
     this.value = '';
     this.listeners = new Map();
+    // Атрибуты нужны там, где окно спрашивает о разметке: `tabindex="-1"` у
+    // заголовка раздела или `aria-label` у кнопки без текста.
+    this.attributes = {};
+    this.tabIndex = -1;
+  }
+
+  getAttribute(name) {
+    return Object.prototype.hasOwnProperty.call(this.attributes, name) ? this.attributes[name] : null;
+  }
+
+  setAttribute(name, value) {
+    this.attributes[name] = String(value);
+    // `tabindex="-1"` — элемент не попадает в обход Tab, но принимает фокус
+    // программно. Именно так заголовок раздела забирает фокус у меню.
+    if (name === 'tabindex') this.tabIndex = Number(value);
+  }
+
+  hasAttribute(name) {
+    return Object.prototype.hasOwnProperty.call(this.attributes, name);
+  }
+
+  /**
+   * Программный фокус — как в браузере.
+   *
+   * Двойник DOM его не поддерживал, поэтому проверка «после переключения
+   * фокус ушёл из меню в заголовок раздела» была невозможна: вызов молча
+   * ничего не делал, и любой код прошёл бы её.
+   */
+  focus() {
+    const doc = this.ownerDocument;
+    if (doc && doc !== this) doc.activeElement = this;
+  }
+
+  blur() {
+    const doc = this.ownerDocument;
+    if (doc && doc !== this && doc.activeElement === this) doc.activeElement = null;
   }
 
   get className() {
@@ -150,6 +186,9 @@ class FakeDocument extends FakeElement {
     this.ownerDocument = this;
     this.byId = new Map();
     this.readyState = 'loading';
+    // Куда ушёл фокус: без этого нельзя проверить, что после переключения
+    // раздела клавиши прокрутки относятся к содержимому, а не к меню.
+    this.activeElement = null;
   }
 
   createElement(tag) {
@@ -225,6 +264,10 @@ function documentFromHtml(html) {
     // заблокированную кнопку от доступной. Границу слова проверяем явно:
     // `(?=[\s>/])` не срабатывает в конце строки, а атрибут может быть
     // последним (`... id="x" disabled`).
+    // `tabindex` из разметки: заголовок раздела помечен `-1`, чтобы принимать
+    // фокус программно и не попадать в обход Tab.
+    const tabIndexMatch = /\stabindex="(-?\d+)"/.exec(attributes);
+    if (tabIndexMatch) element.setAttribute('tabindex', tabIndexMatch[1]);
     if (hasBooleanAttribute(attributes, 'disabled')) element.disabled = true;
     if (hasBooleanAttribute(attributes, 'checked')) element.checked = true;
 

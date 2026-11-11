@@ -34,6 +34,10 @@ const state = {
   beatUrl: null,
   beatReport: null,
   settingsTimer: null,
+  // Раздел, который человек выбрал сам до конца чтения настроек. Стартовое
+  // переключение не должно его откатывать: клик по «Справке» через полсекунды
+  // после запуска иначе заканчивался разделом из прошлого запуска.
+  pinned: null,
 };
 W.state = state;
 
@@ -208,17 +212,40 @@ function rememberView(view) {
   }
 }
 
-async function switchView(view, { force = false } = {}) {
+/**
+ * Передать фокус заголовку раздела после переключения.
+ *
+ * Фокус после нажатия на пункт меню остаётся на самой кнопке в боковой
+ * панели, а прокрутка клавишами идёт от фокуса: PageDown и End не двигали
+ * раздел вовсе — человек, читающий справку с клавиатуры, видел только первую
+ * страницу. Заголовок раздела принимает фокус программно (`tabindex="-1"`,
+ * в обход Tab), поэтому следующий Tab ведёт в содержимое, а не обратно в
+ * меню. Рамку фокуса в CSS рисуем только для `:focus-visible`: после клика
+ * мышью её не видно.
+ */
+function focusViewHeading() {
+  const heading = $('view-title');
+  if (!heading || typeof heading.focus !== 'function') return;
+  heading.focus();
+}
+
+async function switchView(view, { force = false, user = false } = {}) {
   if (!LOADERS[view]) return;
   state.view = view;
+  // Выбор человека закрепляется до старта: `start()` проверит его и не станет
+  // переключать раздел обратно.
+  if (user) state.pinned = view;
   rememberView(view);
   $('view-title').textContent = TITLES[view];
+  // Содержимое раздела показывается до переноса фокуса: фокус в скрытый
+  // элемент уводит прокрутку в никуда.
   for (const button of document.querySelectorAll('.nav-item')) {
     button.classList.toggle('is-active', button.dataset.view === view);
   }
   for (const name of Object.keys(LOADERS)) {
     $(`view-${name}`).classList.toggle('is-hidden', name !== view);
   }
+  focusViewHeading();
   if (force || !state.loaded.has(view)) {
     try {
       await LOADERS[view]();
@@ -236,7 +263,7 @@ W.blobUrl = blobUrl;
 
 function wire() {
   for (const button of document.querySelectorAll('.nav-item')) {
-    button.addEventListener('click', () => switchView(button.dataset.view));
+    button.addEventListener('click', () => switchView(button.dataset.view, { user: true }));
   }
   $('refresh').addEventListener('click', async () => {
     state.loaded.clear();
@@ -291,6 +318,24 @@ async function startView() {
   return 'overview';
 }
 
+/**
+ * Открыть окно в нужном разделе.
+ *
+ * Запомненный раздел берётся только если человек не выбрал другой, пока
+ * читались настройки: иначе поздний ответ диска перебивал уже сделанный
+ * выбор, и окно перескакивало на прошлый раздел на глазах.
+ */
+async function start() {
+  const saved = await startView();
+  const target = state.pinned || saved;
+  state.pinned = null;
+  // Признак для тестов и проверок: стартовое переключение закончилось. Без
+  // него «нажать раздел сразу после запуска» проверялось бы гонкой таймеров.
+  W.ready = true;
+  // `rememberView` не должен переписать только что прочитанные настройки.
+  await switchView(target, { force: true });
+}
+
 if (typeof document !== 'undefined') {
   document.addEventListener('DOMContentLoaded', () => {
     wire();
@@ -300,12 +345,13 @@ if (typeof document !== 'undefined') {
     const failed = bootSections();
     if (failed.length) showError(`Раздел не загрузился: ${failed.join('; ')}`);
     // Настройки читаются ДО первого переключения, иначе `saveSettings` мог бы
-    // записать «Обзор» поверх запомненного раздела.
-    startView().then((view) => switchView(view));
+    // записать «Обзор» поверх запомненного раздела. Пока диск отвечает, человек
+    // уже может нажать раздел сам — тогда его выбор главнее запомненного.
+    start();
   });
 }
 
 if (typeof module !== 'undefined' && module.exports) {
   // Для тестов: состояние, названия разделов и переход между ними.
-  module.exports = { state, TITLES, LOADERS, switchView, startView, bootSections, W };
+  module.exports = { state, TITLES, LOADERS, switchView, startView, start, bootSections, W };
 }

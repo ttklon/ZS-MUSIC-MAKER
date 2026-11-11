@@ -491,6 +491,14 @@ textarea:focus-visible,
   border-radius: 8px;
 }
 
+/* Заголовок раздела получает фокус после переключения, чтобы прокрутка
+   клавишами (PageDown, End) работала в только что открытом разделе. Это
+   служебный фокус, а не «место, где ты»: рамка на заголовке не нужна. */
+#view-title:focus,
+#view-title:focus-visible {
+  outline: none;
+}
+
 /* Меньше движения для тех, кому анимация мешает. */
 @media (prefers-reduced-motion: reduce) {
   * {
