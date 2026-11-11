@@ -11,6 +11,11 @@ import logging
 import time
 from pathlib import Path
 
+try:  # numpy нужен для проверки уровня; без него метрики и так отдают нейтрал
+    import numpy as np
+except Exception:  # pragma: no cover - зависит от окружения
+    np = None  # type: ignore
+
 from modules.hit_scorer.audio import HAS_LIBROSA, HAS_SF, _load_audio_cached
 from modules.hit_scorer.hook_metrics import (
     _bpm_dance_fitness,
@@ -47,6 +52,48 @@ WEIGHTS = {
     "structure_clarity": 1.0,
     "novelty": 0.8,
 }
+
+
+def _level_dbfs(y) -> float:
+    """RMS всего файла в dBFS. Без numpy считаем нейтральный ноль."""
+    if np is None or y is None or len(y) == 0:
+        return 0.0
+    return 20.0 * float(np.log10(max(float(np.sqrt(np.mean(np.square(y)) + 1e-12)), 1e-12)))
+
+
+def _invalid_audio_report(path: str, y, sr) -> dict:
+    """Отчёт для файла, в котором нет звука: это не «плохой хит»."""
+    return {
+        "hit_score": 0.0,
+        "verdict": "invalid_audio",
+        "reason": f"в файле нет звука: RMS {_level_dbfs(y):.1f} dBFS",
+        "metrics": {},
+        "tiktok_slice": None,
+        "actions": [],
+        "meta": {"file": path, "duration_s": round(len(y) / sr, 2), "sr": sr},
+    }
+
+
+def _silence_guard(metrics: dict, y, sr) -> None:
+    """Не давать баллы за «динамику», «новизну» и «низ», которых нет.
+
+    Несколько метрик считают отношение двух почти-нулевых величин и на
+    разреженном сигнале выдают максимум. Замер: один клик в 20 секундах
+    тишины получал hook_energy 100, vocal_presence 100, novelty 100,
+    low_end_power 92, а вместе — 61,85 и вердикт `needs_work`.
+
+    Правило простое: если в окне почти нет энергии, метрика не может быть
+    высокой — она ставится в ноль, а в подсказке сказано почему.
+    """
+    level = _level_dbfs(y)
+    if level > -40.0:  # обычный трек: трогать нечего
+        return
+    for name in ("hook_energy", "novelty", "low_end_power", "vocal_presence"):
+        if name in metrics and metrics[name]["score"] > 20.0:
+            metrics[name]["score"] = 0.0
+            metrics[name]["hint"] = (
+                f"звука в файле почти нет: метрика не считается (RMS {level:.1f} dBFS)"
+            )
 
 
 def _verdict(score: float) -> str:
@@ -120,6 +167,25 @@ def _actions(metrics: dict) -> list[str]:
     return out
 
 
+def _build_report(*, path: str, hit_score: float, metrics: dict, slice_info, y, sr, elapsed: float) -> dict:
+    """Собрать отчёт оценки: баллы, вердикт, подсказки и метаданные прогона."""
+    return {
+        "hit_score": round(hit_score, 2),
+        "verdict": _verdict(hit_score),
+        "metrics": metrics,
+        "tiktok_slice": slice_info,
+        "actions": _actions(metrics),
+        "meta": {
+            "file": path,
+            "duration_s": round(len(y) / sr, 2),
+            "sr": sr,
+            "elapsed_s": elapsed,
+            "librosa": HAS_LIBROSA,
+            "soundfile": HAS_SF,
+        },
+    }
+
+
 # ============================================================ main API
 def score_track(master_wav: str, out_json: str | None = None, sr: int = 22050) -> dict:
     """
@@ -141,6 +207,17 @@ def score_track(master_wav: str, out_json: str | None = None, sr: int = 22050) -
         return {"error": f"load failed: {e}", "hit_score": 0.0, "verdict": "flop_risk"}
 
     metrics = {}
+
+    # Пустой файл — это не «плохой хит», а отсутствие звука. Раньше тишина
+    # получала 37 баллов и вердикт flop_risk: оценка делала вид, что слушала
+    # трек.
+    if _level_dbfs(y) < -60.0:
+        report = _invalid_audio_report(str(p), y, s)
+        if out_json:
+            Path(out_json).write_text(
+                json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8"
+            )
+        return report
 
     def _add(name, val_tuple, hint=""):
         score, raw = val_tuple if isinstance(val_tuple, tuple) else (val_tuple, None)
@@ -182,25 +259,16 @@ def score_track(master_wav: str, out_json: str | None = None, sr: int = 22050) -
     )
     _add("novelty", _novelty(y, s), "non-formulaic spectral variety")
 
+    _silence_guard(metrics, y, s)
+
     # weighted total
     total_w = sum(WEIGHTS.values())
     hit_score = sum(metrics[k]["score"] * WEIGHTS[k] for k in WEIGHTS) / total_w
 
-    report = {
-        "hit_score": round(hit_score, 2),
-        "verdict": _verdict(hit_score),
-        "metrics": metrics,
-        "tiktok_slice": tt_slice,
-        "actions": _actions(metrics),
-        "meta": {
-            "file": str(p),
-            "duration_s": round(len(y) / s, 2),
-            "sr": s,
-            "elapsed_s": round(time.time() - t0, 2),
-            "librosa": HAS_LIBROSA,
-            "soundfile": HAS_SF,
-        },
-    }
+    report = _build_report(
+        path=str(p), hit_score=hit_score, metrics=metrics, slice_info=tt_slice,
+        y=y, sr=s, elapsed=round(time.time() - t0, 2),
+    )
 
     if out_json:
         Path(out_json).write_text(
