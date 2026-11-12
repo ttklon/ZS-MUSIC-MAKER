@@ -155,8 +155,12 @@ class TestChorusCatchiness:
         score, info = hm._chorus_catchiness(sine(10.0), SR)
         assert 0.0 <= score <= 100.0
         assert info["tempo"] == 124.0
-        assert info["peaks"] == 20
-        assert info["chroma_var"] == 0.0  # константная хрома → нулевая дисперсия
+        # Хрома 0.5 во всех 12 бинах — равномерная, то есть «каши по всем
+        # нотам»: энтропия максимальна. Раньше здесь проверялась дисперсия,
+        # которая эту разницу видела всего как 0,4 балла из 100.
+        assert info["chroma_entropy"] == 1.0
+        # У фальшивого librosa три удара подряд — интервалы равные.
+        assert info["ibi_cv"] == 0.0
 
     def test_without_librosa_is_neutral(self, monkeypatch) -> None:
         monkeypatch.setattr(hm, "HAS_LIBROSA", False)

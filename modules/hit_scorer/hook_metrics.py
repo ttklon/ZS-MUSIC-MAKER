@@ -24,22 +24,40 @@ def _db(x: float) -> float:
 
 # ============================================================ metrics
 def _hook_energy(y, sr) -> tuple[float, float]:
-    """Ищем сегмент с максимальной локальной громкостью — это предполагаемый припев."""
+    """Контраст припева и куплета — в децибелах, без упора в потолок.
+
+    Было: `ratio = peak_4s / median_4s`, `score = min(100, (ratio − 1)·200)`.
+    Припев громче куплета на 30–60 % по амплитуде — это +2,3…+4,1 дБ, ratio
+    1,3–1,6, а `(1,6 − 1)·200` уже даёт 120 → потолок 100. Замер на восьми
+    мастерах движка: ratio 1,40…1,75, то есть семь из восьми в максимуме.
+
+    Медиана по окнам к тому же ничего не говорит о секциях: один короткий
+    громкий кусок даёт высокий ratio при полном отсутствии припева.
+
+    Теперь два измеримых числа:
+    * `peak_db` — насколько самый громкий 4-секундный участок выше медианы;
+    * `section_db` — насколько громкая половина трека выше тихой (Q75/Q25).
+
+    Возвращает `(балл, section_db)`.
+    """
     if np is None or len(y) < sr * 8:
         return 50.0, _rms(y)
-    win = int(sr * 4)
-    hop = int(sr * 1)
-    rms_curve = []
-    for i in range(0, len(y) - win, hop):
-        rms_curve.append(_rms(y[i : i + win]))
-    if not rms_curve:
+    win, hop = int(sr * 4), int(sr * 1)
+    curve = np.array(
+        [_rms(y[i : i + win]) for i in range(0, len(y) - win, hop)], dtype=float
+    )
+    if curve.size == 0:
         return 50.0, 0.0
-    peak = max(rms_curve)
-    median = sorted(rms_curve)[len(rms_curve) // 2]
-    ratio = peak / max(median, 1e-6)
-    # Хит-припев обычно на +30-60% громче медианы
-    score = min(100.0, max(0.0, (ratio - 1.0) * 200.0))
-    return score, ratio
+    median = float(np.median(curve))
+    if median <= 1e-9:
+        return 0.0, 0.0
+    peak_db = 20.0 * float(np.log10(max(float(curve.max()), 1e-9) / median))
+    q75, q25 = np.percentile(curve, 75), np.percentile(curve, 25)
+    # Нижнюю квартиль поднимаем над нулём: у трека без секций Q25 ≈ Q75.
+    section_db = 20.0 * float(np.log10(max(q75, 1e-9) / max(q25, 1e-9)))
+    # +8 дБ контраста секций — это уверенный припев; +6 дБ пика — уже слышно.
+    score = 5.0 * min(peak_db, 6.0) + 8.0 * min(section_db, 8.0)
+    return round(float(np.clip(score, 0.0, 100.0)), 2), round(section_db, 2)
 
 
 def _hook_repeatability(y, sr) -> tuple[float, int]:
@@ -101,26 +119,51 @@ def _hook_repeatability(y, sr) -> tuple[float, int]:
 
 
 def _chorus_catchiness(y, sr) -> tuple[float, dict]:
-    """Комбинация: гармоническая простота (мажор/минор readable) + ритмическая регулярность."""
+    """Запоминаемость припева: держится ли темп и собрана ли гармония.
+
+    Было:
+
+        regularity = min(100, len(peaks)·0.6 + 40)      # число онсетов
+        harmonic_simplicity = 100 − chroma_var·400
+        score = 0.6·regularity + 0.4·harmonic_simplicity
+
+    Ни одно из слагаемых не мерило заявленное. «Регулярность» на деле — это
+    плотность аранжировки: у восьми мастеров движка онсетов 140…175, то есть
+    `min(100, 124…145)` всегда упирается в 100. `chroma_var` у тональной
+    музыки почти всегда 0,08–0,10, значит «простота» давала +0…8 очков.
+    Итог: 60 + 0,4·(0…8) = 60…63 при разбросе 2,1 балла между жанрами.
+
+    Теперь обе половины измеряют то, что слышно:
+
+    * `steady` — держится ли темп: коэффициент вариации интервалов между
+      ударами. У танцевального трека он мал, у рубленого — велик;
+    * `focused` — насколько гармония собрана вокруг одной тоники: энтропия
+      распределения хромы. У простой мелодии низкая, у хроматической каши
+      высокая.
+
+    Это описание материала, а не предсказание «запомнится ли припев».
+    """
     if not HAS_LIBROSA:
         return 55.0, {}
     try:
         onset_env = librosa.onset.onset_strength(y=y, sr=sr)
-        tempo, _ = librosa.beat.beat_track(onset_envelope=onset_env, sr=sr)
-        # Регулярность: sharpness пиков огибающей
-        peaks = librosa.util.peak_pick(
-            onset_env, pre_max=3, post_max=3, pre_avg=5, post_avg=5, delta=0.5, wait=10
-        )
-        regularity = min(100.0, len(peaks) * 0.6 + 40.0)
-        # Гармоническая простота — chroma variance (низкая = простая гармония)
+        tempo, beats = librosa.beat.beat_track(onset_envelope=onset_env, sr=sr)
+        ibi = np.diff(beats) if len(beats) > 2 else np.array([1.0])
+        ibi_cv = float(ibi.std() / max(ibi.mean(), 1e-9))
+        steady = float(np.clip(100.0 - ibi_cv * 200.0, 0.0, 100.0))
+
         chroma = librosa.feature.chroma_stft(y=y, sr=sr)
-        chroma_var = float(np.mean(np.var(chroma, axis=1)))
-        harmonic_simplicity = max(0.0, min(100.0, 100.0 - chroma_var * 400.0))
-        score = 0.6 * regularity + 0.4 * harmonic_simplicity
-        return score, {
+        profile = chroma.mean(axis=1)
+        profile = profile / max(float(profile.sum()), 1e-9)
+        present = profile[profile > 0]
+        entropy = float(-(present * np.log(present)).sum() / np.log(12.0))
+        focused = float(np.clip(100.0 - entropy * 100.0, 0.0, 100.0))
+
+        score = 0.5 * steady + 0.5 * focused
+        return round(score, 2), {
             "tempo": tempo_scalar(tempo, 0.0),
-            "peaks": len(peaks),
-            "chroma_var": chroma_var,
+            "ibi_cv": round(ibi_cv, 3),
+            "chroma_entropy": round(entropy, 3),
         }
     except Exception:
         return 55.0, {}

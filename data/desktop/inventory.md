@@ -28,7 +28,7 @@
 | app/cli/backup.py | REAL_PASS | PASS | 1 | 99 |
 | app/cli/commands.py | REAL_PASS | PASS | 1 | 46 |
 | app/cli/dossier.py | REAL_PASS | PASS | 1 | 208 |
-| app/cli/env.py | REAL_PASS | PASS | 8 | 374 |
+| app/cli/env.py | REAL_PASS | PASS | 8 | 376 |
 | app/cli/gui.py | REAL_PASS | PASS | 1 | 128 |
 | app/cli/parser.py | REAL_PASS | PASS | 1 | 15 |
 | app/cli/pipeline.py | REAL_PASS | PASS | 1 | 247 |
@@ -70,7 +70,7 @@
 | app/core/revision.py | REAL_PASS | PASS | 3 | 42 |
 | app/core/security_utils.py | REAL_PASS | PASS | 3 | 5 |
 | app/core/stages/__init__.py | REAL_PASS | PASS | 0 | 156 |
-| app/core/stages/beat.py | REAL_PASS | PASS | 1 | 660 |
+| app/core/stages/beat.py | REAL_PASS | PASS | 1 | 668 |
 | app/core/stages/beat_arrangement.py | REAL_PASS | PASS | 1 | 0 |
 | app/core/stages/beat_synth.py | REAL_PASS | PASS | 1 | 20 |
 | app/core/stages/imported_beat.py | REAL_PASS | PASS | 1 | 2 |
@@ -106,14 +106,14 @@
 | app/pipeline/__init__.py | REAL_PASS | PASS | 8 | 126 |
 | app/pipeline/stage.py | REAL_PASS | PASS | 1 | 893 |
 | app/plugins/advanced.py | DEPRECATED | PASS | 0 | 6 |
-| app/plugins/base.py | DEPRECATED | PASS | 1 | 101 |
+| app/plugins/base.py | DEPRECATED | PASS | 1 | 105 |
 | app/runtime_orchestrator.py | REAL_PASS | PASS | 1 | 55 |
 | app/version_info.py | REAL_PASS | PASS | 1 | 4 |
 | config/__init__.py | REAL_PASS | PASS | 0 | 164 |
 | config/settings.py | REAL_PASS | PASS | 2 | 112 |
 | install.py | REAL_PASS | PASS | 0 | 158 |
 | main.py | REAL_PASS | PASS | 1 | 240 |
-| modules/__init__.py | REAL_PASS | PASS | 0 | 858 |
+| modules/__init__.py | REAL_PASS | PASS | 0 | 860 |
 | modules/ai_arranger.py | DEPRECATED | PASS | 0 | 0 |
 | modules/ai_detector_pro.py | DEPRECATED | PASS | 1 | 19 |
 | modules/analyzer.py | REAL_PASS | PASS | 1 | 81 |
@@ -135,7 +135,7 @@
 | modules/beat/constructor.py | REAL_PASS | PASS | 1 | 69 |
 | modules/beat/dramaturgy.py | REAL_PASS | PASS | 1 | 12 |
 | modules/beat/drums.py | REAL_PASS | PASS | 2 | 27 |
-| modules/beat/harmony.py | REAL_PASS | PASS | 1 | 26 |
+| modules/beat/harmony.py | REAL_PASS | PASS | 1 | 27 |
 | modules/beat/humanize.py | REAL_PASS | PASS | 2 | 11 |
 | modules/beat/microtime.py | REAL_PASS | PASS | 1 | 7 |
 | modules/beat/paths.py | REAL_PASS | PASS | 2 | 58 |
@@ -154,7 +154,7 @@
 | modules/dsp/dynamics.py | REAL_PASS | PASS | 1 | 7 |
 | modules/dsp/filters.py | REAL_PASS | PASS | 5 | 11 |
 | modules/dsp/limiter.py | REAL_PASS | PASS | 4 | 10 |
-| modules/dsp/metrics.py | REAL_PASS | PASS | 11 | 130 |
+| modules/dsp/metrics.py | REAL_PASS | PASS | 11 | 132 |
 | modules/essentia_analyzer.py | DEPRECATED | PASS | 0 | 26 |
 | modules/expert_mode.py | DEPRECATED | PASS | 0 | 4 |
 | modules/female_backing.py | DEPRECATED | PASS | 0 | 2 |
@@ -162,10 +162,10 @@
 | modules/genre_engine.py | REAL_PASS | PASS | 4 | 6 |
 | modules/groove_extractor.py | REAL_PASS | PASS | 1 | 5 |
 | modules/health.py | REAL_PASS | PASS | 1 | 53 |
-| modules/hit_scorer/__init__.py | REAL_PASS | PASS | 3 | 136 |
+| modules/hit_scorer/__init__.py | REAL_PASS | PASS | 3 | 138 |
 | modules/hit_scorer/__main__.py | DEPRECATED | PASS | 0 | 11 |
 | modules/hit_scorer/audio.py | REAL_PASS | PASS | 3 | 649 |
-| modules/hit_scorer/hook_metrics.py | REAL_PASS | PASS | 2 | 14 |
+| modules/hit_scorer/hook_metrics.py | REAL_PASS | PASS | 2 | 18 |
 | modules/hit_scorer/mix_metrics.py | REAL_PASS | PASS | 1 | 12 |
 | modules/hit_scorer/scoring.py | REAL_PASS | PASS | 1 | 11 |
 | modules/hw_directml.py | DEPRECATED | PASS | 0 | 0 |
@@ -175,7 +175,7 @@
 | modules/kpi_dashboard/checklist.py | REAL_PASS | PASS | 2 | 2 |
 | modules/kpi_dashboard/config.py | REAL_PASS | PASS | 4 | 46 |
 | modules/kpi_dashboard/models.py | REAL_PASS | PASS | 3 | 53 |
-| modules/kpi_dashboard/report.py | REAL_PASS | PASS | 2 | 804 |
+| modules/kpi_dashboard/report.py | REAL_PASS | PASS | 2 | 805 |
 | modules/kpi_dashboard/sources.py | REAL_PASS | PASS | 3 | 30 |
 | modules/kpi_monitor.py | DEPRECATED | PASS | 0 | 10 |
 | modules/llm/__init__.py | REAL_PASS | PASS | 2 | 128 |
@@ -186,7 +186,7 @@
 | modules/llm/secrets.py | REAL_PASS | PASS | 2 | 27 |
 | modules/lyric_vault.py | DEPRECATED | PASS | 0 | 5 |
 | modules/lyrics/__init__.py | REAL_PASS | PASS | 1 | 139 |
-| modules/lyrics/ai.py | REAL_PASS | PASS | 2 | 2012 |
+| modules/lyrics/ai.py | REAL_PASS | PASS | 2 | 2015 |
 | modules/lyrics/author.py | REAL_PASS | PASS | 1 | 150 |
 | modules/lyrics/generate.py | REAL_PASS | PASS | 2 | 103 |
 | modules/lyrics/memory.py | REAL_PASS | PASS | 3 | 48 |

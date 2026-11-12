@@ -203,7 +203,7 @@ loop, и отдаёт стадии списком `AsyncStage`. Раньше у 
 
 | Команда | Что ловит |
 |---|---|
-| `python -m pytest tests/` | 2086 тестов: unit, аудио, e2e, property, контракты GUI/CLI, порт движка в окно |
+| `python -m pytest tests/` | 2092 теста: unit, аудио, e2e, property, контракты GUI/CLI, порт движка в окно |
 | `python tools/smoke_audio.py` | стерео, громкость, drop (6 проверок) |
 | `python tools/smoke_god.py` | God Mode E2E, master 120 с, true-peak (8 проверок) |
 | `python tools/fallback_audit.py` | fallback-пути и маркеры заглушек |
