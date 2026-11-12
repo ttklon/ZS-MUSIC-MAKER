@@ -80,17 +80,24 @@ def _hook_repeatability(y, sr) -> tuple[float, int]:
             * np.linalg.norm(chroma, axis=0)[None, :]
             + 1e-9
         )
-        off = int(20 * sr / 1024)
-        if off >= ssm.shape[0]:
-            off = int(4 * sr / 1024)
-            if off >= ssm.shape[0] - 1 or off < 1:
-                return 50.0, 0
-        diag = np.diagonal(ssm, offset=off)
-        repeats = int((diag > 0.85).sum())
-        score = min(100.0, repeats * 8.0 + 30.0)
-        return score, repeats
+        # Абсолютное число повторов зависит от длины: на 60 с их сотни, и
+        # `min(100, repeats*8 + 30)` упиралось в 100 у всех восьми мастеров
+        # движка (96…280 повторов — все дают 100). Ищем лаг, на котором
+        # повторяемость наибольшая (4…30 с), и берём долю кадров, у которых
+        # через этот лаг есть похожий кадр: доля от длины не зависит.
+        lo = max(int(4 * sr / 1024), 1)
+        hi = min(int(30 * sr / 1024), ssm.shape[0] - 1)
+        best_share, best_lag = 0.0, 0
+        for off in range(lo, hi):
+            diag = np.diagonal(ssm, offset=off)
+            share = float((diag > 0.9).mean()) if diag.size else 0.0
+            if share > best_share:
+                best_share, best_lag = share, off
+        if best_lag == 0:
+            return 50.0, 0.0
+        return round(min(100.0, best_share * 100.0), 2), round(best_share, 3)
     except Exception:
-        return 50.0, 0
+        return 50.0, 0.0
 
 
 def _chorus_catchiness(y, sr) -> tuple[float, dict]:
@@ -136,37 +143,86 @@ def _drop_impact(y, sr) -> tuple[float, float]:
     return score, ratio
 
 
-def _tiktok_hookability(y, sr) -> tuple[float, dict]:
-    """Находит 15-30 сек кусок с моментальным входом (energy>median в первые 2 сек)."""
-    if np is None or len(y) < sr * 15:
-        return 40.0, {"start_sec": 0.0, "end_sec": 15.0, "reason": "трек короткий"}
-    win_len = int(sr * 25)  # 25 sec — sweet spot TikTok
-    hop = int(sr * 2)
-    best = {"score": 0.0, "start": 0}
-    global_med = _rms(y)
-    for i in range(0, len(y) - win_len, hop):
+def _best_slice(y, sr) -> tuple[dict, float]:
+    """Лучшее 25-секундное окно: уровень относительно трека и ровность.
+
+    Возвращает `(лучшее окно, отношение энергии входа к окну)`. Вход — первые
+    две секунды всего трека: у трека, который сразу бьёт, отношение около
+    единицы, у трека с длинным вступлением — заметно ниже.
+    """
+    win_len = min(int(sr * 25), len(y))
+    hop = max(int(sr * 2), 1)
+    global_rms = _rms(y)
+    best = {"score": -1.0, "start": 0, "level": 0.0, "steady": 0.0}
+    for i in range(0, max(len(y) - win_len, 0) + 1, hop):
         seg = y[i : i + win_len]
-        head_rms = _rms(seg[: int(sr * 2)])
-        overall = _rms(seg)
-        # Хороший TikTok-slice: сразу громко + держит уровень
-        if head_rms > global_med * 0.9 and overall > global_med:
-            score = (head_rms / max(global_med, 1e-6)) * 30.0 + (
-                overall / max(global_med, 1e-6)
-            ) * 20.0
-            if score > best["score"]:
-                best["score"] = score
-                best["start"] = i
-    if best["score"] == 0.0:
-        # fallback: самый громкий 25-сек кусок
-        rms_c = [_rms(y[i : i + win_len]) for i in range(0, len(y) - win_len, hop)]
-        idx = int(np.argmax(rms_c)) if rms_c else 0
-        best["start"] = idx * hop
-        best["score"] = 45.0
+        seg_rms = _rms(seg)
+        if seg_rms <= 1e-9:
+            continue
+        level = seg_rms / global_rms
+        chunks = np.array_split(seg, max(int(len(seg) / (sr * 0.5)), 1))
+        chunk_rms = np.array([_rms(c) for c in chunks])
+        median = float(np.median(chunk_rms))
+        steady = float(np.mean(chunk_rms >= median * 0.5)) if median > 0 else 0.0
+        score = 40.0 * steady + 30.0 * float(np.clip((level - 0.9) / 0.5, 0.0, 1.0))
+        if score > best["score"]:
+            best = {"score": score, "start": i, "level": level, "steady": steady}
+    slice_rms = max(_rms(y[best["start"] : best["start"] + win_len]), 1e-9)
+    head = _rms(y[: int(sr * 2)]) / slice_rms
+    return best, head
+
+
+def _tiktok_hookability(y, sr) -> tuple[float, dict]:
+    """Оценивает 25-секундный кусок, который можно поставить в Reels.
+
+    Что здесь измеряется (и чего не измеряется):
+
+    * `уровень` — насколько лучший кусок громче среднего по треку;
+    * `ровность` — доля полусекундных фрагментов, которые не проваливаются
+      больше чем на 6 дБ относительно медианы куска: клип в Reels не должен
+      провисать;
+    * `вход` — энергия первых двух секунд относительно лучшего куска:
+      работает ли трек сразу, без длинного вступления.
+
+    Это **не** предсказание виральности. Ни одна из этих величин не говорит,
+    «залетит» ли трек; она говорит, есть ли в нём громкий и ровный участок и
+    начинается ли он сразу. Так и названо в отчёте.
+
+    Прежняя версия считала `head_rms` по первым двум секундам каждого окна и
+    требовала `head_rms > global_med * 0.9`: окно почти всегда начиналось в
+    тишине, условие не выполнялось, и трек получал фолбэк `45 + 20 = 65,0` —
+    одно и то же число на всех восьми мастерах движка и на нарезках от 20 до
+    60 секунд. Метрика с весом 1,5 (11,5 % итогового балла) не измеряла
+    ничего.
+    """
+    reason = "яркий и ровный участок; это не предсказание виральности"
+    if np is None or len(y) < sr * 15:
+        return 40.0, {
+            "start_sec": 0.0,
+            "end_sec": round(len(y) / sr, 2),
+            "reason": "трек короткий: окна 25 с нет",
+        }
+    if _rms(y) <= 1e-9:
+        return 0.0, {
+            "start_sec": 0.0,
+            "end_sec": round(min(int(sr * 25), len(y)) / sr, 2),
+            "reason": "в файле нет энергии",
+        }
+
+    best, head = _best_slice(y, sr)
+    # Вход: несут ли первые две секунды трека энергию относительно лучшего
+    # куска. Раньше здесь стояло `head / global`, и у трека, который сразу
+    # бьёт, это отношение упиралось в 1.0 — то есть «моментальный вход» никак
+    # не отличался от обычного.
+    total = best["score"] + 30.0 * float(np.clip((head - 0.8) / 0.5, 0.0, 1.0))
     start_sec = best["start"] / sr
-    return min(100.0, best["score"] + 20.0), {
+    return round(min(100.0, max(0.0, total)), 2), {
         "start_sec": round(start_sec, 2),
-        "end_sec": round(start_sec + 25.0, 2),
-        "reason": "immediate hook + sustained energy",
+        "end_sec": round(start_sec + min(int(sr * 25), len(y)) / sr, 2),
+        "reason": reason,
+        "level_ratio": round(best["level"], 3),
+        "steady_share": round(best["steady"], 3),
+        "head_ratio": round(head, 3),
     }
 
 

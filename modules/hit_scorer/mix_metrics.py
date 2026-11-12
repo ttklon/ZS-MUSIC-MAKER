@@ -49,13 +49,52 @@ def _loudness_rms_estimate(y) -> tuple[float, float]:
     return score, dbfs
 
 
-def _loudness_lufs_status(y, sr) -> tuple[tuple[float, float], dict[str, str]]:
-    """Возвращает loudness score и provenance optional pyloudnorm метрики."""
+def _loudness_lufs_status(
+    y, sr, stereo_path: str | None = None
+) -> tuple[tuple[float, float], dict[str, str]]:
+    """Возвращает loudness score и provenance optional pyloudnorm метрики.
+
+    `y` — моно (так его отдаёт `_load_audio`), а интегрированная громкость
+    стерео-трека в моно не равна: для этой связи LUFS = 10·lg(ΣE_LR / E_моно),
+    и у мастера движка моно-сумма даёт ровно те же сэмплы, что и микс L/R,
+    поэтому LUFS = 10·lg(2·(1+corr)·E_L/E_моно). Замер на живом мастере:
+    стерео −14,0 LUFS (так его и свели), моно −17,9 — разница 3,9 дБ, и
+    оценка честный мастер считала тихим.
+
+    Если передан `stereo_path`, громкость меряется по настоящему стерео;
+    иначе остаётся прежний путь по моно (и в провенансе это видно).
+    """
+    stereo = _load_stereo(stereo_path) if stereo_path else None
+    if stereo is not None:
+        st_y, st_sr = stereo
+        result, provenance = _measure_lufs(st_y, st_sr)
+        if provenance.get("engine") == "pyloudnorm":
+            provenance["channels"] = int(st_y.shape[1])
+            return result, provenance
+    return _measure_lufs(y, sr)
+
+
+def _load_stereo(path: str | None):
+    """Прочитать файл как стерео для замера громкости (или None)."""
+    if not path or not HAS_SF or np is None:
+        return None
+    try:
+        data, sr = sf.read(path, always_2d=True)
+    except Exception:
+        return None
+    y = np.asarray(data, dtype=np.float64)
+    if y.ndim != 2 or y.shape[1] < 2 or y.size == 0:
+        return None
+    return y[:, :2], int(sr)
+
+
+def _measure_lufs(y, sr) -> tuple[tuple[float, float], dict[str, str]]:
     if np is None:
         return (60.0, -14.0), {"engine": "default_estimate", "status": "unavailable"}
     if HAS_PYLOUDNORM:
         try:
-            # y is mono from _load_audio
+            # Обычно моно из _load_audio; стерео приходит из _load_stereo,
+            # когда громкость меряется по файлу, а не по моно-сумме.
             meter = pyln.Meter(sr)
             lufs = float(meter.integrated_loudness(y))
             # Для LUFS таргет обычно -14..-9
@@ -94,11 +133,19 @@ def _stereo_width(path: str) -> tuple[float, float]:
             return 30.0, 1.0
         l, r = y[:, 0], y[:, 1]
         corr = float(np.corrcoef(l, r)[0, 1])
-        # width = 1 - corr; хиты обычно 0.15..0.4 → corr 0.6..0.85
+        if np.isnan(corr):  # один канал в тишине — это не картинка
+            return 40.0, 1.0
+        # Шкала различает не только «норма / не норма»: раньше всё, что шире
+        # 0,55, получало одну и ту же 70,0 — и «широко, но в фазе», и каналы,
+        # разъехавшиеся почти в противофазу. Теперь промежуточные ступени.
         if 0.55 <= corr <= 0.85:
             score = 90.0
-        elif corr < 0.55:
-            score = 70.0  # слишком широко
+        elif 0.40 <= corr < 0.55:
+            score = 74.0  # широко, но в фазе
+        elif 0.20 <= corr < 0.40:
+            score = 56.0  # слишком широко: микс разваливается в моно
+        elif corr < 0.20:
+            score = 34.0  # каналы почти противофазны
         elif corr < 0.95:
             score = 65.0
         else:
@@ -208,40 +255,81 @@ def _vocal_presence(y, sr) -> tuple[float, float]:
 
 
 def _structure_clarity(y, sr) -> tuple[float, int]:
-    if not HAS_LIBROSA or len(y) < sr * 30:
+    """Есть ли у трека секции — по сменам плотности, а не по порогу из головы.
+
+    Как было: кривая RMS нормировалась (mean/std), искались точки, где
+    |ΔRMS| > 1.2. При шаге STFT 1024 (≈46 мс) соседние кадры различаются на
+    проценты, порог не достигался никогда — на ровном бите находилось 0
+    смен, а на треке с контрастными секциями в тесте тоже 0. Метрика отдавала
+    значение по умолчанию: 50,0 длинным трекам и 55,0 через исключение.
+
+    Теперь трек делится на секции по 2 % длины (максимум 24, минимум 6), для
+    каждой считается RMS, и структура оценивается по тому, сколько раз
+    уровень меняется заметно (в 1.8 раза — это уже куплет/припев, а не
+    колебания внутри секции) и насколько ровно держится уровень внутри
+    секций. Ровный бит без секций получает низко, трек с контрастом — высоко.
+    """
+    if not HAS_LIBROSA or len(y) < sr * 20:
         return 55.0, 0
     try:
-        # segmentation по chroma+mfcc через spectral clustering — простая версия
-        rms = librosa.feature.rms(y=y, hop_length=1024)[0]
-        # normalize
-        rms = (rms - rms.mean()) / (rms.std() + 1e-9)
-        # найдём точки сильного изменения
-        changes = np.where(np.abs(np.diff(rms)) > 1.2)[0]
-        # ожидаем 3-6 крупных секций
-        n = len(changes)
-        if 3 <= n <= 8:
-            score = 90.0
-        elif n < 3:
-            score = 50.0
-        else:
-            score = 70.0
-        return score, n
+        rms = librosa.feature.rms(y=y, frame_length=2048, hop_length=1024)[0]
+        if rms.size < 8:
+            return 55.0, 0
+        sections = int(np.clip(round(rms.size * 0.02), 6, 24))
+        levels = np.array(
+            [float(np.mean(part)) for part in np.array_split(rms, sections)]
+        )
+        if levels.min() <= 1e-9:
+            return 40.0, 0
+        # Смена секции: соседние уровни различаются в 1.8 раза.
+        ratio = np.maximum(levels[:-1], levels[1:]) / np.minimum(levels[:-1], levels[1:])
+        changes = int(np.sum(ratio >= 1.8))
+        # Ровность внутри секций: разброс уровней относительно среднего.
+        jitter = float(np.std(ratio)) if ratio.size else 0.0
+        score = 45.0 + 9.0 * min(changes, 4) - min(jitter, 2.0) * 5.0
+        return round(float(np.clip(score, 20.0, 95.0)), 2), changes
     except Exception:
         return 55.0, 0
 
 
 def _novelty(y, sr) -> tuple[float, float]:
-    """Насколько трек «неформульный» — вариативность спектра во времени."""
-    if not HAS_LIBROSA:
+    """Спектральное разнообразие трека — в человеческих единицах.
+
+    Как было: `combined_var = (col_var + row_var·0.1)/1.1`,
+    `score = min(100, combined_var·8e5 + 40)`. Дисперсия амплитуд STFT на
+    настоящей музыке — порядка 10, поэтому `var·8e5` уходит в миллионы и
+    `min(100, …)` даёт **100,0 всегда**: у восьми мастеров движка, у чистого
+    синуса 440 Гц и у «одного клика в тишине». Метрика с весом 0,8 (6 %
+    итогового балла) стояла в максимуме и сработать не могла.
+
+    Теперь берётся профиль кадра (спектр, нормированный на громкость кадра —
+    «краска», а не «громче/тише») и считается, насколько он гуляет во
+    времени: среднее |профиль − средний профиль|, делённое на средний
+    профиль. Замеры:
+
+        чистое синусоида           0,03…0,05
+        один такт по кругу         0,03
+        белый шум                  0,40
+        живые биты движка          0,70…0,87
+        трек со свипом и сменой    1,26
+
+    Шкала `100·(1 − e^(−rel/0.6))` — монотонная, без насыщения в максимум.
+    """
+    if not HAS_LIBROSA or np is None:
         return 60.0, 0.0
     try:
         S = np.abs(librosa.stft(y, n_fft=2048))
-        col_var = float(np.mean(np.var(S, axis=1)))
-        row_var = float(np.mean(np.var(S, axis=0)))
-        # v26: Используем и col_var (время), и row_var (частоты)
-        combined_var = (col_var + row_var * 0.1) / 1.1
-        score = min(100.0, combined_var * 8e5 + 40.0) if combined_var > 0 else 40.0
-        return score, combined_var
+        if S.size == 0:
+            return 40.0, 0.0
+        energy = np.sum(S, axis=0, keepdims=True) + 1e-9
+        profile = np.log1p(S / energy * 100.0)
+        step = max(profile.shape[1] // 200, 1)
+        profile = profile[:, ::step]
+        mean = profile.mean(axis=1, keepdims=True)
+        spread = float(np.mean(np.abs(profile - mean)))
+        relative = spread / max(float(np.mean(np.abs(mean))), 1e-9)
+        score = 100.0 * (1.0 - float(np.exp(-relative / 0.6)))
+        return round(score, 2), round(relative, 3)
     except Exception:
         return 60.0, 0.0
 
@@ -254,7 +342,7 @@ def _metric_set(path: str, y, sr) -> dict:
     Значения — `(score, raw)` или просто score, как их отдают функции выше.
     """
     tt_score, tt_slice = _tiktok_hookability(y, sr)
-    loudness_result, loudness_provenance = _loudness_lufs_status(y, sr)
+    loudness_result, loudness_provenance = _loudness_lufs_status(y, sr, stereo_path=path)
     return {
         "hook_energy": _hook_energy(y, sr),
         "hook_repeatability": _hook_repeatability(y, sr),

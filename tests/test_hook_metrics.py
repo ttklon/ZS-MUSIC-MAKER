@@ -202,15 +202,17 @@ class TestTiktokHookability:
     def test_short_track_is_named_short(self) -> None:
         score, info = hm._tiktok_hookability(sine(5.0), SR)
         assert score == 40.0
-        assert info["reason"] == "трек короткий"
-        assert info["end_sec"] == 15.0
+        assert "коротк" in info["reason"].lower()
+        assert info["end_sec"] == pytest.approx(5.0, abs=0.01)
 
     def test_loud_start_slice_is_found(self) -> None:
         y = sine(60.0, amp=0.05)
         # громкий блок с 30-й секунды: должен быть выбран как «хук»
         y[int(SR * 30) : int(SR * 58)] = sine(28.0, amp=0.5)
         score, info = hm._tiktok_hookability(y, SR)
-        assert info["reason"] == "immediate hook + sustained energy"
+        # Причина называет то, что метрика действительно измерила, а не
+        # обещает «immediate hook»: вход у этого трека тихий.
+        assert "виральност" in info["reason"]
         assert info["start_sec"] >= 25.0  # окно начинается близко к громкому блоку
         assert info["end_sec"] == pytest.approx(info["start_sec"] + 25.0, abs=0.01)
         assert score <= 100.0
@@ -220,14 +222,14 @@ class TestTiktokHookability:
         y = sine(60.0, amp=0.02)
         y[int(SR * 40) :] = sine(20.0, amp=0.03)
         score, info = _call_tiktok(y)
-        assert info["reason"] in ("immediate hook + sustained energy", "loudest 25-sec slice")
+        assert info["reason"] == "яркий и ровный участок; это не предсказание виральности"
         assert score > 0.0
 
     def test_without_numpy_is_neutral(self, monkeypatch) -> None:
         monkeypatch.setattr(hm, "np", None)
         score, info = hm._tiktok_hookability(sine(60.0), SR)
         assert score == 40.0
-        assert info["reason"] == "трек короткий"
+        assert "коротк" in info["reason"].lower()
 
 
 def _call_tiktok(y):
@@ -331,9 +333,10 @@ class TestEdgeBranches:
                     return np.ones((12, 600))
 
         monkeypatch.setattr(hm, "librosa", FakeLibrosa)
-        score, repeats = hm._hook_repeatability(sine(30.0), SR)
-        assert repeats > 0
-        assert score == min(100.0, repeats * 8.0 + 30.0)
+        score, share = hm._hook_repeatability(sine(30.0), SR)
+        # Полностью повторяющаяся хрома — это доля 1.0 и максимальный балл.
+        assert share > 0.9, share
+        assert score == 100.0
 
     def test_tiktok_fallback_marks_loudest_slice(self) -> None:
         # Все окна тише медианы: критерий «сразу громко» не выполняется ни разу
@@ -341,5 +344,6 @@ class TestEdgeBranches:
         y[int(SR * 20) : int(SR * 26)] = sine(6.0, amp=0.4)  # только один громкий кусок
         y += sine(60.0, amp=0.001)
         score, info = hm._tiktok_hookability(y, SR)
-        assert info["reason"] == "immediate hook + sustained energy" or score > 0.0
+        assert info["reason"]
+        assert score > 0.0
         assert info["start_sec"] >= 0.0
