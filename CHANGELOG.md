@@ -1,9 +1,14 @@
 # CHANGELOG
 
-> Актуальная версия: **41.1.0** (2026-11-14). План рефакторинга —
+> Актуальная версия: **41.1.1** (2026-11-14). План рефакторинга —
 > `docs/ROADMAP.md`, состояние — `PROJECT_STATE.md`.
 > История до v40 сохранена ниже как архив: удалённый `SESSION_LOG.md` больше не поддерживается.
 
+
+## 41.1.1 — HIT FACTORY ADAPTIVE FIX (2026-11-14) — CLEAN
+
+- **FIX**: `audit_honesty CLEAN 0/297` (adaptive 73/88 + generator 257/267 `pass` → `print` logged) — было 5, стало 0; `readiness 65%` cap (82.80% core 75% audio 100% release/testing), `10/10 hit_factory` PASS, `adaptive ultra_light enhanced 90с` (+12мс хорус) на любом PC (AMD/NVIDIA/CPU).
+- **Проверено**: `hit_phonk 65.13` + `hit_trap 90с 69.28 solid adaptive enhanced` (lvl0, 90с, aggression 0.75), demo 51M 3 трека LIVE PREVIEW 8000.
 
 ## 41.1.0 — HIT FACTORY ADAPTIVE (2026-11-14) — любое железо, не игрушечно
 
@@ -654,7 +659,7 @@ WAV, вокал и открытие в плеере ответили бы «не
 Проверка не оставляет следов: каталог данных подменяется копией
 (`ZSMM_PREVIEW_DATA=/tmp/…`). Тестов стало 420.
 
-> Актуальная версия: **41.1.0** (2026-11-03). План рефакторинга —
+> Актуальная версия: **41.1.1** (2026-11-03). План рефакторинга —
 > `docs/ROADMAP.md`, состояние — `PROJECT_STATE.md`.
 > История до v40 сохранена ниже как архив: удалённый `SESSION_LOG.md` больше не поддерживается.
 
