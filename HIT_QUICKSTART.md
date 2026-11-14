@@ -78,10 +78,25 @@ output/hits/
       master_streaming.wav      # основной мастер (−14 LUFS, true-peak ≤−1 dBTP)
       master_streaming_human.wav # +anti_neuro_track polish (нероншно)
       master_tiktok.wav / master_club.wav / ...
-    report.json                 # полный отчёт 15 стадий
+    tiktok/
+      tiktok_15s.wav            # 15с вирусный кусок (hit_scorer tiktok_slice)
+      tiktok_30s.wav            # 30с для Reels/Shorts
+      hook_loop.wav             # только припев для эдитов
+    cover.png                   # обложка 1400x1400 PIL (gradient/neon/glitch по жанру)
+    report.json                 # полный отчёт 15 стадий + tiktok_cuts + cover
     hit_report.json             # hit_score + 12 метрик + actions
     factory_summary.json        # если эволюция — все попытки + лучший
   batch_20261114_075900_*.json  # индекс батча
+  hits_kpi.json / hits_kpi.md   # агрегат KPI по всем хитам (avg, genre, best/worst)
+  benchmark_20261114_*.json     # отчёт A/B бенчмарка по жанрам
+```
+
+Оценка:
+```bash
+python main.py --score output/hits/<id>/masters/master_streaming.wav
+# hit_score 72.43 solid → хорошо, 56 needs_work → мутируй/перегенери
+python -m modules.hit_factory.kpi              # пересчитать KPI (avg, genre, best)
+python -m modules.hit_factory.benchmark --genres drift_phonk,trap --count 2 --duration 30  # A/B по жанрам
 ```
 
 Оценка:
@@ -103,16 +118,27 @@ python main.py --score output/hits/<id>/masters/master_streaming.wav
 
 Фабрика делает это автоматически при `--evolve`.
 
-## 6. Автоматизация по расписанию
+## 6. Автоматизация по расписанию + KPI + Бенчмарк
 
 ```bash
 # Linux cron: каждые 6 часов по 2 хита
 crontab -e
 # 0 */6 * * * cd /path/to/ZS-MUSIC-MAKER && python hitmaker.py --count 2 --evolve >> logs/hits.log 2>&1
 
-# Python демон (в разработке):
-# from modules.hit_factory.daemon import run_daemon
-# run_daemon(interval_hours=6, count_per_run=2)
+# Демон (бесконечный, с авто-трендом 24ч и KPI):
+python -m modules.hit_factory.daemon --interval 6 --count 2
+# или из Python:
+from modules.hit_factory.daemon import run_daemon
+run_daemon(interval_hours=6, count_per_run=2, genre="phonk")
+
+# A/B бенчмарк жанров (тюнинг весов):
+python -m modules.hit_factory.benchmark --genres drift_phonk,trap,phonk,jersey_club --count 2 --duration 30
+# → output/hits/benchmark_*.json + таблица avg/max/solid_rate и рекомендации
+
+# KPI агрегат:
+python -m modules.hit_factory.kpi               # консоль + hits_kpi.md
+python -m modules.hit_factory.kpi --json       # json в stdout
+cat output/hits/hits_kpi.md
 ```
 
 ## 7. FAQ

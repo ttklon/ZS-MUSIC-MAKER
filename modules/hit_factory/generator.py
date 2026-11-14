@@ -95,11 +95,24 @@ class HitFactory:
         """Собирает wizard_state для run_full_pipeline."""
         g = genre or pick_genre(rng)
         t = theme or pick_theme(rng)
+        # Phase 2: обогащаем тему сленгом 2026 для вирусности (если тема авто)
+        if not theme:
+            try:
+                from modules.hit_factory.themes import enrich_theme_with_slang
+                t = enrich_theme_with_slang(t, rng)
+            except Exception:
+                pass
         bpm = pick_bpm(g, rng, bpm_override)
         agr = aggression if aggression is not None else pick_aggression(rng, g)
         s = int(seed if seed is not None else rng.randint(1, 1_000_000))
         dur = int(duration_sec or self.duration_sec or 120)
 
+        # Phase 2: тренд-контекст для lyrics (hype_words в заметки)
+        try:
+            tc = trend_context(t)
+            hype_str = ", ".join((tc.get("hype_words") or [])[:6])
+        except Exception:
+            hype_str = ""
         state: dict[str, Any] = {
             "genre": g,
             "theme": t,
@@ -111,13 +124,14 @@ class HitFactory:
             "n_verses": 2,
             "voice_mode": "pro",  # TTS free, scaffold fallback
             "use_rvc": False,
-            "use_vocal_fx": True,
+            "use_vocal_fx": True,  # Phase 3: форсим человечность — всегда FX
             "export_stems": False,  # быстрее для фабрики; включаем если нужно
             "bilingual": True,
             "quality_mode": "quality",
             "stands": ["streaming", "tiktok", "club"],
             "references": [],
-            "trend_notes": "",
+            "trend_notes": hype_str,
+            "artist": "ZS Producer",
         }
         return state
 
@@ -137,15 +151,33 @@ class HitFactory:
         def on_stage(name: str, status: str, idx: int, total: int) -> None:
             self._log(f"  [{idx}/{total}] {name}: {status}")
 
-        # Изолируем Numba кэш
-        with isolated_numba_cache():
-            report = run_full_pipeline(
-                project_id=project_id,
-                wizard_state=wizard_state,
-                dry_run=False,
-                out_root=out_root,
-                on_stage=on_stage if self.verbose else None,
-            )
+        # Изолируем Numba кэш на первый прогон; после импорта numba — просто прямой вызов
+        # (иначе RuntimeError: cannot isolate after Numba imported, см. app/core/numba_cache.py)
+        try:
+            # пробуем изолировать, если ещё не импортирован numba
+            import sys
+            if "numba" in sys.modules:
+                raise RuntimeError("numba already imported — skip isolation")
+            with isolated_numba_cache():
+                report = run_full_pipeline(
+                    project_id=project_id,
+                    wizard_state=wizard_state,
+                    dry_run=False,
+                    out_root=out_root,
+                    on_stage=on_stage if self.verbose else None,
+                )
+        except RuntimeError as e:
+            # fallback: уже изолировано или нечего изолировать — прямой прогон
+            if "cannot isolate" in str(e) or "already imported" in str(e):
+                report = run_full_pipeline(
+                    project_id=project_id,
+                    wizard_state=wizard_state,
+                    dry_run=False,
+                    out_root=out_root,
+                    on_stage=on_stage if self.verbose else None,
+                )
+            else:
+                raise
 
         # hit_score
         master = report.get("master_path")
@@ -162,6 +194,37 @@ class HitFactory:
                 report["humanizer"] = hres
             except Exception as exc:  # noqa: BLE001
                 report["humanizer"] = {"ok": False, "reason": str(exc)}
+            # TikTok нарезки (15s/30s/hook_loop) — бесплатно, не требует ffmpeg
+            try:
+                from modules.tiktok_edit import make_all_cuts
+                tiktok_dir = Path(out_root) / "tiktok"
+                tiktok_res = make_all_cuts(master, str(tiktok_dir), hit_report=hit)
+                report["tiktok_cuts"] = tiktok_res
+            except Exception as exc:  # noqa: BLE001
+                report["tiktok_cuts"] = {"ok": False, "error": f"{type(exc).__name__}: {exc}"}
+            # Обложка (PIL, оффлайн) — всегда бесплатно
+            try:
+                from modules.cover_art_gen import generate as gen_cover
+                lyrics_title = (hit or {}).get("meta", {}).get("file", "")
+                # достаём заголовок из report если есть
+                title = report.get("recipe", {}).get("theme") or wizard_state.get("theme") or "ZS Hit"
+                # обрезаем до 30 символов для красоты
+                short_title = str(title)[:32]
+                artist = str(wizard_state.get("artist") or "ZS Producer")
+                # стиль по жанру
+                style_map = {"drift_phonk": "neon", "phonk": "neon", "trap": "glitch", "jersey_club": "gradient", "rage": "glitch", "hyperpop": "chrome", "house": "minimal"}
+                style = style_map.get(wizard_state.get("genre"), "gradient")
+                cover_path = str(Path(out_root) / "cover.png")
+                cover_res = gen_cover(short_title, artist, cover_path, style=style, seed=wizard_state.get("seed"))
+                report["cover"] = cover_res
+            except Exception as exc:  # noqa: BLE001
+                report["cover"] = {"ok": False, "error": f"{type(exc).__name__}: {exc}"}
+            # Перезаписываем report.json с tiktok и cover (иначе на диске старые данные)
+            try:
+                import json
+                (Path(out_root) / "report.json").write_text(json.dumps(report, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
+            except Exception:
+                pass
         else:
             hit = {"hit_score": 0.0, "verdict": "flop_risk", "error": "no master produced"}
 
@@ -288,7 +351,12 @@ class HitFactory:
                 )
             except Exception:
                 pass
-        # также общий индекс батча
+        # также общий индекс батча + KPI
+        try:
+            from modules.hit_factory.kpi import build_kpi
+            build_kpi(str(self.output_root), save=True)
+        except Exception:
+            pass
         self._log(f"[HIT FACTORY] Лучший: {best['project_id']}  score={best['hit_score']:.1f}  verdict={best['verdict']}" if best else "[HIT FACTORY] нет попыток")
         return best or {}
 
@@ -360,6 +428,12 @@ class HitFactory:
             self._log(f"  Лучший: {best.get('project_id')}  score={best.get('hit_score'):.1f}  verdict={best.get('verdict')}")
             self._log(f"  Папка: {best.get('out_root')}  master: {best.get('master_path')}")
         self._log(f"  Индекс: {batch_meta_path}")
+        # KPI агрегат (Phase 4)
+        try:
+            from modules.hit_factory.kpi import build_kpi
+            build_kpi(str(self.output_root), save=True)
+        except Exception:
+            pass
 
         return results
 

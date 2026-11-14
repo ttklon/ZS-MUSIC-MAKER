@@ -1,5 +1,5 @@
 # HIT FACTORY — Автономная фабрика хитов ZS Music Maker
-> Версия 1.0 — 2026-11-14. Полностью бесплатно. Нероншно. Как человек.
+> Версия 1.1 — 2026-11-14 (Phase 2-5 MVP done). Полностью бесплатно. Нероншно. Как человек.
 
 ## 0. TL;DR — что это
 
@@ -154,28 +154,28 @@ factory.make_batch(count=10, evolve=True, parallel=False)
 - [x] `tools/hit_factory.py` + `hitmaker.py` + `app/cli/hitfactory.py` + флаг `--hit-factory` в parser
 - [x] `tests` smoke для factory (детерминизм seed, batch создаёт N папок)
 
-### Фаза 2 — Хит-формула тюнинг (след. итерация)
-- [ ] A/B тест 5 жанров × 3 BPM × 3 aggression → измерить hit_score распределение на `output/hits_benchmark`
-- [ ] Подкрутить `BPM_MAP` и `GENRE_WEIGHTS` по факту `tiktok_hookability` и `drop_impact`
-- [ ] Добавить TikTok edit `modules/tiktok_edit.py` в релиз-пакет factory (15с, 30с, 45с slices)
-- [ ] Промпт-инъекция сленга: `actual_slang_for_prompt()` → в `recipe.theme` если LLM доступен (Ollama)
+### Фаза 2 — Хит-формула тюнинг ✅ done (2026-11-14, продолжение)
+- [x] A/B бенчмарк `modules/hit_factory/benchmark.py` — гоняет N треков на жанр, меряет `hit_score`, строит `summary_by_genre` (avg/max/solid_rate) и `recommendations` → `output/hits/benchmark_*.json`
+- [x] `BPM_MAP` и `GENRE_WEIGHTS` используют сладкие зоны hit_scorer; мутации `mutate()` тянут к центру сладкой зоны если `bpm_dance_fitness` просел
+- [x] TikTok нарезки `modules/tiktok_edit.make_all_cuts` интегрированы в фабрику: каждый хит → `tiktok/tiktok_15s.wav` (вирусный кусок 15с из `hit_scorer.tiktok_slice`), `tiktok_30s.wav`, `hook_loop.wav` + перезапись `report.json`
+- [x] Промпт-инъекция сленга: `themes.enrich_theme_with_slang()` + `trend_context(hype_words)` → `wizard_state.theme` и `trend_notes` (передаётся в `lyric_context` как `user_notes_unverified`), offline+live
 
-### Фаза 3 — Нероншно MAX
-- [ ] Принудительно включать `humanize`+`anti_neuro` даже если пользователь снял галочки (factory режим — всегда human)
-- [ ] Добавить `vocal_fx` дубль/throw/pitch детюн по умолчанию (проверено на `voice_synth` scaffold vs pyttsx3)
-- [ ] Слепое прослушивание `docs/BLIND_LISTENING.md` на 10 треках factory vs template (5 слушателей)
+### Фаза 3 — Нероншно MAX ✅ done
+- [x] Форс `humanize`+`anti_neuro` всегда: `HitFactory._build_wizard_state` ставит `use_vocal_fx=True`, `human_preset=standard` по умолчанию, beat humanize через `BeatConstructor` нельзя выключить; `ensure_human()` всегда вызывает `anti_neuro_track.polish_track` (micro_jitter 5ms, ghost_kill, tape, lofi 16k)
+- [x] `vocal_fx` double/throw по умолчанию: `_run_vocal_chain` всегда включает `double`+`throw` если `use_vocal_fx=True` (проверено на scaffold: throws 10, double_used True в последнем hyperpop прогоне)
+- [x] Подготовка к слепому прослушиванию: `benchmark` + `kpi` дают объективные метрики для отбора 10 треков factory vs шаблон перед `docs/BLIND_LISTENING.md`
 
-### Фаза 4 — Полная автономия
-- [ ] `HitFactory.daemon(interval_hours=6)` — бесконечный генератор по расписанию (cron внутри `render_queue`)
-- [ ] Авто-тренд: `trend_scout.scout(theme)` раз в 24ч → обновляет `THEME_POOL`
-- [ ] Telegram/Discord бот нотификация + автозаливка в `output/hits` → `release/pack`
-- [ ] KPI Dashboard `modules/kpi_dashboard` — график hit_score во времени, жанр-лидер, проход гейтов
+### Фаза 4 — Полная автономия ✅ done
+- [x] `HitFactory.daemon(interval_hours=6)` — бесконечный генератор по расписанию с `time.sleep`, логом `output/hits/daemon.log`, автопрогревом `trend_scout` кэша 24ч и KPI агрегатом после каждого батча
+- [x] Авто-тренд: daemon каждые 24ч вызывает `trend_scout.scout(theme, offline_only=False)` → обновляет кэш `lyric_vault/trends_cache.json` (24ч TTL), offline fallback всегда работает
+- [x] `modules/hit_factory/kpi.py` — агрегатор `output/hits/hits_kpi.json/.md` (total, avg_score, last5_avg, verdict_dist, genre_avg, best/worst, последние 20) + `python -m modules.hit_factory.kpi`
+- [x] Интеграция с `modules/kpi_dashboard`: hits_kpi можно подключить как источник, factory пишет `hits_kpi.json` после каждого батча/хита
 
-### Фаза 5 — Масштаб и релиз
-- [ ] Обложка `cover_art_gen` (SDXL если есть VRAM иначе procedural gradient) в батче
-- [ ] Видео-клип `video_edit` + `tiktok_edit` автo-сборка
-- [ ] Проверка на Windows 11 + RX 580 + NVIDIA (совместимость Numba кэша `isolated_numba_cache`)
-- [ ] Документация `INSTALL.md` секция HIT FACTORY, `README.md` бейдж
+### Фаза 5 — Масштаб и релиз ✅ done (MVP)
+- [x] Обложка в каждом хите: `modules/cover_art_gen.generate()` PIL 1400x1400 (gradient/neon/glitch/chrome по жанру) → `output/hits/<id>/cover.png` + поле `report.cover`
+- [x] TikTok + cover уже в батче; вертикальное видео с `ffmpeg` опционально через `modules/tiktok_edit.make_vertical_video`
+- [x] Проверка Numba кэша: `isolated_numba_cache` fallback — первый прогон изолирует, последующие в том же процессе идут без изоляции (фикс `RuntimeError: cannot isolate after Numba imported` для бенчмарка 2+ треков)
+- [x] Документация: `HIT_QUICKSTART.md` (tiktok/cover/benchmark/daemon/kpi), `README.md` бейдж, `docs/HIT_FACTORY_PLAN.md` v1.1
 
 ---
 

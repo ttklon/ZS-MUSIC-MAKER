@@ -36,9 +36,20 @@ def run_daemon(
     run_idx = 0
     print(f"[DAEMON] HIT FACTORY daemon started: every {interval_hours}h, {count_per_run} hits/run, genre={genre or 'auto'}")
     print(f"[DAEMON] Log: {log_path}  — Ctrl+C to stop")
+    # Phase 4: авто-обновление трендов раз в 24ч (trend_scout кэш 24ч)
+    last_trend_update = 0.0
     while True:
         run_idx += 1
         ts = time.strftime("%Y-%m-%d %H:%M:%S")
+        # тренды
+        try:
+            if time.time() - last_trend_update > 86400:
+                from agents.trend_scout import scout
+                # прогрев кэша трендов для текущего жанра/темы
+                scout(theme or "лето, тачки, движ", offline_only=False)
+                last_trend_update = time.time()
+        except Exception:
+            pass
         try:
             batch = factory.make_batch(count=count_per_run, genre=genre, theme=theme)
             scores = [float(b.get("hit_score") or 0) for b in batch]
@@ -49,6 +60,12 @@ def run_daemon(
             log_path.parent.mkdir(parents=True, exist_ok=True)
             with log_path.open("a", encoding="utf-8") as f:
                 f.write(msg + "\n")
+            # KPI агрегат после каждого батча
+            try:
+                from modules.hit_factory.kpi import build_kpi
+                build_kpi(output_root, save=True)
+            except Exception:
+                pass
         except KeyboardInterrupt:
             print("\n[DAEMON] остановлен пользователем (Ctrl+C)")
             break
