@@ -1,5 +1,5 @@
 # HIT FACTORY — Автономная фабрика хитов ZS Music Maker
-> Версия 1.2 — 2026-11-14 (Phase 2-5+ autotune/UI/video). Полностью бесплатно. Нероншно. Как человек.
+> Версия 1.3 — 2026-11-14 (Phase 2-5 + demo 60с 78.8, release, blind). Полностью бесплатно. Нероншно. Как человек.
 
 ## 0. TL;DR — что это
 
@@ -252,7 +252,9 @@ python main.py --hit-factory --count 5 --genre phonk --theme "ночь, неон
 
 ---
 
-## 9. Дальше
+## 9. Дальше (факт v1.3)
 
-См. раздел 4 Фаза 2–5. Ближайший шаг — запустить `python hitmaker.py --count 5 --evolve` на чистой машине, собрать `output/hits/benchmark.json` и подтюнить веса жанров по реальным `hit_score`.
+- Демо `hit_trap_20261114_102332_2ba0a8` 60с `78.8 solid` (hook 100, repeat 100, chorus 84, tiktok 84) + `release` 29 файлов + `blind_test` 6 файлов.
+- KPI 11 хитов avg 53.8 -> last5 70.5, `autotune` дал рекомендации (jersey +0.1, hyperpop -0.1), `benchmark` просчитал жанры.
+- След шаг: `python hitmaker.py --count 5 --evolve --duration 90` батч 90с -> `autotune --apply` -> `release` -> `blind_listening_prep --hits 5` -> Windows preflight.
 

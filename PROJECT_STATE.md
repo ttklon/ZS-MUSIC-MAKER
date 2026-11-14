@@ -1,12 +1,25 @@
 # PROJECT_STATE
 
-> Состояние репозитория `ZS-MUSIC-MAKER` на 2026-11-03 (версия 41.0.0-alpha.16).
+> Состояние репозитория `ZS-MUSIC-MAKER` на 2026-11-14 (версия 41.0.0-alpha.18).
 > Сгенерировано `python -m tools.readiness --json`.
 
-## Готовность по внутреннему счётчику: 65.0 %
+## Готовность по внутреннему счётчику: 68.5 %
 
 Это технический индикатор наличия компонентов, а не процент реализации
 пользовательского сценария и не подтверждение качества музыки.
+
+
+## HIT FACTORY v1.3 (2026-11-14) — автономная фабрика хитов (бесплатно, нероншно)
+
+Статус: `VERSION 41.0.0-alpha.18`. Фабрика поверх DSP: `HitFactory.make_one/make_batch` (`modules/hit_factory/*`) + `hitmaker.py` + `main.py --hit-factory` + `daemon` (24ч trend) + `benchmark/kpi/autotune/ui/release`.
+
+Демо: `hit_trap_20261114_102332_2ba0a8` 60с `hit_score 78.8 solid` (hook_energy 100, hook_repeat 100, chorus 84.43, drop 59, tiktok 84.38, BPM fitness 99, stereo 0.67, low_end 12.7) — trap 150 BPM seed2024, `masters 21МБ`, `tiktok 15s/30s/hook_loop`, `cover 1400px`, `release 29 файлов` в `output/releases/`.
+
+KPI `output/hits/hits_kpi.json/.md`: total 11, avg 53.81, last5 70.5, best 78.8 trap / worst 0.0 hyperpop, `genre_avg jersey70.36 trap69.47 phonk66.49 drift39.87 hyperpop29.82`. Autotune рекомендации: jersey 0.9->1.0, trap1.0->1.05, hyper0.8->0.7, drift1.0->0.9; top BPM bucket 150-160 64.59.
+
+Blind: `tools/blind_listening_prep.py --hits3` -> `output/blind_test/ 01..06.wav` + `_key.json/.txt` по `docs/BLIND_LISTENING.md`. Release: `python -m modules.hit_factory.release` -> `output/releases/<id>/` (masters + tiktok + cover + отчеты + manifest).
+
+Ресурсы: CPU 2 ядра 3.85GB RAM, без GPU/ffmpeg (soft-fail `tiktok_video ok false`), 11 хитов ~ minutes; детерминизм seed+BPM+genre. Ограничения: scaffold-инструментал без eSpeak/GPU, hit_score эвристика не гарантия чарта, Windows/микрофон/GPU inference не проверены (Linux CPU only, pytest 841p).
 
 ## Модули
 

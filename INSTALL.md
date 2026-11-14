@@ -1,6 +1,6 @@
 # 🛠 INSTALL — ZS Music Maker v41
 
-> Актуальная версия: **41.0.0-alpha.16**. Единый источник правды — `version.json`.
+> Актуальная версия: **41.0.0-alpha.18**. Единый источник правды — `version.json`.
 
 ## 1. Быстрый старт (Windows 11)
 
@@ -36,6 +36,16 @@ python main.py --ai-status   # наличие зависимостей/част�
 python main.py --ai --dry-run --genre phonk --theme "night"  # безопасный AI pipeline dry-run
 python install.py --dry-run --ai  # план core + faster-whisper, без изменений
 python tools/pull_ai_models.py --help  # сверка/pull role-scoped model artifacts
+```
+
+### HIT FACTORY (бесплатно, без тяжёлых моделей)
+
+```
+python hitmaker.py --count 5 --evolve --min-score 68   # 5 хитов, эволюция до solid
+python hitmaker.py --genre trap --theme "ночь, деньги, движ" --seed 42 --duration 90
+python -m modules.hit_factory.release                  # лучший хит -> output/releases/
+python tools/blind_listening_prep.py --hits 5          # output/blind_test/ для слепого теста
+# подробнее: HIT_QUICKSTART.md
 ```
 
 
