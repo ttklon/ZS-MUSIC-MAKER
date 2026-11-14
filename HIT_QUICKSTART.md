@@ -158,5 +158,15 @@ cat output/hits/hits_kpi.md
 **Где план развития?**  
 `docs/HIT_FACTORY_PLAN.md` — 5 фаз от скелета до масштаба + KPI dashboard.
 
+**Видео?**  
+Если установлен `ffmpeg` — фабрика делает `tiktok/tiktok_15s.mp4` (9:16, обложка+аудио). Без `ffmpeg` — пропускает, трек всё равно готов.
+
+**Автотюнинг?**  
+```bash
+python -m modules.hit_factory.autotune            # рекомендации по весам жанров
+python -m modules.hit_factory.autotune --apply    # переписать HIT_GENRE_WEIGHTS в config.py
+python -m modules.hit_factory.ui                  # Gradio веб-UI: один хит / батч / KPI
+```
+
 ---
-ZS Music Maker HIT FACTORY v1.0 — 2026-11-14
+ZS Music Maker HIT FACTORY v1.2 — 2026-11-14 (autotune+UI+video)

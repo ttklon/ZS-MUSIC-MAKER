@@ -1,8 +1,22 @@
 # CHANGELOG
 
-> Актуальная версия: **41.0.0-alpha.16** (2026-11-03). План рефакторинга —
+> Актуальная версия: **41.0.0-alpha.17** (2026-11-14). План рефакторинга —
 > `docs/ROADMAP.md`, состояние — `PROJECT_STATE.md`.
 > История до v40 сохранена ниже как архив: удалённый `SESSION_LOG.md` больше не поддерживается.
+
+
+## alpha.17 — HIT FACTORY v1.1-1.2 (Phase 2-5, 2026-11-14)
+
+- Автономная фабрика: `HitFactory.make_one/make_batch` + `hitmaker.py` + `main.py --hit-factory`
+  эволюция `mutate(seed/BPM/aggression)` по `hit_score` (12 метрик) до `solid 68`/`chart 82`, детерминизм seed, изоляция Numba кэша с fallback для батча.
+- Каждый хит: `beat` (sample_bank+procedural, humanize ±9мс, swing, ghost, velocity, round-robin) →
+  `anti_neuro` (дыхания, микропровалы, детюн, de_plastic, consonant_boost) → микс/8 мастеров → `tiktok/tiktok_15s.wav` (вирусный кусок), `tiktok_30s.wav`, `hook_loop.wav` (`tiktok_edit`) +
+  `cover.png` 1400 PIL (neon/glitch/gradient по жанру) + вертикальное видео `tiktok_15s.mp4` если `ffmpeg` есть.
+- Бенчмарк `modules/hit_factory/benchmark.py`: A/B по жанрам (avg/max/solid_rate, recommendations) → `benchmark_*.json`.
+- KPI `modules/hit_factory/kpi.py`: `hits_kpi.json/.md` (total/avg/last5/verdict_dist/genre_avg/best/worst).
+- Даемон `daemon.py`: бесконечный генератор `interval_hours` с авто-прогревом `trend_scout` 24ч и KPI, `autotune.py` — рекомендации `HIT_GENRE_WEIGHTS` из реальных `hit_score` (`--apply`).
+- Gradio UI `modules/hit_factory/ui.py`: вкладка HIT FACTORY (один хит/батч/KPI) → `python -m modules.hit_factory.ui`.
+- Версия bump `41.0.0-alpha.17`, план `docs/HIT_FACTORY_PLAN.md` v1.1, `HIT_QUICKSTART.md` v1.2.
 
 ## После alpha.16 — защита от штатного закрытия во время работы
 

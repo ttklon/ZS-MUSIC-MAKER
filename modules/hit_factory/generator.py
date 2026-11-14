@@ -219,7 +219,20 @@ class HitFactory:
                 report["cover"] = cover_res
             except Exception as exc:  # noqa: BLE001
                 report["cover"] = {"ok": False, "error": f"{type(exc).__name__}: {exc}"}
-            # Перезаписываем report.json с tiktok и cover (иначе на диске старые данные)
+            # Вертикальное видео (если ffmpeg есть) — tiktok_15s + cover → 9:16 mp4
+            try:
+                from modules.tiktok_edit import make_vertical_video
+                tiktok_15 = Path(out_root) / "tiktok" / "tiktok_15s.wav"
+                cover_png = Path(out_root) / "cover.png"
+                if tiktok_15.exists() and cover_png.exists():
+                    vid_out = str(Path(out_root) / "tiktok" / "tiktok_15s.mp4")
+                    vres = make_vertical_video(str(tiktok_15), vid_out, str(cover_png))
+                    report["tiktok_video"] = vres
+                else:
+                    report["tiktok_video"] = {"ok": False, "reason": "tiktok or cover missing"}
+            except Exception as exc:
+                report["tiktok_video"] = {"ok": False, "error": f"{type(exc).__name__}: {exc}"}
+            # Перезаписываем report.json с tiktok и cover и video (иначе на диске старые данные)
             try:
                 import json
                 (Path(out_root) / "report.json").write_text(json.dumps(report, ensure_ascii=False, indent=2, default=str), encoding="utf-8")

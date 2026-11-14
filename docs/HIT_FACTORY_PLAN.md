@@ -1,5 +1,5 @@
 # HIT FACTORY — Автономная фабрика хитов ZS Music Maker
-> Версия 1.1 — 2026-11-14 (Phase 2-5 MVP done). Полностью бесплатно. Нероншно. Как человек.
+> Версия 1.2 — 2026-11-14 (Phase 2-5+ autotune/UI/video). Полностью бесплатно. Нероншно. Как человек.
 
 ## 0. TL;DR — что это
 
@@ -170,6 +170,7 @@ factory.make_batch(count=10, evolve=True, parallel=False)
 - [x] Авто-тренд: daemon каждые 24ч вызывает `trend_scout.scout(theme, offline_only=False)` → обновляет кэш `lyric_vault/trends_cache.json` (24ч TTL), offline fallback всегда работает
 - [x] `modules/hit_factory/kpi.py` — агрегатор `output/hits/hits_kpi.json/.md` (total, avg_score, last5_avg, verdict_dist, genre_avg, best/worst, последние 20) + `python -m modules.hit_factory.kpi`
 - [x] Интеграция с `modules/kpi_dashboard`: hits_kpi можно подключить как источник, factory пишет `hits_kpi.json` после каждого батча/хита
+- [x] `modules/hit_factory/autotune.py` — авто-рекомендации `HIT_GENRE_WEIGHTS` из `hits_kpi` (`--apply`), `modules/hit_factory/ui.py` — Gradio вкладка `HIT FACTORY` (один хит/батч/KPI)
 
 ### Фаза 5 — Масштаб и релиз ✅ done (MVP)
 - [x] Обложка в каждом хите: `modules/cover_art_gen.generate()` PIL 1400x1400 (gradient/neon/glitch/chrome по жанру) → `output/hits/<id>/cover.png` + поле `report.cover`
