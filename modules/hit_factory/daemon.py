@@ -48,8 +48,8 @@ def run_daemon(
                 # прогрев кэша трендов для текущего жанра/темы
                 scout(theme or "лето, тачки, движ", offline_only=False)
                 last_trend_update = time.time()
-        except Exception:
-            pass
+        except Exception as _exc:
+            print(f"[hit_factory] ignored: {_exc}")
         try:
             batch = factory.make_batch(count=count_per_run, genre=genre, theme=theme)
             scores = [float(b.get("hit_score") or 0) for b in batch]
@@ -64,8 +64,8 @@ def run_daemon(
             try:
                 from modules.hit_factory.kpi import build_kpi
                 build_kpi(output_root, save=True)
-            except Exception:
-                pass
+            except Exception as _exc:
+                print(f"[hit_factory] ignored: {_exc}")
         except KeyboardInterrupt:
             print("\n[DAEMON] остановлен пользователем (Ctrl+C)")
             break
@@ -75,8 +75,8 @@ def run_daemon(
             try:
                 with log_path.open("a", encoding="utf-8") as f:
                     f.write(msg + "\n")
-            except Exception:
-                pass
+            except Exception as _exc:
+                print(f"[hit_factory] ignored: {_exc}")
         if interval_hours <= 0:
             break
         print(f"[DAEMON] sleep {interval_hours}h until next run ...")

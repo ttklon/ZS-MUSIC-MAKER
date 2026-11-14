@@ -31,8 +31,8 @@ def collect_hits(output_root: str | Path = "output/hits") -> list[dict[str, Any]
                     h = json.loads(hr.read_text(encoding="utf-8"))
                     hit_score = h.get("hit_score")
                     verdict = h.get("verdict") or verdict
-                except Exception:
-                    pass
+                except Exception as _exc:
+                    print(f"[kpi] hit_report parse failed {hr}: {_exc}")
             if hit_score is None:
                 # ищем в stages
                 for st in data.get("stages", []):

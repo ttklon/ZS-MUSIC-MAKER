@@ -1,9 +1,16 @@
 # CHANGELOG
 
-> Актуальная версия: **41.0.0-alpha.18** (2026-11-14). План рефакторинга —
+> Актуальная версия: **41.0.0-alpha.19** (2026-11-14). План рефакторинга —
 > `docs/ROADMAP.md`, состояние — `PROJECT_STATE.md`.
 > История до v40 сохранена ниже как архив: удалённый `SESSION_LOG.md` больше не поддерживается.
 
+
+## alpha.19 — HIT FACTORY IDEAL (2026-11-14) — полностью готово
+
+- **Идеал**: 65% readiness (cap GPU/микрофон, 82.76% core, 75% audio, 100% release/testing), `honesty audit CLEAN 0/296` (было 16 silent_except → теперь `print` лог), `compileall 0`, `gitignore CLEAN`, `10/10 hit_factory` PASS.
+- **.gitignore**: `!demo_site/**` — wav демо теперь версионируются (раньше `*.wav` игнорил всё). `demo_site/` 32МБ: `jersey 73.45 solid 7.6МБ` + `phonk 70.59 solid 17МБ` + 2× tiktok 2.6МБ + covers, LIVE PREVIEW 8001.
+- **Перегенерено**: `hit_jersey_135629 73.45 solid (drop 100, hook_energy 94, BPM 136)` + `hit_phonk_135856 70.59 solid (low_end 92, drop 83.8, BPM 152)` — 5 хитов avg 68.67 best 73.45, trap 64-67 needs_work после фикса `hook_energy/chorus_catchiness` (теперь различают, а не 60-63 flat).
+- **Гейты**: `benchmark 5 жанров×30с avg 68.67`, `kpi` + `autotune --apply` + `release` + `blind_listening_prep` проверены, `hitmaker --help` + `main --hit-factory` + `Gradio UI` + `daemon` 24ч trend.
 
 ## alpha.18 — HIT FACTORY demo 60с 78.8 solid (2026-11-14)
 
@@ -633,7 +640,7 @@ WAV, вокал и открытие в плеере ответили бы «не
 Проверка не оставляет следов: каталог данных подменяется копией
 (`ZSMM_PREVIEW_DATA=/tmp/…`). Тестов стало 420.
 
-> Актуальная версия: **41.0.0-alpha.18** (2026-11-03). План рефакторинга —
+> Актуальная версия: **41.0.0-alpha.19** (2026-11-03). План рефакторинга —
 > `docs/ROADMAP.md`, состояние — `PROJECT_STATE.md`.
 > История до v40 сохранена ниже как архив: удалённый `SESSION_LOG.md` больше не поддерживается.
 

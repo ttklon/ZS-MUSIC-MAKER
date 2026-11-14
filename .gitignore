@@ -53,6 +53,8 @@ logs/
 *.wav
 # Скриншоты окна — это документация (docs/screenshots/), а не артефакты.
 !docs/screenshots/**
+# Демо-превью HIT FACTORY — коммитится для прослушки в LIVE PREVIEW
+!demo_site/**
 *.mp3
 *.flac
 *.m4a

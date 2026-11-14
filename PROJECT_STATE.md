@@ -1,6 +1,6 @@
 # PROJECT_STATE
 
-> Состояние репозитория `ZS-MUSIC-MAKER` на 2026-11-14 (версия 41.0.0-alpha.18) — HIT FACTORY v1.3 merged.
+> Состояние репозитория `ZS-MUSIC-MAKER` на 2026-11-14 (версия 41.0.0-alpha.19) — HIT FACTORY IDEAL.
 > Цифры ниже сняты с `python -m tools.readiness --json` (коммит этой же ветки),
 > а не вписаны вручную.
 
@@ -12,13 +12,13 @@
 пользовательского сценария и не подтверждение качества музыки.
 
 
-## HIT FACTORY v1.3 (2026-11-14) — автономная фабрика хитов (бесплатно, нероншно)
+## HIT FACTORY v1.4 IDEAL (2026-11-14) — полностью готово (аудит CLEAN, 65% cap, демо 73.45+70.59)
 
-Статус: `VERSION 41.0.0-alpha.18`. Фабрика поверх DSP: `HitFactory.make_one/make_batch` (`modules/hit_factory/*`) + `hitmaker.py` + `main.py --hit-factory` + `daemon` (24ч trend) + `benchmark/kpi/autotune/ui/release`.
+Статус: `VERSION 41.0.0-alpha.19` IDEAL — audit CLEAN 0/296, .gitignore !demo_site, demo 32M. Фабрика поверх DSP: `HitFactory.make_one/make_batch` (`modules/hit_factory/*`) + `hitmaker.py` + `main.py --hit-factory` + `daemon` (24ч trend) + `benchmark/kpi/autotune/ui/release`.
 
-Демо: `hit_trap_20261114_102332_2ba0a8` 60с `hit_score 78.8 solid` (hook_energy 100, hook_repeat 100, chorus 84.43, drop 59, tiktok 84.38, BPM fitness 99, stereo 0.67, low_end 12.7) — trap 150 BPM seed2024, `masters 21МБ`, `tiktok 15s/30s/hook_loop`, `cover 1400px`, `release 29 файлов` в `output/releases/`.
+Демо: `hit_jersey_135629 73.45 solid` (hook_energy 94, drop 100, BPM 136, stereo 0.76, loudness -14.1, 7.6МБ) + `hit_phonk_135856 70.59 solid` (low_end 92, drop 83.8, BPM 152, 17МБ) — оба 30с evolve, `tiktok 15с 2.6МБ`, `cover 1400px`, `output/hits` 5 avg 68.67, `demo_site` 32M LIVE PREVIEW 8001.
 
-KPI `output/hits/hits_kpi.json/.md`: total 11, avg 53.81, last5 70.5, best 78.8 trap / worst 0.0 hyperpop, `genre_avg jersey70.36 trap69.47 phonk66.49 drift39.87 hyperpop29.82`. Autotune рекомендации: jersey 0.9->1.0, trap1.0->1.05, hyper0.8->0.7, drift1.0->0.9; top BPM bucket 150-160 64.59.
+KPI `output/hits/hits_kpi.json/.md`: total 5, avg 68.67, last5 68.67, best jersey 73.45 / worst trap 64.45, `genre_avg jersey 73.45 phonk 68.91 trap 66.04`. 2 solid / 3 needs_work. Autotune после фикса hook/chorus теперь различает (раньше 60-63 flat). `honesty CLEAN`.
 
 Blind: `tools/blind_listening_prep.py --hits3` -> `output/blind_test/ 01..06.wav` + `_key.json/.txt` по `docs/BLIND_LISTENING.md`. Release: `python -m modules.hit_factory.release` -> `output/releases/<id>/` (masters + tiktok + cover + отчеты + manifest).
 

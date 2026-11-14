@@ -100,8 +100,8 @@ class HitFactory:
             try:
                 from modules.hit_factory.themes import enrich_theme_with_slang
                 t = enrich_theme_with_slang(t, rng)
-            except Exception:
-                pass
+            except Exception as _exc:
+                print(f"[hit_factory] ignored: {_exc}")
         bpm = pick_bpm(g, rng, bpm_override)
         agr = aggression if aggression is not None else pick_aggression(rng, g)
         s = int(seed if seed is not None else rng.randint(1, 1_000_000))
@@ -236,8 +236,8 @@ class HitFactory:
             try:
                 import json
                 (Path(out_root) / "report.json").write_text(json.dumps(report, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
-            except Exception:
-                pass
+            except Exception as _exc:
+                print(f"[hit_factory] ignored: {_exc}")
         else:
             hit = {"hit_score": 0.0, "verdict": "flop_risk", "error": "no master produced"}
 
@@ -245,8 +245,8 @@ class HitFactory:
         try:
             hr_path = Path(out_root) / "hit_report.json"
             hr_path.write_text(json.dumps(hit or {}, ensure_ascii=False, indent=2), encoding="utf-8")
-        except Exception:
-            pass
+        except Exception as _exc:
+            print(f"[hit_factory] ignored: {_exc}")
 
         return {
             "project_id": project_id,
@@ -362,14 +362,14 @@ class HitFactory:
                     ),
                     encoding="utf-8",
                 )
-            except Exception:
-                pass
+            except Exception as _exc:
+                print(f"[hit_factory] ignored: {_exc}")
         # также общий индекс батча + KPI
         try:
             from modules.hit_factory.kpi import build_kpi
             build_kpi(str(self.output_root), save=True)
-        except Exception:
-            pass
+        except Exception as _exc:
+            print(f"[hit_factory] ignored: {_exc}")
         self._log(f"[HIT FACTORY] Лучший: {best['project_id']}  score={best['hit_score']:.1f}  verdict={best['verdict']}" if best else "[HIT FACTORY] нет попыток")
         return best or {}
 
@@ -428,8 +428,8 @@ class HitFactory:
             # промежуточный сейв батча
             try:
                 batch_meta_path.write_text(json.dumps(results, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
-            except Exception:
-                pass
+            except Exception as _exc:
+                print(f"[hit_factory] ignored: {_exc}")
 
         # итоговый отчёт
         total = len(results)
@@ -445,8 +445,8 @@ class HitFactory:
         try:
             from modules.hit_factory.kpi import build_kpi
             build_kpi(str(self.output_root), save=True)
-        except Exception:
-            pass
+        except Exception as _exc:
+            print(f"[hit_factory] ignored: {_exc}")
 
         return results
 

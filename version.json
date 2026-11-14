@@ -1,6 +1,6 @@
 {
-  "version": "41.0.0-alpha.18",
-  "build": "v41.0.0-alpha.18-hit-factory-demo-2026-11-14",
-  "based_on": "41.0.0-alpha.17",
-  "changes": "alpha.18: demo 60с trap 78.8 solid (hook 100, repeat 100, chorus 84), KPI last5 70.5 vs global 53.8, autotune рекомендации, release autopilot output/releases, blind_listening_prep output/blind_test, 11 хитов total."
+  "version": "41.0.0-alpha.19",
+  "build": "v41.0.0-alpha.19-hit-factory-ideal-2026-11-14",
+  "based_on": "41.0.0-alpha.18",
+  "changes": "alpha.19 IDEAL: audit_honesty CLEAN (16 silent_except → logged), .gitignore !demo_site/**, demo 30с jersey 73.45 + phonk 70.59 solid (evolve), readiness 65% cap, 10/10 hit_factory tests, 2 LIVE PREVIEW demos 32M."
 }
