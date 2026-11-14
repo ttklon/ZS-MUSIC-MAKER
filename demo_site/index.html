@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="ru">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ZS Music Maker — HIT FACTORY Demo 69.34 solid</title>
+<style>
+body{font-family:Inter,system-ui,sans-serif;background:#0f0f12;color:#eee;margin:0;padding:32px}
+h1{font-size:28px;margin:0 0 8px}h2{font-size:18px;color:#aaa;font-weight:400;margin:0 0 24px}
+.card{background:#1a1a1f;border-radius:16px;padding:24px;max-width:720px;margin:0 auto 24px;box-shadow:0 8px 32px rgba(0,0,0,.4)}
+audio{width:100%;margin:12px 0} .tag{display:inline-block;background:#2a2a3a;border-radius:999px;padding:4px 10px;font-size:12px;margin:4px 6px 4px 0}
+.cover{width:100%;max-width:520px;border-radius:12px;display:block;margin:16px auto}
+.meta{font-size:13px;color:#888;line-height:1.5}
+a{color:#7aa5ff}
+</style>
+<div class="card">
+<h1>ZS MUSIC MAKER — HIT FACTORY</h1>
+<h2>demo trap “ночная гонка в неоне” — 30с — hit_score <b>69.34 solid</b> • seed 2024 • BPM 150 • 2026-11-14</h2>
+<img class="cover" src="cover.png" alt="cover">
+<div>
+<span class="tag">trap 150 BPM</span><span class="tag">hook_repeat 100</span><span class="tag">chorus 83.7</span><span class="tag">stereo 0.72</span><span class="tag">low_end 11.2</span><span class="tag">tiktok 65</span>
+</div>
+<h3 style="margin:24px 0 8px">▶ Полный мастер (30с, streaming -18.8 dBFS, 11МБ)</h3>
+<audio controls preload="metadata" src="demo_trap69_master.wav"></audio>
+<div class="meta">master_streaming.wav — 8 мастер-стендов, sidechain, width 0.72, novelty 100. Если не играет — скачай: <a href="demo_trap69_master.wav" download>скачать WAV</a></div>
+
+<h3 style="margin:24px 0 8px">▶ TikTok 15с вирусный кусок (hook 3-28с)</h3>
+<audio controls preload="metadata" src="demo_tiktok15.wav"></audio>
+<div class="meta">tiktok_15s.wav — 25с срез “immediate hook + sustained energy” для Reels/Shorts/hook_loop — <a href="demo_tiktok15.wav" download>скачать</a></div>
+
+<div class="meta" style="margin-top:24px">
+<p>Как сгенерил: <code>python hitmaker.py --genre trap --seed 2024 --duration 30</code> — бесплатно (numpy/scipy/CC0 808), humanize ±9мс + anti_neuro (дыхания/микропровалы/детюн), mix/master 8 стендов, tiktok + 1400 cover. Код в ветке <code>arena/875bf0ff</code> и уже в <code>main</code>.</p>
+<p>Ещё хиты: <code>python hitmaker.py --count 5 --evolve --min-score 68 --duration 90</code> • KPI: <code>python -m modules.hit_factory.kpi</code> • релиз: <code>python -m modules.hit_factory.release</code> → <code>output/releases/&lt;id&gt;/</code> • UI: <code>python -m modules.hit_factory.ui</code></p>
+
+<h3 style="margin:24px 0 8px">▶ Jersey club 30с — второй демо</h3>
+<audio controls preload="metadata" src="demo_jersey_master.wav"></audio>
+<div class="meta">jersey master — <a href="demo_jersey_master.wav" download>скачать</a> | tiktok 15с — <audio controls preload="metadata" src="demo_jersey_tiktok15.wav"></audio> <a href="demo_jersey_tiktok15.wav" download>скачать tiktok</a></div>
+<img class="cover" src="cover_jersey.png" alt="jersey cover">
+</div>
+</div>
