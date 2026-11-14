@@ -168,5 +168,12 @@ python -m modules.hit_factory.autotune --apply    # переписать HIT_GEN
 python -m modules.hit_factory.ui                  # Gradio веб-UI: один хит / батч / KPI
 ```
 
+**Релиз и слепое прослушивание?**
+```bash
+python -m modules.hit_factory.release             # лучший хит → output/releases/<id>/
+python tools/blind_listening_prep.py --hits 5     # output/blind_test/01..10.wav + _key.txt
+# затем слушай по docs/BLIND_LISTENING.md и заполни docs/BLIND_LISTENING_RESULT.md
+```
+
 ---
-ZS Music Maker HIT FACTORY v1.2 — 2026-11-14 (autotune+UI+video)
+ZS Music Maker HIT FACTORY v1.3 — 2026-11-14 (release+blind+demo 78.8)

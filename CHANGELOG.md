@@ -1,9 +1,16 @@
 # CHANGELOG
 
-> Актуальная версия: **41.0.0-alpha.17** (2026-11-14). План рефакторинга —
+> Актуальная версия: **41.0.0-alpha.18** (2026-11-14). План рефакторинга —
 > `docs/ROADMAP.md`, состояние — `PROJECT_STATE.md`.
 > История до v40 сохранена ниже как архив: удалённый `SESSION_LOG.md` больше не поддерживается.
 
+
+## alpha.18 — HIT FACTORY demo 60с 78.8 solid (2026-11-14)
+
+- Демо `hit_trap_20261114_102332_2ba0a8` 60с: `hit_score 78.8 solid` (hook_energy 100, repeat 100, chorus 84, tiktok 84, BPM 99 trap sweet, stereo 0.67, low_end 12.7) — `tiktok/tiktok_15s.wav` + `cover.png` + `masters` 21МБ, `release` 29 файлов.
+- KPI `hits_kpi.json`: 11 хитов, `avg 53.81 → last5 70.5`, `best trap 78.8`, `genre_avg jersey 70.36, trap 69.47, phonk 66.49`; `autotune` → jersey +0.1, hyperpop -0.1.
+- `modules/hit_factory/release.py`: автопубликация лучшего хита в `output/releases/<id>/` + `publish_manifest.json`.
+- `tools/blind_listening_prep.py`: подготовка `output/blind_test/01..06.wav` + `_key.txt` по `docs/BLIND_LISTENING.md` (6 файлов, 3 хита vs 3 псевдо-референса).
 
 ## alpha.17 — HIT FACTORY v1.1-1.2 (Phase 2-5, 2026-11-14)
 
