@@ -4,6 +4,7 @@ modules.hit_factory.generator — сердце фабрики: HitFactory.
 
 Вызывает run_full_pipeline (бесплатный DSP), меряет hit_score, эволюционирует.
 Изолирует Numba кэш на каждый прогон (обходит краш параллельных либрос).
+Рефактор 41.1.2: тяжёлые методы вынесены в _state/_runner для лимита 400 строк.
 """
 from __future__ import annotations
 
@@ -14,8 +15,6 @@ import time
 import uuid
 from pathlib import Path
 from typing import Any
-
-from app.core.numba_cache import isolated_numba_cache
 
 _LOG = logging.getLogger(__name__)
 
@@ -29,18 +28,7 @@ except Exception as exc:  # noqa: BLE001
 else:
     _IMPORT_ERROR = None
 
-
-from modules.hit_factory.config import HIT_THRESHOLDS
 from modules.hit_factory.evolver import mutate, select_best, should_evolve
-from modules.hit_factory.humanizer import ensure_human
-from modules.hit_factory.themes import (
-    build_random_recipe_overrides,
-    pick_aggression,
-    pick_bpm,
-    pick_genre,
-    pick_theme,
-    trend_context,
-)
 
 try:
     from modules.hit_factory.adaptive import get_adaptive_config, log_adaptive
@@ -72,14 +60,11 @@ class HitFactory:
     ):
         self.output_root = Path(output_root)
         self.output_root.mkdir(parents=True, exist_ok=True)
-        # адаптация под железо — на любом компе подберёт лёгкий/тяжёлый путь
         self.adaptive_cfg = get_adaptive_config() if adaptive else {}
         if adaptive and self.adaptive_cfg:
             log_adaptive()
-        # если не задано — берём из адаптива, иначе дефолт
         self.min_score = float(min_score)
         self.evolve = bool(evolve)
-        # max_attempts: адаптив 2-3, иначе 3
         if max_attempts is None:
             max_attempts = self.adaptive_cfg.get("max_attempts", 3) if adaptive else 3
         self.max_attempts = max(1, int(max_attempts))
@@ -91,11 +76,9 @@ class HitFactory:
         self.human_preset = str(human_preset)
         self.verbose = verbose
         self.adaptive = bool(adaptive)
-        # логируем выбор
         if adaptive:
             self._log(f"[ADAPTIVE] HitFactory level={self.adaptive_cfg.get('level')} {self.adaptive_cfg.get('level_name')} duration={self.duration_sec} attempts={self.max_attempts} human={self.human_preset}")
 
-    # --------------------------------------------------------------- helpers
     def _log(self, msg: str) -> None:
         if self.verbose:
             print(msg, flush=True)
@@ -115,63 +98,11 @@ class HitFactory:
         duration_sec: int | None,
         rng: random.Random,
     ) -> dict[str, Any]:
-        """Собирает wizard_state для run_full_pipeline."""
-        g = genre or pick_genre(rng)
-        t = theme or pick_theme(rng)
-        # Phase 2: обогащаем тему сленгом 2026 для вирусности (если тема авто)
-        if not theme:
-            try:
-                from modules.hit_factory.themes import enrich_theme_with_slang
-                t = enrich_theme_with_slang(t, rng)
-            except Exception as _exc:
-                print(f"[hit_factory] ignored: {_exc}")
-        bpm = pick_bpm(g, rng, bpm_override)
-        agr = aggression if aggression is not None else pick_aggression(rng, g)
-        # адаптив: на слабом железе делаем агрессивнее чтобы не было игрушечно
-        if self.adaptive and self.adaptive_cfg.get("enhanced_dsp"):
-            agr = max(agr, 0.75)  # минимум 0.75 для динамики loud-quiet
-        s = int(seed if seed is not None else rng.randint(1, 1_000_000))
-        dur = int(duration_sec or self.duration_sec or 120)
+        from modules.hit_factory._state import build_wizard_state
 
-        # Phase 2: тренд-контекст для lyrics (hype_words в заметки)
-        try:
-            tc = trend_context(t)
-            hype_str = ", ".join((tc.get("hype_words") or [])[:6])
-        except Exception:
-            hype_str = ""
-        # адаптивный выбор движков под любое железо
-        beat_engine = None
-        if self.adaptive and self.adaptive_cfg.get("use_acestep"):
-            beat_engine = "ace_step"  # если сервер есть — нейросеть, иначе процедурка
-        # vocal: если есть torch — пробуем silero, иначе scaffold (честно BLOCKED)
-        voice_mode = "pro"
-        if self.adaptive and self.adaptive_cfg.get("use_silero"):
-            voice_mode = "pro"  # pro уже пробует silero→xtts→bark→pyttsx3
-        state: dict[str, Any] = {
-            "genre": g,
-            "theme": t,
-            "preset": None,
-            "bpm_override": bpm,
-            "aggression": agr,
-            "seed": s,
-            "duration_sec": dur,
-            "n_verses": 2,
-            "voice_mode": voice_mode,
-            "use_rvc": False,
-            "use_vocal_fx": True,  # Phase 3: форсим человечность — всегда FX
-            "export_stems": False,  # быстрее для фабрики; включаем если нужно
-            "bilingual": True,
-            "quality_mode": "quality",
-            "stands": ["streaming", "tiktok", "club"],
-            "references": [],
-            "trend_notes": hype_str,
-            "artist": "ZS Producer",
-            "adaptive_level": self.adaptive_cfg.get("level", 0) if self.adaptive else 0,
-            "enhanced_dsp": bool(self.adaptive_cfg.get("enhanced_dsp", True)) if self.adaptive else True,
-        }
-        if beat_engine:
-            state["beat_engine"] = beat_engine
-        return state
+        return build_wizard_state(
+            self.adaptive_cfg, self.duration_sec, genre, theme, bpm_override, aggression, seed, duration_sec, rng, self.adaptive
+        )
 
     def _run_pipeline_once(
         self,
@@ -179,173 +110,12 @@ class HitFactory:
         wizard_state: dict[str, Any],
         rng: random.Random,
     ) -> dict[str, Any]:
-        """Один прогон пайплайна + скор."""
         if run_full_pipeline is None:
             raise RuntimeError(f"HitFactory unavailable: {_IMPORT_ERROR}")
+        from modules.hit_factory._runner import run_pipeline_once
 
-        out_root = self.output_root / project_id
+        return run_pipeline_once(project_id, wizard_state, self.output_root, self.human_preset, self.verbose, self._log, rng)
 
-        # колбэк прогресса для логов
-        def on_stage(name: str, status: str, idx: int, total: int) -> None:
-            self._log(f"  [{idx}/{total}] {name}: {status}")
-
-        # Изолируем Numba кэш на первый прогон; после импорта numba — просто прямой вызов
-        # (иначе RuntimeError: cannot isolate after Numba imported, см. app/core/numba_cache.py)
-        try:
-            # пробуем изолировать, если ещё не импортирован numba
-            import sys
-            if "numba" in sys.modules:
-                raise RuntimeError("numba already imported — skip isolation")
-            with isolated_numba_cache():
-                report = run_full_pipeline(
-                    project_id=project_id,
-                    wizard_state=wizard_state,
-                    dry_run=False,
-                    out_root=out_root,
-                    on_stage=on_stage if self.verbose else None,
-                )
-        except RuntimeError as e:
-            # fallback: уже изолировано или нечего изолировать — прямой прогон
-            if "cannot isolate" in str(e) or "already imported" in str(e):
-                report = run_full_pipeline(
-                    project_id=project_id,
-                    wizard_state=wizard_state,
-                    dry_run=False,
-                    out_root=out_root,
-                    on_stage=on_stage if self.verbose else None,
-                )
-            else:
-                raise
-
-        # hit_score — адаптивное усиление DSP даже без нейросетей (чтобы не было игрушечно)
-        master = report.get("master_path")
-        # enhanced DSP: если ultra_light и нет ACE-Step — делаем мастер теплее/шире через лёгкий DSP
-        if master and Path(master).exists() and wizard_state.get("enhanced_dsp"):
-            try:
-                lvl = int(wizard_state.get("adaptive_level", 0))
-                # только для ultra_light (lvl 0) делаем лёгкое утепление мастера — не ломает, но убирает игрушечность
-                if lvl == 0:
-                    from modules.hit_factory.adaptive import get_adaptive_config as _gac
-                    _cfg = _gac()
-                    # если нет тяжёлых моделей — применяем free pedalboard/scipy обработку
-                    if not _cfg.get("use_acestep") and not _cfg.get("use_musicgen"):
-                        # пробуем pedalboard: лёгкий реверб + компрессия + сатурация
-                        try:
-                            import soundfile as sf
-                            import numpy as np
-                            data, sr = sf.read(master)
-                            # data: (samples, channels) or (samples,)
-                            if data.ndim == 1:
-                                data = np.stack([data, data], axis=1)
-                            # лёгкая сатурация для тепла (2% drive) + стерео расширение
-                            # чтобы не было детской заставки — добавляем хорус-подобную задержку 15мс на один канал
-                            if data.shape[0] > sr * 0.02:
-                                drive = 0.02
-                                # soft clip
-                                data = np.tanh(data * (1 + drive)) / np.tanh(1 + drive)
-                                # микро-задержка правого канала 12мс для ширины (человечность)
-                                delay = int(sr * 0.012)
-                                if delay > 0 and data.shape[0] > delay:
-                                    data[delay:, 1] = 0.7 * data[delay:, 1] + 0.3 * data[:-delay, 1]
-                            # лёгкий tilt EQ: +1.5дБ низ 60Гц, -0.5дБ верх 8кГц для взрослости
-                            # делаем через простой IIR (scipy если есть)
-                            try:
-                                from scipy.signal import butter, lfilter
-                                b, a = butter(2, 80 / (sr/2), btype='low')
-                                low = lfilter(b, a, data, axis=0)
-                                data = data * 0.85 + low * 0.15 * 1.2  # поднимаем низ
-                            except Exception as _exc:
-                                print(f"[adaptive] ignored: {_exc}")
-                            # лимитируем пики
-                            peak = float(np.max(np.abs(data)) + 1e-9)
-                            if peak > 0.99:
-                                data = data / peak * 0.95
-                            sf.write(master, data, sr)
-                            _LOG.info(f"[adaptive] enhanced DSP applied to {master} (lvl 0, ultra_light)")
-                        except Exception as _e:
-                            _LOG.debug(f"adaptive enhance failed: {_e}")
-            except Exception as _exc:
-                print(f"[adaptive] ignored: {_exc}")
-        hit = None
-        if master and Path(master).exists():
-            try:
-                hit = score_track(master) if score_track else None
-            except Exception as exc:  # noqa: BLE001
-                hit = {"hit_score": 0.0, "verdict": "flop_risk", "error": f"{type(exc).__name__}: {exc}"}
-            # доп. human polish (нероншно) — опциональный, не ломает скор
-            # делаем копию с human суффиксом и логируем, но master_path оставляем оригинал
-            try:
-                hres = ensure_human(master, preset=self.human_preset, seed=wizard_state.get("seed"))
-                report["humanizer"] = hres
-            except Exception as exc:  # noqa: BLE001
-                report["humanizer"] = {"ok": False, "reason": str(exc)}
-            # TikTok нарезки (15s/30s/hook_loop) — бесплатно, не требует ffmpeg
-            try:
-                from modules.tiktok_edit import make_all_cuts
-                tiktok_dir = Path(out_root) / "tiktok"
-                tiktok_res = make_all_cuts(master, str(tiktok_dir), hit_report=hit)
-                report["tiktok_cuts"] = tiktok_res
-            except Exception as exc:  # noqa: BLE001
-                report["tiktok_cuts"] = {"ok": False, "error": f"{type(exc).__name__}: {exc}"}
-            # Обложка (PIL, оффлайн) — всегда бесплатно
-            try:
-                from modules.cover_art_gen import generate as gen_cover
-                lyrics_title = (hit or {}).get("meta", {}).get("file", "")
-                # достаём заголовок из report если есть
-                title = report.get("recipe", {}).get("theme") or wizard_state.get("theme") or "ZS Hit"
-                # обрезаем до 30 символов для красоты
-                short_title = str(title)[:32]
-                artist = str(wizard_state.get("artist") or "ZS Producer")
-                # стиль по жанру
-                style_map = {"drift_phonk": "neon", "phonk": "neon", "trap": "glitch", "jersey_club": "gradient", "rage": "glitch", "hyperpop": "chrome", "house": "minimal"}
-                style = style_map.get(wizard_state.get("genre"), "gradient")
-                cover_path = str(Path(out_root) / "cover.png")
-                cover_res = gen_cover(short_title, artist, cover_path, style=style, seed=wizard_state.get("seed"))
-                report["cover"] = cover_res
-            except Exception as exc:  # noqa: BLE001
-                report["cover"] = {"ok": False, "error": f"{type(exc).__name__}: {exc}"}
-            # Вертикальное видео (если ffmpeg есть) — tiktok_15s + cover → 9:16 mp4
-            try:
-                from modules.tiktok_edit import make_vertical_video
-                tiktok_15 = Path(out_root) / "tiktok" / "tiktok_15s.wav"
-                cover_png = Path(out_root) / "cover.png"
-                if tiktok_15.exists() and cover_png.exists():
-                    vid_out = str(Path(out_root) / "tiktok" / "tiktok_15s.mp4")
-                    vres = make_vertical_video(str(tiktok_15), vid_out, str(cover_png))
-                    report["tiktok_video"] = vres
-                else:
-                    report["tiktok_video"] = {"ok": False, "reason": "tiktok or cover missing"}
-            except Exception as exc:
-                report["tiktok_video"] = {"ok": False, "error": f"{type(exc).__name__}: {exc}"}
-            # Перезаписываем report.json с tiktok и cover и video (иначе на диске старые данные)
-            try:
-                import json
-                (Path(out_root) / "report.json").write_text(json.dumps(report, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
-            except Exception as _exc:
-                print(f"[hit_factory] ignored: {_exc}")
-        else:
-            hit = {"hit_score": 0.0, "verdict": "flop_risk", "error": "no master produced"}
-
-        # сохраняем hit_report.json рядом с report.json
-        try:
-            hr_path = Path(out_root) / "hit_report.json"
-            hr_path.write_text(json.dumps(hit or {}, ensure_ascii=False, indent=2), encoding="utf-8")
-        except Exception as _exc:
-            print(f"[hit_factory] ignored: {_exc}")
-
-        return {
-            "project_id": project_id,
-            "out_root": str(out_root),
-            "report": report,
-            "hit": hit or {},
-            "hit_score": float((hit or {}).get("hit_score") or 0.0),
-            "verdict": (hit or {}).get("verdict") or report.get("verdict"),
-            "master_path": master,
-            "wizard_state": wizard_state,
-            "trend_ctx": trend_context(wizard_state.get("theme", "")),
-        }
-
-    # --------------------------------------------------------------- public
     def make_one(
         self,
         genre: str | None = None,
@@ -356,13 +126,9 @@ class HitFactory:
         duration_sec: int | None = None,
         evolve: bool | None = None,
     ) -> dict[str, Any]:
-        """
-        Сгенерить один хит с эволюцией.
-        Возвращает лучший attempt dict.
-        """
+        """Сгенерить один хит с эволюцией. Возвращает лучший attempt dict."""
         rng = random.Random(int(seed) if seed is not None else random.randint(1, 1_000_000))
         do_evolve = self.evolve if evolve is None else bool(evolve)
-
         base_state = self._build_wizard_state(
             genre=genre or "",
             theme=theme or "",
@@ -372,9 +138,7 @@ class HitFactory:
             duration_sec=duration_sec,
             rng=rng,
         )
-        # если genre/theme не заданы — берём рандом из state
         base_state["genre"] = genre or base_state["genre"]
-        # theme уже внутри state, не перетираем если None
         if theme:
             base_state["theme"] = theme
         if seed is not None:
@@ -388,38 +152,25 @@ class HitFactory:
 
         attempts: list[dict[str, Any]] = []
         cur_state = dict(base_state)
-
         attempts_limit = self.max_attempts if do_evolve else 1
-
         for attempt_idx in range(attempts_limit):
-            pid = self._new_project_id(cur_state["genre"]) if attempt_idx > 0 else self._new_project_id(cur_state["genre"])
-            # для первой попытки используем красивый id с жанром
-            if attempt_idx == 0:
-                # переиспользуем первый id но с жанром
-                pass
+            pid = self._new_project_id(cur_state["genre"])
             self._log(f"\n[HIT FACTORY] Попытка {attempt_idx+1}/{attempts_limit}  genre={cur_state['genre']}  BPM={cur_state['bpm_override']}  seed={cur_state['seed']}  theme='{cur_state['theme'][:60]}'")
             ctx = self._run_pipeline_once(pid, cur_state, rng)
-            # обогащаем ctx для evolver
             ctx["attempt"] = attempt_idx + 1
             ctx["wizard_state"] = dict(cur_state)
             attempts.append(ctx)
-
             hit_score = float(ctx.get("hit_score") or 0.0)
             verdict = str(ctx.get("verdict") or "")
             self._log(f"[HIT FACTORY] -> {pid}  hit_score={hit_score:.1f}  verdict={verdict}  master={ctx.get('master_path')}")
-
-            # решаем эволюционировать ли
             if not do_evolve or attempt_idx + 1 >= attempts_limit:
                 break
             if not should_evolve(hit_score, verdict, self.min_score):
                 self._log(f"[HIT FACTORY] Порог {self.min_score} пробит ({hit_score:.1f} ≥ {self.min_score}) — стоп эволюция.")
                 break
-            # мутируем
             cur_state = mutate(cur_state, ctx.get("hit"), rng)
             self._log(f"[HIT FACTORY] Эволюция → next BPM={cur_state['bpm_override']} seed={cur_state['seed']} aggression={cur_state['aggression']}")
-
         best = select_best(attempts)
-        # сохраняем summary в папку лучшего
         if best:
             try:
                 summary_path = Path(best["out_root"]) / "factory_summary.json"
@@ -449,9 +200,9 @@ class HitFactory:
                 )
             except Exception as _exc:
                 print(f"[hit_factory] ignored: {_exc}")
-        # также общий индекс батча + KPI
         try:
             from modules.hit_factory.kpi import build_kpi
+
             build_kpi(str(self.output_root), save=True)
         except Exception as _exc:
             print(f"[hit_factory] ignored: {_exc}")
@@ -467,56 +218,37 @@ class HitFactory:
         duration_sec: int | None = None,
         seed: int | None = None,
     ) -> list[dict[str, Any]]:
-        """
-        Батч-генерация count хитов.
-        Если genre/theme заданы — фиксируем; иначе каждый трек — рандомный жанр/тема.
-        Последовательно (чтобы не падал Numba кэш). Для параллели — нужен isolated.
-        """
+        """Батч-генерация count хитов. Последовательно, чтобы не падал Numba кэш."""
         if count < 1:
             count = 1
         if count > 100:
             count = 100
-
         rng = random.Random(int(seed) if seed is not None else random.randint(1, 999_999))
         results: list[dict[str, Any]] = []
         batch_id = f"batch_{time.strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:4]}"
         self._log(f"\n[HIT FACTORY] === BATCH {batch_id}  count={count}  evolve={self.evolve if evolve is None else evolve} ===")
         batch_meta_path = self.output_root / f"{batch_id}.json"
-
         for i in range(count):
-            cur_genre = genre  # если фиксирован — один жанр
+            cur_genre = genre
             cur_theme = theme
-            cur_seed = None
-            if seed is not None:
-                cur_seed = int(seed) + i
-            # если не фиксирован — рандом каждый шаг
+            cur_seed = int(seed) + i if seed is not None else None
             if genre is None:
-                cur_genre = None  # make_one сам выберет
+                cur_genre = None
             if theme is None:
                 cur_theme = None
-
             self._log(f"\n--- Трек {i+1}/{count} ---")
             try:
-                hit = self.make_one(
-                    genre=cur_genre,
-                    theme=cur_theme,
-                    seed=cur_seed,
-                    duration_sec=duration_sec,
-                    evolve=evolve,
-                )
+                hit = self.make_one(genre=cur_genre, theme=cur_theme, seed=cur_seed, duration_sec=duration_sec, evolve=evolve)
                 hit["batch_index"] = i + 1
                 hit["batch_id"] = batch_id
                 results.append(hit)
             except Exception as exc:  # noqa: BLE001
                 _LOG.exception("batch item %s failed", i + 1)
                 results.append({"batch_index": i + 1, "error": f"{type(exc).__name__}: {exc}", "hit_score": 0.0, "verdict": "error"})
-            # промежуточный сейв батча
             try:
                 batch_meta_path.write_text(json.dumps(results, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
             except Exception as _exc:
                 print(f"[hit_factory] ignored: {_exc}")
-
-        # итоговый отчёт
         total = len(results)
         avg_score = sum(float(r.get("hit_score") or 0) for r in results) / max(1, total)
         best = max(results, key=lambda r: float(r.get("hit_score") or 0)) if results else None
@@ -526,13 +258,12 @@ class HitFactory:
             self._log(f"  Лучший: {best.get('project_id')}  score={best.get('hit_score'):.1f}  verdict={best.get('verdict')}")
             self._log(f"  Папка: {best.get('out_root')}  master: {best.get('master_path')}")
         self._log(f"  Индекс: {batch_meta_path}")
-        # KPI агрегат (Phase 4)
         try:
             from modules.hit_factory.kpi import build_kpi
+
             build_kpi(str(self.output_root), save=True)
         except Exception as _exc:
             print(f"[hit_factory] ignored: {_exc}")
-
         return results
 
 
@@ -547,7 +278,6 @@ def quick_hit(
     return factory.make_one(genre=genre, theme=theme, seed=seed)
 
 
-# CLI entry for `python -m modules.hit_factory`
 def _cli() -> int:
     import argparse
 

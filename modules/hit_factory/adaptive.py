@@ -15,8 +15,6 @@ modules.hit_factory.adaptive — адаптация под любое желез
 from __future__ import annotations
 
 import logging
-import os
-from pathlib import Path
 
 _LOG = logging.getLogger(__name__)
 

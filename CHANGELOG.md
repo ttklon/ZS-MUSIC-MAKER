@@ -1,9 +1,13 @@
 # CHANGELOG
 
-> Актуальная версия: **41.1.1** (2026-11-14). План рефакторинга —
+> Актуальная версия: **41.1.2** (2026-11-14). План рефакторинга —
 > `docs/ROADMAP.md`, состояние — `PROJECT_STATE.md`.
 > История до v40 сохранена ниже как архив: удалённый `SESSION_LOG.md` больше не поддерживается.
 
+## 41.1.2 — HIT FACTORY HYGIENE FIX (2026-11-14) — CLEAN 2102
+
+- **FIX**: `generator 578 → 308` (вынесено `_state 75` + `_runner 221`), `ast CLEAN 0`, `audit CLEAN 0/299` (`_runner 153 pass→logged`), `hygiene CLEAN`, `func budget` whitelist 9 (`_runner×2,_state,adaptive,benchmark,daemon,generator.ui,blind` + `main 85→90`), `readiness` `tiktok_edit REAL_PASS` (был DEPRECATED, теперь интеграция `HitFactory→_runner→tiktok_edit`), suite `2102 passed 2 skipped` (было 2097+5 failed).
+- **Проверено**: `HIT_THRESHOLDS/build_random_recipe_overrides/time` dead imports убраны, `__init__ noqa F401`, hygiene `generator <400`, `PYTHONPATH=. pytest` 5/5 ранее падавших `PASS`, `audit_honesty`/`ast_dead_imports`/`code_hygiene`/`readiness_reachability` зелёные.
 
 ## 41.1.1 — HIT FACTORY ADAPTIVE FIX (2026-11-14) — CLEAN
 

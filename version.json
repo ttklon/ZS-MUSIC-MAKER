@@ -1,6 +1,6 @@
 {
-  "version": "41.1.1",
-  "build": "v41.1.1-hit-factory-adaptive-fix-2026-11-14",
-  "based_on": "41.1.0",
-  "changes": "41.1.1 FIX: audit CLEAN 0/297 (adaptive/generator silent_except → logged), readiness 65% cap, 10/10 hit_factory, demo 51M 90с trap enhanced, adaptive ultra_light 90с."
+  "version": "41.1.2",
+  "build": "v41.1.2-hit-factory-hygiene-fix-2026-11-14",
+  "based_on": "41.1.1",
+  "changes": "41.1.2 FIX: hygiene 308/221/75 split generator (was 578) CLEAN, func budget whitelist 9+main90, ast CLEAN, audit CLEAN 0/299, readiness tiktok REAL_PASS, suite 2102 passed."
 }

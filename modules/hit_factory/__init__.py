@@ -18,6 +18,7 @@ CLI:
 """
 from __future__ import annotations
 
-from modules.hit_factory.generator import HitFactory, quick_hit
+from modules.hit_factory.generator import HitFactory as HitFactory  # noqa: F401
+from modules.hit_factory.generator import quick_hit as quick_hit  # noqa: F401
 
 __all__ = ["HitFactory", "quick_hit"]

@@ -33,13 +33,16 @@ def test_unreachable_modules_are_marked_deprecated() -> None:
     for expected in (
         "modules/expert_mode.py",
         "modules/kpi_monitor.py",
-        "modules/tiktok_edit.py",
         "modules/sidechain.py",
         "app/core/pipeline_core.py",
     ):
         assert expected in rows, f"{expected} отсутствует в инвентаре"
         assert rows[expected]["status"] == "DEPRECATED", rows[expected]
         assert rows[expected].get("reachable") is False
+    # HitFactory теперь интегрирует tiktok_edit (make_all_cuts / make_vertical_video)
+    # → модуль стал достижимым из прод-кода, не должен считаться DEPRECATED
+    assert rows["modules/tiktok_edit.py"]["status"] == "REAL_PASS", rows["modules/tiktok_edit.py"]
+    assert rows["modules/tiktok_edit.py"].get("reachable") is True
 
 
 def test_reachable_modules_stay_real_pass() -> None:
