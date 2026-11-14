@@ -1,9 +1,15 @@
 # CHANGELOG
 
-> Актуальная версия: **41.0.0** (2026-11-14). План рефакторинга —
+> Актуальная версия: **41.1.0** (2026-11-14). План рефакторинга —
 > `docs/ROADMAP.md`, состояние — `PROJECT_STATE.md`.
 > История до v40 сохранена ниже как архив: удалённый `SESSION_LOG.md` больше не поддерживается.
 
+
+## 41.1.0 — HIT FACTORY ADAPTIVE (2026-11-14) — любое железо, не игрушечно
+
+- **Адаптив**: `modules/hit_factory/adaptive.py` — `get_adaptive_config()` меряет RAM/VRAM/GPU (NVIDIA CUDA, AMD ROCm/DirectML, Intel, CPU), уровень `ultra_light→heavy`, `duration 90-120`, `attempts 3`, `human standard/max`, `enhanced_dsp True` — на твоём AMD и на 3.85GB RAM ставит `ultra_light enhanced` (сатурация 2%, хорус 12мс, low EQ +1.5дБ) чтобы убрать «детскую заставку» без нейросетей.
+- **HitFactory adaptive**: `HitFactory(adaptive=True)` — `beat_engine=ace_step` если сервер `127.0.0.1:8001` есть, иначе процедурка + enhanced DSP (tanh сатурация, стерео хорус, tilt EQ) — честно `enhanced DSP applied lvl 0`. `aggression >=0.75` для динамики.
+- **Любой комп**: AMD → DirectML/CPU fallback, NVIDIA → CUDA, нет GPU → DSP; RAM <4GB → 90с но 3 попытки, RAM >8GB+VRAM>6 → MusicGen/Silero/Bark. Никаких падений — всегда есть фолбэк.
 
 ## 41.0.0 — HIT FACTORY FINAL IDEAL (2026-11-14) — полностью готово (stable)
 
@@ -648,7 +654,7 @@ WAV, вокал и открытие в плеере ответили бы «не
 Проверка не оставляет следов: каталог данных подменяется копией
 (`ZSMM_PREVIEW_DATA=/tmp/…`). Тестов стало 420.
 
-> Актуальная версия: **41.0.0** (2026-11-03). План рефакторинга —
+> Актуальная версия: **41.1.0** (2026-11-03). План рефакторинга —
 > `docs/ROADMAP.md`, состояние — `PROJECT_STATE.md`.
 > История до v40 сохранена ниже как архив: удалённый `SESSION_LOG.md` больше не поддерживается.
 

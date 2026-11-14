@@ -1,6 +1,6 @@
 # PROJECT_STATE
 
-> Состояние репозитория `ZS-MUSIC-MAKER` на 2026-11-14 (версия 41.0.0) — HIT FACTORY FINAL IDEAL.
+> Состояние репозитория `ZS-MUSIC-MAKER` на 2026-11-14 (версия 41.1.0) — HIT FACTORY ADAPTIVE.
 > Цифры ниже сняты с `python -m tools.readiness --json` (коммит этой же ветки),
 > а не вписаны вручную.
 
@@ -12,9 +12,9 @@
 пользовательского сценария и не подтверждение качества музыки.
 
 
-## HIT FACTORY v1.5 FINAL IDEAL (2026-11-14) — 41.0.0 полностью готово (аудит CLEAN, 65% cap, демо 73.45+70.59+69.29, 4 хита avg 67.86)
+## HIT FACTORY v1.6 ADAPTIVE (2026-11-14) — 41.1.0 любое железо, не игрушечно (enhanced DSP, ultra_light 90с)
 
-Статус: `VERSION 41.0.0` FINAL IDEAL — audit CLEAN 0/296, readiness 65% cap, demo 32M (jersey 73.45/phonk 70.59/afro 69.29), 4 хита avg 67.86. Фабрика поверх DSP: `HitFactory.make_one/make_batch` (`modules/hit_factory/*`) + `hitmaker.py` + `main.py --hit-factory` + `daemon` (24ч trend) + `benchmark/kpi/autotune/ui/release`.
+Статус: `VERSION 41.1.0` ADAPTIVE — audit CLEAN 0/296, readiness 65% cap, adaptive ultra_light enhanced DSP (AMD/CPU), demo 32M + 90с enhanced. Фабрика поверх DSP: `HitFactory.make_one/make_batch` (`modules/hit_factory/*`) + `hitmaker.py` + `main.py --hit-factory` + `daemon` (24ч trend) + `benchmark/kpi/autotune/ui/release`.
 
 Демо: `hit_jersey_135629 73.45 solid` (hook_energy 94, drop 100, BPM 136, 7.6МБ) + `hit_phonk_135856 70.59 solid` (low_end 92, BPM 152, 17МБ) + `hit_afro_140828 69.29 solid` (BPM 125, amapiano 67-68) — 4 хита avg 67.86, `tiktok 15с 2.6МБ`, `cover 1400px`, `demo_site` 32M LIVE PREVIEW 8001, `main` caf1746→41.0.0.
 

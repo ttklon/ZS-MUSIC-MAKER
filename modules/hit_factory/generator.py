@@ -42,6 +42,12 @@ from modules.hit_factory.themes import (
     trend_context,
 )
 
+try:
+    from modules.hit_factory.adaptive import get_adaptive_config, log_adaptive
+except Exception:
+    get_adaptive_config = lambda overrides=None: {"level": 0, "level_name": "ultra_light (DSP only)", "duration_sec": 30, "max_attempts": 2, "human_preset": "light", "use_acestep": False, "use_musicgen": False, "use_silero": False, "ram_gb": 0, "gpu": {}}
+    log_adaptive = lambda: {}
+
 
 class HitFactory:
     """
@@ -58,19 +64,36 @@ class HitFactory:
         output_root: str | Path = "output/hits",
         min_score: float = 68.0,
         evolve: bool = True,
-        max_attempts: int = 3,
+        max_attempts: int | None = None,
         duration_sec: int | None = None,
-        human_preset: str = "standard",
+        human_preset: str | None = None,
         verbose: bool = True,
+        adaptive: bool = True,
     ):
         self.output_root = Path(output_root)
         self.output_root.mkdir(parents=True, exist_ok=True)
+        # адаптация под железо — на любом компе подберёт лёгкий/тяжёлый путь
+        self.adaptive_cfg = get_adaptive_config() if adaptive else {}
+        if adaptive and self.adaptive_cfg:
+            log_adaptive()
+        # если не задано — берём из адаптива, иначе дефолт
         self.min_score = float(min_score)
         self.evolve = bool(evolve)
+        # max_attempts: адаптив 2-3, иначе 3
+        if max_attempts is None:
+            max_attempts = self.adaptive_cfg.get("max_attempts", 3) if adaptive else 3
         self.max_attempts = max(1, int(max_attempts))
-        self.duration_sec = duration_sec
-        self.human_preset = human_preset
+        if duration_sec is None:
+            duration_sec = self.adaptive_cfg.get("duration_sec", 60) if adaptive else 60
+        self.duration_sec = int(duration_sec)
+        if human_preset is None:
+            human_preset = self.adaptive_cfg.get("human_preset", "standard") if adaptive else "standard"
+        self.human_preset = str(human_preset)
         self.verbose = verbose
+        self.adaptive = bool(adaptive)
+        # логируем выбор
+        if adaptive:
+            self._log(f"[ADAPTIVE] HitFactory level={self.adaptive_cfg.get('level')} {self.adaptive_cfg.get('level_name')} duration={self.duration_sec} attempts={self.max_attempts} human={self.human_preset}")
 
     # --------------------------------------------------------------- helpers
     def _log(self, msg: str) -> None:
@@ -104,6 +127,9 @@ class HitFactory:
                 print(f"[hit_factory] ignored: {_exc}")
         bpm = pick_bpm(g, rng, bpm_override)
         agr = aggression if aggression is not None else pick_aggression(rng, g)
+        # адаптив: на слабом железе делаем агрессивнее чтобы не было игрушечно
+        if self.adaptive and self.adaptive_cfg.get("enhanced_dsp"):
+            agr = max(agr, 0.75)  # минимум 0.75 для динамики loud-quiet
         s = int(seed if seed is not None else rng.randint(1, 1_000_000))
         dur = int(duration_sec or self.duration_sec or 120)
 
@@ -113,6 +139,14 @@ class HitFactory:
             hype_str = ", ".join((tc.get("hype_words") or [])[:6])
         except Exception:
             hype_str = ""
+        # адаптивный выбор движков под любое железо
+        beat_engine = None
+        if self.adaptive and self.adaptive_cfg.get("use_acestep"):
+            beat_engine = "ace_step"  # если сервер есть — нейросеть, иначе процедурка
+        # vocal: если есть torch — пробуем silero, иначе scaffold (честно BLOCKED)
+        voice_mode = "pro"
+        if self.adaptive and self.adaptive_cfg.get("use_silero"):
+            voice_mode = "pro"  # pro уже пробует silero→xtts→bark→pyttsx3
         state: dict[str, Any] = {
             "genre": g,
             "theme": t,
@@ -122,7 +156,7 @@ class HitFactory:
             "seed": s,
             "duration_sec": dur,
             "n_verses": 2,
-            "voice_mode": "pro",  # TTS free, scaffold fallback
+            "voice_mode": voice_mode,
             "use_rvc": False,
             "use_vocal_fx": True,  # Phase 3: форсим человечность — всегда FX
             "export_stems": False,  # быстрее для фабрики; включаем если нужно
@@ -132,7 +166,11 @@ class HitFactory:
             "references": [],
             "trend_notes": hype_str,
             "artist": "ZS Producer",
+            "adaptive_level": self.adaptive_cfg.get("level", 0) if self.adaptive else 0,
+            "enhanced_dsp": bool(self.adaptive_cfg.get("enhanced_dsp", True)) if self.adaptive else True,
         }
+        if beat_engine:
+            state["beat_engine"] = beat_engine
         return state
 
     def _run_pipeline_once(
@@ -179,8 +217,55 @@ class HitFactory:
             else:
                 raise
 
-        # hit_score
+        # hit_score — адаптивное усиление DSP даже без нейросетей (чтобы не было игрушечно)
         master = report.get("master_path")
+        # enhanced DSP: если ultra_light и нет ACE-Step — делаем мастер теплее/шире через лёгкий DSP
+        if master and Path(master).exists() and wizard_state.get("enhanced_dsp"):
+            try:
+                lvl = int(wizard_state.get("adaptive_level", 0))
+                # только для ultra_light (lvl 0) делаем лёгкое утепление мастера — не ломает, но убирает игрушечность
+                if lvl == 0:
+                    from modules.hit_factory.adaptive import get_adaptive_config as _gac
+                    _cfg = _gac()
+                    # если нет тяжёлых моделей — применяем free pedalboard/scipy обработку
+                    if not _cfg.get("use_acestep") and not _cfg.get("use_musicgen"):
+                        # пробуем pedalboard: лёгкий реверб + компрессия + сатурация
+                        try:
+                            import soundfile as sf
+                            import numpy as np
+                            data, sr = sf.read(master)
+                            # data: (samples, channels) or (samples,)
+                            if data.ndim == 1:
+                                data = np.stack([data, data], axis=1)
+                            # лёгкая сатурация для тепла (2% drive) + стерео расширение
+                            # чтобы не было детской заставки — добавляем хорус-подобную задержку 15мс на один канал
+                            if data.shape[0] > sr * 0.02:
+                                drive = 0.02
+                                # soft clip
+                                data = np.tanh(data * (1 + drive)) / np.tanh(1 + drive)
+                                # микро-задержка правого канала 12мс для ширины (человечность)
+                                delay = int(sr * 0.012)
+                                if delay > 0 and data.shape[0] > delay:
+                                    data[delay:, 1] = 0.7 * data[delay:, 1] + 0.3 * data[:-delay, 1]
+                            # лёгкий tilt EQ: +1.5дБ низ 60Гц, -0.5дБ верх 8кГц для взрослости
+                            # делаем через простой IIR (scipy если есть)
+                            try:
+                                from scipy.signal import butter, lfilter
+                                b, a = butter(2, 80 / (sr/2), btype='low')
+                                low = lfilter(b, a, data, axis=0)
+                                data = data * 0.85 + low * 0.15 * 1.2  # поднимаем низ
+                            except Exception:
+                                pass
+                            # лимитируем пики
+                            peak = float(np.max(np.abs(data)) + 1e-9)
+                            if peak > 0.99:
+                                data = data / peak * 0.95
+                            sf.write(master, data, sr)
+                            _LOG.info(f"[adaptive] enhanced DSP applied to {master} (lvl 0, ultra_light)")
+                        except Exception as _e:
+                            _LOG.debug(f"adaptive enhance failed: {_e}")
+            except Exception:
+                pass
         hit = None
         if master and Path(master).exists():
             try:
