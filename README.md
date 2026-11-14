@@ -26,6 +26,19 @@ python main.py --console     :: консольный режим
 через локальный сервер; настройка и ограничения AMD — в [INSTALL.md](INSTALL.md).
 Журналы и крэш-репорты лежат в `%LOCALAPPDATA%\ZS Music Maker\logs`.
 
+## HIT FACTORY — автономная фабрика хитов (бесплатно, нероншно, как человек) — NEW
+
+Одной командой генерит завершённые треки с эволюцией по `hit_score`:
+
+```bash
+python hitmaker.py --count 5 --evolve --min-score 68   # 5 хитов батчем, порог solid
+python hitmaker.py --genre trap --theme "ночь, деньги, движ" --seed 42
+python main.py --hit-factory --hit-count 3 --hit-genre phonk
+python -m modules.hit_factory --count 10 --duration 65 --no-evolve  # тикток-формат
+```
+
+Без платных API и тяжёлых моделей: `beat` из CC0 808/BOOCHI44 + `humanize` (±9мс, swing, ghost, velocity) → `anti_neuro` (дыхания, микропровалы, детюн, de_plastic) → `mix/master 8 стендов` → `hit_score` 12 метрик с мутациями BPM/aggression/seed. Подробнее: [`docs/HIT_FACTORY_PLAN.md`](docs/HIT_FACTORY_PLAN.md) и [`HIT_QUICKSTART.md`](HIT_QUICKSTART.md).
+
 Полезные режимы:
 
 ```bat
