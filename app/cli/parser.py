@@ -45,4 +45,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--score", type=str, default="", help="Score a mastered WAV and print hit-score breakdown")
     parser.add_argument("--update", action="store_true", help="Check Git update status without applying changes")
     parser.add_argument("--list-stages", action="store_true", help="Show stage keys usable with --only")
+    # --- HIT FACTORY (автономная фабрика хитов, бесплатно, нероншно) ---
+    parser.add_argument("--hit-factory", action="store_true", help="Автономная фабрика хитов (бесплатно): генерит 1..N треков с эволюцией по hit_score")
+    parser.add_argument("--hit-count", type=int, default=1, help="Сколько хитов генерить в батче (1..100)")
+    parser.add_argument("--hit-genre", type=str, default="", help="Фиксированный жанр для фабрики (пусто = рандом хитовый)")
+    parser.add_argument("--hit-theme", type=str, default="", help="Фиксированная тема (пусто = авто из трендов 2026)")
+    parser.add_argument("--hit-seed", type=int, default=None, help="Базовый seed для детерминизма фабрики")
+    parser.add_argument("--hit-duration", type=int, default=None, help="Длительность хита сек (65/90/120)")
+    parser.add_argument("--hit-min-score", type=float, default=68.0, help="Порог hit_score для эволюции (68=solid, 82=chart_ready)")
+    parser.add_argument("--hit-no-evolve", action="store_true", help="Выключить эволюцию (одна попытка на трек)")
     return parser

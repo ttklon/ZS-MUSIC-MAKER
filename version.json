@@ -1,6 +1,6 @@
 {
-  "version": "41.0.0-alpha.16",
-  "build": "v41.0.0-alpha.16-sample-bank-cc0-2026-11-03",
-  "based_on": "39.9.0",
-  "changes": "alpha.16: сэмпловый банк наполнен 32 CC0 one-shot'ами — реальные удары Roland TR-808 (набор Майкла Фишера) и три набора BOOCHI44 (hard trap/bounce/vintage); импорт детерминированный (tools/import_samples.py: моно 44.1 кГц PCM-16, −1 dBFS, обрезка хвоста, дедуп по SHA-256, измеренный основной тон для кика и 808), атрибуция в data/samples/ATTRIBUTION.md, аудит лицензий/хэшей/покрытия зелёный; движок бита играет из банка (drum_engine = sample_bank+procedural, REAL_PASS), velocity_mode engine-gain — без фальшивых velocity-слоёв."
+  "version": "41.0.0-alpha.18",
+  "build": "v41.0.0-alpha.18-hit-factory-demo-2026-11-14",
+  "based_on": "41.0.0-alpha.17",
+  "changes": "alpha.18: demo 60с trap 78.8 solid (hook 100, repeat 100, chorus 84), KPI last5 70.5 vs global 53.8, autotune рекомендации, release autopilot output/releases, blind_listening_prep output/blind_test, 11 хитов total."
 }

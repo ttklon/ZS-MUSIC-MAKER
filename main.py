@@ -85,6 +85,11 @@ def main() -> int:
     if args.dossier_build and args.dossier_artist:
         return dossier_cmds.run_dossier_build(args.dossier_artist)
 
+    # 4a) HIT FACTORY — автономная фабрика хитов (приоритет выше классики)
+    if getattr(args, 'hit_factory', False):
+        from app.cli.hitfactory import run_hit_factory
+        return run_hit_factory(args)
+
     # 4) Пайплайны. `--seed/--resume/--only` относятся к классическому DAG.
     classic = (args.run or args.dry_run or args.resume or args.only or args.seed is not None)
     if classic and (args.ai or args.god or args.async_mode):

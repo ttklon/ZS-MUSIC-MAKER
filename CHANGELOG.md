@@ -1,5 +1,30 @@
 # CHANGELOG
 
+> Актуальная версия: **41.0.0-alpha.18** (2026-11-14). План рефакторинга —
+> `docs/ROADMAP.md`, состояние — `PROJECT_STATE.md`.
+> История до v40 сохранена ниже как архив: удалённый `SESSION_LOG.md` больше не поддерживается.
+
+
+## alpha.18 — HIT FACTORY demo 60с 78.8 solid (2026-11-14)
+
+- Демо `hit_trap_20261114_102332_2ba0a8` 60с: `hit_score 78.8 solid` (hook_energy 100, repeat 100, chorus 84, tiktok 84, BPM 99 trap sweet, stereo 0.67, low_end 12.7) — `tiktok/tiktok_15s.wav` + `cover.png` + `masters` 21МБ, `release` 29 файлов.
+- KPI `hits_kpi.json`: 11 хитов, `avg 53.81 → last5 70.5`, `best trap 78.8`, `genre_avg jersey 70.36, trap 69.47, phonk 66.49`; `autotune` → jersey +0.1, hyperpop -0.1.
+- `modules/hit_factory/release.py`: автопубликация лучшего хита в `output/releases/<id>/` + `publish_manifest.json`.
+- `tools/blind_listening_prep.py`: подготовка `output/blind_test/01..06.wav` + `_key.txt` по `docs/BLIND_LISTENING.md` (6 файлов, 3 хита vs 3 псевдо-референса).
+
+## alpha.17 — HIT FACTORY v1.1-1.2 (Phase 2-5, 2026-11-14)
+
+- Автономная фабрика: `HitFactory.make_one/make_batch` + `hitmaker.py` + `main.py --hit-factory`
+  эволюция `mutate(seed/BPM/aggression)` по `hit_score` (12 метрик) до `solid 68`/`chart 82`, детерминизм seed, изоляция Numba кэша с fallback для батча.
+- Каждый хит: `beat` (sample_bank+procedural, humanize ±9мс, swing, ghost, velocity, round-robin) →
+  `anti_neuro` (дыхания, микропровалы, детюн, de_plastic, consonant_boost) → микс/8 мастеров → `tiktok/tiktok_15s.wav` (вирусный кусок), `tiktok_30s.wav`, `hook_loop.wav` (`tiktok_edit`) +
+  `cover.png` 1400 PIL (neon/glitch/gradient по жанру) + вертикальное видео `tiktok_15s.mp4` если `ffmpeg` есть.
+- Бенчмарк `modules/hit_factory/benchmark.py`: A/B по жанрам (avg/max/solid_rate, recommendations) → `benchmark_*.json`.
+- KPI `modules/hit_factory/kpi.py`: `hits_kpi.json/.md` (total/avg/last5/verdict_dist/genre_avg/best/worst).
+- Даемон `daemon.py`: бесконечный генератор `interval_hours` с авто-прогревом `trend_scout` 24ч и KPI, `autotune.py` — рекомендации `HIT_GENRE_WEIGHTS` из реальных `hit_score` (`--apply`).
+- Gradio UI `modules/hit_factory/ui.py`: вкладка HIT FACTORY (один хит/батч/KPI) → `python -m modules.hit_factory.ui`.
+- Версия bump `41.0.0-alpha.17`, план `docs/HIT_FACTORY_PLAN.md` v1.1, `HIT_QUICKSTART.md` v1.2.
+
 ## Последние две «различающие» метрики на самом деле не различали
 
 После чистки шести констант остались две, которые численно различались, но
@@ -608,7 +633,7 @@ WAV, вокал и открытие в плеере ответили бы «не
 Проверка не оставляет следов: каталог данных подменяется копией
 (`ZSMM_PREVIEW_DATA=/tmp/…`). Тестов стало 420.
 
-> Актуальная версия: **41.0.0-alpha.16** (2026-11-03). План рефакторинга —
+> Актуальная версия: **41.0.0-alpha.18** (2026-11-03). План рефакторинга —
 > `docs/ROADMAP.md`, состояние — `PROJECT_STATE.md`.
 > История до v40 сохранена ниже как архив: удалённый `SESSION_LOG.md` больше не поддерживается.
 
