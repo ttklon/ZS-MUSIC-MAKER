@@ -1,6 +1,6 @@
 {
-  "version": "41.1.0",
-  "build": "v41.1.0-hit-factory-adaptive-2026-11-14",
-  "based_on": "41.0.0",
-  "changes": "41.1.0 ADAPTIVE: автоматическая адаптация под любое железо (AMD/NVIDIA/Intel, RAM/VRAM) — ultra_light enhanced DSP (90с, сатурация/хорус/EQ) убирает игрушечность даже без GPU; level 0-3, ACE-Step/MusicGen/Silero опционально с fallback; HitFactory теперь adaptive, 65% cap, demo остаётся 32M."
+  "version": "41.1.1",
+  "build": "v41.1.1-hit-factory-adaptive-fix-2026-11-14",
+  "based_on": "41.1.0",
+  "changes": "41.1.1 FIX: audit CLEAN 0/297 (adaptive/generator silent_except → logged), readiness 65% cap, 10/10 hit_factory, demo 51M 90с trap enhanced, adaptive ultra_light 90с."
 }

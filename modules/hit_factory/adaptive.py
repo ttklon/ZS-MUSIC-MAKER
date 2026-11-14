@@ -70,13 +70,13 @@ def _detect_gpu() -> dict:
             free = None
             try:
                 free = torch.cuda.mem_get_info(0)[0] / (1024**3)
-            except Exception:
-                pass
+            except Exception as _exc:
+                print(f"[adaptive] ignored: {_exc}")
             vendor = "amd" if "amd" in name.lower() or "radeon" in name.lower() else "nvidia" if "nvidia" in name.lower() else "unknown"
             backend = "rocm" if getattr(getattr(torch, "version", None), "hip", None) else "cuda"
             return {"backend": backend, "vendor": vendor, "vram_total": round(total,2), "vram_free": round(free,2) if free else None, "name": name}
-    except Exception:
-        pass
+    except Exception as _exc:
+        print(f"[adaptive] ignored: {_exc}")
     # DirectML
     try:
         import torch_directml  # type: ignore
@@ -85,8 +85,8 @@ def _detect_gpu() -> dict:
             name = torch_directml.device_name(0)
             vendor = "amd" if "amd" in name.lower() or "radeon" in name.lower() else "unknown"
             return {"backend": "directml", "vendor": vendor, "name": name}
-    except Exception:
-        pass
+    except Exception as _exc:
+        print(f"[adaptive] ignored: {_exc}")
     return {"backend": "cpu", "vendor": "unknown", "name": "CPU"}
 
 def get_adaptive_config(overrides: dict | None = None) -> dict:

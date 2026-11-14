@@ -254,8 +254,8 @@ class HitFactory:
                                 b, a = butter(2, 80 / (sr/2), btype='low')
                                 low = lfilter(b, a, data, axis=0)
                                 data = data * 0.85 + low * 0.15 * 1.2  # поднимаем низ
-                            except Exception:
-                                pass
+                            except Exception as _exc:
+                                print(f"[adaptive] ignored: {_exc}")
                             # лимитируем пики
                             peak = float(np.max(np.abs(data)) + 1e-9)
                             if peak > 0.99:
@@ -264,8 +264,8 @@ class HitFactory:
                             _LOG.info(f"[adaptive] enhanced DSP applied to {master} (lvl 0, ultra_light)")
                         except Exception as _e:
                             _LOG.debug(f"adaptive enhance failed: {_e}")
-            except Exception:
-                pass
+            except Exception as _exc:
+                print(f"[adaptive] ignored: {_exc}")
         hit = None
         if master and Path(master).exists():
             try:
