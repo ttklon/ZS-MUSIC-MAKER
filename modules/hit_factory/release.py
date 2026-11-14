@@ -26,8 +26,8 @@ def best_hit_id(output_root: str | Path = "output/hits") -> str | None:
         best = data.get("best")
         if best and best.get("project_id"):
             return best["project_id"]
-    except Exception:
-        pass
+    except Exception as _exc:
+        print(f"[hit_factory] ignored: {_exc}")
     return None
 
 def publish(project_id: str | None = None, output_root: str | Path = "output/hits", releases_root: str | Path = "output/releases") -> dict:

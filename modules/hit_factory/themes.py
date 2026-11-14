@@ -61,8 +61,8 @@ def pick_theme(
                 if rng.random() < 0.5:
                     return str(base).strip()
                 return f"{base}, {addon}".strip()
-        except Exception:
-            pass
+        except Exception as _exc:
+            print(f"[hit_factory] ignored: {_exc}")
         # fallback ветка trend_scout без сети — пробуем offline_only
         try:
             from agents.trend_scout import scout as scout_offline
@@ -70,8 +70,8 @@ def pick_theme(
             data = scout_offline(theme="лето", offline_only=True)
             if data.get("themes"):
                 return rng.choice(data["themes"])
-        except Exception:
-            pass
+        except Exception as _exc:
+            print(f"[hit_factory] ignored: {_exc}")
 
     # 2) чистый offline
     return rng.choice(THEME_POOL)
@@ -134,8 +134,8 @@ def enrich_theme_with_slang(theme: str, rng: random.Random | None = None) -> str
             extra = rng.choice(hype)
             if extra not in theme:
                 return f"{theme}, {extra}"
-    except Exception:
-        pass
+    except Exception as _exc:
+        print(f"[hit_factory] ignored: {_exc}")
     return theme
 
 

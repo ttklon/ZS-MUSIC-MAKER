@@ -38,8 +38,8 @@ def analyze(output_root: str | Path = "output/hits") -> dict[str, Any]:
                 # bucket BPM
                 bucket = f"{int(bpm//10*10)}-{int(bpm//10*10+10)}"
                 by_bpm.setdefault(bucket, []).append(h["hit_score"])
-        except Exception:
-            pass
+        except Exception as _exc:  # hit_score audit: logged fallback
+            print(f"[autotune] hit_score parse failed: {_exc}")
 
     genre_avg = {g: round(sum(v)/len(v),2) for g,v in by_genre.items()}
     bpm_avg = {b: round(sum(v)/len(v),2) for b,v in by_bpm.items()}

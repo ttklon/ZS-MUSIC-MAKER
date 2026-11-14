@@ -176,4 +176,4 @@ python tools/blind_listening_prep.py --hits 5     # output/blind_test/01..10.wav
 ```
 
 ---
-ZS Music Maker HIT FACTORY v1.3 — 2026-11-14 (release+blind+demo 78.8)
+ZS Music Maker HIT FACTORY v1.4 IDEAL — 2026-11-14 (audit CLEAN, demo 73.45+70.59, .gitignore fix)
