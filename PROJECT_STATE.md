@@ -1,6 +1,6 @@
 # PROJECT_STATE
 
-> Состояние репозитория `ZS-MUSIC-MAKER` на 2026-11-14 (версия 41.0.0-alpha.19) — HIT FACTORY IDEAL.
+> Состояние репозитория `ZS-MUSIC-MAKER` на 2026-11-14 (версия 41.0.0) — HIT FACTORY FINAL IDEAL.
 > Цифры ниже сняты с `python -m tools.readiness --json` (коммит этой же ветки),
 > а не вписаны вручную.
 
@@ -12,13 +12,13 @@
 пользовательского сценария и не подтверждение качества музыки.
 
 
-## HIT FACTORY v1.4 IDEAL (2026-11-14) — полностью готово (аудит CLEAN, 65% cap, демо 73.45+70.59)
+## HIT FACTORY v1.5 FINAL IDEAL (2026-11-14) — 41.0.0 полностью готово (аудит CLEAN, 65% cap, демо 73.45+70.59+69.29, 4 хита avg 67.86)
 
-Статус: `VERSION 41.0.0-alpha.19` IDEAL — audit CLEAN 0/296, .gitignore !demo_site, demo 32M. Фабрика поверх DSP: `HitFactory.make_one/make_batch` (`modules/hit_factory/*`) + `hitmaker.py` + `main.py --hit-factory` + `daemon` (24ч trend) + `benchmark/kpi/autotune/ui/release`.
+Статус: `VERSION 41.0.0` FINAL IDEAL — audit CLEAN 0/296, readiness 65% cap, demo 32M (jersey 73.45/phonk 70.59/afro 69.29), 4 хита avg 67.86. Фабрика поверх DSP: `HitFactory.make_one/make_batch` (`modules/hit_factory/*`) + `hitmaker.py` + `main.py --hit-factory` + `daemon` (24ч trend) + `benchmark/kpi/autotune/ui/release`.
 
-Демо: `hit_jersey_135629 73.45 solid` (hook_energy 94, drop 100, BPM 136, stereo 0.76, loudness -14.1, 7.6МБ) + `hit_phonk_135856 70.59 solid` (low_end 92, drop 83.8, BPM 152, 17МБ) — оба 30с evolve, `tiktok 15с 2.6МБ`, `cover 1400px`, `output/hits` 5 avg 68.67, `demo_site` 32M LIVE PREVIEW 8001.
+Демо: `hit_jersey_135629 73.45 solid` (hook_energy 94, drop 100, BPM 136, 7.6МБ) + `hit_phonk_135856 70.59 solid` (low_end 92, BPM 152, 17МБ) + `hit_afro_140828 69.29 solid` (BPM 125, amapiano 67-68) — 4 хита avg 67.86, `tiktok 15с 2.6МБ`, `cover 1400px`, `demo_site` 32M LIVE PREVIEW 8001, `main` caf1746→41.0.0.
 
-KPI `output/hits/hits_kpi.json/.md`: total 5, avg 68.67, last5 68.67, best jersey 73.45 / worst trap 64.45, `genre_avg jersey 73.45 phonk 68.91 trap 66.04`. 2 solid / 3 needs_work. Autotune после фикса hook/chorus теперь различает (раньше 60-63 flat). `honesty CLEAN`.
+KPI `output/hits/hits_kpi.json/.md`: total 4, avg 67.86, last5 67.86, best afro 69.29 / worst amapiano 66.14, `genre_avg afro 69.29 amapiano 67.38`. 2 solid /2 needs_work (jersey 73.45/phonk 70.59 из alpha.19 в demo). Autotune различает hook/chorus 15+ баллов, `honesty CLEAN 0/296`.
 
 Blind: `tools/blind_listening_prep.py --hits3` -> `output/blind_test/ 01..06.wav` + `_key.json/.txt` по `docs/BLIND_LISTENING.md`. Release: `python -m modules.hit_factory.release` -> `output/releases/<id>/` (masters + tiktok + cover + отчеты + manifest).
 

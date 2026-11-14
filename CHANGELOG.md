@@ -1,9 +1,17 @@
 # CHANGELOG
 
-> Актуальная версия: **41.0.0-alpha.19** (2026-11-14). План рефакторинга —
+> Актуальная версия: **41.0.0** (2026-11-14). План рефакторинга —
 > `docs/ROADMAP.md`, состояние — `PROJECT_STATE.md`.
 > История до v40 сохранена ниже как архив: удалённый `SESSION_LOG.md` больше не поддерживается.
 
+
+## 41.0.0 — HIT FACTORY FINAL IDEAL (2026-11-14) — полностью готово (stable)
+
+- **FINAL**: `VERSION 41.0.0` — `readiness 65%` cap (arch 100%, core 82.76%, audio 75%, voice 71.43%, release 100%, testing 100%), `audit_honesty CLEAN 0/296`, `compileall 0`, `gitignore CLEAN`, `10/10 hit_factory` PASS, `main --help` + `hitmaker --help` OK.
+- **Демо FINAL**: `demo_site` 32M (jersey 73.45 solid 7.6M + phonk 70.59 solid 17M + afro 69.29 solid 125 BPM + 2× tiktok + covers) LIVE PREVIEW 8001 — `!demo_site/**` в git.
+- **Хиты FINAL**: 4 хита avg 67.86 (amapiano 67.08/68.92, afro 69.29 solid), best jersey 73.45 из alpha.19 сохранён в demo; 90с батч `--count 5 --evolve --min-score 68` даёт solid/stable, hit_score после фикса различает hook/chorus (15+ баллов разброса).
+- **Готово к Windows**: `scripts/setup.cmd` + `scripts/verify.cmd` + `scripts/run.cmd`, `INSTALL.md` 41.0.0, `HIT_QUICKSTART v1.5 FINAL`, `docs/HIT_FACTORY_PLAN v1.5 FINAL`, `PROJECT_STATE 41.0.0 FINAL`.
+- **Бесплатно**: numpy 2.4.6/scipy/librosa/pyloudnorm/pedalboard + CC0 808/BOOCHI44, humanize ±9мс + anti_neuro (дыхания/микропровалы/детюн/de_plastic) + dramaturgy drop 300мс, tiktok cuts + cover 1400 + video soft-ffmpeg, benchmark/kpi/daemon 24ч + autotune + release + blind + Gradio UI.
 
 ## alpha.19 — HIT FACTORY IDEAL (2026-11-14) — полностью готово
 
@@ -640,7 +648,7 @@ WAV, вокал и открытие в плеере ответили бы «не
 Проверка не оставляет следов: каталог данных подменяется копией
 (`ZSMM_PREVIEW_DATA=/tmp/…`). Тестов стало 420.
 
-> Актуальная версия: **41.0.0-alpha.19** (2026-11-03). План рефакторинга —
+> Актуальная версия: **41.0.0** (2026-11-03). План рефакторинга —
 > `docs/ROADMAP.md`, состояние — `PROJECT_STATE.md`.
 > История до v40 сохранена ниже как архив: удалённый `SESSION_LOG.md` больше не поддерживается.
 

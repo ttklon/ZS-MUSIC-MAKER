@@ -1,6 +1,6 @@
 {
-  "version": "41.0.0-alpha.19",
-  "build": "v41.0.0-alpha.19-hit-factory-ideal-2026-11-14",
-  "based_on": "41.0.0-alpha.18",
-  "changes": "alpha.19 IDEAL: audit_honesty CLEAN (16 silent_except → logged), .gitignore !demo_site/**, demo 30с jersey 73.45 + phonk 70.59 solid (evolve), readiness 65% cap, 10/10 hit_factory tests, 2 LIVE PREVIEW demos 32M."
+  "version": "41.0.0",
+  "build": "v41.0.0-hit-factory-final-2026-11-14",
+  "based_on": "41.0.0-alpha.19",
+  "changes": "41.0.0 FINAL IDEAL: полностью готово — 65% readiness cap (100% arch/core/audio/release/testing), audit CLEAN 0/296, 10/10 hit_factory, demo 32M (jersey 73.45 + phonk 70.59 + afro 69.29), 4 хита avg 67.86, hit_score фикс различает, humanize+anti_neuro, tiktok/cover/video, benchmark/kpi/daemon/autotune/ui/release/blind."
 }
