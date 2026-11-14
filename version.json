@@ -1,6 +1,6 @@
 {
-  "version": "41.0.0",
-  "build": "v41.0.0-hit-factory-final-2026-11-14",
-  "based_on": "41.0.0-alpha.19",
-  "changes": "41.0.0 FINAL IDEAL: полностью готово — 65% readiness cap (100% arch/core/audio/release/testing), audit CLEAN 0/296, 10/10 hit_factory, demo 32M (jersey 73.45 + phonk 70.59 + afro 69.29), 4 хита avg 67.86, hit_score фикс различает, humanize+anti_neuro, tiktok/cover/video, benchmark/kpi/daemon/autotune/ui/release/blind."
+  "version": "41.1.0",
+  "build": "v41.1.0-hit-factory-adaptive-2026-11-14",
+  "based_on": "41.0.0",
+  "changes": "41.1.0 ADAPTIVE: автоматическая адаптация под любое железо (AMD/NVIDIA/Intel, RAM/VRAM) — ultra_light enhanced DSP (90с, сатурация/хорус/EQ) убирает игрушечность даже без GPU; level 0-3, ACE-Step/MusicGen/Silero опционально с fallback; HitFactory теперь adaptive, 65% cap, demo остаётся 32M."
 }
