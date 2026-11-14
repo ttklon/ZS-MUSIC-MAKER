@@ -4,6 +4,14 @@ on:
   push:
     branches: [ main ]
     tags: [ 'v*' ]
+  # Окно и установщик проверяются и на pull request: иначе о сломанной
+  # сборке на Windows узнаёшь уже после слияния. Python-сборка EXE на PR
+  # не запускается (она долгая и не меняется от правок в desktop/).
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'desktop/**'
+      - '.github/workflows/build.yml'
   workflow_dispatch:
 
 permissions:
@@ -11,6 +19,8 @@ permissions:
 
 jobs:
   build-windows:
+    # PyInstaller-сборка не нужна на каждом PR: она не зависит от desktop/.
+    if: github.event_name != 'pull_request'
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -26,56 +36,451 @@ jobs:
           pip install -r requirements.txt
           pip install pyinstaller
 
-      # v36 FIX (P1, SESSION_LOG v32.8): раньше spec не тянул модели/пресеты/промпты
-      # (--add-data models отсутствовал), а --hidden-import modules бесполезен
-      # для динамических __import__. Теперь используем --collect-submodules
-      # для реального включения ленивых импортов, и smoke-шаг больше НЕ
-      # continue-on-error: true — падение EXE ломает сборку.
-      - name: Build EXE with PyInstaller
+      # Один источник правды для упаковки — `packaging/zsmm.spec`.
+      # Раньше workflow собирал собственную сборку в обход spec (со своим
+      # набором флагов и данных): два места задавали состав сборки. Spec по умолчанию собирает onedir
+      # (быстрый старт, предсказуемое обновление); onefile — только через
+      # ZSMM_ONEFILE=1, если это действительно нужно.
+      - name: Build EXE with PyInstaller (spec is the source of truth)
         run: |
-          pyinstaller --noconfirm --clean --onefile --windowed ^
-            --name "ZS-Music-Maker" ^
-            --add-data "version.json;." ^
-            --add-data "config;config" ^
-            --add-data "data;data" ^
-            --add-data "lyric_vault;lyric_vault" ^
-            --add-data "voice_vault;voice_vault" ^
-            --add-data "models;models" ^
-            --collect-submodules modules ^
-            --collect-submodules app ^
-            --collect-submodules agents ^
-            --collect-submodules tools ^
-            --collect-submodules ui ^
-            --collect-submodules updater ^
-            main.py
+          pyinstaller --noconfirm --clean packaging/zsmm.spec
         shell: cmd
 
       - name: Smoke-test the built EXE (--version must exit 0)
         run: |
-          .\dist\ZS-Music-Maker.exe --version
+          .\dist\ZS Music Maker\ZS Music Maker.exe --version
         shell: cmd
 
       - name: Upload EXE artifact
         uses: actions/upload-artifact@v4
         with:
           name: ZS-Music-Maker-Windows-EXE
-          path: dist/ZS-Music-Maker.exe
+          # onedir: каталог целиком, иначе обновление и данные теряются
+          path: dist/ZS Music Maker/
+          retention-days: 30
+
+  desktop-shell:
+    # Оболочка на Electron проверяется отдельно: её тесты не требуют Python
+    # и графической среды, поэтому падение окна видно сразу.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Syntax check of shell sources
+        run: |
+          cd desktop
+          npm run check
+
+      - name: Shell tests (node --test, no GUI needed)
+        run: |
+          cd desktop
+          node --test test/*.test.js
+
+      - name: Set up Python (only for the readiness snapshot cross-check)
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install minimal Python deps for snapshot
+        run: |
+          python -m pip install --upgrade pip
+          # Cross-check трогает `tools.readiness` и `main.py --version`;
+          # полный requirements.txt с PySide6 (~200 МБ) здесь не нужен и
+          # делает шаг главным источником падений на раннере.
+          pip install requests filelock pyyaml pytest hypothesis pytest-cov
+
+      # Шаги разделены нарочно: логи job-а из внешней среды не читаются,
+      # а имя упавшего шага и его annotation — читаются.
+      - name: Cross-check JS shell against Python entry point
+        run: |
+          cd desktop
+          python -m pytest ../tests/test_desktop_shell.py -q > /tmp/shell.log 2>&1
+          status=$?
+          tail -40 /tmp/shell.log
+          if [ "$status" -ne 0 ]; then
+            detail=$(grep -E 'FAILED|AssertionError|Error|assert' /tmp/shell.log | head -12 | tr '\n' '|')
+            echo "::error title=desktop shell cross-check::${detail:-см. лог шага}"
+            exit 1
+          fi
+
+      - name: Regenerate readiness snapshot (must match committed files)
+        run: |
+          cd desktop
+          node scripts/snapshot-readiness.js > /tmp/snapshot.log 2>&1 || {
+            echo "::error title=snapshot generation::$(tail -5 /tmp/snapshot.log | tr '\n' '|')"
+            exit 1
+          }
+          cat /tmp/snapshot.log
+          # `generated_at` меняется от каждого запуска — сравниваем содержимое
+          # без него, иначе шаг падал бы всегда.
+          python ../tools/check_snapshot_freshness.py
+
+  desktop-windows:
+    # Установщик для Windows 11 собирается и проверяется на настоящей Windows:
+    # упакованное приложение запускается с `--smoke` и читает свои данные из
+    # `resources/project`. Без этой job «работает у меня в репозитории» и
+    # «работает после установки» — разные вещи, и вторая не проверена.
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: desktop/package.json
+
+      # Подпись включается только тогда, когда в репозитории реально заведены
+      # секреты Azure Trusted Signing. Иначе electron-builder пытался бы
+      # подписывать с пустыми значениями и валил сборку — то есть отсутствие
+      # сертификата ломало бы выпуск приложения.
+      - name: Detect code signing credentials
+        id: signing
+        shell: pwsh
+        run: |
+          $ready = $true
+          foreach ($name in @(
+            'AZURE_CODE_SIGNING_ENDPOINT',
+            'AZURE_CODE_SIGNING_ACCOUNT_NAME',
+            'AZURE_CERTIFICATE_PROFILE_NAME',
+            'AZURE_CLIENT_ID',
+            'AZURE_TENANT_ID',
+            'AZURE_CLIENT_SECRET'
+          )) {
+            if (-not [Environment]::GetEnvironmentVariable($name)) { $ready = $false }
+          }
+          if ($ready) {
+            "ZSMM_CODE_SIGNING=1" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+            Write-Output 'секреты подписи есть — сборка будет подписана'
+          } else {
+            Write-Output 'секретов подписи нет — сборка выйдет без подписи (это не ошибка)'
+          }
+        env:
+          AZURE_CODE_SIGNING_ENDPOINT: ${{ secrets.AZURE_CODE_SIGNING_ENDPOINT }}
+          AZURE_CODE_SIGNING_ACCOUNT_NAME: ${{ secrets.AZURE_CODE_SIGNING_ACCOUNT_NAME }}
+          AZURE_CERTIFICATE_PROFILE_NAME: ${{ secrets.AZURE_CERTIFICATE_PROFILE_NAME }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+
+      - name: Install JS dependencies (scripts skipped)
+        working-directory: desktop
+        shell: pwsh
+        # Тесты оболочки не требуют бинарника Electron, а его скачивание —
+        # самый хрупкий шаг на раннере. Поэтому сначала ставим пакеты без
+        # postinstall, затем отдельным шагом тянем бинарник для сборки.
+        run: |
+          $env:ELECTRON_SKIP_BINARY_DOWNLOAD = '1'
+          $output = (& npm install --no-audit --no-fund --ignore-scripts 2>&1 | Out-String)
+          $output
+          if ($LASTEXITCODE -ne 0) {
+            $tail = ($output -split "`n" | Select-Object -Last 15) -join ' | '
+            Write-Output "::error title=npm install::$tail"
+            exit 1
+          }
+
+      - name: Shell tests on Windows (no GUI needed)
+        working-directory: desktop
+        shell: pwsh
+        # Логи job-а читаются только через веб-интерфейс, поэтому падение
+        # дублируется в annotation: её видно из API и из PR.
+        run: |
+          $output = (& npm test 2>&1 | Out-String)
+          $output
+          if ($LASTEXITCODE -ne 0) {
+            $failed = ($output -split "`n" | Where-Object { $_ -match '^# (fail|tests|pass)|^not ok|AssertionError|Error:' } | Select-Object -First 25) -join ' | '
+            Write-Output "::error title=npm test on Windows::$failed"
+            exit 1
+          }
+
+      - name: Cache Electron and electron-builder downloads
+        uses: actions/cache@v4
+        with:
+          # Упаковка качает electron-vXX-win32-x64.zip и nsis-ресурсы.
+          # Без кэша каждый прогон — это три скачивания по сети раннера,
+          # и любое из них может оборваться (мы это уже видели: «EOF»).
+          path: |
+            ~/AppData/Local/electron/Cache
+            ~/AppData/Local/electron-builder/Cache
+          key: ${{ runner.os }}-electron-cache-${{ hashFiles('desktop/package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-electron-cache-
+
+      - name: Install the Electron binary for packaging
+        working-directory: desktop
+        shell: pwsh
+        # `@electron/get` внутри install.js качал бинарник через редиректы
+        # release-assets.githubusercontent.com и падал с «EOF» на раннере.
+        # Здесь тот же артефакт скачивается напрямую (curl есть в Windows 11),
+        # кладётся в dist/ и path.txt — ровно то, что делает install.js.
+        # electron-builder после этого видит локальную копию и не качает её.
+        run: |
+          $version = (node -p "require('electron/package.json').version")
+          $dist = "node_modules/electron/dist"
+          if (Test-Path "$dist/electron.exe") {
+            Write-Output "electron $version уже распакован"
+            exit 0
+          }
+          $zip = "electron-v$version-win32-x64.zip"
+          $url = "https://github.com/electron/electron/releases/download/v$version/$zip"
+          $ok = $false
+          for ($i = 1; $i -le 3; $i++) {
+            Write-Output "скачивание $url (попытка $i)"
+            & curl.exe -L --fail --retry 3 --retry-delay 5 --max-time 900 -o $zip $url
+            if ($LASTEXITCODE -eq 0 -and (Test-Path $zip) -and ((Get-Item $zip).Length -gt 50MB)) {
+              $ok = $true
+              break
+            }
+            Start-Sleep -Seconds (10 * $i)
+          }
+          if (-not $ok) {
+            Write-Output "::error title=electron download::не удалось скачать $url"
+            exit 1
+          }
+          New-Item -ItemType Directory -Force -Path $dist | Out-Null
+          Expand-Archive -Path $zip -DestinationPath $dist -Force
+          Set-Content -Path "node_modules/electron/path.txt" -Value "electron.exe" -NoNewline
+          Remove-Item $zip -Force
+          if (-not (Test-Path "$dist/electron.exe")) {
+            Write-Output "::error title=electron unpack::в dist нет electron.exe"
+            exit 1
+          }
+          Write-Output "electron $version распакован в $dist"
+
+      - name: Build NSIS installer and portable EXE
+        working-directory: desktop
+        shell: pwsh
+        # Цели описаны в package.json → build.win.target. Раньше они дублировались
+        # в командной строке (`--win nsis portable`), и app-builder падал на
+        # неожиданном аргументе.
+        run: |
+          # Повтор на случай обрыва скачивания nsis/winCodeSign: конфигурация
+          # та же, поэтому вторая попытка обычно попадает в кэш первого шага.
+          # Сборка идёт через `npm run dist`: он сначала генерирует
+          # build-config.generated.json, и только при полном наборе секретов
+          # в конфигурации появляется блок подписи Azure Trusted Signing.
+          # Прямой вызов electron-builder собрал бы без подписи даже тогда,
+          # когда секреты есть, — молча и незаметно.
+          $ok = $false
+          for ($i = 1; $i -le 2; $i++) {
+            $output = (& npm run dist 2>&1 | Out-String)
+            $output
+            if ($LASTEXITCODE -eq 0) { $ok = $true; break }
+            Write-Output "::warning title=electron-builder::попытка $i не удалась, повтор"
+            Start-Sleep -Seconds (10 * $i)
+          }
+          if (-not $ok) {
+            # Аннотация режется по длине: важен не весь стек app-builder, а
+            # строки «⨯ ...» — они называют настоящую причину.
+            $errors = ($output -split "`n" | Where-Object { $_ -match '⨯|error|Error:|failed' } | Select-Object -First 12) -join ' | '
+            if (-not $errors) { $errors = ($output -split "`n" | Select-Object -Last 12) -join ' | ' }
+            Write-Output "::error title=electron-builder::$errors"
+            Write-Output $output
+            exit 1
+          }
+
+      - name: Show what was built
+        working-directory: desktop
+        shell: pwsh
+        run: Get-ChildItem dist | Format-Table Name, Length
+
+      # Проверяем подпись у готовых файлов, а не у переменных окружения:
+      # `Get-AuthenticodeSignature` отвечает по существу. Отчёт едет в
+      # артефакты и в релиз, поэтому «подписано / не подписано» в тексте
+      # релиза — факт, а не обещание.
+      - name: Verify Authenticode signature of the artifacts
+        working-directory: desktop
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem dist -Filter '*.exe' -File | Select-Object -ExpandProperty FullName
+          if (-not $exe) { throw 'в dist нет ни одного .exe' }
+          # Вывод — в файл, а не через Tee-Object: в конвейере $LASTEXITCODE
+          # относится к последней native-команде не всегда, и однажды это
+          # дало ложный провал шага при нормальной сборке.
+          node scripts/verify-signature.js @exe --json > dist/signature.json
+          $status = $LASTEXITCODE
+          Get-Content dist/signature.json
+          if ($status -eq 0) {
+            Write-Output 'подпись действительна у всех файлов'
+            exit 0
+          }
+          if ($env:ZSMM_CODE_SIGNING -eq '1') {
+            # Секреты есть, а подписи нет — это провал сборки, а не «мелочь».
+            Write-Output '::error title=кодовая подпись::секреты заданы, но файлы не подписаны'
+            exit 1
+          }
+          # Код 1 («не подписано») без секретов — ожидаемое состояние, и
+          # выходить из шага с ним нельзя: PowerShell вернул бы 1, и сборка
+          # падала бы из-за отсутствия сертификата.
+          Write-Output '::notice title=кодовая подпись::сертификата нет, сборка без подписи (SmartScreen предупредит)'
+          exit 0
+
+      - name: Smoke-test the packaged app (unpacked build)
+        working-directory: desktop
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem dist -Recurse -Filter 'ZS Music Maker.exe' | Select-Object -First 1
+          if (-not $exe) { throw 'unpacked exe not found' }
+          # Отчёт пишется в dist: оттуда его забирает upload-artifact, и он же
+          # попадает в релиз. Раньше файл ложился в desktop/, а шаг выгрузки
+          # искал desktop/dist/smoke.json — в ассетах отчёта не было вовсе.
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          $env:ZSMM_SMOKE_OUT = Join-Path $PWD 'dist\smoke.json'
+          if (Test-Path $env:ZSMM_SMOKE_OUT) { Remove-Item $env:ZSMM_SMOKE_OUT }
+          # exe — GUI-подсистема: `& exe` в PowerShell не ждёт завершения и не
+          # даёт код возврата. Start-Process -Wait ждёт и отдаёт ExitCode.
+          $process = Start-Process -FilePath $exe.FullName -ArgumentList '--smoke' -Wait -PassThru
+          $code = $process.ExitCode
+          Write-Output "exit=$code"
+          if (Test-Path $env:ZSMM_SMOKE_OUT) {
+            $raw = Get-Content $env:ZSMM_SMOKE_OUT -Raw
+            Write-Output $raw
+            try {
+              $report = $raw | ConvertFrom-Json
+              $failed = ($report.checks | Where-Object { -not $_.ok } | ForEach-Object { "$($_.name): $($_.detail)" }) -join ' | '
+              if ($code -ne 0 -or -not $report.ok) {
+                Write-Output "::error title=packaged smoke::$($failed -replace '\r?\n', ' ')"
+                exit 1
+              }
+            } catch {
+              Write-Output "::error title=packaged smoke::отчёт не разобран ($raw)"
+              exit 1
+            }
+          } else {
+            # Диагностика на случай, если приложение вообще не дошло до smoke:
+            # видно, на месте ли распакованные данные и код.
+            $unpacked = Split-Path $exe.FullName -Parent
+            $tree = Get-ChildItem -Path $unpacked -Directory | Select-Object -ExpandProperty Name
+            Write-Output "рядом с exe: $($tree -join ', ')"
+            $project = Join-Path $unpacked 'resources\project'
+            if (Test-Path $project) {
+              $inside = Get-ChildItem -Path $project | Select-Object -ExpandProperty Name
+              Write-Output "resources/project: $($inside -join ', ')"
+            } else {
+              Write-Output 'resources/project отсутствует'
+            }
+            Write-Output "::error title=packaged smoke::приложение не записало отчёт, код $code"
+            exit 1
+          }
+
+      # Содержимое отчёта печатается в лог: сам файл из внешней среды не
+      # скачать (артефакты и ассеты релиза отдают 403/EOF), а аннотация
+      # показывает только 1-2 строки. Здесь видно каждый файл и подпись.
+      - name: Summary of signature report
+        if: always()
+        working-directory: desktop
+        shell: pwsh
+        run: |
+          if (Test-Path dist/signature.json) {
+            $report = Get-Content dist/signature.json -Raw | ConvertFrom-Json
+            Write-Output "подпись: $($report.summary)"
+            foreach ($row in $report.files) {
+              Write-Output ("  {0}: {1} ({2})" -f (Split-Path $row.file -Leaf), $row.status, $row.signer)
+            }
+          } else {
+            Write-Output 'signature.json не появился: шаг сборки не дошёл до проверки подписи'
+          }
+          if (Test-Path dist/smoke.json) {
+            $smoke = Get-Content dist/smoke.json -Raw | ConvertFrom-Json
+            Write-Output ("smoke: ok={0}, проверок {1}" -f $smoke.ok, $smoke.checks.Count)
+            foreach ($check in $smoke.checks) {
+              Write-Output ("  {0} {1}: {2}" -f $(if ($check.ok) { 'ok' } else { 'FAIL' }), $check.name, $check.detail)
+            }
+          }
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: ZS-Music-Maker-Windows-Setup
+          path: |
+            desktop/dist/*.exe
+            desktop/dist/*.blockmap
+            desktop/dist/smoke.json
+            desktop/dist/signature.json
           retention-days: 30
 
   publish-release:
-    needs: build-windows
-    if: startsWith(github.ref, 'refs/tags/v')
+    # Публикуем после любой успешной Windows-сборки: иначе установщик живёт
+    # только 30 дней в артефактах CI, куда человеку ещё нужно войти в GitHub,
+    # а прямой ссылки на .exe нет вовсе. Метка релиза зависит от версии
+    # приложения, поэтому повторные сборки перезаписывают те же файлы и
+    # ссылка `releases/latest/download/…` не меняется.
+    needs: [desktop-windows]
+    if: needs.desktop-windows.result == 'success'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
-      - name: Download Windows artifact
+      - uses: actions/checkout@v4
+
+      - name: Download Electron installer
+        uses: actions/download-artifact@v4
+        with:
+          name: ZS-Music-Maker-Windows-Setup
+          path: electron-win
+
+      - name: List what will be published
+        run: ls -l electron-win
+
+      # Метка берётся из версии приложения: релиз-«последний» перезаписывается,
+      # поэтому ссылка на скачивание не меняется от сборки к сборке.
+      - name: Read app version
+        id: version
+        run: |
+          version=$(node -p "require('./desktop/package.json').version")
+          echo "value=${version}" >> "$GITHUB_OUTPUT"
+
+      - name: Publish Windows installer
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: desktop-v${{ steps.version.outputs.value }}
+          name: ZS Music Maker ${{ steps.version.outputs.value }} (Electron, Windows 11)
+          body: |
+            Установщик и portable-сборка приложения на Electron.
+
+            - `ZS-Music-Maker-Setup-<версия>.exe` — установка для
+              пользователя (без прав администратора), ярлыки в «Пуск» и на
+              рабочем столе;
+            - `ZS-Music-Maker-<версия>-portable.exe` — без установки;
+            - `smoke.json` — отчёт проверки упакованного приложения на Windows.
+
+            Подпись кода проверяется после сборки (`signature.json` в
+            ассетах). Если она не настроена, Windows 11 покажет предупреждение
+            SmartScreen при первом запуске — это состояние сертификата, а не
+            сборки, и в отчёте оно названо прямо.
+          files: |
+            electron-win/*.exe
+            electron-win/*.blockmap
+            electron-win/smoke.json
+            electron-win/signature.json
+          fail_on_unmatched_files: false
+
+      # Старая Python-сборка (PyInstaller, onedir) публикуется отдельной
+      # меткой и только по тегам — её состав другой, смешивать нельзя.
+      - name: Download Python EXE
+        if: startsWith(github.ref, 'refs/tags/v')
+        continue-on-error: true
         uses: actions/download-artifact@v4
         with:
           name: ZS-Music-Maker-Windows-EXE
           path: release
-      - name: Archive Windows build
+
+      - name: Archive Python build
+        if: startsWith(github.ref, 'refs/tags/v')
+        continue-on-error: true
         run: cd release && zip -r ../ZS-Music-Maker-Windows.zip .
-      - name: Publish tagged release
+
+      - name: Publish tagged release with Python build
+        if: startsWith(github.ref, 'refs/tags/v')
+        continue-on-error: true
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ github.ref_name }}
           generate_release_notes: true
           files: ZS-Music-Maker-Windows.zip

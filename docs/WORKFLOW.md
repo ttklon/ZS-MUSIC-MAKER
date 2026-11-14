@@ -2,6 +2,9 @@
 
 > Правила, которые не дают коду снова превратиться в набор версий.
 
+Устройство кода — `docs/ARCHITECTURE.md`; что где лежит и в каком состоянии —
+`docs/PROJECT_INVENTORY.md`. Этот файл — про процесс, не про состав.
+
 ## Базовый цикл
 
 ```bash
@@ -9,6 +12,7 @@ python -m pytest tests/ -q          # должно быть зелёно ДО и
 python tools/smoke_audio.py         # аудио-гейты
 python tools/fallback_audit.py      # честность fallback
 python tools/ast_dead_imports.py    # мёртвые импорты
+python tools/ast_undefined_names.py # имена без определения (NameError)
 python main.py --run --seed 42 --only beat,lyrics   # воспроизводимый частичный прогон
 ```
 
@@ -17,17 +21,23 @@ python main.py --run --seed 42 --only beat,lyrics   # воспроизводим
 
 ## Добавить жанр
 
-1. `data/genres/<slug>.json`: `bpm`, `mode`, `groove` (16/32 шага по слоям), `prompt_hint`,
-   `instruments`, `mix` (уровни), `mastering` (целевой LUFS).
-2. `python tools/genre_validator.py` — схема и уникальность.
-3. `python main.py --list-genres` — жанр виден в CLI.
+Каталог жанров один: `config/genres_100.json` — 6 категорий по 20 названий.
+Пресеты для генерации — `data/genre_presets/` (`<slug>.json`) (50 файлов):
+`bpm`, `mode`, `groove` (16/32 шага по слоям), `prompt_hint`, `instruments`,
+`mix` (уровни), `mastering` (целевой LUFS). Каталога `data/genres/` нет.
+
+1. Добавь имя в подходящую категорию `config/genres_100.json` (без дублей: `trap`
+   и `grime` уже встречаются в двух категориях).
+2. Пресет — `data/genre_presets/` (`<slug>.json`).
+3. `python tools/genre_validator.py` — схема и уникальность.
+4. `python main.py --list-genres` — жанр виден в CLI.
 
 ## Добавить стадию в пайплайн
 
 1. Функция `_stage_<name>(...) -> dict` в `app/core/stages/<тема>.py` (не в оркестраторе:
    там только склейка).
 2. Возвращает `{ok, ...}`; при отказе — `{ok: False, reason: "...", blocked: True}`.
-3. Артефакт обязан пройти валидатор из `app/ai/quality.py`.
+3. Артефакт обязан пройти валидатор из пакета `app/ai/quality/`.
 4. Добавь стадию в `run_full_pipeline` и, если у неё есть ключ для `--only`,
    в `STAGE_KEYS` (`app/core/pipeline_runtime.py`); обнови `docs/ARCHITECTURE.md`.
 5. Тест: успешный путь + отказ + детерминизм по seed.
@@ -50,7 +60,8 @@ python main.py --run --seed 42 --only beat,lyrics   # воспроизводим
 
 ## Правила качества
 
-- Файл ≤ 400 строк, функция ≤ 60 строк.
+- Файл ≤ 400 строк; функция ≤ 60 строк — мягкое правило: существующие
+  исключения перечислены в тесте гигиены, новые длинные функции не появляются.
 - Ни одного `except: pass` — только логирование причины.
 - Никакого фейкового успеха: нет весов/пакета → `BLOCKED` с причиной.
 - Любой рендер воспроизводим по `seed`.

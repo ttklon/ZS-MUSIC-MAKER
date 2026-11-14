@@ -24,6 +24,8 @@ import logging
 from pathlib import Path
 from typing import Any
 
+from modules.tempo import tempo_scalar
+
 log = logging.getLogger("zsmm.essentia")
 
 try:
@@ -138,7 +140,7 @@ def _analyze_librosa_fallback(audio_path: str, sr: int) -> dict[str, Any]:
         return {
             "ok": True,
             "engine": "librosa_fallback",
-            "bpm": float(tempo),
+            "bpm": tempo_scalar(tempo, 0.0),
             "key": keys[key_idx],
             "scale": (
                 "major"
@@ -153,7 +155,10 @@ def _analyze_librosa_fallback(audio_path: str, sr: int) -> dict[str, Any]:
             "n_beats": len(beats),
         }
     except Exception as e:
-        return {"ok": False, "reason": str(e)}
+        # У части бэкендов (soundfile/audioread NoBackendError) str(e) == "".
+        # Пустая причина превращала отчёт в необъяснимый {"ok": false}.
+        reason = str(e).strip() or f"{type(e).__name__}: аудио не читается"
+        return {"ok": False, "reason": reason}
 
 
 def save_report(report: dict[str, Any], out_json: str) -> None:

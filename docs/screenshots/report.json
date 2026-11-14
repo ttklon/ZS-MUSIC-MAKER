@@ -1,0 +1,70 @@
+{
+  "url": "http://127.0.0.1:4180/",
+  "viewport": "1440x900",
+  "views": {
+    "overview": {
+      "title": "Обзор",
+      "hasPanel": true,
+      "textLength": 339,
+      "sample": "ГОТОВНОСТЬ 65% по probes, с потолками МОДУЛЕЙ 300 264 достижимы МЁРТВЫЙ КОД 35 не удалён, помечен в плане ПОТОЛКИ 2 прич",
+      "errorBanner": null
+    },
+    "modules": {
+      "title": "Модули",
+      "hasPanel": true,
+      "textLength": 13325,
+      "sample": "Модули проекта 300 модулей: REAL_PASS — 264, DEPRECATED — 35, PLANNED — 1 Модуль Статус Достижим Ссылок в проде Парсится",
+      "errorBanner": null
+    },
+    "genres": {
+      "title": "Жанры",
+      "hasPanel": true,
+      "textLength": 5912,
+      "sample": "Жанры каталог: 120 жанров, пресетов: 50 120 из 120 Acid Jazz jazz_blues · без пресета Собрать бит Afrobeats hiphop_rnb ·",
+      "errorBanner": null
+    },
+    "beat": {
+      "title": "Бит",
+      "hasPanel": true,
+      "textLength": 793,
+      "sample": "Бит прямо в окне Банк сэмплов подключён: 32 one-shot (kick, snare, clap, hat, open_hat, 808). Ударные играют живые запис",
+      "errorBanner": null
+    },
+    "dossiers": {
+      "title": "Досье",
+      "hasPanel": true,
+      "textLength": 441,
+      "sample": "Артисты с досье Добавить 1 артист(ов) в досье. Полная сборка досье (биография, темы, разбор треков) требует Python: кноп",
+      "errorBanner": null
+    },
+    "tracks": {
+      "title": "Треки",
+      "hasPanel": true,
+      "textLength": 283,
+      "sample": "Треки артиста Треки ведутся в окне: название, ссылка и текст сохраняются сразу. Разбор (темп, тональность, вокал) делает",
+      "errorBanner": null
+    },
+    "run": {
+      "title": "Запуск",
+      "hasPanel": true,
+      "textLength": 395,
+      "sample": "Запуск задач проекта Окно запускает ту же команду, что и терминал: python main.py …. Вывод показывается построчно; остан",
+      "errorBanner": null
+    },
+    "health": {
+      "title": "Диагностика",
+      "hasPanel": true,
+      "textLength": 369,
+      "sample": "Окружение и снимок корень проекта /home/user/ZS-MUSIC-MAKER платформа linux Node 22.22.3 Electron — Chromium — снимок го",
+      "errorBanner": null
+    },
+    "help": {
+      "title": "Справка",
+      "hasPanel": true,
+      "textLength": 4570,
+      "sample": "Справка Коротко: что приложение делает само, что требует Python и чего здесь принципиально нет. Что действительно работа",
+      "errorBanner": null
+    }
+  },
+  "pageErrors": []
+}

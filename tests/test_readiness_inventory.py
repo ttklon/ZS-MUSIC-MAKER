@@ -23,7 +23,7 @@ def test_module_inventory_has_auditable_status_for_every_tracked_module() -> Non
     assert len(rows) == len(readiness.tracked_python_modules())
     assert {row["path"] for row in rows} == set(readiness.tracked_python_modules())
     assert all(row["syntax_ok"] for row in rows)
-    assert {row["status"] for row in rows} <= {"REAL_PASS", "REAL_FAIL", "PLANNED"}
+    assert {row["status"] for row in rows} <= {"REAL_PASS", "REAL_FAIL", "PLANNED", "DEPRECATED"}
 
 
 def test_inventory_markdown_has_one_row_per_tracked_module() -> None:
@@ -39,7 +39,10 @@ def test_readiness_includes_inventory_summary_without_changing_compute_shape() -
 
     summary = details["module_inventory"]
     assert isinstance(percent, float)
-    assert set(summary) == {"tracked_modules", "REAL_PASS", "REAL_FAIL", "PLANNED"}
+    assert set(summary) == {"tracked_modules", "REAL_PASS", "REAL_FAIL", "PLANNED", "DEPRECATED"}
     assert summary["tracked_modules"] == len(readiness.tracked_python_modules())
-    assert sum(summary[key] for key in ("REAL_PASS", "REAL_FAIL", "PLANNED")) == summary["tracked_modules"]
+    assert (
+        sum(summary[key] for key in ("REAL_PASS", "REAL_FAIL", "PLANNED", "DEPRECATED"))
+        == summary["tracked_modules"]
+    )
     assert "caps_triggered" in details

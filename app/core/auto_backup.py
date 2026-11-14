@@ -84,14 +84,18 @@ def create_snapshot(
     total = 0
     for source, relative in [*_data_candidates(data_dir), *_manifest_candidates(root)]:
         size = source.stat().st_size
+        # Путь в манифесте всегда через `/`: иначе на Windows запись выглядела
+        # бы как `data\\settings.json`, и восстановление на другой машине
+        # (а также сверка с документацией) ломалось бы из-за разделителя.
+        reported = relative.as_posix()
         if total + size > max_bytes:
-            skipped.append({"path": str(relative), "size": size, "reason": "max_backup_bytes"})
+            skipped.append({"path": reported, "size": size, "reason": "max_backup_bytes"})
             continue
         destination = target / relative
         destination.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source, destination)
         total += size
-        selected.append({"path": str(relative), "size": size, "sha256": _sha256(destination)})
+        selected.append({"path": reported, "size": size, "sha256": _sha256(destination)})
     manifest = {
         "schema": "zsmm.backup.v1",
         "label": safe_label,
@@ -128,7 +132,7 @@ def restore_snapshot(snapshot_dir: Path, destination_root: Path) -> dict:
             target = Path(destination_root) / relative
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(source, target)
-            restored.append(str(relative))
+            restored.append(relative.as_posix())
         return {"ok": True, "restored": restored}
     except Exception as exc:
         return {"ok": False, "reason": f"restore failed: {exc}", "restored": []}

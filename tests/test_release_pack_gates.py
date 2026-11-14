@@ -30,6 +30,7 @@ def _tone(path: Path, seconds: float = 2.0, freq: float = 220.0, sr: int = 8_000
 def test_manifest_covers_every_artifact_with_sha256(tmp_path) -> None:
     master = _tone(tmp_path / "master.wav")
     stem = _tone(tmp_path / "stem.wav", 2.0, 110.0)
+    master_sha_before = sha256_file(Path(master))
 
     result = build_pack(
         master,
@@ -45,10 +46,20 @@ def test_manifest_covers_every_artifact_with_sha256(tmp_path) -> None:
     manifest = json.loads((Path(result["path"]) / "manifest.json").read_text(encoding="utf-8"))
     artifacts = manifest["artifacts_sha256"]
 
-    for name in ("master.wav", "streaming.wav", "drums.wav", "lyrics.txt", "hit_report.md"):
+    # Стенд стриминга лежит в пакете один раз: его роль играет `master.wav`.
+    # Копия `masters/streaming.wav` с тем же звуком — это лишние 42 МБ в
+    # пакете и в архиве (так и было в живом прогоне).
+    for name in ("master.wav", "drums.wav", "lyrics.txt", "hit_report.md"):
         assert name in artifacts, f"{name} отсутствует в манифесте"
         assert len(artifacts[name]) == 64
-    assert artifacts["master.wav"] == sha256_file(Path(master))
+    assert not (Path(result["path"]) / "masters" / "streaming.wav").exists()
+    assert result["masters"] == [str(Path(result["path"]) / "master.wav")]
+    # T18: пакетный мастер — копия с ID3-тегами, поэтому его SHA-256
+    # обязан совпадать с манифестом, но не с проектом (оригинал не мутируется,
+    # это отдельно проверяет tests/test_release_id3.py).
+    assert artifacts["master.wav"] == sha256_file(Path(result["path"]) / "master.wav")
+    assert sha256_file(Path(master)) == master_sha_before, "мастер проекта изменён тегированием"
+    assert manifest["id3"]["ok"] is True
     assert "timed_lyrics" in result["missing"]
     assert "timed_lyrics" in manifest["missing"]
     assert not (Path(result["path"]) / "lyrics.lrc").exists()
@@ -129,6 +140,7 @@ def test_zip_manifest_matches_the_release_folder(tmp_path) -> None:
     """Архив не должен содержать устаревший манифест после сборки пакета."""
     master = _tone(tmp_path / "master.wav")
     stem = _tone(tmp_path / "stem.wav", 2.0, 110.0)
+    master_sha_before = sha256_file(Path(master))
 
     result = build_pack(
         master,
@@ -166,3 +178,37 @@ def test_existing_timed_lyrics_are_not_overwritten_or_silently_archived(tmp_path
     assert "fresh release directory" in result["reason"]
     assert stale.read_text(encoding="utf-8") == "user content"
     assert not (out / "release.zip").exists()
+
+
+def test_streaming_master_is_not_duplicated_as_master_wav(tmp_path) -> None:
+    """Мастер стриминга лежит в пакете один раз.
+
+    Живой прогон дал `master.wav` и `masters/streaming.wav` с одинаковым
+    SHA-256 — это 42 МБ дважды в пакете и в архиве (из 363 МБ распакованного
+    объёма 40 МБ были ровно этим дублем). `master.wav` нужен: его читает
+    плеер и по нему считается отпечаток, — поэтому копия стенда с тем же
+    содержимым не создаётся.
+    """
+    import json
+
+    master = tmp_path / "streaming.wav"
+    sf.write(master, np.zeros(800, dtype=np.float32), 8_000)
+
+    packed = build_pack(
+        str(master),
+        str(tmp_path / "release"),
+        meta={"title": "Тест", "artist": "Артист", "duration_sec": 2},
+        masters_map={"streaming": str(master)},
+        lyrics_text="",
+    )
+
+    assert packed["ok"] is True, packed.get("reason")
+    release_dir = Path(packed["release_dir"])
+    assert (release_dir / "master.wav").is_file()
+    assert not (release_dir / "masters" / "streaming.wav").exists()
+    manifest = json.loads((release_dir / "manifest.json").read_text(encoding="utf-8"))
+    # Звук в пакете тот же: сравнение по размеру, а не по SHA — пакетный
+    # мастер перетегируется ID3, и байты отличаются от исходника.
+    assert (release_dir / "master.wav").stat().st_size >= master.stat().st_size
+    assert "master.wav" in manifest["artifacts_sha256"]
+    assert "streaming.wav" not in manifest["artifacts_sha256"]

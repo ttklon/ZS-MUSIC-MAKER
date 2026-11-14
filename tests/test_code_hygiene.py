@@ -12,7 +12,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 MAX_LINES = 400
-PRODUCTION_DIRS = ("app", "modules", "agents", "tools", "updater", "ui")
+PRODUCTION_DIRS = ("app", "modules", "agents", "tools", "updater", "ui", "desktop")
 ROOT_FILES = ("main.py", "install.py")
 
 
@@ -25,7 +25,13 @@ def _tracked_python() -> list[str]:
         files = [line.strip() for line in out.stdout.splitlines() if line.strip()]
     except (OSError, subprocess.CalledProcessError):  # pragma: no cover - git отсутствует
         files = [str(p.relative_to(ROOT)) for p in ROOT.rglob("*.py")]
-    return [f for f in files if (ROOT / f).is_file()]
+    return [
+        f
+        for f in files
+        if (ROOT / f).is_file()
+        # тестовые двойники окна (DOM-заглушка) — вспомогательный код тестов
+        and not f.startswith("desktop/test/")
+    ]
 
 
 def _is_production(path: str) -> bool:

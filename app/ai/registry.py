@@ -13,6 +13,8 @@ from typing import Any, Callable, Dict, Optional
 from app.ai.model_catalog import MODEL_REGISTRY  # noqa: F401 - existing public registry contract
 
 ROOT = Path(__file__).resolve().parents[2]
+from app.ai.weights import ensure_local_weights
+
 MODELS_DIR = ROOT / "data" / "ai_models"
 MODELS_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -254,6 +256,8 @@ class ModelRegistry:
 
         def _musicgen(key):
             def _do():
+                # Preflight: без локальных весов не идём в сеть молча.
+                ensure_local_weights(key, MODELS_DIR)
                 from audiocraft.models import MusicGen
                 spec = MODEL_REGISTRY[key]
                 device = self.pick_device(spec)
@@ -266,6 +270,7 @@ class ModelRegistry:
         self._loaders["music_stereo"] = _musicgen("music_stereo")
 
         def _xtts():
+            ensure_local_weights("tts_vocal", MODELS_DIR)
             from TTS.api import TTS
             spec = MODEL_REGISTRY["tts_vocal"]
             device = self.pick_device(spec)
@@ -285,6 +290,7 @@ class ModelRegistry:
         self._loaders["vocal_rvc"] = _rvc
 
         def _demucs():
+            ensure_local_weights("stem_splitter", MODELS_DIR)
             from demucs.pretrained import get_model
             spec = MODEL_REGISTRY["stem_splitter"]
             device = self.pick_device(spec)
@@ -317,6 +323,7 @@ class ModelRegistry:
         self._loaders["asr"] = _wh
 
         def _clap():
+            ensure_local_weights("audio_tagger", MODELS_DIR)
             from transformers import ClapModel, ClapProcessor
             spec = MODEL_REGISTRY["audio_tagger"]
             device = self.pick_device(spec)
@@ -333,6 +340,7 @@ class ModelRegistry:
         self._loaders["essentia"] = lambda: ("librosa_dsp", "cpu")
 
         def _sdxl():
+            ensure_local_weights("cover_art", MODELS_DIR)
             from diffusers import DiffusionPipeline
             import torch
             spec = MODEL_REGISTRY["cover_art"]

@@ -40,22 +40,17 @@ DEFAULT_CACHE = Path("samples_cache")
 DEFAULT_MANIFEST = Path("data/sample_manifests/freesound_cache.json")
 DEFAULT_SETTINGS = Path("data/settings.json")
 
+from app.core.net_policy import network_allowed  # noqa: E402 - после констант
+from app.core.security_utils import safe_identifier  # noqa: E402 - после констант
+
 
 def online_enabled(allow_online: bool = False, settings_path: Path = DEFAULT_SETTINGS) -> bool:
     """Return whether a remote request is explicitly permitted.
 
-    Network access is disabled by default. A caller may opt in for one request
-    with ``allow_online=True`` or a user may persist ``{"network":
-    {"online": true}}`` in settings. Invalid settings are treated as offline.
+    Политика живёт в `app.core.net_policy`; здесь остаётся совместимая обёртка,
+    чтобы код и тесты, знающие это имя, продолжали работать.
     """
-    if allow_online:
-        return True
-    try:
-        settings = json.loads(Path(settings_path).read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError, TypeError):
-        return False
-    network = settings.get("network", {}) if isinstance(settings, dict) else {}
-    return isinstance(network, dict) and network.get("online") is True
+    return network_allowed(allow_online, settings_path)
 
 
 def _load_key() -> str | None:
@@ -176,7 +171,11 @@ def download_preview(
         return item.get("local_path")
     Path(dest_dir).mkdir(parents=True, exist_ok=True)
     ext = ".mp3" if item.get("preview_mp3") else ".ogg"
-    safe_name = f"fs_{item['id']}_{int(time.time())}{ext}"
+    # id приходит из ответа сервера: "/" или ".." в нём превращали имя файла
+    # в путь за пределы cache-каталога, а `open()` падал с FileNotFoundError,
+    # который глушился в лог → скачивание «просто не работало».
+    sid = safe_identifier(str(item.get("id", "")), fallback="nosid", max_length=48)
+    safe_name = f"fs_{sid}_{int(time.time())}{ext}"
     out = Path(dest_dir) / safe_name
     try:
         r = requests.get(url, timeout=30, stream=True)
@@ -196,7 +195,21 @@ def _append_manifest(item: dict[str, Any], local_path: str) -> None:
     if DEFAULT_MANIFEST.exists():
         try:
             manifest = json.loads(DEFAULT_MANIFEST.read_text(encoding="utf-8"))
-        except Exception:
+        except Exception as e:  # noqa: BLE001 - битый файл не должен теряться молча
+            # Раньше испорченный manifest заменялся пустым списком и
+            # перезаписывался: все прежние записи о лицензиях исчезали без
+            # единого сообщения. Теперь факт потери фиксируется в логе, а
+            # сам файл откладывается рядом как `.broken` — разбирать вручную.
+            log.warning("manifest повреждён (%s), сохраняю копию: %s", e, DEFAULT_MANIFEST)
+            try:
+                DEFAULT_MANIFEST.with_suffix(DEFAULT_MANIFEST.suffix + ".broken").write_bytes(
+                    DEFAULT_MANIFEST.read_bytes()
+                )
+            except OSError as copy_error:  # pragma: no cover - диск недоступен
+                log.warning("копию manifest сделать не удалось: %s", copy_error)
+            manifest = []
+        if not isinstance(manifest, list):
+            log.warning("manifest не список, начинаю новый: %s", type(manifest).__name__)
             manifest = []
     manifest.append(
         {

@@ -30,6 +30,11 @@ class LicenseCheck:
 
 def normalize(lic: str) -> str:
     n = (lic or "").strip().lower().replace("_", " ")
+    # Пояснение в скобках — не часть названия: Pixabay отдаётся как
+    # "Royalty-Free (Pixabay)", и такой хит блокировался собственным гейтом
+    # sample_hunter, то есть источник не мог дать ни одного результата.
+    if "(" in n:
+        n = n.split("(", 1)[0].strip()
     # v34 FIX: лицензии часто приходят как URL (archive.org licenseurl,
     # freesound API). Нормализуем URL → каноническое имя, иначе
     # publicdomain-URL ошибочно попадал в «unknown» и блокировался.

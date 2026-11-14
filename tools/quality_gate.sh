@@ -1,22 +1,33 @@
 #!/usr/bin/env bash
-set -e
+# tools/quality_gate.sh — неактуален (T21).
+#
+# Скрипт требовал `mypy` и `pylint`, которых нет ни в одном requirements, а при
+# их отсутствии печатал сообщение о полном успехе, то есть объявлял победу,
+# ничего не проверив. Это ровно тот тип ложного успеха,
+# который проект запрещает.
+#
+# Замены (реальные и запускаемые):
+#   python -m pytest tests/ -q          # полный набор
+#   python tools/fallback_audit.py      # честность fallback
+#   python tools/ast_dead_imports.py    # мёртвые импорты
+#   python tools/ast_undefined_names.py # имена без определения (NameError)
+#   python -m tools.audit_honesty       # фейковые успехи и немые except
+#   python -m tools.readiness           # процент готовности и матрица модулей
+#
+# Скрипт оставлен как заглушка, а не удалён: на него могут ссылаться привычки и
+# внешние инструкции. Он честно сообщает об отказе и выходит с кодом 2.
+set -u
 
-echo "=================================================="
-echo "ZS-MUSIC-MAKER PROFESSIONAL QUALITY GATE"
-echo "Enforcing Claude Code / Genspark strict standards"
-echo "=================================================="
+cat <<'MSG'
+tools/quality_gate.sh is retired: it required mypy/pylint (absent from every
+requirements file) and printed a perfect score without running them.
 
-cd "$(dirname "$0")/.."
-
-echo "[1/3] Running Pytest unit tests..."
-python3 -m pytest tests/
-
-echo "[2/3] Running Mypy type checking..."
-mypy --ignore-missing-imports --explicit-package-bases modules/pro_audio_dsp.py tests/test_pro_audio_dsp.py tests/test_audio_quality.py tests/test_mastering_results.py
-
-echo "[3/3] Running Pylint code quality check..."
-pylint modules/pro_audio_dsp.py tests/test_pro_audio_dsp.py tests/test_audio_quality.py tests/test_mastering_results.py
-
-echo "=================================================="
-echo "QUALITY GATE PASSED WITH 10/10 SCORE! 🚀"
-echo "=================================================="
+Use instead:
+  python -m pytest tests/ -q
+  python tools/fallback_audit.py
+  python tools/ast_dead_imports.py
+  python tools/ast_undefined_names.py
+  python -m tools.audit_honesty
+  python -m tools.readiness
+MSG
+exit 2

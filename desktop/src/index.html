@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <!-- CSP без 'unsafe-inline': окно не исполняет сторонние скрипты и не ходит в сеть -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; media-src 'self' blob:; connect-src 'none'"
+    />
+    <title>ZS Music Maker</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <span class="brand-mark">ZS</span>
+          <div>
+            <div class="brand-title">Music Maker</div>
+            <div class="brand-version" id="version">—</div>
+          </div>
+        </div>
+        <nav class="nav" id="nav" aria-label="Разделы">
+          <button class="nav-item is-active" data-view="overview">Обзор</button>
+          <button class="nav-item" data-view="modules">Модули</button>
+          <button class="nav-item" data-view="genres">Жанры</button>
+          <button class="nav-item" data-view="beat">Бит</button>
+          <button class="nav-item" data-view="dossiers">Досье</button>
+          <button class="nav-item" data-view="tracks">Треки</button>
+          <button class="nav-item" data-view="run">Запуск</button>
+          <button class="nav-item" data-view="health">Диагностика</button>
+          <button class="nav-item" data-view="help">Справка</button>
+        </nav>
+        <div class="sidebar-footer">
+          <span class="dot" id="backend-dot"></span>
+          <span id="backend-state">состояние неизвестно</span>
+        </div>
+      </aside>
+
+      <main class="content">
+        <header class="topbar">
+          <h1 id="view-title" tabindex="-1">Обзор</h1>
+          <div class="topbar-actions">
+            <button class="ghost" id="refresh">Обновить</button>
+            <button class="ghost" id="reveal">Папка проекта</button>
+          </div>
+        </header>
+
+        <section class="view" id="view-overview">
+          <div class="cards" id="overview-cards"></div>
+          <div class="panel">
+            <h2>Честный статус</h2>
+            <p class="muted" id="readiness-note">Загрузка…</p>
+            <ul class="caps" id="caps"></ul>
+          </div>
+        </section>
+
+        <section class="view is-hidden" id="view-modules">
+          <div class="panel">
+            <h2>Модули проекта</h2>
+            <p class="muted" id="modules-summary">Загрузка…</p>
+            <div class="row">
+              <input id="module-filter" aria-label="Фильтр модулей по пути" placeholder="Фильтр по пути модуля" />
+              <span class="muted" id="modules-found"></span>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Модуль</th>
+                    <th>Статус</th>
+                    <th>Достижим</th>
+                    <th>Ссылок в проде</th>
+                    <th>Парсится</th>
+                  </tr>
+                </thead>
+                <tbody id="modules-body"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <section class="view is-hidden" id="view-genres">
+          <div class="panel">
+            <h2>Жанры</h2>
+            <p class="muted" id="genres-summary">Загрузка…</p>
+            <div class="row">
+              <input id="genre-filter" aria-label="Фильтр жанров по названию или категории" placeholder="Фильтр по названию или категории" />
+              <span class="muted" id="genre-count"></span>
+            </div>
+            <ul class="chips" id="genre-list"></ul>
+          </div>
+        </section>
+
+        <section class="view is-hidden" id="view-beat">
+          <div class="panel">
+            <h2>Бит прямо в окне</h2>
+            <p class="muted" id="beat-bank-note">
+              Движок написан на JavaScript и работает внутри приложения, без Python.
+              Ударные берутся из сэмплового банка проекта, если он подключён; иначе
+              синтезируются и статус честно становится <code>FALLBACK</code>.
+            </p>
+            <div class="row">
+              <input id="beat-genre" aria-label="Жанр бита" placeholder="жанр (phonk, trap, house…)" value="phonk" />
+              <input id="beat-bpm" aria-label="Темп в BPM, от 40 до 220" inputmode="numeric" placeholder="BPM" value="140" />
+              <input id="beat-seed" aria-label="Сид: одинаковый сид даёт тот же бит" inputmode="numeric" placeholder="сид" value="7" />
+              <input id="beat-duration" aria-label="Длительность в секундах" inputmode="numeric" placeholder="секунд" value="20" />
+              <label class="muted check"><input type="checkbox" id="beat-use-bank" checked /> банк сэмплов</label>
+              <button class="ghost" id="beat-render">Собрать бит</button>
+              <button class="ghost" id="beat-cancel" disabled>Отменить</button>
+            </div>
+            <!-- Результат — отдельным рядом: девять элементов в одну строку
+                 сжимались так, что «банк сэмплов» ломался по слогам. -->
+            <div class="row">
+              <button class="ghost" id="beat-save" disabled>Сохранить WAV</button>
+              <button class="ghost" id="beat-open" disabled>Открыть в плеере</button>
+              <button class="ghost" id="beat-copy" disabled>Сохранить отчёт</button>
+            </div>
+            <fieldset class="fieldset" id="vocal-box">
+              <legend>Вокал</legend>
+              <p class="muted">
+                Голос миксуется в трек до мастеринга. Дубль можно записать с
+                микрофона (захват делает само окно, разрешение спрашивает Windows),
+                принести WAV-файлом или получить синтезом. <strong>Тестовый
+                дубль</strong> — сгенерированная дорожка: она помечается как
+                имитация и никогда не выдаётся за запись с микрофона.
+              </p>
+              <div class="row">
+                <select id="vocal-mode" aria-label="Источник вокала">
+                  <option value="none">без вокала</option>
+                  <option value="synth">синтез голоса</option>
+                  <option value="test">тестовый дубль (имитация входа)</option>
+                  <option value="file">WAV-файл с диска</option>
+                  <option value="record">запись с микрофона</option>
+                </select>
+                <input id="vocal-text" aria-label="Текст вокальной строки" placeholder="текст строки" value="я читаю твой трек наизусть" />
+                <input id="vocal-gain" aria-label="Уровень вокала в миксе, от 0 до 1" placeholder="уровень 0…1" value="0.5" />
+                <button class="ghost" id="vocal-pick" disabled>Выбрать WAV…</button>
+                <button class="ghost" id="vocal-record" disabled>Записать дубль</button>
+                <button class="ghost" id="vocal-stop" disabled>Остановить запись</button>
+                <!-- Сохранение самой записи — сразу после «Стоп», а не только
+                     после сборки трека: иначе дубль жил лишь в памяти окна и
+                     пропадал при закрытии, хотя запись уже состоялась. -->
+                <button class="ghost" id="vocal-save-recording" disabled>Сохранить запись как WAV</button>
+                <span class="muted" id="vocal-record-status" role="status" aria-live="polite"></span>
+              </div>
+              <!-- Сохранение дубля — отдельной строкой: в общем ряду кнопка
+                   уезжала вниз и читалась как часть записи. -->
+              <div class="row">
+                <button class="ghost" id="vocal-save" disabled>Сохранить дубль как WAV</button>
+              </div>
+              <p class="muted" id="vocal-note">Вокал выключен: трек будет без голоса.</p>
+            </fieldset>
+            <p class="muted" id="beat-status" role="status" aria-live="polite">Бит ещё не собран</p>
+            <audio id="beat-audio" aria-label="Прослушать собранный бит" controls class="is-hidden"></audio>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Секция</th>
+                    <th>Такты</th>
+                    <th>Старт, с</th>
+                    <th>Энергия</th>
+                    <th>Слои</th>
+                  </tr>
+                </thead>
+                <tbody id="beat-body"></tbody>
+              </table>
+            </div>
+            <pre class="output" id="beat-report"></pre>
+          </div>
+        </section>
+
+        <section class="view is-hidden" id="view-dossiers">
+          <div class="panel">
+            <h2>Артисты с досье</h2>
+            <div class="row">
+              <input id="dossier-name" aria-label="Имя артиста" placeholder="имя артиста" />
+              <input id="dossier-note" aria-label="Заметка об артисте" placeholder="заметка (необязательно)" />
+              <button class="ghost" id="dossier-add">Добавить</button>
+            </div>
+            <p class="muted" id="dossier-empty">Загрузка…</p>
+            <ul class="list" id="dossier-list"></ul>
+          </div>
+        </section>
+
+        <section class="view is-hidden" id="view-tracks">
+          <div class="panel">
+            <h2>Треки артиста</h2>
+            <p class="muted" id="tracks-lead">
+              Треки ведутся в окне: название, ссылка и текст сохраняются сразу.
+              Разбор (темп, тональность, вокал) делает Python при сборке досье —
+              до этого статус трека честно «не разобран».
+            </p>
+            <div class="row">
+              <select id="tracks-artist" aria-label="Артист, чьи треки показаны"></select>
+              <input id="tracks-title" aria-label="Название трека" placeholder="название трека" />
+              <input id="tracks-url" aria-label="Ссылка на трек" placeholder="ссылка (необязательно)" />
+              <button class="ghost" id="tracks-add">Добавить трек</button>
+            </div>
+            <div class="row">
+              <textarea id="tracks-lyrics" rows="4" aria-label="Текст трека" placeholder="текст трека (необязательно)"></textarea>
+            </div>
+            <p class="muted" id="tracks-status" role="status" aria-live="polite">Треков пока нет</p>
+            <ul class="list" id="tracks-list"></ul>
+          </div>
+        </section>
+
+        <section class="view is-hidden" id="view-run">
+          <div class="panel">
+            <h2>Запуск задач проекта</h2>
+            <p class="muted">
+              Окно запускает ту же команду, что и терминал: <code>python main.py …</code>.
+              Вывод показывается построчно; остановка завершает процесс.
+            </p>
+            <div class="row">
+              <select id="task-select" aria-label="Какую задачу запустить"></select>
+              <input id="task-genre" aria-label="Жанр для задачи" placeholder="жанр (например drift_phonk)" />
+              <input id="task-seed" aria-label="Сид для задачи" placeholder="сид (необязательно)" />
+              <input id="task-artist" aria-label="Артист для задачи досье" placeholder="артист (для досье)" />
+              <button class="ghost" id="task-start">Запустить</button>
+              <button class="ghost" id="task-stop" disabled>Остановить</button>
+            </div>
+            <p class="muted" id="task-python-note">Проверяю Python…</p>
+            <p class="muted" id="task-status" role="status" aria-live="polite">Задача не запущена</p>
+            <pre class="output" id="task-output"></pre>
+          </div>
+        </section>
+
+        <section class="view is-hidden" id="view-health">
+          <div class="panel">
+            <h2>Окружение и снимок</h2>
+            <div class="table-wrap">
+              <table>
+                <tbody id="health-body"></tbody>
+              </table>
+            </div>
+            <h3>Приложение</h3>
+            <p class="muted" id="health-env-note">Загрузка…</p>
+            <div class="table-wrap">
+              <table>
+                <tbody id="health-env"></tbody>
+              </table>
+            </div>
+            <h3>Баллы по блокам</h3>
+            <pre class="output" id="health-blocks"></pre>
+          </div>
+        </section>
+
+        <section class="view is-hidden" id="view-help">
+          <div class="panel">
+            <h2>Справка</h2>
+            <p class="muted" id="help-lead">
+              Коротко: что приложение делает само, что требует Python и чего
+              здесь принципиально нет.
+            </p>
+          </div>
+          <div id="help-body"></div>
+        </section>
+
+        <div class="banner is-hidden" id="error-banner" role="alert" aria-live="assertive">
+          <span id="error-text"></span>
+          <button class="ghost banner-close" id="error-close" aria-label="Закрыть сообщение">×</button>
+        </div>
+      </main>
+    </div>
+    <!--
+      Сначала app.js: он создаёт пространство имён и помощники, а разделы их
+      используют на этапе загрузки. Навигация стартует по DOMContentLoaded,
+      то есть когда подключены все скрипты.
+    -->
+    <script src="app.js"></script>
+    <script src="sections/overview.js"></script>
+    <script src="sections/genres.js"></script>
+    <script src="sections/recorder.js"></script>
+    <script src="sections/vocal.js"></script>
+    <script src="sections/beat.js"></script>
+    <script src="sections/dossiers.js"></script>
+    <script src="sections/tracks.js"></script>
+    <script src="sections/run.js"></script>
+    <script src="sections/health.js"></script>
+    <script src="sections/help.js"></script>
+  </body>
+</html>

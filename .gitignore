@@ -6,6 +6,8 @@ __pycache__/
 .Python
 env/
 build/
+# Ресурсы сборки Electron (иконка) — это исходник, а не артефакт.
+!desktop/build/
 develop-eggs/
 dist/
 downloads/
@@ -37,6 +39,11 @@ ENV/
 
 # ---------------------------------------------------------------- Артефакты рендера
 output/
+# Резервная копия, которую пайплайн делает сам перед прогоном (preflight_backup):
+# это состояние данных на момент запуска, а не файл проекта.
+data/backups/
+# Бит, сохранённый из окна Electron (кнопка «Сохранить WAV»)
+data/beats/
 /release/
 checkpoints/
 logs/
@@ -44,6 +51,8 @@ logs/
 
 # ---------------------------------------------------------------- Аудио/медиа: только фикстуры тестов версионируются
 *.wav
+# Скриншоты окна — это документация (docs/screenshots/), а не артефакты.
+!docs/screenshots/**
 *.mp3
 *.flac
 *.m4a
@@ -79,3 +88,14 @@ data/secrets.enc
 data/reference_cache/*
 !data/reference_cache/.gitkeep
 data/ai_models/
+
+# ---------------------------------------------------------------- Electron-оболочка
+desktop/node_modules/
+desktop/dist/
+desktop/out/
+desktop/*.log
+# Конфигурация сборки генерируется: блок подписи появляется только при секретах.
+desktop/build-config.generated.json
+# Снимок чисел (data/desktop/readiness.json, inventory.md) версионируется:
+# именно его читает окно и именно по нему проверяется устаревание.
+

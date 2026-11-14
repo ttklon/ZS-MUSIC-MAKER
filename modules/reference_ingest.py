@@ -26,6 +26,8 @@ import json
 import time
 from pathlib import Path
 
+from modules.tempo import tempo_scalar
+
 try:
     import numpy as np
 except Exception:  # pragma: no cover
@@ -70,6 +72,10 @@ def _load_cached(path: str) -> dict | None:
 
 
 def _save_cached(path: str, data: dict) -> None:
+    # Комментарий про «ленивое создание» был, а создания не было: в чистой
+    # установке data/reference_cache/ отсутствует и запись кэша падала
+    # FileNotFoundError, превращая удачный анализ в ошибку.
+    CACHE_DIR.mkdir(parents=True, exist_ok=True)
     _cache_path(path).write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
 
 
@@ -95,6 +101,19 @@ def _key_from_chroma(chroma) -> tuple[str, str]:
         if s_min > best[2]:
             best = (KEYS[i], "minor", s_min)
     return best[0], best[1]
+
+
+def _analysis_failure(exc: Exception, p: Path) -> dict:
+    """Отказ анализа с непустой причиной.
+
+    У части исключений librosa/audioread сообщение пустое, и пользователь
+    получал ok=False без объяснения. Тогда причиной становится тип исключения.
+    """
+    return {
+        "ok": False,
+        "error": str(exc) or f"{type(exc).__name__}: cannot analyze {p}",
+        "path": str(p),
+    }
 
 
 def analyze_file(path: str, sr: int = 22050, use_cache: bool = True) -> dict:
@@ -144,7 +163,7 @@ def analyze_file(path: str, sr: int = 22050, use_cache: bool = True) -> dict:
             "ok": True,
             "path": str(p),
             "duration_s": round(duration, 2),
-            "bpm": round(float(tempo), 2),
+            "bpm": round(tempo_scalar(tempo, 130.0), 2),
             "key": key,
             "mode": mode,
             "spectral_centroid": round(centroid, 2),
@@ -162,7 +181,7 @@ def analyze_file(path: str, sr: int = 22050, use_cache: bool = True) -> dict:
             _save_cached(str(p), result)
         return result
     except Exception as e:
-        return {"ok": False, "error": str(e), "path": str(p)}
+        return _analysis_failure(e, p)
 
 
 # ============================================================ style vector
@@ -278,10 +297,17 @@ def build_style_vector(
     }
 
 
+def _num(value, default: float) -> float:
+    """Число или запасное значение: `_wavg` отдаёт None, когда поля нет ни у кого."""
+    return default if value is None else value
+
+
 def _guess_genre(sv: dict) -> str:
-    bpm = sv.get("bpm", 130.0)
-    hr = sv.get("harmonic_ratio", 0.5)
-    od = sv.get("onset_density", 3.0)
+    # Раньше `.get(key, default)` не спасал от None, и разбор стиля падал
+    # TypeError на fallback-фингерпринте (машина без librosa).
+    bpm = _num(sv.get("bpm"), 130.0)
+    hr = _num(sv.get("harmonic_ratio"), 0.5)
+    od = _num(sv.get("onset_density"), 3.0)
     if 130 <= bpm <= 145 and od > 3.5:
         return "phonk / drift"
     if 120 <= bpm <= 132 and hr > 0.5:
@@ -296,8 +322,8 @@ def _guess_genre(sv: dict) -> str:
 
 
 def _guess_mood(sv: dict) -> str:
-    mode = sv.get("mode", "minor")
-    centroid = sv.get("spectral_centroid", 2000.0) or 2000.0
+    mode = sv.get("mode") or "minor"
+    centroid = _num(sv.get("spectral_centroid"), 2000.0) or 2000.0
     if mode == "minor" and centroid < 1800:
         return "dark / moody"
     if mode == "minor" and centroid >= 1800:

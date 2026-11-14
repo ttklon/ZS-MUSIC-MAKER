@@ -30,11 +30,6 @@ try:
 except Exception:
     HAS_SF = False
 
-try:
-    HAS_LIBROSA = True
-except Exception:
-    HAS_LIBROSA = False
-
 ROOT = Path(__file__).resolve().parents[1]
 VAULT_DIR = ROOT / "voice_vault"
 INDEX_FILE = VAULT_DIR / "index.json"

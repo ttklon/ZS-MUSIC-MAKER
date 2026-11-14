@@ -72,7 +72,7 @@ EXPECTED_PATHS: list[tuple[str, str, str]] = [
     ("modules/rvc_manager/__init__.py", "OK", "RVC v2 (ТЗ 3.10)"),
     ("modules/release/__init__.py", "OK", "Release pack (ТЗ 3.12)"),
     ("modules/health.py", "OK", "Health-check"),
-    ("modules/mastering.py", "OK", "Master pipeline"),
+    ("modules/mastering/__init__.py", "OK", "Master pipeline"),  # пакет: одиночный файл запрещён гигиеной
     ("modules/kpi_dashboard/__init__.py", "OK", "KPI dashboard"),
     ("app/core/orchestrator.py", "OK", "Оркестратор пайплайна"),
     ("data/", "FLEX", "Локальная БД (создаётся)"),

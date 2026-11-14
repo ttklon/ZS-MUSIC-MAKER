@@ -62,7 +62,13 @@ def _structure_check(y, sr) -> dict:
         # 8-сек окно ~ 44100*8/1024
         w = int(sr * 8 / 1024)
         if len(rms) < 3 * w:
-            return {"hook_score": 0.0, "sections_detected": 0}
+            # Раньше здесь не было error, а вызывающий код его читает:
+            # структура считалась проверенной с hook_score 0 и без причины.
+            return {
+                "hook_score": 0.0,
+                "sections_detected": 0,
+                "error": f"too short for hook check: need >= {3 * w} frames, got {len(rms)}",
+            }
         chunks = [rms[i : i + w] for i in range(0, len(rms) - w, w // 2)]
         best_corr = 0.0
         for i in range(len(chunks)):
@@ -84,10 +90,103 @@ def _structure_check(y, sr) -> dict:
         return {"hook_score": 0.0, "error": str(e)}
 
 
+def _audit_ai_detector(master_wav: Path) -> tuple[dict, list[dict]]:
+    """Первое «ухо»: оценка нейроношности. Возвращает (блок, действия)."""
+    actions: list[dict] = []
+    try:
+        from modules.ai_detector_pro import analyze_track
+
+        ad = analyze_track(str(master_wav))
+        # Отсутствие метрики — это отсутствие вердикта, а не 0 %: пустой ответ
+        # детектора нельзя читать как «нейросети не найдено».
+        neuro = ad.get("neuronoshnost_percent", ad.get("neuroness_percent"))
+        # analyze_track возвращает {"error": ...} вместо исключения. Молча
+        # прочитать это как 0 % — значит объявить трек чистым от нейросети
+        # на основании того, что его не анализировали.
+        if ad.get("error") or neuro is None:
+            actions.append(
+                {
+                    "target": "ai_detector",
+                    "reason": f"AI Detector не дал оценку: {ad.get('error') or 'нет метрики'}",
+                    "fix": "проверить зависимости детектора и повторить аудит",
+                }
+            )
+            neuro = 0
+        if neuro and neuro > 70:
+            actions.append(
+                {
+                    "target": "voice",
+                    "reason": f"AI detector: {neuro}% нейроношности",
+                    "fix": "переделать голос через ProVoice Mode + добавить бэки",
+                }
+            )
+        elif neuro and neuro > 40:
+            actions.append(
+                {
+                    "target": "vocal_humanization",
+                    "reason": f"AI detector: {neuro}% нейроношности",
+                    "fix": "усилить humanization (тайминг, дыхания, adlibs)",
+                }
+            )
+        return ad, actions
+    except Exception as e:
+        return {"error": str(e)}, actions
+
+
+def _audit_loudness(y, sr, target_lufs: float) -> tuple[dict, list[dict]]:
+    """Второе «ухо»: громкость, пики и крест-фактор."""
+    actions: list[dict] = []
+    loudness = _loudness(y, sr)
+    lu = loudness["lufs_approx"]
+    if lu < target_lufs - 3:
+        actions.append(
+            {
+                "target": "mastering",
+                "reason": f"Слишком тихо (LUFS≈{lu}, target={target_lufs})",
+                "fix": "усилить лимитер, повторить Matchering",
+            }
+        )
+    if loudness["peak_db"] > -0.2:
+        actions.append(
+            {
+                "target": "mastering",
+                "reason": "Клиппинг на пиках",
+                "fix": "мягкий true-peak limiter −1 dBTP",
+            }
+        )
+    return loudness, actions
+
+
+def _audit_structure(structure: dict) -> list[dict]:
+    """Третье «ухо»: есть ли хук. Провал разбора — не «хука нет»."""
+    if structure.get("error"):
+        # Аудит структуры не состоялся — это отдельная запись, а не
+        # «не найден хук»: иначе пользователь ищет несуществующую проблему.
+        return [
+            {
+                "target": "structure",
+                "reason": f"Проверка структуры не выполнена: {structure['error']}",
+                "fix": "проверить длительность мастера и наличие librosa",
+            }
+        ]
+    if structure.get("hook_score", 0.0) < 0.35:
+        return [
+            {
+                "target": "beat",
+                "reason": "Не найден яркий хук",
+                "fix": "усилить контраст припева, повторить Beat Constructor",
+            }
+        ]
+    return []
+
+
 def audit_track(master_wav: str | Path, target_lufs: float = -9.0) -> dict:
     """
     Полный аудит финального трека. Возвращает dict с 3 блоками:
     {ai_detector, loudness, structure, verdict, actions[]}
+
+    `ok` здесь значит «аудит проведён и записан», а не «трек хорош»: качество
+    описывает `verdict`, и `ok=true` рядом с `verdict=rebuild` — норма.
     """
     master_wav = Path(master_wav)
     result = {
@@ -100,69 +199,18 @@ def audit_track(master_wav: str | Path, target_lufs: float = -9.0) -> dict:
         result["error"] = "master.wav не найден"
         return result
 
-    # 1) AI Detector Pro
-    try:
-        from modules.ai_detector_pro import analyze_track
+    result["ai_detector"], ai_actions = _audit_ai_detector(master_wav)
+    result["actions"].extend(ai_actions)
 
-        ad = analyze_track(str(master_wav))
-        result["ai_detector"] = ad
-        neuro = ad.get("neuronoshnost_percent", ad.get("neuroness_percent", 0))
-        if neuro and neuro > 70:
-            result["actions"].append(
-                {
-                    "target": "voice",
-                    "reason": f"AI detector: {neuro}% нейроношности",
-                    "fix": "переделать голос через ProVoice Mode + добавить бэки",
-                }
-            )
-        elif neuro and neuro > 40:
-            result["actions"].append(
-                {
-                    "target": "vocal_humanization",
-                    "reason": f"AI detector: {neuro}% нейроношности",
-                    "fix": "усилить humanization (тайминг, дыхания, adlibs)",
-                }
-            )
-    except Exception as e:
-        result["ai_detector"] = {"error": str(e)}
-
-    # 2) Loudness / structure
     try:
         import soundfile as sf
 
         y, sr = sf.read(str(master_wav))
-        if y.ndim > 1:
-            y_mono = y.mean(axis=1)
-        else:
-            y_mono = y
-        result["loudness"] = _loudness(y, sr)
+        y_mono = y.mean(axis=1) if y.ndim > 1 else y
+        result["loudness"], loud_actions = _audit_loudness(y, sr, target_lufs)
+        result["actions"].extend(loud_actions)
         result["structure"] = _structure_check(y_mono, sr)
-
-        lu = result["loudness"]["lufs_approx"]
-        if lu < target_lufs - 3:
-            result["actions"].append(
-                {
-                    "target": "mastering",
-                    "reason": f"Слишком тихо (LUFS≈{lu}, target={target_lufs})",
-                    "fix": "усилить лимитер, повторить Matchering",
-                }
-            )
-        if result["loudness"]["peak_db"] > -0.2:
-            result["actions"].append(
-                {
-                    "target": "mastering",
-                    "reason": "Клиппинг на пиках",
-                    "fix": "мягкий true-peak limiter −1 dBTP",
-                }
-            )
-        if result["structure"]["hook_score"] < 0.35:
-            result["actions"].append(
-                {
-                    "target": "beat",
-                    "reason": "Не найден яркий хук",
-                    "fix": "усилить контраст припева, повторить Beat Constructor",
-                }
-            )
+        result["actions"].extend(_audit_structure(result["structure"]))
     except Exception as e:
         result["loudness_error"] = str(e)
 
@@ -181,10 +229,15 @@ def audit_track(master_wav: str | Path, target_lufs: float = -9.0) -> dict:
         result["verdict_text"] = "❌ Пересобрать всё"
 
     # Save
+    # QA_DIR в чистой установке отсутствует (output/ не в git) — без mkdir
+    # удачный аудит падал FileNotFoundError прямо перед возвратом отчёта.
+    QA_DIR.mkdir(parents=True, exist_ok=True)
     out = QA_DIR / f"qa_{int(time.time())}.json"
-    out.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
     result["report_path"] = str(out)
     result["ok"] = True
+    # Пишем уже с заполненными ok/report_path: иначе файл на диске отличается
+    # от возвращённого словаря (ok=true в ответе, ok=false в отчёте).
+    out.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
     return result
 
 

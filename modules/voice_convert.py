@@ -267,4 +267,6 @@ def polish_vocal_offline(
 
 
 if __name__ == "__main__":
+    import json  # локально: в остальном модуле json не нужен
+
     print(json.dumps(vault_summary(), indent=2, ensure_ascii=False))

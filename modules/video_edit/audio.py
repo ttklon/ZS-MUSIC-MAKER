@@ -12,6 +12,8 @@ import math
 import struct
 import wave
 
+from modules.video_edit.console import safe_print as _safe_print
+
 
 def _read_wav_mono(path: str) -> tuple[list[float], int]:
     with wave.open(path, "rb") as wf:

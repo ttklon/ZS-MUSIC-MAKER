@@ -158,6 +158,21 @@ def _bpm_range(bpm_val: float) -> dict:
     }
 
 
+def _normalise_weights(weights, count: int) -> list:
+    """Веса, приведённые к `count` и сумме 1.
+
+    Раньше `weights=[0, 0]` давал ZeroDivisionError, а короткий список молча
+    рассинхронизировался с числом референсов — вектор считался по чужим весам.
+    """
+    if weights is None:
+        return [1.0 / count] * count
+    weights = (list(weights) + [1.0] * count)[:count]
+    total = sum(weights)
+    if total <= 0:
+        return [1.0 / count] * count
+    return [w / total for w in weights]
+
+
 def analyze_multi(paths: list, weights: list = None, take_notes: list = None) -> dict:
     """
     Строит усреднённый style-vector по нескольким референсам.
@@ -167,11 +182,10 @@ def analyze_multi(paths: list, weights: list = None, take_notes: list = None) ->
     take_notes: ["бит из этого", "стиль чтения из этого", ...]
              Заметки пользователя что взять из каждого референса.
     """
+    if not paths:
+        return {"ok": False, "error": "no references given", "sources": []}
     analyses = [analyze_single(p) for p in paths]
-
-    if weights is None:
-        weights = [1.0 / len(paths)] * len(paths)
-    weights = [w / sum(weights) for w in weights]  # нормализация
+    weights = _normalise_weights(weights, len(analyses))
 
     # Взвешенное среднее
     avg_bpm = sum(a["bpm"] * w for a, w in zip(analyses, weights))

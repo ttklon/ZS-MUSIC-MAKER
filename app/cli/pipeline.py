@@ -144,10 +144,21 @@ def run_god(args) -> int:
             f"[main --god] Launching GOD MODE pipeline (genre={genre}, theme={theme})..."
         )
         out = run_god_pipeline("god_cli", {"theme": theme, "genre": genre})
-        safe_print(
-            f"GOD MODE COMPLETED: elapsed={out.get('elapsed_sec')}s "
-            f"master={out.get('master_path')}"
-        )
+        safe_print(f"GOD MODE COMPLETED: elapsed={out.get('elapsed_sec')}s")
+        # Мастер печатаем отдельной строкой и с причиной, если его нет.
+        # Раньше при вердикте PARTIAL выходило «master=None» — человек не мог
+        # понять, где файл, хотя мастера стендов лежали в пакете релиза.
+        if out.get("master_path"):
+            safe_print(f"  master: {out.get('master_path')}")
+        else:
+            status = str(out.get("status") or "partial")
+            human = {"partial": "частично", "failed": "сбой"}.get(status, status)
+            safe_print(f"  master: нет готового мастера — прогон завершён {human} ({status})")
+            blocked = [str(name) for name in (out.get("blocked") or []) if name]
+            if blocked:
+                safe_print(f"  заблокированы: {', '.join(blocked)}")
+            if out.get("report_path"):
+                safe_print(f"  что собрано: {out.get('report_path')}")
         return 0
     except Exception as e:
         safe_print(f"[main --god] failed: {e}")

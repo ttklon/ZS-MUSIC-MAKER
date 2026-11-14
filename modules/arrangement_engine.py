@@ -27,9 +27,13 @@ import random
 import time
 from pathlib import Path
 
+from modules.arrangement_genres import GENRE_ALIASES, normalize_genre  # noqa: F401 - публичный реэкспорт
+
 # ---------------------------------------------------------- templates
 # Каждый шаблон — базовая структура для жанра.
 # Секции: (name, bars_default, energy, vocal_role)
+DEFAULT_SEED = 1337
+
 GENRE_TEMPLATES = {
     "phonk / drift": [
         ("intro", 4, 0.35, "silence"),
@@ -239,15 +243,25 @@ def build_arrangement(
       variant: 0 — safe, 1 — bolder, 2 — experimental
     Возвращает dict с ключом 'sections' (list) и 'meta'.
     """
-    rng = random.Random(seed or int(time.time()))
     sv = style_vector or {}
+    # Seed может прийти и аргументом, и внутри стилевого вектора (пайплайн кладёт
+    # его туда). Без seed план обязан оставаться воспроизводимым: неявный
+    # `time.time()` делал два одинаковых прогона разными — факт виден в `seeded`.
+    if seed is None:
+        seed = sv.get("seed")
+    seeded = seed is not None
+    rng = random.Random(DEFAULT_SEED if seed is None else seed)
     bpm = float(sv.get("bpm", 130.0))
     key = sv.get("key", "C")
     mode = sv.get("mode", "minor")
-    genre = genre_override or sv.get("genre_hint") or _guess_genre(sv)
+    requested_genre = str(genre_override or sv.get("genre_hint") or _guess_genre(sv))
+    genre = normalize_genre(requested_genre)
+    template_found = genre in GENRE_TEMPLATES
+    if not template_found:
+        genre = "generic hit"
     mood = sv.get("mood", "energetic / driving")
 
-    template = GENRE_TEMPLATES.get(genre, GENRE_TEMPLATES["generic hit"])
+    template = GENRE_TEMPLATES[genre]
 
     # Подгоняем общую длину под total_seconds — масштабируем bars
     default_seconds = sum(_bars_to_seconds(b, bpm) for _, b, _, _ in template)
@@ -300,6 +314,9 @@ def build_arrangement(
             "stereo_corr": 0.75,
         },
         "seed": seed,
+        "seeded": seeded,
+        "requested_genre": requested_genre,
+        "template_found": template_found,
         "ts": time.time(),
     }
     return plan

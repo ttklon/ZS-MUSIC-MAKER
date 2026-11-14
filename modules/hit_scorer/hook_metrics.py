@@ -9,6 +9,7 @@ from __future__ import annotations
 import math
 
 from modules.hit_scorer.audio import HAS_LIBROSA, librosa, np
+from modules.tempo import tempo_scalar
 
 
 def _rms(y) -> float:
@@ -23,22 +24,40 @@ def _db(x: float) -> float:
 
 # ============================================================ metrics
 def _hook_energy(y, sr) -> tuple[float, float]:
-    """Ищем сегмент с максимальной локальной громкостью — это предполагаемый припев."""
+    """Контраст припева и куплета — в децибелах, без упора в потолок.
+
+    Было: `ratio = peak_4s / median_4s`, `score = min(100, (ratio − 1)·200)`.
+    Припев громче куплета на 30–60 % по амплитуде — это +2,3…+4,1 дБ, ratio
+    1,3–1,6, а `(1,6 − 1)·200` уже даёт 120 → потолок 100. Замер на восьми
+    мастерах движка: ratio 1,40…1,75, то есть семь из восьми в максимуме.
+
+    Медиана по окнам к тому же ничего не говорит о секциях: один короткий
+    громкий кусок даёт высокий ratio при полном отсутствии припева.
+
+    Теперь два измеримых числа:
+    * `peak_db` — насколько самый громкий 4-секундный участок выше медианы;
+    * `section_db` — насколько громкая половина трека выше тихой (Q75/Q25).
+
+    Возвращает `(балл, section_db)`.
+    """
     if np is None or len(y) < sr * 8:
         return 50.0, _rms(y)
-    win = int(sr * 4)
-    hop = int(sr * 1)
-    rms_curve = []
-    for i in range(0, len(y) - win, hop):
-        rms_curve.append(_rms(y[i : i + win]))
-    if not rms_curve:
+    win, hop = int(sr * 4), int(sr * 1)
+    curve = np.array(
+        [_rms(y[i : i + win]) for i in range(0, len(y) - win, hop)], dtype=float
+    )
+    if curve.size == 0:
         return 50.0, 0.0
-    peak = max(rms_curve)
-    median = sorted(rms_curve)[len(rms_curve) // 2]
-    ratio = peak / max(median, 1e-6)
-    # Хит-припев обычно на +30-60% громче медианы
-    score = min(100.0, max(0.0, (ratio - 1.0) * 200.0))
-    return score, ratio
+    median = float(np.median(curve))
+    if median <= 1e-9:
+        return 0.0, 0.0
+    peak_db = 20.0 * float(np.log10(max(float(curve.max()), 1e-9) / median))
+    q75, q25 = np.percentile(curve, 75), np.percentile(curve, 25)
+    # Нижнюю квартиль поднимаем над нулём: у трека без секций Q25 ≈ Q75.
+    section_db = 20.0 * float(np.log10(max(q75, 1e-9) / max(q25, 1e-9)))
+    # +8 дБ контраста секций — это уверенный припев; +6 дБ пика — уже слышно.
+    score = 5.0 * min(peak_db, 6.0) + 8.0 * min(section_db, 8.0)
+    return round(float(np.clip(score, 0.0, 100.0)), 2), round(section_db, 2)
 
 
 def _hook_repeatability(y, sr) -> tuple[float, int]:
@@ -79,40 +98,72 @@ def _hook_repeatability(y, sr) -> tuple[float, int]:
             * np.linalg.norm(chroma, axis=0)[None, :]
             + 1e-9
         )
-        off = int(20 * sr / 1024)
-        if off >= ssm.shape[0]:
-            off = int(4 * sr / 1024)
-            if off >= ssm.shape[0] - 1 or off < 1:
-                return 50.0, 0
-        diag = np.diagonal(ssm, offset=off)
-        repeats = int((diag > 0.85).sum())
-        score = min(100.0, repeats * 8.0 + 30.0)
-        return score, repeats
+        # Абсолютное число повторов зависит от длины: на 60 с их сотни, и
+        # `min(100, repeats*8 + 30)` упиралось в 100 у всех восьми мастеров
+        # движка (96…280 повторов — все дают 100). Ищем лаг, на котором
+        # повторяемость наибольшая (4…30 с), и берём долю кадров, у которых
+        # через этот лаг есть похожий кадр: доля от длины не зависит.
+        lo = max(int(4 * sr / 1024), 1)
+        hi = min(int(30 * sr / 1024), ssm.shape[0] - 1)
+        best_share, best_lag = 0.0, 0
+        for off in range(lo, hi):
+            diag = np.diagonal(ssm, offset=off)
+            share = float((diag > 0.9).mean()) if diag.size else 0.0
+            if share > best_share:
+                best_share, best_lag = share, off
+        if best_lag == 0:
+            return 50.0, 0.0
+        return round(min(100.0, best_share * 100.0), 2), round(best_share, 3)
     except Exception:
-        return 50.0, 0
+        return 50.0, 0.0
 
 
 def _chorus_catchiness(y, sr) -> tuple[float, dict]:
-    """Комбинация: гармоническая простота (мажор/минор readable) + ритмическая регулярность."""
+    """Запоминаемость припева: держится ли темп и собрана ли гармония.
+
+    Было:
+
+        regularity = min(100, len(peaks)·0.6 + 40)      # число онсетов
+        harmonic_simplicity = 100 − chroma_var·400
+        score = 0.6·regularity + 0.4·harmonic_simplicity
+
+    Ни одно из слагаемых не мерило заявленное. «Регулярность» на деле — это
+    плотность аранжировки: у восьми мастеров движка онсетов 140…175, то есть
+    `min(100, 124…145)` всегда упирается в 100. `chroma_var` у тональной
+    музыки почти всегда 0,08–0,10, значит «простота» давала +0…8 очков.
+    Итог: 60 + 0,4·(0…8) = 60…63 при разбросе 2,1 балла между жанрами.
+
+    Теперь обе половины измеряют то, что слышно:
+
+    * `steady` — держится ли темп: коэффициент вариации интервалов между
+      ударами. У танцевального трека он мал, у рубленого — велик;
+    * `focused` — насколько гармония собрана вокруг одной тоники: энтропия
+      распределения хромы. У простой мелодии низкая, у хроматической каши
+      высокая.
+
+    Это описание материала, а не предсказание «запомнится ли припев».
+    """
     if not HAS_LIBROSA:
         return 55.0, {}
     try:
         onset_env = librosa.onset.onset_strength(y=y, sr=sr)
-        tempo, _ = librosa.beat.beat_track(onset_envelope=onset_env, sr=sr)
-        # Регулярность: sharpness пиков огибающей
-        peaks = librosa.util.peak_pick(
-            onset_env, pre_max=3, post_max=3, pre_avg=5, post_avg=5, delta=0.5, wait=10
-        )
-        regularity = min(100.0, len(peaks) * 0.6 + 40.0)
-        # Гармоническая простота — chroma variance (низкая = простая гармония)
+        tempo, beats = librosa.beat.beat_track(onset_envelope=onset_env, sr=sr)
+        ibi = np.diff(beats) if len(beats) > 2 else np.array([1.0])
+        ibi_cv = float(ibi.std() / max(ibi.mean(), 1e-9))
+        steady = float(np.clip(100.0 - ibi_cv * 200.0, 0.0, 100.0))
+
         chroma = librosa.feature.chroma_stft(y=y, sr=sr)
-        chroma_var = float(np.mean(np.var(chroma, axis=1)))
-        harmonic_simplicity = max(0.0, min(100.0, 100.0 - chroma_var * 400.0))
-        score = 0.6 * regularity + 0.4 * harmonic_simplicity
-        return score, {
-            "tempo": float(tempo),
-            "peaks": len(peaks),
-            "chroma_var": chroma_var,
+        profile = chroma.mean(axis=1)
+        profile = profile / max(float(profile.sum()), 1e-9)
+        present = profile[profile > 0]
+        entropy = float(-(present * np.log(present)).sum() / np.log(12.0))
+        focused = float(np.clip(100.0 - entropy * 100.0, 0.0, 100.0))
+
+        score = 0.5 * steady + 0.5 * focused
+        return round(score, 2), {
+            "tempo": tempo_scalar(tempo, 0.0),
+            "ibi_cv": round(ibi_cv, 3),
+            "chroma_entropy": round(entropy, 3),
         }
     except Exception:
         return 55.0, {}
@@ -135,37 +186,86 @@ def _drop_impact(y, sr) -> tuple[float, float]:
     return score, ratio
 
 
-def _tiktok_hookability(y, sr) -> tuple[float, dict]:
-    """Находит 15-30 сек кусок с моментальным входом (energy>median в первые 2 сек)."""
-    if np is None or len(y) < sr * 15:
-        return 40.0, {"start_sec": 0.0, "end_sec": 15.0, "reason": "трек короткий"}
-    win_len = int(sr * 25)  # 25 sec — sweet spot TikTok
-    hop = int(sr * 2)
-    best = {"score": 0.0, "start": 0}
-    global_med = _rms(y)
-    for i in range(0, len(y) - win_len, hop):
+def _best_slice(y, sr) -> tuple[dict, float]:
+    """Лучшее 25-секундное окно: уровень относительно трека и ровность.
+
+    Возвращает `(лучшее окно, отношение энергии входа к окну)`. Вход — первые
+    две секунды всего трека: у трека, который сразу бьёт, отношение около
+    единицы, у трека с длинным вступлением — заметно ниже.
+    """
+    win_len = min(int(sr * 25), len(y))
+    hop = max(int(sr * 2), 1)
+    global_rms = _rms(y)
+    best = {"score": -1.0, "start": 0, "level": 0.0, "steady": 0.0}
+    for i in range(0, max(len(y) - win_len, 0) + 1, hop):
         seg = y[i : i + win_len]
-        head_rms = _rms(seg[: int(sr * 2)])
-        overall = _rms(seg)
-        # Хороший TikTok-slice: сразу громко + держит уровень
-        if head_rms > global_med * 0.9 and overall > global_med:
-            score = (head_rms / max(global_med, 1e-6)) * 30.0 + (
-                overall / max(global_med, 1e-6)
-            ) * 20.0
-            if score > best["score"]:
-                best["score"] = score
-                best["start"] = i
-    if best["score"] == 0.0:
-        # fallback: самый громкий 25-сек кусок
-        rms_c = [_rms(y[i : i + win_len]) for i in range(0, len(y) - win_len, hop)]
-        idx = int(np.argmax(rms_c)) if rms_c else 0
-        best["start"] = idx * hop
-        best["score"] = 45.0
+        seg_rms = _rms(seg)
+        if seg_rms <= 1e-9:
+            continue
+        level = seg_rms / global_rms
+        chunks = np.array_split(seg, max(int(len(seg) / (sr * 0.5)), 1))
+        chunk_rms = np.array([_rms(c) for c in chunks])
+        median = float(np.median(chunk_rms))
+        steady = float(np.mean(chunk_rms >= median * 0.5)) if median > 0 else 0.0
+        score = 40.0 * steady + 30.0 * float(np.clip((level - 0.9) / 0.5, 0.0, 1.0))
+        if score > best["score"]:
+            best = {"score": score, "start": i, "level": level, "steady": steady}
+    slice_rms = max(_rms(y[best["start"] : best["start"] + win_len]), 1e-9)
+    head = _rms(y[: int(sr * 2)]) / slice_rms
+    return best, head
+
+
+def _tiktok_hookability(y, sr) -> tuple[float, dict]:
+    """Оценивает 25-секундный кусок, который можно поставить в Reels.
+
+    Что здесь измеряется (и чего не измеряется):
+
+    * `уровень` — насколько лучший кусок громче среднего по треку;
+    * `ровность` — доля полусекундных фрагментов, которые не проваливаются
+      больше чем на 6 дБ относительно медианы куска: клип в Reels не должен
+      провисать;
+    * `вход` — энергия первых двух секунд относительно лучшего куска:
+      работает ли трек сразу, без длинного вступления.
+
+    Это **не** предсказание виральности. Ни одна из этих величин не говорит,
+    «залетит» ли трек; она говорит, есть ли в нём громкий и ровный участок и
+    начинается ли он сразу. Так и названо в отчёте.
+
+    Прежняя версия считала `head_rms` по первым двум секундам каждого окна и
+    требовала `head_rms > global_med * 0.9`: окно почти всегда начиналось в
+    тишине, условие не выполнялось, и трек получал фолбэк `45 + 20 = 65,0` —
+    одно и то же число на всех восьми мастерах движка и на нарезках от 20 до
+    60 секунд. Метрика с весом 1,5 (11,5 % итогового балла) не измеряла
+    ничего.
+    """
+    reason = "яркий и ровный участок; это не предсказание виральности"
+    if np is None or len(y) < sr * 15:
+        return 40.0, {
+            "start_sec": 0.0,
+            "end_sec": round(len(y) / sr, 2),
+            "reason": "трек короткий: окна 25 с нет",
+        }
+    if _rms(y) <= 1e-9:
+        return 0.0, {
+            "start_sec": 0.0,
+            "end_sec": round(min(int(sr * 25), len(y)) / sr, 2),
+            "reason": "в файле нет энергии",
+        }
+
+    best, head = _best_slice(y, sr)
+    # Вход: несут ли первые две секунды трека энергию относительно лучшего
+    # куска. Раньше здесь стояло `head / global`, и у трека, который сразу
+    # бьёт, это отношение упиралось в 1.0 — то есть «моментальный вход» никак
+    # не отличался от обычного.
+    total = best["score"] + 30.0 * float(np.clip((head - 0.8) / 0.5, 0.0, 1.0))
     start_sec = best["start"] / sr
-    return min(100.0, best["score"] + 20.0), {
+    return round(min(100.0, max(0.0, total)), 2), {
         "start_sec": round(start_sec, 2),
-        "end_sec": round(start_sec + 25.0, 2),
-        "reason": "immediate hook + sustained energy",
+        "end_sec": round(start_sec + min(int(sr * 25), len(y)) / sr, 2),
+        "reason": reason,
+        "level_ratio": round(best["level"], 3),
+        "steady_share": round(best["steady"], 3),
+        "head_ratio": round(head, 3),
     }
 
 
@@ -174,7 +274,7 @@ def _bpm_dance_fitness(y, sr) -> tuple[float, float]:
         return 60.0, 0.0
     try:
         tempo, _ = librosa.beat.beat_track(y=y, sr=sr)
-        t = float(tempo)
+        t = tempo_scalar(tempo, 0.0)
         # Sweet spots
         best_ranges = [(120, 140, 100), (70, 95, 90), (95, 120, 75), (140, 160, 80)]
         score = 40.0

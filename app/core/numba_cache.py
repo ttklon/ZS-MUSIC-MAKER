@@ -6,6 +6,7 @@ processes that do not use this entrypoint.
 """
 from __future__ import annotations
 
+import logging
 import os
 import sys
 import tempfile
@@ -24,6 +25,29 @@ def _base(environ: dict) -> str | None:
     return environ.get("NUMBA_CACHE_DIR") or None
 
 
+def _make_temporary(base: str | None) -> tempfile.TemporaryDirectory:
+    """Каталог под кэш; если указанная база исчезла — системный, а не отказ.
+
+    `NUMBA_CACHE_DIR` может указывать на удалённый каталог (устаревшая
+    переменная окружения, вычищенный tmp). Раньше это означало `RuntimeError`
+    на старте приложения; изоляция кэша не стоит того, чтобы не дать программе
+    запуститься, поэтому откат логируется и берётся системный tmp.
+    """
+    try:
+        return tempfile.TemporaryDirectory(
+            prefix="zsmm-numba-", dir=base, ignore_cleanup_errors=True
+        )
+    except OSError:
+        if base is None:
+            raise
+        logging.getLogger(__name__).warning(
+            "Numba cache base %r is not usable; using the system temporary directory", base
+        )
+        return tempfile.TemporaryDirectory(
+            prefix="zsmm-numba-", dir=None, ignore_cleanup_errors=True
+        )
+
+
 @contextmanager
 def isolated_numba_cache() -> Iterator[str]:
     """Set a fresh cache for this process and clean only that directory on exit.
@@ -38,9 +62,11 @@ def isolated_numba_cache() -> Iterator[str]:
     if base is not None:
         base = os.path.abspath(base)
     try:
-        temporary = tempfile.TemporaryDirectory(prefix="zsmm-numba-", dir=base, ignore_cleanup_errors=True)
+        temporary = _make_temporary(base)
     except OSError as exc:
-        raise RuntimeError("cannot create private Numba cache; check NUMBA_CACHE_DIR or the system temporary directory") from exc
+        raise RuntimeError(
+            "cannot create private Numba cache; check NUMBA_CACHE_DIR or the system temporary directory"
+        ) from exc
     with temporary as directory:
         assigned = {"NUMBA_CACHE_DIR": directory, _MARKER: "1", _BASE: base or ""}
         os.environ.update(assigned)

@@ -1,0 +1,96 @@
+{
+  "generated_at": "2026-11-08T13:54:35.373Z",
+  "percent": 65,
+  "module_inventory": {
+    "tracked_modules": 300,
+    "REAL_PASS": 264,
+    "REAL_FAIL": 0,
+    "PLANNED": 1,
+    "DEPRECATED": 35
+  },
+  "module_reachability_share": 0.88,
+  "block_scores": {
+    "architecture": 100,
+    "core_modules": 84,
+    "audio_pipeline": 62.5,
+    "voice_recording": 71.43,
+    "release": 100,
+    "testing": 100
+  },
+  "weights": {
+    "architecture": 10,
+    "core_modules": 25,
+    "audio_pipeline": 25,
+    "voice_recording": 20,
+    "release": 10,
+    "testing": 10
+  },
+  "raw_probes": {
+    "architecture": {
+      "main_py_unified": "REAL_PASS",
+      "requirements_txt": "REAL_PASS",
+      "orchestrator_present": "REAL_PASS",
+      "ai_pipeline": "REAL_PASS",
+      "updater_module": "REAL_PASS",
+      "single_pipeline": "REAL_PASS"
+    },
+    "core_modules": {
+      "analyzer": "REAL_PASS",
+      "groove_extractor": "REAL_PASS",
+      "beat_constructor": "REAL_PASS",
+      "arrangement": "REAL_PASS",
+      "lyrics": "REAL_PASS",
+      "sidechain": "REAL_PASS",
+      "anti_neuro": "REAL_PASS",
+      "hit_scorer": "REAL_PASS",
+      "mastering": "REAL_PASS",
+      "stem_splitter": "PARTIAL",
+      "presets_library": "REAL_PASS"
+    },
+    "audio_pipeline": {
+      "matchering_runtime": "BLOCKED",
+      "pedalboard_runtime": "REAL_PASS",
+      "pyloudnorm_runtime": "REAL_PASS",
+      "librosa_soundfile_runtime": "REAL_PASS",
+      "musicgen_runtime": "BLOCKED",
+      "demucs_runtime": "BLOCKED",
+      "mastering_adapter": "REAL_PASS",
+      "smoke_scripts": "REAL_PASS"
+    },
+    "voice_recording": {
+      "voice_recording": "REAL_PASS",
+      "voice_vault": "REAL_PASS",
+      "voice_onboarding": "REAL_PASS",
+      "voice_cleaner": "REAL_PASS",
+      "vocal_fx": "REAL_PASS",
+      "rvc_model": "MISSING",
+      "mic_recording": "BLOCKED"
+    },
+    "release": {
+      "release_export": "REAL_PASS",
+      "release_pack": "REAL_PASS",
+      "distribution": "REAL_PASS",
+      "cover_art": "REAL_PASS",
+      "mutagen_runtime": "REAL_PASS"
+    },
+    "testing": {
+      "pytest_suite": "REAL_PASS",
+      "fallback_audit": "REAL_PASS",
+      "dead_import_audit": "REAL_PASS",
+      "data_audit": "REAL_PASS"
+    }
+  },
+  "caps_triggered": [
+    [
+      80,
+      "no real microphone recording available"
+    ],
+    [
+      65,
+      "heavy engines unavailable: ['musicgen_runtime', 'demucs_runtime']"
+    ]
+  ],
+  "weighted_sum": 80.91,
+  "cap_min": 65,
+  "final_floor": 65
+}

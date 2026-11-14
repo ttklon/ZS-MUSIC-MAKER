@@ -14,6 +14,8 @@ import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+import logging
+
 from app.ai import llm_service as LLM
 from app.ai import prompts as P
 from app.ai.quality import (
@@ -44,6 +46,9 @@ from modules.artist_dossier.storage import (
     save_artist,
     save_track,
 )
+
+log = logging.getLogger("zsmm.dossier")
+
 
 class DossierManager:
     def __init__(self, root: Optional[Path] = None):
@@ -101,7 +106,12 @@ class DossierManager:
                         "error": f"{type(exc).__name__}: {exc}",
                     }
         if lyrics:
-            (self.root / slug / "lyrics" / f"{tid}.txt").write_text(lyrics, encoding="utf-8")
+            # `add_track` — публичный вход (CLI `--dossier-add`, досье из
+            # коллекторов): каталог lyrics может ещё не существовать, а раньше
+            # запись падала с FileNotFoundError уже после копирования аудио.
+            lyrics_dir = self.root / slug / "lyrics"
+            lyrics_dir.mkdir(parents=True, exist_ok=True)
+            (lyrics_dir / f"{tid}.txt").write_text(lyrics, encoding="utf-8")
         self._save_track(slug, entry)
         a = self._load_artist(slug) or ArtistEntry(
             artist=artist, slug=slug, added_at=time.time(), updated_at=time.time())
@@ -173,7 +183,8 @@ class DossierManager:
                     "reason": quality["reason"],
                 }
             except Exception as e:
-                return {"ok": False, "error": str(e)}
+                log.warning("demucs stage failed: %s", e)
+                return {"ok": False, "error": f"{type(e).__name__}: {e}"}
         runner.add(AIStage("demucs", "stem_splitter", _demucs_stage, optional=True))
 
         def _asr_stage(model, ctx):
@@ -246,7 +257,8 @@ class DossierManager:
                     "reason": quality["reason"],
                 }
             except Exception as e:
-                return {"ok": False, "error": str(e)}
+                log.warning("clap tagging failed: %s", e)
+                return {"ok": False, "error": f"{type(e).__name__}: {e}"}
         runner.add(AIStage("tags", "audio_tagger", _tag_stage, optional=True))
 
         def _llm_stage(handle, ctx):

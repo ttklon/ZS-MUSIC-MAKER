@@ -16,16 +16,51 @@ from pathlib import Path
 from typing import Any
 
 from modules.release.channels import build_all_channels
-from modules.release.export import export_release, refresh_zip, sha256_file
+from modules.release.export import (
+    export_release,
+    refresh_zip,
+    fill_missing_facts,
+    sha256_file,
+)
 
 
-def _copy_masters(masters_map: dict[str, str] | None, out: Path) -> list[str]:
-    """Копирует мастер-стенды в пакет; отсутствующие просто не выдумываются."""
+def _same_file_bytes(first: str, second: str) -> bool:
+    """Один и тот же файл? Сначала размер, потом побайтовое сравнение."""
+    try:
+        if Path(first).stat().st_size != Path(second).stat().st_size:
+            return False
+        with open(first, "rb") as left, open(second, "rb") as right:
+            while True:
+                chunk = left.read(1024 * 1024)
+                if chunk != right.read(1024 * 1024):
+                    return False
+                if not chunk:
+                    return True
+    except OSError:
+        return False
+
+
+def _copy_masters(
+    masters_map: dict[str, str] | None, out: Path, master_wav: str | None = None
+) -> list[str]:
+    """Копирует мастер-стенды в пакет; отсутствующие просто не выдумываются.
+
+    Мастер стриминга не копируется вторым файлом, если он уже лежит в пакете
+    как `master.wav`: в живом прогоне это был один и тот же файл с одним
+    SHA-256, и 42 МБ ехали дважды в пакете и в архиве.
+    """
     files: list[str] = []
+    canonical = out / "master.wav"
     for name, source in (masters_map or {}).items():
         if not source or not Path(source).is_file():
             continue
         destination = out / "masters" / f"{name}.wav"
+        # `master.wav` — тот же стенд, только под именем, которое читает плеер.
+        # Сравниваем с исходником: экспорт, который положит `master.wav`,
+        # идёт уже после этой копии.
+        if master_wav and _same_file_bytes(source, master_wav):
+            files.append(str(canonical))
+            continue
         destination.parent.mkdir(parents=True, exist_ok=True)
         if Path(source).resolve() != destination.resolve():
             shutil.copy(source, destination)
@@ -91,8 +126,11 @@ def build_pack(
     meta.setdefault("title", Path(master_wav).stem)
     meta.setdefault("artist", "ZS Music Maker")
     meta.setdefault("lyrics_text", lyrics_text)
+    # Пакеты площадок собираются до экспорта: длительность и тональность им
+    # нужны здесь. Живой прогон отправил в shazam `"duration": "PT0S"`.
+    fill_missing_facts(meta, master_wav)
 
-    masters = _copy_masters(masters_map, out)
+    masters = _copy_masters(masters_map, out, master_wav)
     if masters_map and not masters:
         missing.append("masters")
     stems = _copy_stems(stems_map, out)

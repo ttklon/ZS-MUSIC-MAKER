@@ -65,6 +65,39 @@ def stage_music(handle, ctx):
     result["ok"] = bool(result.get("ok", True)) and bool(quality["ok"])
     return result
 
+def _stereo_textures(handle, prompt: str, ai: AIContext, duration: int):
+    """Отрисовать интро и аутро. Возвращает (intro, outro) или отказ."""
+    intro_path = str(ai.out_root / "texture_intro_stereo.wav")
+    outro_path = str(ai.out_root / "texture_outro_stereo.wav")
+    intro = render_stereo_texture(
+        handle, prompt + ", wide stereo intro, gentle fade-in, no lead vocal", duration, intro_path
+    )
+    outro = render_stereo_texture(
+        handle, prompt + ", wide stereo outro, resolving fade-out, no lead vocal", duration, outro_path
+    )
+    return intro, outro
+
+
+def _texture_rejection(sections, duration: int):
+    """Первая сломанная или не прошедшая качество текстура — как отказ стадии."""
+    for section in sections:
+        # ВАЖНО: переменную нельзя называть `handle` — она перекрывает аргумент
+        # модели, и следующий вызов render_stereo_texture получает строку-путь
+        # вместо загруженной модели ("'str' object has no attribute ...").
+        texture_path = section.get("texture_path")
+        if not section.get("ok") or not texture_path:
+            return (
+                "music_stereo generation failed",
+                section.get("reason", "texture did not render"),
+            )
+        quality = validate_stereo_texture(
+            texture_path, min_duration_sec=max(1.0, duration * 0.5)
+        )
+        if not quality["ok"]:
+            return "music_stereo quality rejected", quality["reason"]
+    return None
+
+
 def stage_music_stereo(handle, ctx):
     ai: AIContext = ctx["ai"]
     """Extend the base beat with MusicGen stereo intro/outro through crossfades."""
@@ -81,29 +114,14 @@ def stage_music_stereo(handle, ctx):
         }
     prompt = P.build_music_prompt(ai.ws["genre"], ai.ws["bpm"], ai.ws["key"], ai.ws["mood"])
     duration = max(2, min(int(ai.ws.get("texture_duration_sec", 8)), 20))
-    intro_path = str(ai.out_root / "texture_intro_stereo.wav")
-    outro_path = str(ai.out_root / "texture_outro_stereo.wav")
-    intro = render_stereo_texture(
-        handle, prompt + ", wide stereo intro, gentle fade-in, no lead vocal", duration, intro_path
-    )
-    outro = render_stereo_texture(
-        handle, prompt + ", wide stereo outro, resolving fade-out, no lead vocal", duration, outro_path
-    )
-    for section in (intro, outro):
-        path = section.get("texture_path")
-        if not section.get("ok") or not path:
-            return {
-                "skipped": "music_stereo generation failed",
-                "reason": section.get("reason", "texture did not render"),
-                "fallback": "base beat is preserved without a synthetic extension",
-            }
-        quality = validate_stereo_texture(path, min_duration_sec=max(1.0, duration * 0.5))
-        if not quality["ok"]:
-            return {
-                "skipped": "music_stereo quality rejected",
-                "reason": quality["reason"],
-                "fallback": "base beat is preserved without a synthetic extension",
-            }
+    intro, outro = _stereo_textures(handle, prompt, ai, duration)
+    rejection = _texture_rejection((intro, outro), duration)
+    if rejection:
+        return {
+            "skipped": rejection[0],
+            "reason": rejection[1],
+            "fallback": "base beat is preserved without a synthetic extension",
+        }
     result = extend_beat_with_stereo_sections(
         str(base_beat),
         str(intro["texture_path"]),

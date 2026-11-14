@@ -34,38 +34,54 @@ PUNCHLINES_EN = [
 ]
 
 
+def _seed_for(theme: str, genre: str, language: str) -> int:
+    """Сид, одинаковый в любом процессе.
+
+    `hash()` строк в Python рандомизирован между запусками (`PYTHONHASHSEED`),
+    поэтому два прогона с одними и теми же параметрами давали разные тексты.
+    sha256 от тех же строк даёт то же число всегда.
+    """
+    import hashlib
+
+    key = f"{theme}\x00{genre}\x00{language}".encode("utf-8")
+    return int.from_bytes(hashlib.sha256(key).digest()[:8], "big")
+
+
+def _pick_block(rng, pool: list[str], count: int) -> list[str]:
+    """Строки блока без повторов.
+
+    `random.choice` этого не гарантирует: в живом прогоне одна и та же строка
+    шла дважды подряд («Клуб гудит, басы качают» ×2). Пул короткий, поэтому
+    при нехватке строк блок получается короче — это честнее повтора.
+    """
+    return rng.sample(pool, k=min(count, len(pool)))
+
+
 def local_fallback_lyrics(
     theme: str, genre: str, language: str = "ru", n_lines: int = 16
 ) -> str:
-    """Собирает шаблонный текст из punch-lib + темы + жанра."""
+    """Собирает шаблонный текст из punch-lib + темы + жанра.
+
+    Один и тот же вход даёт один и тот же текст: это fallback, но он обязан
+    быть воспроизводимым, иначе `--seed` не держит обещание детерминизма.
+    """
+    import random
+
     pool = PUNCHLINES_RU if language == "ru" else PUNCHLINES_EN
-    lines: list[str] = []
-    lines.append("[intro]")
-    lines.append(
+    rng = random.Random(_seed_for(theme, genre, language))
+    intro = (
         f"{theme}, {genre}, время идёт"
         if language == "ru"
         else f"{theme}, {genre}, we're on"
     )
-    lines.append("")
-    lines.append("[verse 1]")
-    import random
-
-    r = random.Random(hash((theme, genre, language)) & 0xFFFF)
-    for _ in range(4):
-        lines.append(r.choice(pool))
-    lines.append("")
-    lines.append("[hook]")
-    for _ in range(4):
-        lines.append(r.choice(pool))
-    lines.append("")
-    lines.append("[verse 2]")
-    for _ in range(4):
-        lines.append(r.choice(pool))
-    lines.append("")
-    lines.append("[hook]")
-    for _ in range(4):
-        lines.append(r.choice(pool))
-    return "\n".join(lines[: n_lines + 8])
+    verse1 = _pick_block(rng, pool, 4)
+    hook = _pick_block(rng, pool, 4)
+    # Второй куплет не повторяет первый: пул короткий, и без этого «куплет 2»
+    # дословно повторял строки из первого.
+    rest = [line for line in pool if line not in verse1]
+    verse2 = _pick_block(rng, rest, 4) if len(rest) >= 2 else _pick_block(rng, pool, 4)
+    parts = ["[intro]", intro, "", "[verse 1]", *verse1, "", "[hook]", *hook, "", "[verse 2]", *verse2, "", "[hook]", *hook]
+    return "\n".join(parts[: n_lines + 8])
 
 
 def complete_local_handle(

@@ -1,0 +1,514 @@
+:root {
+  color-scheme: dark;
+  --bg: #0f1115;
+  --bg-soft: #161a22;
+  --bg-raised: #1d222c;
+  --line: #2a3140;
+  --text: #e8ecf3;
+  --muted: #95a0b3;
+  --accent: #6aa9ff;
+  --ok: #4ec98a;
+  --warn: #f2c14e;
+  --bad: #ef6a6a;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font: 14px/1.5 "Segoe UI", "Noto Sans", system-ui, sans-serif;
+}
+
+.shell {
+  display: grid;
+  grid-template-columns: 232px 1fr;
+  height: 100vh;
+}
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 18px 14px;
+  background: var(--bg-soft);
+  border-right: 1px solid var(--line);
+}
+
+.brand {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.brand-mark {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: linear-gradient(140deg, #2b4d94, #6aa9ff);
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+.brand-title {
+  font-weight: 600;
+}
+
+.brand-version {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.nav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.nav-item {
+  text-align: left;
+  padding: 9px 12px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  cursor: pointer;
+}
+
+.nav-item:hover {
+  background: var(--bg-raised);
+  color: var(--text);
+}
+
+.nav-item.is-active {
+  background: #22304a;
+  color: var(--text);
+}
+
+.sidebar-footer {
+  margin-top: auto;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+
+.dot.is-ok {
+  background: var(--ok);
+}
+
+.dot.is-bad {
+  background: var(--bad);
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: auto;
+}
+
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 22px;
+  border-bottom: 1px solid var(--line);
+  position: sticky;
+  top: 0;
+  background: var(--bg);
+  z-index: 2;
+}
+
+.topbar h1 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.topbar-actions {
+  display: flex;
+  gap: 8px;
+}
+
+button.ghost {
+  padding: 7px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg-soft);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+
+button.ghost:hover {
+  border-color: var(--accent);
+}
+
+.view {
+  padding: 20px 22px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.is-hidden {
+  display: none !important;
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.card {
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg-soft);
+}
+
+.card-label {
+  font-size: 12px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.card-value {
+  font-size: 26px;
+  font-weight: 650;
+  margin-top: 6px;
+}
+
+.card-hint {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 4px;
+}
+
+.panel {
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg-soft);
+}
+
+.panel h2 {
+  margin: 0 0 10px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.muted {
+  color: var(--muted);
+  margin: 0 0 10px;
+}
+
+.caps {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--warn);
+}
+
+.table-wrap {
+  max-height: 60vh;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+th,
+td {
+  text-align: left;
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+
+th {
+  position: sticky;
+  top: 0;
+  background: var(--bg-raised);
+  font-weight: 600;
+}
+
+.tag {
+  display: inline-block;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 12px;
+  background: var(--bg-raised);
+}
+
+.tag.ok {
+  color: var(--ok);
+}
+
+.tag.warn {
+  color: var(--warn);
+}
+
+.tag.bad {
+  color: var(--bad);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+  max-height: 60vh;
+  overflow: auto;
+}
+
+.chips li {
+  padding: 3px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 13px;
+  color: var(--text);
+  background: var(--bg-raised);
+}
+
+/* Карточка жанра — не «пилюля»: внутри неё название, категория и кнопка.
+   `.chips li` (0,2,1) специфичнее `.chip` (0,1,0), поэтому раньше карточка
+   получала радиус 999px и перенимала перенос строк списка, а кнопка
+   «Собрать бит» вылезала за правый край. Правило ниже возвращает карточке
+   её собственный вид. */
+.chips li.chip {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 1px;
+  padding: 6px 11px;
+  border-radius: 10px;
+  white-space: normal;
+}
+
+input {
+  width: 100%;
+  max-width: 340px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg-raised);
+  color: var(--text);
+  font: inherit;
+}
+
+.list {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--text);
+}
+
+.output {
+  margin: 0;
+  padding: 12px;
+  border-radius: 10px;
+  background: #0b0d11;
+  border: 1px solid var(--line);
+  color: #cfe0ff;
+  font: 12px/1.5 "JetBrains Mono", ui-monospace, monospace;
+  white-space: pre-wrap;
+  max-height: 55vh;
+  overflow: auto;
+}
+
+.banner {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  max-width: 520px;
+  /* Текст и «крестик» в одну строку: сообщение закрывается рукой, а не
+     ожиданием таймера. */
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--bad);
+  background: #2a1a1a;
+  color: var(--text);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+/* Кнопки и подписи не сжимаются по слогам: в тесном ряду flex сужал их до
+   одной буквы в строке («банк / сэмплов» столбиком). Тянутся только поля. */
+.row > button,
+.row > label {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+/* Список задач содержит длинные подписи и раньше забирал всю строку: поля
+   рядом сжимались, и подсказка обрывалась на середине. Даём списку предел,
+   а остальное отдаём полям. */
+.row > select {
+  flex: 0 1 320px;
+  min-width: 160px;
+}
+
+.row > input {
+  /* Поле не уже 220px: иначе подсказка рвётся на середине слова и человек не
+     понимает, что сюда вводят. Лучше перенести поле на следующую строку. */
+  flex: 1 1 220px;
+  min-width: 150px;
+}
+
+/* Многострочное поле тянется на всю строку: в узком окне рядом с ним нечего
+   ставить, а половина ширины заставляла прокручивать текст внутри. */
+.row > textarea {
+  flex: 1 1 100%;
+  min-width: 0;
+}
+
+/* Флажок с подписью — одна строка, а не два блока друг под другом. */
+.check {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.fieldset {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin: 0 0 12px;
+  background: var(--bg-raised);
+}
+
+.fieldset legend {
+  padding: 0 6px;
+  color: var(--muted);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.chip {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 6px 11px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg-raised);
+}
+
+.chip-send {
+  margin-top: 6px;
+  padding: 3px 8px;
+  font-size: 12px;
+}
+
+.chip.has-preset {
+  border-color: #35507f;
+}
+
+.chip-name {
+  font-size: 13px;
+}
+
+.chip-meta {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.panel h3 {
+  margin: 16px 0 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+select {
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg-raised);
+  color: var(--text);
+  font: inherit;
+}
+
+code {
+  font: 12px "JetBrains Mono", ui-monospace, monospace;
+  color: var(--accent);
+}
+
+#task-genre,
+#task-seed {
+  max-width: 220px;
+}
+
+/* ---- доступность ----
+   Окно живёт в Windows 11, где человек может ходить по нему Tab и читать
+   экран Narrator. Без видимой рамки фокуса клавиатура «теряется»: не видно,
+   где ты. `:focus-visible` — чтобы мышью рамка не мигала на каждой кнопке. */
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid #6aa9ff;
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+/* Заголовок раздела получает фокус после переключения, чтобы прокрутка
+   клавишами (PageDown, End) работала в только что открытом разделе. Это
+   служебный фокус, а не «место, где ты»: рамка на заголовке не нужна. */
+#view-title:focus,
+#view-title:focus-visible {
+  outline: none;
+}
+
+/* Меньше движения для тех, кому анимация мешает. */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
+
+.banner-close {
+  padding: 0 6px;
+  font-size: 16px;
+  line-height: 1.2;
+}

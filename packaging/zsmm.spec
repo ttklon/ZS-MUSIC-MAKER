@@ -1,6 +1,6 @@
 # -*- mode: python ; coding: utf-8 -*-
 """
-PyInstaller-сборка ZS Music Maker (Windows 11, onefile).
+PyInstaller-сборка ZS Music Maker (Windows 11, onedir по умолчанию).
 
 Что важно и почему именно так:
 

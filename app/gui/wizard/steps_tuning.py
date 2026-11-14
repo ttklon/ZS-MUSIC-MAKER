@@ -75,7 +75,8 @@ class StepTuning(StepBase):
 
         flags = QHBoxLayout()
         self.allow_online = QCheckBox(t("wizard.tuning.online"))
-        self.allow_online.setChecked(True)
+        # Сеть выключена по умолчанию: пользователь включает её осознанно.
+        self.allow_online.setChecked(False)
         self.license_only = QCheckBox(t("wizard.tuning.license"))
         self.license_only.setChecked(True)
         flags.addWidget(self.allow_online)

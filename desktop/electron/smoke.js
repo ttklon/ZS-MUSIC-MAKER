@@ -1,0 +1,278 @@
+'use strict';
+/**
+ * smoke.js — проверка упакованного приложения без окна (`--smoke`).
+ *
+ * Зачем отдельным модулем: собрать установщик и не проверить, что он читает
+ * свои данные, — значит узнать о сломанных путях от пользователя. Здесь нет
+ * ни `electron`, ни сети: только чтение проекта и короткий рендер, поэтому
+ * проверка прогоняется и в CI на Windows, и обычным `node --test`.
+ */
+
+const path = require('node:path');
+
+const { renderBeatPayload } = require('./pipeline');
+const { createBankProvider } = require('./pipeline');
+const { resolvePython, resolvePipelineRoot } = require('./runtime');
+
+/**
+ * Собрать отчёт о состоянии приложения.
+ *
+ * @param {object} params
+ * @param {string|null} params.root      корень проекта
+ * @param {string|null} params.rootError причина, если корень не найден
+ * @param {Function} params.createProject фабрика модели проекта
+ * @param {object} [params.env]
+ * @param {boolean} [params.packaged]
+ * @param {string} [params.electron]
+ * @returns {Promise<{ok: boolean, checks: Array<{name: string, ok: boolean, detail: string}>}>}
+ */
+async function runSmoke({
+  root,
+  rootError = null,
+  createProject,
+  env = process.env,
+  packaged = false,
+  electron = null,
+}) {
+  const checks = [];
+  const push = (name, ok, detail) => checks.push({ name, ok: Boolean(ok), detail: String(detail ?? '') });
+
+  push('корень проекта найден', Boolean(root), root || rootError || 'путь не найден');
+
+  if (root) {
+    try {
+      const project = createProject();
+      const version = project.version();
+      push('version.json', Boolean(version.version), version.version || version.error);
+
+      const genres = project.genres();
+      push('каталог жанров', genres.genres.length >= 100, `${genres.genres.length} жанров`);
+
+      const modules = project.modules();
+      push('inventory', modules.total > 0, `${modules.total} модулей`);
+
+      const readiness = project.readiness();
+      push('снимок готовности', readiness.percent !== null && readiness.percent !== undefined, `${readiness.percent}%`);
+
+      const bank = createBankProvider({ rootDir: root }).bank();
+      const bankReport = bank.report();
+      push(
+        'банк сэмплов',
+        bankReport.status === 'REAL_PASS',
+        `${bankReport.status}, ${bankReport.total_samples} сэмплов`,
+      );
+
+      const beat = await renderBeatPayload(
+        { bpm: 140, genre: 'phonk', seed: 7, durationSec: 2 },
+        { rootDir: root },
+      );
+      push(
+        'рендер бита',
+        beat.ok === true && beat.data.wavBase64.length > 1000,
+        beat.ok === true ? `${beat.data.report.total_bars} тактов, ${beat.data.report.duration_sec} с` : beat.error,
+      );
+
+      // Вокал в собранном приложении: движок в asar, поэтому проверяем именно
+      // упакованный путь. Тестовый дубль обязан приехать помеченным как
+      // имитация — иначе окно может выдать его за запись.
+      const withVocal = await renderBeatPayload(
+        { bpm: 120, genre: 'phonk', seed: 3, durationSec: 2, vocal: { mode: 'test' } },
+        { rootDir: root },
+      );
+      const vocal = withVocal.ok === true ? withVocal.data.report.vocal : null;
+      push(
+        'вокал (тестовый дубль)',
+        Boolean(vocal && vocal.source === 'test' && vocal.simulated === true && withVocal.data.vocalWavBase64),
+        vocal ? `${vocal.label}, ${vocal.mixed_seconds} с в миксе` : (withVocal.error || 'вокала нет в отчёте'),
+      );
+
+      // Куда приложение пишет досье. В установленной сборке это обязан быть
+      // каталог пользователя: `resources/project` лежит в Program Files.
+      const writable = require('./writable-data');
+      const plan = writable.dossierWriteDir({
+        packaged,
+        projectRoot: root,
+        userData: process.env.APPDATA || require('node:os').tmpdir(),
+      });
+      push(
+        'каталог досье для записи',
+        packaged ? plan.source === 'user' : plan.source === 'project',
+        `${plan.source}: ${plan.dir}`,
+      );
+
+      // Задачи без Python: раздел «Запуск» должен уметь хоть что-то в
+      // установленном приложении, где интерпретатора нет.
+      const nativeTasks = require('./native-tasks');
+      const files = nativeTasks.runNativeTask({ key: 'native-files', project, root });
+      push('проверка файлов без Python', files.ok === true, files.lines.at(-1) || 'нет вывода');
+
+      // Досье читается и правится тем же кодом, что в окне. Пишем во
+      // временный каталог: у установленного приложения `resources` может быть
+      // только для чтения, и smoke не должен ничего ломать.
+      const dossier = require('../src/core/dossier-edit');
+      const list = project.dossiers();
+      push('досье читается', Array.isArray(list.artists), `${list.artists.length} артист(ов)`);
+      const tmp = require('node:fs').mkdtempSync(require('node:path').join(require('node:os').tmpdir(), 'zsmm-smoke-'));
+      const { createNodeFs } = require('../src/core/fs-node');
+      const added = dossier.addArtist(createNodeFs(), tmp, { artist: 'Smoke Artist' });
+      // Трек заводится тем же кодом, что в разделе «Треки»: проверяем, что
+      // запись создаётся и читается, и что статус не выдуман («не разобран»).
+      const tracks = require('../src/core/dossier-tracks');
+      const track = added.ok
+        ? tracks.addTrack(createNodeFs(), tmp, { slug: added.data.slug, title: 'Smoke Track' })
+        : { ok: false, error: 'артист не добавлен' };
+      const trackList = added.ok ? tracks.listTracks(createNodeFs(), tmp, added.data.slug) : { tracks: [] };
+      // Удаление трека — тоже путь окна: проверяем в упакованной сборке, что
+      // запись, текст и ссылка из досье убираются, а артист остаётся.
+      const trackGone = added.ok && track.ok
+        ? tracks.removeTrack(createNodeFs(), tmp, { slug: added.data.slug, trackId: track.data.track_id })
+        : { ok: false, error: 'трек не добавлен' };
+      const afterRemove = added.ok ? tracks.listTracks(createNodeFs(), tmp, added.data.slug) : { tracks: [] };
+      const removed = added.ok ? dossier.removeArtist(createNodeFs(), tmp, { slug: added.data.slug }) : { ok: false };
+      push(
+        'досье правится без Python',
+        added.ok === true && track.ok === true && trackList.tracks.length === 1
+          && trackList.tracks[0].status === 'pending' && trackGone.ok === true
+          && afterRemove.tracks.length === 0 && removed.ok === true,
+        added.ok
+          ? `артист и трек ${track.ok ? track.data.track_id : track.error} добавлены, `
+            + `трек ${trackGone.ok ? 'удалён' : trackGone.error}, артист удалён`
+          : added.error,
+      );
+      try {
+        require('node:fs').rmSync(tmp, { recursive: true, force: true });
+      } catch {
+        /* временный каталог мог остаться — это не провал проверки */
+      }
+
+      // Запись с микрофона: в CI устройства нет, поэтому проверяется путь
+      // «окно прислало PCM → главный процесс собрал WAV → он читается».
+      // Это то, что сможет проверить установленная сборка на машине человека.
+      const vocalService = require('./vocal-service');
+      const frames = 4410;
+      const raw = Buffer.alloc(frames * 4);
+      for (let i = 0; i < frames; i += 1) {
+        raw.writeFloatLE(0.4 * Math.sin((2 * Math.PI * 220 * i) / 44100), i * 4);
+      }
+      const recorded = vocalService.recordingToWav({
+        pcmBase64: raw.toString('base64'), sampleRate: 44100, seconds: frames / 44100,
+      });
+      const silent = vocalService.recordingToWav({
+        pcmBase64: Buffer.alloc(frames * 4).toString('base64'), sampleRate: 44100,
+      });
+      push(
+        'запись с микрофона (путь без устройства)',
+        recorded.ok === true && silent.ok === false
+          && recorded.data.buffer.toString('ascii', 0, 4) === 'RIFF',
+        recorded.ok === true
+          ? `WAV ${recorded.data.buffer.length} байт, ${recorded.data.seconds.toFixed(2)} с; тишина отвергается`
+          : recorded.error,
+      );
+
+      // Синтез вокала в собранном приложении: проверяется не «файл есть», а
+      // что голос — это голос. Частота основного тона по автокорреляции
+      // должна попасть в ноту строки, и выше 1 кГц должна быть энергия
+      // (каскад формант оставлял бы один основной тон — так и было).
+      const takes = require('../src/core/audio/takes');
+      const synth = takes.synthTake({ seconds: 2, seed: 5, text: 'дыши ровно', midiNotes: [57] });
+      const want = 440 * (2 ** ((57 - 69) / 12));
+      let best = -1;
+      let bestLag = 0;
+      for (let lag = Math.floor(44100 / 900); lag <= Math.ceil(44100 / 70); lag += 1) {
+        let cross = 0;
+        let left = 0;
+        let right = 0;
+        for (let i = 0; i < 8192; i += 1) {
+          const a = synth.signal[8820 + i] || 0;
+          const b = synth.signal[8820 + i + lag] || 0;
+          cross += a * b;
+          left += a * a;
+          right += b * b;
+        }
+        const r = cross / Math.sqrt((left || 1e-12) * (right || 1e-12));
+        if (r > best) { best = r; bestLag = lag; }
+      }
+      const hz = 44100 / bestLag;
+      const cents = 1200 * Math.log2(hz / want);
+      push(
+        'синтез вокала попадает в ноту',
+        Math.abs(cents) <= 70 && best > 0.8,
+        `${want.toFixed(1)} Гц → ${hz.toFixed(1)} Гц (${cents.toFixed(0)} центов, r=${best.toFixed(2)}), ${synth.signal.length} сэмплов`,
+      );
+      // Самодиагностика окна: в упакованной сборке она проверяет запись в
+      // каталог пользователя и поток рендера так же, как это сделал бы
+      // человек кнопкой. Без этого «работает» в отчёте было бы обещанием.
+      const self = nativeTasks.runNativeTask({
+        key: 'native-selfcheck',
+        project,
+        root,
+        userData: require('node:os').tmpdir(),
+      });
+      push(
+        'самодиагностика окна',
+        self.ok === true,
+        self.ok === true ? self.lines.at(-1) : self.lines.filter((row) => row.startsWith('ПРОБЛЕМА')).join('; '),
+      );
+    } catch (err) {
+      push('чтение проекта', false, err.message);
+    }
+  }
+
+  const python = resolvePython({ root, env });
+  // Python в собранном приложении не обязателен: это не провал сборки,
+  // а состояние, о котором говорит «Диагностика».
+  push('Python для задач', true, python.python || 'не найден (не обязателен)');
+
+  // Отдельно от интерпретатора: в установщик входит только data-часть
+  // проекта, и `python main.py` там запускать нечего — окно обязано это
+  // знать, иначе оно пообещает то, чего не сможет.
+  const pipeline = resolvePipelineRoot({ root, env });
+  push(
+    'пайплайн на Python',
+    true,
+    pipeline.root ? pipeline.root : 'не входит в поставку (задачи без Python работают)',
+  );
+
+  return {
+    ok: checks.every((check) => check.ok),
+    packaged,
+    electron,
+    root,
+    checks,
+  };
+}
+
+/** Куда писать отчёт: CI читает файл, а не stdout (у GUI нет консоли). */
+function smokeOutputPath(env = process.env, tmpdir = require('node:os').tmpdir()) {
+  return env.ZSMM_SMOKE_OUT || path.join(tmpdir, 'zsmm-smoke.json');
+}
+
+/**
+ * Напечатать отчёт и сохранить его в файл.
+ *
+ * Файл нужен CI: консольный вывод запущенного через `Start-Process` процесса
+ * перехватить нельзя, а прочитать JSON после выхода — можно. Если записать
+ * не удалось, это не ошибка проверки: отчёт уже напечатан.
+ *
+ * @param {object} report
+ * @param {object} [params]
+ * @param {object} [params.env]
+ * @param {Function} [params.writeFile]
+ * @param {{write: Function}} [params.out]
+ * @returns {string} путь к файлу отчёта
+ */
+function writeReport(report, { env = process.env, writeFile = null, out = process.stdout } = {}) {
+  const text = `${JSON.stringify(report, null, 2)}\n`;
+  out.write(text);
+  const file = smokeOutputPath(env);
+  if (!writeFile) return file;
+  try {
+    writeFile(file, text, 'utf8');
+    out.write(`smoke: ${file}\n`);
+  } catch (err) {
+    out.write(`smoke: файл не записан (${err.message})\n`);
+  }
+  return file;
+}
+
+module.exports = { runSmoke, smokeOutputPath, writeReport };

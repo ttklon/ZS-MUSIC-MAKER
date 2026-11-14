@@ -13,6 +13,17 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[3]
 
 
+def _with_attempts(result: dict[str, Any], attempts: list[dict[str, str]]) -> dict[str, Any]:
+    """Дописывает к отчёту след отказов предыдущих движков (v23).
+
+    Без этого успех второй ступени выглядел так, будто первую не пробовали.
+    """
+    merged = dict(result)
+    if attempts:
+        merged["fallback_attempts"] = list(merged.get("fallback_attempts") or []) + list(attempts)
+    return merged
+
+
 def _stage_voice_synth(lyrics_text: str, out_dir: Path) -> dict[str, Any]:
     out_wav = str(out_dir / "voice_preview.wav")
     if not lyrics_text or not lyrics_text.strip():
@@ -24,10 +35,7 @@ def _stage_voice_synth(lyrics_text: str, out_dir: Path) -> dict[str, Any]:
     fallback_attempts: list[dict[str, str]] = []
 
     def use_fallback() -> dict[str, Any]:
-        result = dict(_pyttsx3_speak(lyrics_text, out_wav))
-        if fallback_attempts:
-            result["fallback_attempts"] = fallback_attempts
-        return result
+        return _with_attempts(_pyttsx3_speak(lyrics_text, out_wav), fallback_attempts)
 
     try:
         from modules import voice_synth
@@ -61,7 +69,7 @@ def _stage_voice_synth(lyrics_text: str, out_dir: Path) -> dict[str, Any]:
         try:
             result = voice_synth.synthesize(lyrics_text, out_wav)
             if isinstance(result, dict):
-                return result
+                return _with_attempts(result, fallback_attempts)
             if isinstance(result, str) and Path(result).exists():
                 return {"ok": True, "path": result, "engine": "voice_synth"}
             fallback_attempts.append({

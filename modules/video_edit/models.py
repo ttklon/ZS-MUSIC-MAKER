@@ -5,10 +5,18 @@ modules/video_edit/models.py — запрос и результат рендер
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 
 
+@dataclass
 class VideoEditRequest:
+    """Запрос на рендер клипа.
+
+    Без `@dataclass` аннотированные поля не создают `__init__`: любой вызов
+    `VideoEditRequest(master_wav=...)` падал с `TypeError`, а вместе с ним не
+    работала и `build_release_edits` — публичная функция пакета.
+    """
+
     master_wav: str
     cover_png: str | None = None
     lyrics_lrc: str | None = None

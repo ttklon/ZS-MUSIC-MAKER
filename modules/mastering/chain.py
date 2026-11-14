@@ -134,8 +134,27 @@ def _gates(report: dict[str, Any], stand: str) -> dict[str, bool]:
     }
 
 
-def master_one(mix_wav: str, out_wav: str, stand: str = "streaming") -> dict[str, Any]:
-    """Мастеринг одного WAV под конкретный стенд. Всегда стерео, всегда с отчётом."""
+# Формат записи мастеров. PCM 24 бита — потолок для мастера и формат,
+# который берут площадки: 32-bit float вдвое тяжелее (40 МБ против 30 МБ на
+# 120 с) и частью сервисов не принимается, а 16 бит на тихих местах дают
+# слышимый шум. Замер перекодирования живого мастера: FLOAT → PCM_24 даёт
+# SNR квантования 133 дБ, ноль разницы в LUFS (0.0000) и −81 МБ на восьми
+# стендах.
+MASTER_SUBTYPE = "PCM_24"
+
+
+def master_one(
+    mix_wav: str,
+    out_wav: str,
+    stand: str = "streaming",
+    iterations: int | None = None,
+) -> dict[str, Any]:
+    """Мастеринг одного WAV под конкретный стенд. Всегда стерео, всегда с отчётом.
+
+    `iterations` — сколько доводок громкости делал `_converge_loudness`
+    (режим качества из визарда). `None` — прежнее поведение (6 итераций),
+    поэтому вызовы без аргумента считают бит-в-бит как раньше.
+    """
     try:
         y, sr = _load(mix_wav)
     except Exception as exc:
@@ -151,12 +170,16 @@ def master_one(mix_wav: str, out_wav: str, stand: str = "streaming") -> dict[str
         high={"threshold_db": -20.0, "ratio": 1.4, "attack_ms": 10.0, "release_ms": 120.0},
     )
     crest_low, crest_high = CREST_RANGE.get(stand, DEFAULT_CREST)
+    # Режим качества задаёт глубину поиска во всех доводках этого стенда,
+    # включая rescue/topup: иначе "fast" всё равно тратил бы полный бюджет.
+    search_iterations = max(1, int(iterations)) if iterations else 6
     mastered, loudness_info = _converge_loudness(
         compressed,
         sr,
         target,
         min_crest_db=crest_low,
         max_crest_db=crest_high,
+        search_iterations=search_iterations,
     )
     # Если цель по громкости не достигнута из-за транзиентов (лимитер уже стоит
     # на потолке, а прибавка усиления не даёт LUFS), единственный честный путь —
@@ -180,6 +203,7 @@ def master_one(mix_wav: str, out_wav: str, stand: str = "streaming") -> dict[str
             target,
             min_crest_db=crest_low,
             max_crest_db=crest_high,
+            search_iterations=search_iterations,
         )
         rescue_attempts.append(
             {
@@ -202,6 +226,7 @@ def master_one(mix_wav: str, out_wav: str, stand: str = "streaming") -> dict[str
             max_gain_db=4.0,
             min_crest_db=crest_low,
             max_crest_db=crest_high,
+            search_iterations=search_iterations,
         )
         crest_info["topup"] = {
             "lufs_before": round(current_lufs, 2),
@@ -221,7 +246,7 @@ def master_one(mix_wav: str, out_wav: str, stand: str = "streaming") -> dict[str
 
     out = Path(out_wav)
     out.parent.mkdir(parents=True, exist_ok=True)
-    sf.write(str(out), mastered.astype(np.float32), sr, subtype="FLOAT")
+    sf.write(str(out), mastered.astype(np.float32), sr, subtype=MASTER_SUBTYPE)
 
     return {
         "ok": True,

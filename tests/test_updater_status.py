@@ -52,7 +52,12 @@ def test_install_rolls_back_when_smoke_process_cannot_start(tmp_path, monkeypatc
     monkeypatch.setattr(install, "verify_zip", lambda *_args: {"ok": True})
     monkeypatch.setattr(install, "make_backup", lambda **_kwargs: backup)
     monkeypatch.setattr(install, "_stash_user_data", lambda *_args: {})
-    monkeypatch.setattr(install, "_restore_user_data", lambda *_args: [])
+    monkeypatch.setattr(
+        install,
+        "userdata",
+        type("U", (), {"restore_user_data_report": staticmethod(
+            lambda *_a, **_k: {"ok": True, "restored": [], "failed": []})})(),
+    )
     monkeypatch.setattr(install, "rollback_last", lambda: {"ok": True})
 
     def fail_to_start(*_args, **_kwargs):

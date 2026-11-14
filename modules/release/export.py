@@ -21,6 +21,14 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+try:  # тегирование — необязательная зависимость, отказ обязан быть виден
+    from mutagen.wave import WAVE
+
+    HAS_MUTAGEN = True
+except Exception:  # pragma: no cover - окружение без mutagen
+    WAVE = None
+    HAS_MUTAGEN = False
+
 ROOT = Path(__file__).resolve().parents[2]
 RELEASES_DIR = ROOT / "output" / "releases"
 
@@ -114,6 +122,161 @@ def refresh_zip(release_dir: str | Path) -> bool:
     return _archive_release(release_dir, zip_path)
 
 
+def tag_release_master(path: str | Path, meta: dict[str, Any]) -> dict[str, Any]:
+    """Проставить ID3-теги файлу релизного пакета (никогда — мастеру проекта).
+
+    WAV-теги пишутся через `mutagen.wave.WAVE` + ID3-кадры: `EasyID3` работает
+    с файлами, у которых уже есть контейнер ID3, поэтому «с нуля» используется
+    `WAVE.add_tags()`. Ошибка или отсутствие `mutagen` — честный
+    `{"ok": False, "reason": ...}`, а не тихий пропуск.
+    """
+    target = Path(path)
+    if not HAS_MUTAGEN:
+        return {
+            "ok": False,
+            "reason": "mutagen is not installed; release master has no ID3 tags",
+            "engine": "mutagen",
+        }
+    if target.suffix.lower() != ".wav":
+        return {
+            "ok": False,
+            "reason": f"ID3 tagging is only wired for WAV, got {target.suffix or 'no suffix'}",
+            "engine": "mutagen",
+        }
+
+    values = {
+        "title": str(meta.get("title") or "").strip(),
+        "artist": str(meta.get("artist") or "").strip(),
+        "album": str(meta.get("album") or meta.get("title") or "").strip(),
+        "genre": str(meta.get("genre") or "").strip(),
+        "date": str(meta.get("year") or datetime.now(timezone.utc).year),
+        "tracknumber": str(meta.get("track_number") or 1),
+    }
+    frames = {
+        "title": "TIT2",
+        "artist": "TPE1",
+        "album": "TALB",
+        "genre": "TCON",
+        "date": "TDRC",
+        "tracknumber": "TRCK",
+    }
+    try:
+        audio = WAVE(str(target))
+        try:
+            audio.add_tags()
+        except Exception:
+            # контейнер уже есть — перезаписываем существующие кадры
+            pass
+        written: dict[str, str] = {}
+        for key, frame in frames.items():
+            value = values[key]
+            if not value:
+                continue
+            from mutagen import id3 as id3_frames
+
+            audio.tags.delall(frame)
+            audio.tags.add(id3_frames.__dict__[frame](encoding=3, text=[value]))
+            written[key] = value
+        audio.save()
+        return {
+            "ok": True,
+            "engine": "mutagen.wave",
+            "tags": written,
+            "file": str(target),
+            "note": "tags are written to the release copy only",
+        }
+    except Exception as exc:  # noqa: BLE001 - причина важнее стека
+        return {
+            "ok": False,
+            "engine": "mutagen.wave",
+            "reason": f"{type(exc).__name__}: {exc}",
+            "file": str(target),
+        }
+
+
+def _wav_duration_sec(path: str | Path | None) -> float:
+    """Длительность WAV по заголовку: RIFF → fmt (каналы, частота) → data.
+
+    Читаем только заголовок, без numpy и librosa: выпуск релиза не должен
+    требовать тяжёлых зависимостей ради одного числа. Нужна точность до
+    сэмпла, а не анализ — площадка получает `duration` в структурированных
+    данных, и «PT0S» там означает битый файл.
+    """
+    import struct
+
+    if not path:
+        return 0.0
+    try:
+        with open(path, "rb") as handle:
+            header = handle.read(12)
+            if len(header) < 12 or header[:4] != b"RIFF" or header[8:12] != b"WAVE":
+                return 0.0
+            channels = sample_rate = bits = 0
+            data_size = 0
+            while True:
+                chunk = handle.read(8)
+                if len(chunk) < 8:
+                    break
+                chunk_id = chunk[:4]
+                size = struct.unpack("<I", chunk[4:])[0]
+                if chunk_id == b"fmt ":
+                    fmt = handle.read(size)
+                    if len(fmt) >= 16:
+                        channels = struct.unpack("<H", fmt[2:4])[0]
+                        sample_rate = struct.unpack("<I", fmt[4:8])[0]
+                        bits = struct.unpack("<H", fmt[14:16])[0]
+                    if size % 2:
+                        handle.seek(1, 1)
+                elif chunk_id == b"data":
+                    data_size = size
+                    break
+                else:
+                    handle.seek(size + (size % 2), 1)
+        if channels and sample_rate and bits and data_size:
+            frames = data_size / max(1, channels * (bits // 8))
+            return round(frames / sample_rate, 3)
+    except OSError:
+        return 0.0
+    return 0.0
+
+
+def _resolve_key(meta: dict[str, Any]) -> str:
+    """Тональность одной строкой: «A minor».
+
+    Оркестратор кладёт в рецепт корень и лад отдельными полями (`key_root`,
+    `mode`, лад приходит как `target_mode`), а площадки ждут одну строку.
+    Раньше в `metadata.json` оставалась пустая строка при известной тональности.
+    """
+    key = str(meta.get("key") or "").strip()
+    if key:
+        return key
+    root = str(meta.get("key_root") or "").strip()
+    mode = str(
+        meta.get("mode") or meta.get("target_mode") or meta.get("scale") or ""
+    ).strip().lower()
+    if not root:
+        return ""
+    return f"{root} {mode}".strip() if mode else root
+
+
+def fill_missing_facts(meta: dict[str, Any], master_path: str | Path | None) -> dict[str, Any]:
+    """Дописать в метаданные то, что знает сам мастер: длительность и тональность.
+
+    Пакет каналов собирается раньше экспорта, поэтому обе точки входа зовут
+    этот помощник: иначе `shazam.jsonld` утверждал `"duration": "PT0S"`.
+    """
+    if not meta.get("duration_sec"):
+        meta["duration_sec"] = _wav_duration_sec(master_path)
+    if not meta.get("key"):
+        meta["key"] = _resolve_key(meta)
+    return meta
+
+
+# Открытые имена для `pack.py`.
+wav_duration_sec = _wav_duration_sec
+resolve_key = _resolve_key
+
+
 def export_release(
     beat_path: str,
     vocal_path: str,
@@ -132,15 +295,16 @@ def export_release(
         release_dir = Path(out_dir) if out_dir else RELEASES_DIR / f"{safe_name}_{stamp}"
         release_dir.mkdir(parents=True, exist_ok=True)
 
-        meta = {
+        source = dict(recipe or {})
+        meta = fill_missing_facts({
             "title": title or project_name,
             "artist": _resolve_artist_name(artist_name),
-            "genre": (recipe or {}).get("genre", ""),
-            "bpm": (recipe or {}).get("bpm", ""),
-            "key": (recipe or {}).get("key", ""),
-            "duration_sec": (recipe or {}).get("duration_sec", ""),
-            "isrc": (recipe or {}).get("isrc", ""),
-        }
+            "genre": source.get("genre", ""),
+            "bpm": source.get("bpm", ""),
+            "key": _resolve_key(source),
+            "duration_sec": source.get("duration_sec", ""),
+            "isrc": source.get("isrc", ""),
+        }, master_path)
         isrc, isrc_status = _isrc_for(meta)
         meta["isrc"] = isrc
         meta["isrc_status"] = isrc_status
@@ -157,6 +321,14 @@ def export_release(
                 shutil.copy(source, destination)
             files[name] = str(destination)
             artifacts[name] = sha256_file(destination)
+
+        # Теги ставим только на копию в релизном пакете: мастер проекта
+        # остаётся бит-в-бит тем же (это проверяется тестом по SHA-256).
+        id3_report: dict[str, Any] = {"ok": False, "reason": "no master in release package"}
+        if "master.wav" in files:
+            id3_report = tag_release_master(release_dir / "master.wav", meta)
+            if id3_report.get("ok"):
+                artifacts["master.wav"] = sha256_file(release_dir / "master.wav")
 
         lyrics_text = lyrics or ""
         (release_dir / "lyrics.txt").write_text(lyrics_text, encoding="utf-8")
@@ -184,6 +356,7 @@ def export_release(
             "created_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
             "metadata": meta,
             "artifacts_sha256": artifacts,
+            "id3": id3_report,
         }
         # SHA-256 остальных текстовых артефактов: манифест должен покрывать всё.
         for name in ("lyrics.txt", "recipe.json", "metadata.json", "metadata.csv"):
@@ -214,6 +387,7 @@ def export_release(
             "manifest": manifest,
             "isrc": isrc,
             "isrc_status": isrc_status,
+            "id3": id3_report,
             "zip": archived,
         }
     except Exception as exc:  # noqa: BLE001 - отчёт о сбое важнее стека

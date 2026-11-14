@@ -79,10 +79,20 @@ def probe_backend() -> dict:
 
 
 # ============================================================ trainer core
-def _build_plan(manifest: dict, mode: str, target_model: str | None = None) -> dict:
-    """Строит план обучения — параметры и оценка времени."""
+def _build_plan(
+    manifest: dict,
+    mode: str,
+    target_model: str | None = None,
+    epochs: int | None = None,
+) -> dict:
+    """Строит план обучения — параметры и оценка времени.
+
+    `epochs` перекрывает профиль режима (`quick`/`night`); сколько эпох задал
+    профиль, остаётся в `quality_profile_epochs`, чтобы отчёт не терял контекст.
+    """
     backend = probe_backend()
-    epochs = DEFAULT_EPOCHS_NIGHT if mode == "night" else DEFAULT_EPOCHS_QUICK
+    profile_epochs = DEFAULT_EPOCHS_NIGHT if mode == "night" else DEFAULT_EPOCHS_QUICK
+    epochs = profile_epochs if epochs is None else epochs
     batch = 2 if backend["vram_gb"] < 8.0 else 4 if backend["vram_gb"] < 12.0 else 8
     total_sec = float(manifest.get("total_sec", 0.0))
     # Примерная оценка ETA (мин): 5 мин голоса × 100 эпох × 1x speed ≈ 40 мин CUDA
@@ -96,6 +106,7 @@ def _build_plan(manifest: dict, mode: str, target_model: str | None = None) -> d
     return {
         "backend": backend,
         "epochs": epochs,
+        "quality_profile_epochs": profile_epochs,
         "batch": batch,
         "sample_rate": 40000,
         "mode": mode,
@@ -153,17 +164,23 @@ def retrain_incremental(
     dry_run: bool = True,
     progress_cb: Callable[[dict], None] | None = None,
     background: bool = True,
+    epochs: int | None = None,
 ) -> dict:
     """
     Инкрементальный дотрейн модели RVC.
       mode: 'quick' (60 эпох) | 'night' (320 эпох)
+      epochs: явное число эпох (профиль качества из визарда); None — по режиму.
+          Пайплайн рендера обучение сам не запускает: его зовёт
+          `voice_vault.maybe_trigger_retrain`, а не стадии рендера.
       dry_run: True — только явно маркированная CI/UI-эмуляция без модели;
       dry_run: False — честно возвращает blocked_backend, пока проверенный API
           реального обучения не интегрирован (никогда не имитирует обучение).
     Возвращает job dict.
     """
+    if epochs is not None and epochs <= 0:
+        raise ValueError("epochs must be a positive integer")
     manifest = _load_manifest(manifest_path)
-    plan = _build_plan(manifest, mode, target_model)
+    plan = _build_plan(manifest, mode, target_model, epochs)
 
     job = {
         "id": _mk_job_id(),
@@ -189,23 +206,42 @@ def retrain_incremental(
 
 
 def schedule_night_run(manifest_path: str, target_model: str | None = None) -> dict:
-    """Ставит ночной тренинг в render_queue."""
-    try:
-        from modules.render_queue import enqueue
+    """Ставит ночной тренинг в render_queue.
 
-        payload = {
-            "kind": "rvc_train_night",
-            "manifest_path": manifest_path,
-            "target_model": target_model or "user_voice_v9",
+    Очередь принимает задачи через `RenderQueue().enqueue(payload)`; публичной
+    функции `enqueue` модуль не экспортирует. Если очередь недоступна,
+    возвращается явный фолбэк: `fallback=True` и причина, а не тихий успех.
+    """
+    payload = {
+        "kind": "rvc_train_night",
+        "manifest_path": manifest_path,
+        "target_model": target_model or "user_voice_v9",
+    }
+    try:
+        from modules.render_queue import RenderQueue
+
+        queue_id = RenderQueue(log=lambda *_: None).enqueue(payload)
+        return {"ok": True, "queue_id": queue_id, "fallback": False}
+    except Exception as exc:  # noqa: BLE001 - причина обязана дойти до пользователя
+        reason = f"{type(exc).__name__}: {exc}"
+        try:
+            job = retrain_incremental(
+                manifest_path, mode="night", target_model=target_model, dry_run=True
+            )
+        except Exception as inner:  # noqa: BLE001
+            return {
+                "ok": False,
+                "queue_id": None,
+                "fallback": True,
+                "reason": f"queue unavailable ({reason}); retrain job failed ({inner})",
+            }
+        return {
+            "ok": True,
+            "queue_id": None,
+            "fallback": True,
+            "reason": f"queue unavailable: {reason}",
+            "job": job,
         }
-        r = enqueue(payload)
-        return {"ok": True, "queue_id": r.get("id") if isinstance(r, dict) else str(r)}
-    except Exception:
-        # Если render_queue не доступен — запускаем сразу в фоне
-        job = retrain_incremental(
-            manifest_path, mode="night", target_model=target_model, dry_run=True
-        )
-        return {"ok": True, "queue_id": None, "fallback": True, "job": job}
 
 
 def get_job(job_id: str) -> dict | None:

@@ -33,7 +33,7 @@ def test_failed_stand_does_not_block_the_rest(tmp_path) -> None:
     calls: list[str] = []
     original = engine.master_one
 
-    def routed(mix_wav: str, out_wav: str, stand: str = "streaming"):
+    def routed(mix_wav: str, out_wav: str, stand: str = "streaming", iterations=None):
         calls.append(stand)
         if stand == "club":
             return {"ok": False, "reason": "synthetic club failure"}

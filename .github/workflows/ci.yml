@@ -12,6 +12,11 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
@@ -25,17 +30,53 @@ jobs:
         pip install pyloudnorm pedalboard
 
     - name: Run Pytest Suite
+      # Логи job-а из внешних сред не читаются, а имя упавшего шага и его
+      # annotation — читаются. Поэтому вывод pytest идёт в файл, из файла
+      # берутся строки FAILED, и они попадают в annotation: иначе красный
+      # прогон говорит только «exit code 1» и починить его нечем.
       run: |
-        python -m tools.pytest_isolated tests/
+        status=0
+        python -m tools.pytest_isolated tests/ -q > /tmp/pytest.log 2>&1 || status=$?
+        tail -60 /tmp/pytest.log
+        if [ "$status" -ne 0 ]; then
+          detail=$(grep -E '^(FAILED|ERROR)|^not ok |^# fail |AssertionError' /tmp/pytest.log \
+            | head -12 | cut -c1-200 | tr '\n' '|')
+          echo "::error title=pytest::$detail"
+          exit 1
+        fi
 
     - name: Smoke — audio quality
-      run: python tools/smoke_audio.py
+      run: |
+        status=0
+        python tools/smoke_audio.py > smoke_audio.log 2>&1 || status=$?
+        tail -30 smoke_audio.log
+        if [ "$status" -ne 0 ]; then
+          detail=$(grep -E '^\[FAIL\]|RESULT:|Traceback|Error' smoke_audio.log | head -10 | cut -c1-200 | tr '\n' '|')
+          echo "::error title=smoke_audio::$detail"
+          exit 1
+        fi
 
     - name: Smoke — God Mode E2E
-      run: python tools/smoke_god.py
+      run: |
+        status=0
+        python tools/smoke_god.py > smoke_god.log 2>&1 || status=$?
+        tail -30 smoke_god.log
+        if [ "$status" -ne 0 ]; then
+          detail=$(grep -E '^\[FAIL\]|RESULT:|Traceback|Error' smoke_god.log | head -10 | cut -c1-200 | tr '\n' '|')
+          echo "::error title=smoke_god::$detail"
+          exit 1
+        fi
 
     - name: Fallback honesty audit
-      run: python tools/fallback_audit.py
+      run: |
+        status=0
+        python tools/fallback_audit.py > fallback_audit.log 2>&1 || status=$?
+        tail -30 fallback_audit.log
+        if [ "$status" -ne 0 ]; then
+          detail=$(grep -E 'FAIL|FOUND|Traceback|Error' fallback_audit.log | head -10 | cut -c1-200 | tr '\n' '|')
+          echo "::error title=fallback_audit::$detail"
+          exit 1
+        fi
 
     - name: CLI sanity (version / list-genres / readiness)
       run: |
@@ -47,6 +88,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
@@ -61,7 +107,16 @@ jobs:
     - name: AST dead-imports audit (ШАГ 010)
       run: python tools/ast_dead_imports.py
     - name: Pytest
-      run: python -m tools.pytest_isolated tests/ -q
+      run: |
+        status=0
+        python -m tools.pytest_isolated tests/ -q > /tmp/pytest.log 2>&1 || status=$?
+        tail -60 /tmp/pytest.log
+        if [ "$status" -ne 0 ]; then
+          detail=$(grep -E '^(FAILED|ERROR)|^not ok |^# fail |AssertionError' /tmp/pytest.log \
+            | head -12 | cut -c1-200 | tr '\n' '|')
+          echo "::error title=pytest (audit)::$detail"
+          exit 1
+        fi
     - name: CLI version with config path (ШАГ 007)
       run: python main.py --version
 
@@ -70,8 +125,19 @@ jobs:
     # на Ubuntu: проверяем ровно ту платформу, на которой работает владелец.
     runs-on: windows-latest
     timeout-minutes: 45
+    env:
+      # Консоль Windows по умолчанию cp1251: `print("→")` в инструментах валит
+      # шаг с UnicodeEncodeError, и это выглядит как ошибка аудио. UTF-8 в
+      # окружении (PEP 540) относится только к выводу, файлы не меняются.
+      PYTHONUTF8: '1'
+      PYTHONIOENCODING: utf-8
     steps:
     - uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '22'
 
     - name: Set up Python
       uses: actions/setup-python@v5
@@ -89,10 +155,29 @@ jobs:
       run: python -m compileall -q app agents modules tools updater ui main.py
 
     - name: Pytest
-      run: python -m tools.pytest_isolated tests/ -q -p no:cacheprovider
+      shell: bash
+      run: |
+        status=0
+        python -m tools.pytest_isolated tests/ -q -p no:cacheprovider > pytest.log 2>&1 || status=$?
+        tail -60 pytest.log
+        if [ "$status" -ne 0 ]; then
+          detail=$(grep -E '^(FAILED|ERROR)|^not ok |^# fail |AssertionError' pytest.log \
+            | head -12 | cut -c1-200 | tr '\n' '|')
+          echo "::error title=pytest (windows)::$detail"
+          exit 1
+        fi
 
     - name: Smoke — audio quality
-      run: python tools/smoke_audio.py
+      shell: bash
+      run: |
+        status=0
+        python tools/smoke_audio.py > smoke_audio.log 2>&1 || status=$?
+        tail -30 smoke_audio.log
+        if [ "$status" -ne 0 ]; then
+          detail=$(grep -E '^\[FAIL\]|RESULT:|Traceback|Error' smoke_audio.log | head -10 | cut -c1-200 | tr '\n' '|')
+          echo "::error title=smoke_audio::$detail"
+          exit 1
+        fi
 
     - name: CLI sanity (version / list-genres / readiness)
       run: |

@@ -40,6 +40,7 @@ from updater.userdata import (  # noqa: F401
     USER_PRESERVED,
     _restore_user_data,
     _stash_user_data,
+    restore_user_data_report,
     ensure_user_dirs,
     migrate_settings,
 )
