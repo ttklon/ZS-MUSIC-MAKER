@@ -153,6 +153,7 @@
 | modules/beat/paths.py | REAL_PASS | PASS | 2 | 60 |
 | modules/beat/patterns.py | REAL_PASS | PASS | 3 | 34 |
 | modules/beat/samples.py | REAL_PASS | PASS | 1 | 279 |
+| modules/beat/spectrum.py | REAL_PASS | PASS | 1 | 37 |
 | modules/beat/track_assembly.py | REAL_PASS | PASS | 1 | 0 |
 | modules/beat/variation.py | REAL_PASS | PASS | 2 | 20 |
 | modules/beat/voices.py | REAL_PASS | PASS | 1 | 2 |
