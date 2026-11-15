@@ -35,7 +35,7 @@
 | app/cli/parser.py | REAL_PASS | PASS | 1 | 15 |
 | app/cli/pipeline.py | REAL_PASS | PASS | 1 | 254 |
 | app/cli/probes.py | REAL_PASS | PASS | 2 | 6 |
-| app/core/__init__.py | REAL_PASS | PASS | 1 | 303 |
+| app/core/__init__.py | REAL_PASS | PASS | 0 | 303 |
 | app/core/agent_context.py | REAL_PASS | PASS | 1 | 0 |
 | app/core/agent_wiring.py | REAL_PASS | PASS | 1 | 5 |
 | app/core/ai/__init__.py | REAL_PASS | PASS | 0 | 121 |
@@ -58,8 +58,9 @@
 | app/core/logger.py | REAL_PASS | PASS | 5 | 48 |
 | app/core/lyric_context.py | REAL_PASS | PASS | 1 | 7 |
 | app/core/musicgen_texture.py | REAL_PASS | PASS | 2 | 18 |
-| app/core/net_policy.py | REAL_PASS | PASS | 13 | 36 |
+| app/core/net_policy.py | REAL_PASS | PASS | 14 | 36 |
 | app/core/numba_cache.py | REAL_PASS | PASS | 8 | 39 |
+| app/core/ollama_bootstrap.py | REAL_PASS | PASS | 1 | 0 |
 | app/core/orchestrator.py | REAL_PASS | PASS | 12 | 222 |
 | app/core/orchestrator_ai.py | REAL_PASS | PASS | 1 | 34 |
 | app/core/orchestrator_async.py | REAL_PASS | PASS | 1 | 13 |
@@ -209,6 +210,7 @@
 | modules/llm/__init__.py | REAL_PASS | PASS | 2 | 134 |
 | modules/llm/fallback.py | REAL_PASS | PASS | 2 | 226 |
 | modules/llm/ollama_adaptive.py | REAL_PASS | PASS | 2 | 18 |
+| modules/llm/ollama_setup.py | REAL_PASS | PASS | 3 | 37 |
 | modules/llm/providers.py | REAL_PASS | PASS | 2 | 32 |
 | modules/llm/router.py | REAL_PASS | PASS | 3 | 63 |
 | modules/llm/secrets.py | REAL_PASS | PASS | 2 | 27 |

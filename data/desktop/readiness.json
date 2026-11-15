@@ -1,17 +1,17 @@
 {
-  "generated_at": "2026-11-15T13:26:08.761Z",
+  "generated_at": "2026-11-15T13:38:47.346Z",
   "percent": 65,
   "module_inventory": {
-    "tracked_modules": 332,
-    "REAL_PASS": 292,
+    "tracked_modules": 334,
+    "REAL_PASS": 294,
     "REAL_FAIL": 0,
     "PLANNED": 1,
     "DEPRECATED": 39
   },
-  "module_reachability_share": 0.8795,
+  "module_reachability_share": 0.8802,
   "block_scores": {
     "architecture": 100,
-    "core_modules": 83.95,
+    "core_modules": 84.02,
     "audio_pipeline": 66.67,
     "voice_recording": 62.5,
     "release": 100,
@@ -100,7 +100,7 @@
       "lyrics engine not ready: Ollama/модель не найдены (python main.py --ollama-setup)"
     ]
   ],
-  "weighted_sum": 80.16,
+  "weighted_sum": 80.17,
   "cap_min": 65,
   "final_floor": 65
 }

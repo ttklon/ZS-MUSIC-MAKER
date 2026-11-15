@@ -184,13 +184,14 @@ def _ensure_rvc_base() -> None:
 OLLAMA_TEXT_MODEL = os.environ.get("ZSMM_OLLAMA_PULL_MODEL", "qwen3:4b")
 
 
-from app.core import ollama_bootstrap  # noqa: E402 - ленивый импорт не нужен, модуль тонкий
-
-# Тег модели в Ollama: оставлен для совместимости импортов (`OLLAMA_TEXT_MODEL`).
-OLLAMA_TEXT_MODEL = ollama_bootstrap.OLLAMA_TEXT_MODEL
-
-# Отчёт последней попытки подготовки Ollama (см. `auto_bootstrap.ollama`).
-auto_bootstrap_last: dict = ollama_bootstrap.last_attempt
+# Импорт именно подмодуля, а не пакета: `from app.core import ollama_bootstrap`
+# делает `app/core/__init__.py` «используемым» в Python-инвентаре и не делает в
+# JS-снимке — и снимок готовности навсегда расходился бы с пересчётом.
+from app.core.ollama_bootstrap import (  # noqa: E402
+    OLLAMA_TEXT_MODEL,
+    ensure_ollama_qwen as _ensure_ollama_engine,
+    last_attempt as auto_bootstrap_last,
+)
 
 
 def _ensure_ollama_qwen(allow_download: bool | None = None) -> list[str]:
@@ -199,7 +200,7 @@ def _ensure_ollama_qwen(allow_download: bool | None = None) -> list[str]:
     `ollama serve` не запускаем: демон ставится вместе с Ollama и обычно уже
     работает. Если его нет — `LLMRouter` честно скажет «no_local_daemon».
     """
-    return ollama_bootstrap.ensure_ollama_qwen(allow_download)
+    return _ensure_ollama_engine(allow_download=allow_download)
 
 
 def ensure_models(silent: bool = True, allow_download: bool | None = None) -> dict:
