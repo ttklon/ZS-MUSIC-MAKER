@@ -1,10 +1,10 @@
 # PROJECT_STATE
 
-> Состояние репозитория `ZS-MUSIC-MAKER` на 2026-11-14 (версия 41.1.2) — HIT FACTORY ADAPTIVE.
-> Цифры ниже сняты с `python -m tools.readiness --json` (коммит этой же ветки),
+> Состояние репозитория `ZS-MUSIC-MAKER` на 2026-11-15 (версия 41.1.2) — HIT FACTORY HYGIENE.
+> Цифры ниже сняты с `PYTHONPATH=. python -m tools.readiness` + `pytest_isolated` (коммит этой же ветки),
 > а не вписаны вручную.
 
-## Готовность по внутреннему счётчику: 65.0 %
+## Готовность по внутреннему счётчику: 65.0 % (cap 65, weighted 56.44, DEPRECATED 43)
 
 Счётчик ограничен сверху двумя колпаками: нет реального микрофона (≤ 80 %) и
 недоступны тяжёлые движки `musicgen_runtime` / `demucs_runtime` (≤ 65 %). Это
@@ -14,40 +14,40 @@
 
 ## HIT FACTORY v1.6 ADAPTIVE (2026-11-14) — 41.1.2 любое железо, не игрушечно (enhanced DSP, ultra_light 90с)
 
-Статус: `VERSION 41.1.2` ADAPTIVE — audit CLEAN 0/296, readiness 65% cap, adaptive ultra_light enhanced DSP (AMD/CPU), demo 32M + 90с enhanced. Фабрика поверх DSP: `HitFactory.make_one/make_batch` (`modules/hit_factory/*`) + `hitmaker.py` + `main.py --hit-factory` + `daemon` (24ч trend) + `benchmark/kpi/autotune/ui/release`.
+Статус: `VERSION 41.1.2` HYGIENE — audit CLEAN 0/299, dead_imports CLEAN, readiness 65% cap 65 (weighted 56.44), adaptive ultra_light enhanced DSP (AMD/CPU, 3.85GB RAM, lvl0 90с, tanh2%+chorus12ms+tiltEQ) + split `generator 308/_runner 221/_state 75`. Фабрика поверх DSP: `HitFactory.make_one/make_batch` (`modules/hit_factory/*` 15 файлов) + `hitmaker.py` + `main.py --hit-factory` + `daemon` (24ч trend) + `benchmark/kpi/autotune/ui/release`.
 
-Демо: `hit_jersey_135629 73.45 solid` (hook_energy 94, drop 100, BPM 136, 7.6МБ) + `hit_phonk_135856 70.59 solid` (low_end 92, BPM 152, 17МБ) + `hit_afro_140828 69.29 solid` (BPM 125, amapiano 67-68) — 4 хита avg 67.86, `tiktok 15с 2.6МБ`, `cover 1400px`, `demo_site` 32M LIVE PREVIEW 8001, `main` caf1746→41.0.0.
+Демо: `demo_site` 51M 10 файлов LIVE PREVIEW 8000 — `demo_trap90_master.wav 16M 90с 69.28 solid (adaptive enhanced)` + `demo_jersey 7.6M 73.45 solid` + `demo_trap69 17M 70.59 solid` + 3× cover 1.3M + 3× tiktok 2.6M; `output/hits` 41.1.2: `hit_trap_30s 68.1 solid BPM148 aggression0.8` (5.1M, 2026-11-15) + `hit_trap_90s` в работе, KPI total 1-2 avg 68.1. Enhanced DSP честно `enhanced DSP applied lvl0` на любом PC.
 
-KPI `output/hits/hits_kpi.json/.md`: total 4, avg 67.86, last5 67.86, best afro 69.29 / worst amapiano 66.14, `genre_avg afro 69.29 amapiano 67.38`. 2 solid /2 needs_work (jersey 73.45/phonk 70.59 из alpha.19 в demo). Autotune различает hook/chorus 15+ баллов, `honesty CLEAN 0/296`.
+KPI `output/hits/hits_kpi.json/.md`: total 1-2 (после 41.1.2), avg 68.1, last5 68.1, best trap 68.1 solid, `genre_avg trap 68.1`. Autotune различает hook/chorus 15+ баллов, `honesty CLEAN 0/299` (299 файлов), `ast CLEAN`, `hygiene CLEAN (generator 308<400)`, `func budget` whitelist 9 + main90.
 
 Blind: `tools/blind_listening_prep.py --hits3` -> `output/blind_test/ 01..06.wav` + `_key.json/.txt` по `docs/BLIND_LISTENING.md`. Release: `python -m modules.hit_factory.release` -> `output/releases/<id>/` (masters + tiktok + cover + отчеты + manifest).
 
-Ресурсы: CPU 2 ядра 3.85GB RAM, без GPU/ffmpeg (soft-fail `tiktok_video ok false`), 11 хитов ~ minutes; детерминизм seed+BPM+genre. Ограничения: scaffold-инструментал без eSpeak/GPU, hit_score эвристика не гарантия чарта, Windows/микрофон/GPU inference не проверены (Linux CPU only, pytest 841p).
+Ресурсы: CPU 2 ядра 3.85GB RAM, без GPU/ffmpeg (soft-fail `tiktok_video ok false`), детерминизм seed+BPM+genre, адаптив любой GPU/CPU через `get_adaptive_config` (AMD DirectML/CPU fallback, NVIDIA CUDA). Ограничения: scaffold-инструментал без eSpeak/GPU, hit_score эвристика не гарантия чарта, Windows/микрофон/GPU inference не проверены (Linux CPU, pytest 2102p).
 
 ## Модули
 
-- отслеживается: **297**
-- REAL_PASS: **262**, REAL_FAIL: **0**, PLANNED: **0**, DEPRECATED: **35**
-- достижимость прод-графа от точек входа: **88.2 %**
+- отслеживается: **317** (git ls-files)
+- REAL_PASS: **273**, REAL_FAIL: **0**, PLANNED: **1**, DEPRECATED: **43**
+- достижимость прод-графа от точек входа: **86.12 %** (273/317 REAL_PASS, tiktok_edit→REAL_PASS через `_runner`)
 
 `DEPRECATED` — код существует и работает, но из пользовательских путей
 недостижим (список §5.16 `CODE_REVIEW.md`). Он не удалён, но и не выдаётся за
-готовность: вес 0.25. Пометка снята только вместе с подключением модуля.
+готовность: вес 0.25. Пометка снята только вместе с подключением модуля (41.1.2: `tiktok_edit`, `_runner`, `_state` стали REAL_PASS).
 
 ## Блоки
 
 | Блок | % |
 |---|---:|
 | architecture | 100.0 |
-| core_modules | 84.20 |
-| audio_pipeline | 62.5 |
+| core_modules | 82.2 |
+| audio_pipeline | 75.0 |
 | voice_recording | 71.43 |
 | release | 100.0 |
 | testing | 100.0 |
 
 ## Гейты
 
-- `python -m pytest tests/` — 2092 passed, 2 skipped (Linux, 2026-11-11, `requirements.txt` установлен целиком; тесты моделей используют фальшивые backend-контракты); Windows 11 отдельно не проверен
+- `PYTHONPATH=. python -m tools.pytest_isolated tests -q` — **2102 passed, 2 skipped, 98 warnings** (Linux, 2026-11-15, `requirements.txt` 60 пакетов + hypothesis; тяжёлые модели — фальшивые контракты); `test_hit_factory 10/10`, `test_dsp_properties 12 passed 1 skipped`, `audit/hygiene/readiness` зелёные; Windows 11 отдельно не проверен
 - `tools/smoke_audio.py` — 6/6 PASS (без MusicGen и вокальных движков)
 - `tools/smoke_god.py` — 8/8 PASS (120 с DSP fallback, без тяжёлого AI и живого вокала)
 - `tools/ast_dead_imports.py` — CLEAN (0)
