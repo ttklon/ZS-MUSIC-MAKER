@@ -37,7 +37,8 @@ def spectrum_report(y: Any, sample_rate: int) -> dict[str, Any]:
         audio = audio.mean(axis=1)
     if audio.size < WINDOW:
         return {"ok": False, "bands": None,
-                "reason": f"signal too short for a spectrum measurement ({audio.size} < {WINDOW} samples)"}
+                "reason": ("сигнал короче окна измерения (~0.1 с): спектр не измерить "
+                           f"({audio.size} < {WINDOW} отсчётов)")}
 
     window = np.hanning(WINDOW)
     frames = min(MAX_FRAMES, audio.size // WINDOW)
@@ -53,17 +54,19 @@ def spectrum_report(y: Any, sample_rate: int) -> dict[str, Any]:
 
     total = float(band.sum())
     if not total > 0:
-        return {"ok": False, "bands": None, "reason": "signal has no measurable energy"}
+        return {"ok": False, "bands": None, "reason": "в сигнале нет измеримой энергии"}
     share = {"low": round(float(band[0] / total), 3),
              "mid": round(float(band[1] / total), 3),
              "high": round(float(band[2] / total), 3)}
     low_heavy = share["low"] > LOW_HEAVY
     dull = share["high"] < DULL
+    # Причина показывается человеку в окне — по-русски. Машинные признаки
+    # остаются в `low_heavy`/`dull`: ветвиться надо по ним, не по тексту.
     if low_heavy:
-        reason = "low end dominates: the mid is masked and the track will sound boomy"
+        reason = "низ перевесил: середина маскируется, трек звучит «бочкой»"
     elif dull:
-        reason = "almost no energy above 10 kHz: the mix sounds dull"
+        reason = "почти нет энергии выше 10 кГц: микс звучит глухо"
     else:
-        reason = "balanced"
+        reason = "сбалансировано"
     return {"ok": True, "bands": share, "low_heavy": low_heavy, "dull": dull,
             "frames": frames, "reason": reason}

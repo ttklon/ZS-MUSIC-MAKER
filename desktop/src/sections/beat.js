@@ -105,6 +105,7 @@ function renderBeatReport(report) {
       reportText.describeSpectrum(report.spectrum, report.mix_balance),
     ),
     reportLine('вокал', reportText.describeVocal(report.vocal)),
+    reportLine('громкость', reportText.describeLoudness(report.loudness)),
     reportLine('пик', report.humanity.peak),
     reportLine('размер WAV', `${Math.round(report.bytes / 1024)} КБ`),
   ].join('\n');

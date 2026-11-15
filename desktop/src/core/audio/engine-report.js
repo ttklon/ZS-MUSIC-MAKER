@@ -21,7 +21,7 @@ const drums = require('./instruments');
 function drumEngineReport(bank) {
   const base = { ...drums.CAPABILITIES };
   if (!bank || typeof bank.report !== 'function') {
-    base.reason = 'sample bank is not connected to this render; synthesised one-shots are used';
+    base.reason = 'банк сэмплов не подключён к этому рендеру: удары синтезированы';
     return base;
   }
   const report = bank.report();
@@ -39,9 +39,9 @@ function drumEngineReport(bank) {
   if (covered.length >= 4) {
     out.status = 'REAL_PASS';
     out.engine = 'sample_bank+procedural';
-    out.reason = 'drums come from the licensed sample bank';
+    out.reason = 'удары взяты из лицензионного банка сэмплов';
   } else {
-    out.reason = `sample bank covers ${covered.length} of 6 drum instruments; the rest is synthesised`;
+    out.reason = `банк покрывает ${covered.length} из 6 барабанных инструментов, остальное синтезировано`;
   }
   if (report.errors && report.errors.length) out.sample_load_errors = report.errors.slice();
   return out;

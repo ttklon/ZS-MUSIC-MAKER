@@ -137,11 +137,11 @@ class BeatConstructor(SampleBankMixin, VoicesMixin, ArrangementMixin, HarmonyMix
             # Имя движка не врёт: барабаны действительно из банка, синтез
             # остаётся только для перкуссии/импактов, которых в банке нет.
             report["engine"] = "sample_bank+procedural"
-            report["reason"] = "drums come from the licensed sample bank"
+            report["reason"] = "удары взяты из лицензионного банка сэмплов"
         else:
             report["reason"] = (
-                "sample bank covers "
-                f"{len(covered)} of 6 drum instruments; the rest is synthesised"
+                f"банк покрывает {len(covered)} из 6 барабанных инструментов, "
+                "остальное синтезировано"
             )
         return report
 

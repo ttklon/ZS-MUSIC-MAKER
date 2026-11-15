@@ -297,12 +297,12 @@ function humanityReport(mono, sampleRate) {
 function spectrumReport(mono, sampleRate) {
   const empty = {
     ok: false,
-    reason: 'signal too short for a spectrum measurement',
+    reason: 'сигнал короче окна измерения (~0.1 с): спектр не измерить',
     bands: null,
   };
   const windowSize = 4096;
   if (!mono || mono.length < windowSize) {
-    return { ...empty, reason: `${empty.reason} (${mono ? mono.length : 0} < ${windowSize} samples)` };
+    return { ...empty, reason: `${empty.reason} (${mono ? mono.length : 0} < ${windowSize} отсчётов)` };
   }
   // Окно Ханна и одно БПФ на кадр: точности «доля энергии в полосе» хватает.
   const window = hann(windowSize);
@@ -339,9 +339,11 @@ function spectrumReport(mono, sampleRate) {
     bands: share,
     low_heavy: share.low > 0.62,
     dull: share.high < 0.002,
+    // Причина показывается человеку в окне, поэтому она по-русски. Машинный
+    // код остался в полях `low_heavy`/`dull` — по ним и надо ветвиться.
     reason: share.low > 0.62
-      ? 'low end dominates: the mid is masked and the track will sound boomy'
-      : (share.high < 0.002 ? 'almost no energy above 10 kHz: the mix sounds dull' : 'balanced'),
+      ? 'низ перевесил: середина маскируется, трек звучит «бочкой»'
+      : (share.high < 0.002 ? 'почти нет энергии выше 10 кГц: микс звучит глухо' : 'сбалансировано'),
   };
 }
 

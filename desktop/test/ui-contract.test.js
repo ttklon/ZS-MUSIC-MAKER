@@ -403,3 +403,21 @@ test('модули главного процесса достижимы из т�
     .filter((file) => !names.has(file));
   assert.deepEqual(unreachable, [], `модули вне графа main.js: ${unreachable.join(', ')}`);
 });
+
+test('громкость описана честно: до/после и что сделал нормализатор', () => {
+  const { describeLoudness } = require('../src/core/report-text');
+
+  // Не измеряли — так и говорим, а не показываем «−14 LUFS» из воздуха.
+  assert.equal(describeLoudness(null), 'не измерялась');
+  assert.match(describeLoudness({ ok: false, reason: 'тишина' }), /не нормализована: тишина/);
+
+  const moved = describeLoudness({ ok: true, before: -19.5, after: -14.1, target: -14, applied_db: 5.4 });
+  assert.match(moved, /-19\.5 → -14\.1 LUFS/);
+  assert.match(moved, /\+5\.4 дБ/);
+
+  const limited = describeLoudness({
+    ok: true, before: -19.5, after: -14.1, target: -14, applied_db: 5.4,
+    limited_by_ceiling: true, limited_samples: 42,
+  });
+  assert.match(limited, /мягко ограничены \(42/);
+});

@@ -16,7 +16,7 @@ const { isMajor } = require('./voices');
 function buildReport({
   sr, float32, humanity, bpm, key, genre, seed, bank, engine, sectionInfo,
   plans, dramaturgy, balance, measured, repetition, wav, isMajorKey,
-  slotPatterns, vocalInfo,
+  slotPatterns, vocalInfo, loudness = null,
 }) {
   return {
     ok: true,
@@ -42,6 +42,8 @@ function buildReport({
     measured_humanity: measured,
     // Баланс полос — измерение, а не обещание: он попадает в отчёт и в окно.
     spectrum: balance.after,
+    // Громкость по BS.1770: целевая, фактическая и сколько дБ добавлено.
+    loudness: loudness || null,
     mix_balance: {
       bands_before: balance.before.bands,
       passes: balance.passes,

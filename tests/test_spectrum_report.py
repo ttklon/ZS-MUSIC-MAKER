@@ -27,7 +27,7 @@ def test_pure_low_tone_is_low_heavy() -> None:
     assert report["ok"] is True
     assert report["bands"]["low"] > 0.9
     assert report["low_heavy"] is True
-    assert "low end dominates" in report["reason"]
+    assert "низ перевесил" in report["reason"]
 
 
 def test_pure_mid_tone_is_not_low_heavy_but_is_dull() -> None:
@@ -41,7 +41,7 @@ def test_pure_mid_tone_is_not_low_heavy_but_is_dull() -> None:
     assert report["bands"]["mid"] > 0.9
     assert report["low_heavy"] is False
     assert report["dull"] is True
-    assert "dull" in report["reason"]
+    assert "глухо" in report["reason"]
 
 
 def test_high_tone_is_not_dull() -> None:
@@ -57,7 +57,7 @@ def test_silence_and_short_signals_are_reported_honestly() -> None:
 
     assert silent["ok"] is False and silent["bands"] is None
     assert short["ok"] is False
-    assert "too short" in short["reason"]
+    assert "короче окна" in short["reason"]
 
 
 def test_stereo_input_is_averaged_like_the_desktop_engine() -> None:

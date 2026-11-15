@@ -157,7 +157,7 @@ def test_constructor_reports_fallback_when_bank_is_empty(monkeypatch) -> None:
     report = constructor._drum_engine_report()
 
     assert report["status"] == "FALLBACK"
-    assert "0 of 6" in report["reason"]
+    assert "0 из 6" in report["reason"]
     assert report["sample_bank"]["total_samples"] == 0
 
 

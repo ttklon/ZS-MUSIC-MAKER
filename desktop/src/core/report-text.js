@@ -45,12 +45,34 @@ function describeSpectrum(spectrum, mixBalance) {
   return passes ? `${bands} (правка баланса: ${passes} проход(а))` : bands;
 }
 
+/**
+ * Как описана громкость: до/после в LUFS и что именно сделал нормализатор.
+ *
+ * Раньше в отчёте была только строка «пик», и трек, тише площадки на 5 дБ,
+ * выглядел нормально: пик в порядке — значит, всё в порядке. Громкость —
+ * отдельная величина, и человек должен видеть, что её поправили.
+ */
+function describeLoudness(loudness) {
+  if (!loudness) return 'не измерялась';
+  if (loudness.ok !== true) return `не нормализована: ${loudness.reason || 'нет данных'}`;
+  const target = typeof loudness.target === 'number' ? loudness.target : -14;
+  const moved = `${loudness.before} → ${loudness.after} LUFS (цель ${target}, `
+    + `${loudness.applied_db > 0 ? '+' : ''}${loudness.applied_db} дБ)`;
+  return loudness.limited_by_ceiling
+    ? `${moved}, пики мягко ограничены (${loudness.limited_samples || 0} отсчётов)`
+    : moved;
+}
+
 // Экспорт для Node (тесты) и для браузера — два способа живут рядом, потому
 // что файл грузится и как `<script>`, и как CommonJS.
 if (typeof window !== 'undefined') {
-  window.ZSMM_REPORT_TEXT = { describeVocal, describeSamples, describeSpectrum };
+  window.ZSMM_REPORT_TEXT = {
+    describeVocal, describeSamples, describeSpectrum, describeLoudness,
+  };
 }
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { describeVocal, describeSamples, describeSpectrum };
+  module.exports = {
+    describeVocal, describeSamples, describeSpectrum, describeLoudness,
+  };
 }
 })();

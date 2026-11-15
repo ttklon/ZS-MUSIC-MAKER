@@ -37,7 +37,13 @@ const master = require('./master');
 const takes = require('./takes');
 const { encodeWav } = require('./wav');
 const analysis = require('./analysis');
+
+// Цель громкости та же, что у пайплайна (`mastering_pro`, pyloudnorm −14 LUFS):
+// два движка обязаны выдавать сопоставимый уровень, иначе один и тот же трек
+// звучит по-разному в зависимости от того, кто его собрал.
+const LOUDNESS_TARGET_LUFS = -14.0;
 const { balanceMix } = require('./balance');
+const loudness = require('./loudness');
 const { drumEngineReport } = require('./engine-report');
 const { buildReport } = require('./report');
 
@@ -294,6 +300,13 @@ function finishRender({
   // и делать её после дрейфа/шума значит измерять уже другой трек.
   const balance = balanceMix(fitted.left, fitted.right, sr);
   const stereo = finalizeStereo(fitted.left, fitted.right, sr);
+  // Громкость по BS.1770 — ПОСЛЕ коррекции баланса и до «человечности»:
+  // дрейф и шум комнаты меняют уровень на десятые доли дБ, а лимитер держит
+  // потолок пика, а не громкость. Раньше окно отдавало −19.5 LUFS там, где
+  // пайплайн мастерит в −14: трек звучал на 5.5 дБ тише всего на площадке.
+  const loudnessReport = loudness.normalizeLoudness(stereo.left, stereo.right, sr, {
+    targetLufs: LOUDNESS_TARGET_LUFS,
+  });
   const humanity = applyHumanity(stereo.left, stereo.right, sr, seed);
 
   const wav = encodeWav([humanity.left, humanity.right], sr, { float32 });
@@ -314,6 +327,7 @@ function finishRender({
     report: buildReport({
       sr, float32, humanity, bpm, key, genre, seed, bank, engine, sectionInfo,
       plans, dramaturgy, balance, measured, repetition, wav, slotPatterns, vocalInfo,
+      loudness: loudnessReport,
     }),
   };
 }

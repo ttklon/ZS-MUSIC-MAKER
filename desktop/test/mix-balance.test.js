@@ -34,7 +34,7 @@ test('чистый низ определяется как «низ переве�
   assert.equal(report.ok, true);
   assert.ok(report.bands.low > 0.9);
   assert.equal(report.low_heavy, true);
-  assert.match(report.reason, /low end dominates/);
+  assert.match(report.reason, /низ перевесил/);
 });
 
 test('чистый верх не считается глухим', () => {
@@ -48,7 +48,7 @@ test('короткий сигнал честно отказывается мер
   const report = analysis.spectrumReport(new Float32Array(1000), SR);
 
   assert.equal(report.ok, false);
-  assert.match(report.reason, /too short/);
+  assert.match(report.reason, /короче окна/);
 });
 
 test('коррекция вытягивает середину у «бочки»', () => {
