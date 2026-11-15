@@ -78,7 +78,7 @@ jobs:
       - name: Shell tests (node --test, no GUI needed)
         run: |
           cd desktop
-          node --test test/*.test.js
+          node --test --test-concurrency=1 test/*.test.js
 
       - name: Set up Python (only for the readiness snapshot cross-check)
         uses: actions/setup-python@v5

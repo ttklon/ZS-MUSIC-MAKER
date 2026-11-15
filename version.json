@@ -1,6 +1,6 @@
 {
-  "version": "41.3.0",
-  "build": "v41.3.0-fully-autonomous-bootstrap-2026-11-15",
+  "version": "41.3.1",
+  "build": "v41.3.1-fix-shell-concurrency-2026-11-15",
   "based_on": "41.1.2",
-  "changes": "41.3.0 FEAT autonomous: silent hardware auto-detect, all_heavy auto-download (torch/audiocraft/demucs/whisper/RVC base/ollama) via app/core/bootstrap --bootstrap/--online, setup.cmd auto-bootstrap, main.py silent auto-bootstrap if heavy BLOCKED, hit_factory full_agents trend_scout everywhere, no hardware UI"
+  "changes": "41.3.1 FIX: shell tests --test-concurrency=1 (flaky race), desktop/package.json + build.yml + test_desktop_shell.py, 321 modules snapshot clean"
 }
