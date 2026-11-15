@@ -32,6 +32,22 @@ async function stopTask() {
   return ipcRenderer.invoke('zsmm:task-stop');
 }
 
+/**
+ * Агентик: «Сделать хит».
+ *
+ * Ответ приходит сразу (обычно `{ok: true, data: {pid, command}}`), а сам
+ * трек — потом, общим потоком `onTaskEvent`/`onTaskDone`. Отдельная функция
+ * нужна, чтобы окно не собирало `task-start` руками с непроверенным ключом.
+ */
+async function agentHit(answers) {
+  return ipcRenderer.invoke('zsmm:agent-hit', answers || {});
+}
+
+/** Открыть готовый мастер агентика в системном плеере (путь проверит главный процесс). */
+async function agentOpen(masterPath) {
+  return ipcRenderer.invoke('zsmm:agent-open', { masterPath });
+}
+
 /** Подписка на поток вывода. Возвращает функцию отписки. */
 function onTaskEvent(callback) {
   if (typeof callback !== 'function') return () => {};
@@ -196,6 +212,8 @@ contextBridge.exposeInMainWorld('zsmm', {
   readiness: () => section('readiness'),
   dossiers: () => section('dossiers'),
   system: () => section('system'),
+  agentHit,
+  agentOpen,
   listTasks,
   startTask,
   stopTask,

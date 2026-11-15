@@ -42,14 +42,13 @@ function registerTaskIpc({
 }) {
   ipcMain.handle('zsmm:tasks', () => ({ ok: true, data: tasks.taskList() }));
 
-  ipcMain.handle('zsmm:task-start', async (event, { key, options } = {}) => {
+  const start = async (key, options = {}, sender = null) => {
     if (state.activeTask) {
       return { ok: false, error: 'уже выполняется другая задача: сначала остановите её' };
     }
     const windows = getWindows && getWindows();
-    const sender = event.sender;
     const send = (channel, payload) => {
-      if (!sender.isDestroyed()) sender.send(channel, payload);
+      if (sender && !sender.isDestroyed()) sender.send(channel, payload);
     };
 
     // Задачи без Python считает сам главный процесс: это чтение файлов и
@@ -115,14 +114,19 @@ function registerTaskIpc({
       state.activeTask = null;
       return { ok: false, error: err.message };
     }
-  });
+  };
+
+  ipcMain.handle('zsmm:task-start', (event, payload = {}) =>
+    start(payload.key, payload.options || {}, event.sender));
 
   ipcMain.handle('zsmm:task-stop', () => {
     if (!state.activeTask) return { ok: false, error: 'нет запущенной задачи' };
     return { ok: true, data: { stopped: state.activeTask.stop() } };
   });
 
-  return { handlers: ['zsmm:tasks', 'zsmm:task-start', 'zsmm:task-stop'] };
+  // `start` отдаётся наружу: агентик запускает ту же задачу, а не вторую
+  // копию лаунчера — иначе белый список команд легко обойти.
+  return { handlers: ['zsmm:tasks', 'zsmm:task-start', 'zsmm:task-stop'], start };
 }
 
 module.exports = { registerTaskIpc };

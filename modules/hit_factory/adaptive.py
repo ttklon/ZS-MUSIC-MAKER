@@ -128,6 +128,24 @@ def _breakthrough_overrides(has_torch: bool, free_ram: float | None, aceserver: 
         "note_breakthrough": f"PROрыВ: slow CPU offload, internet={internet}, has_torch={has_torch}, free={free_ram}",
     }
 
+def _musicgen_usable(has_torch: bool) -> bool:
+    """MusicGen на CPU: нужен audiocraft+torch, GPU и 6 ГБ VRAM — не нужны.
+
+    MusicGen-small (300M) работает на CPU чанками по 30 с — медленно, но это
+    настоящая модель, а не процедурный суррогат. Раньше `use_musicgen`
+    требовал `vram_total >= 6`, поэтому на любом CPU-ПК (и на ноутбуке)
+    флаг оставался False и бит всегда был формульным.
+    """
+    if not has_torch:
+        return False
+    try:
+        import importlib.util
+
+        return importlib.util.find_spec("audiocraft") is not None
+    except Exception as exc:  # noqa: BLE001 — нет спецификации = нет движка
+        _LOG.debug("audiocraft spec check failed: %s", exc)
+        return False
+
 def get_adaptive_config(overrides: dict | None = None) -> dict:
     """
     Возвращает адаптивный конфиг для HitFactory под текущее железо.
@@ -187,7 +205,8 @@ def get_adaptive_config(overrides: dict | None = None) -> dict:
         "max_attempts": [3, 3, 3, 3][level],
         "human_preset": ["standard", "standard", "standard", "max"][level],
         "use_acestep": aceserver and level >= 1,
-        "use_musicgen": level >= 2 and has_torch and vram_total >= 6,
+        # CPU-путь: MusicGen-small чанками 30 с работает и без GPU.
+        "use_musicgen": _musicgen_usable(has_torch),
         "use_silero": has_torch and free_ram is not None and free_ram >= 3.0,
         "use_bark_xtts": level >= 2 and has_torch and vram_total >= 6,
         "use_rvc": level >= 1,

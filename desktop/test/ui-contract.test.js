@@ -236,7 +236,9 @@ test('бит рендерится в главном процессе, а не в
 });
 
 test('настройки и окружение приложения доходят до окна', () => {
-  const main = readElectron(['main.js', 'beat-service.js', 'settings.js']);
+  // Каналы «О системе» живут в shell-service.js: main.js остаётся тонким,
+  // поэтому контракт проверяется по всем модулям главного процесса.
+  const main = readElectron(['main.js', 'beat-service.js', 'settings.js', 'shell-service.js']);
 
   for (const channel of ['zsmm:settings-load', 'zsmm:settings-save', 'zsmm:environment', 'zsmm:save-copy']) {
     assert.match(main, new RegExp(channel), `нет канала ${channel}`);

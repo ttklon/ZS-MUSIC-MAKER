@@ -43,9 +43,9 @@ def build_wizard_state(
     except Exception:
         hype_str = ""
 
-    beat_engine = None
-    if adaptive and adaptive_cfg.get("use_acestep"):
-        beat_engine = "ace_step"
+    beat_engine, engine_extras = _pick_beat_engine(adaptive, adaptive_cfg)
+    # Голос: `pro` = свой микрофон/TTS+RVC; поле обязано попасть в рецепт, иначе
+    # `build_recipe` подставит своё значение и решение потеряется.
     voice_mode = "pro"
 
     state: dict[str, Any] = {
@@ -72,4 +72,24 @@ def build_wizard_state(
     }
     if beat_engine:
         state["beat_engine"] = beat_engine
+        state.update(engine_extras)
     return state
+
+
+def _pick_beat_engine(adaptive: bool, adaptive_cfg: dict[str, Any]) -> tuple[str | None, dict[str, Any]]:
+    """Какой движок бита выбрать: ACE-Step (сервер) → MusicGen → процедурный.
+
+    MusicGen — настоящая нейросеть и на CPU (чанки 30 с), поэтому он идёт
+    раньше процедурного пути. Если модель не загрузится, пайплайн честно
+    покажет BLOCKED, а не подменит бит формулой.
+    """
+    if not adaptive:
+        return None, {}
+    if adaptive_cfg.get("use_acestep"):
+        return "ace_step", {}
+    if adaptive_cfg.get("use_musicgen"):
+        return "musicgen", {
+            "musicgen_model": adaptive_cfg.get("musicgen_model") or "facebook/musicgen-small",
+            "musicgen_device": adaptive_cfg.get("musicgen_device") or "cpu",
+        }
+    return None, {}

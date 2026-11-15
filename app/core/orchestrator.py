@@ -24,6 +24,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from app.core import pipeline_blocks as blocks
+from app.core.agent_context import _attach_agent_context  # noqa: F401 - реэкспорт для тестов
 from app.core.pipeline_blocks import (  # noqa: F401 - реэкспорт для тестов и подмены
     _add_stage,
     _run_post_master_stages,
@@ -191,6 +192,9 @@ def run_full_pipeline(
     )
     if dry_run:
         recipe["dry_run"] = True
+    # Все ИИ-агенты работают в каждом прогоне, а не только в hit_factory:
+    # тренды дают тексту актуальные слова, sample_hunter проверяет банк.
+    agent_context = _attach_agent_context(recipe)
 
     stages: list[StageResult] = []
     warnings: list[str] = []

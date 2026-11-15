@@ -201,16 +201,37 @@ class LLMRouter:
             chain.append("ollama_skipped_no_local_daemon")
             errs["ollama"] = "no_local_daemon"
 
-        # 5. LOCAL FALLBACK (template)
-        text = local_fallback_lyrics(theme or "движение", genre, language)
-        chain.append("local_template")
+        # 5. LLM не ответила — текста нет (см. `_no_llm_result`).
+        return _no_llm_result(chain, errs, theme, genre, language)
+
+
+def _no_llm_result(chain: list[str], errs: dict[str, Any], theme: str,
+                   genre: str, language: str) -> dict[str, Any]:
+    """LLM промолчала: честный BLOCKED вместо шаблонной подстановки.
+
+    Шаблон больше не подставляется в проде: заказчик слышит «текст связный,
+    актуальный», а «тема, жанр, время идёт» — заглушка, которая обманывала и
+    отчёт, и человека. Шаблон доступен только явным флагом
+    `ZSMM_ALLOW_TEMPLATE_LYRICS=1` для отладки интерфейса.
+    """
+    chain.append("blocked_no_llm")
+    errors = dict(errs)
+    errors["action"] = "ollama serve && ollama pull qwen3:4b (или GGUF через --ai-pull)"
+    if not _template_allowed():
         return {
-            "ok": True,
-            "text": text,
-            "provider": "local_template",
-            "model": "punch_lib_v1",
-            "tokens": len(text.split()),
-            "provider_chain": chain,
-            "fallback_used": True,
-            "error": errs,
+            "ok": False, "text": "", "provider": "BLOCKED", "model": None,
+            "tokens": 0, "provider_chain": chain, "fallback_used": False,
+            "error": errors,
         }
+    text = local_fallback_lyrics(theme or "движение", genre, language)
+    chain.append("local_template")
+    return {
+        "ok": True, "text": text, "provider": "local_template",
+        "model": "punch_lib_v1", "tokens": len(text.split()),
+        "provider_chain": chain, "fallback_used": True, "error": errors,
+    }
+
+
+def _template_allowed() -> bool:
+    """Шаблонный текст — только по явному opt-in, не молча."""
+    return os.getenv("ZSMM_ALLOW_TEMPLATE_LYRICS", "").strip() in ("1", "true", "yes")

@@ -28,6 +28,20 @@ def _stage_ai_beat(recipe: dict[str, Any], plan: Any, out_dir: Path,
         except Exception as exc:
             prefix = "recorded backing: " if expected else ""
             return {"ok": False, "engine": "user_instrumental", "reason": f"{prefix}{type(exc).__name__}: {exc}"}
+    if recipe.get("beat_engine") == "musicgen":
+        # Настоящая генерация MusicGen (small/medium) — CPU чанками по 30 с.
+        # Не удалось (нет весов/движка) — честный отказ, а не подмена.
+        from modules.beat_gen_musicgen import render_musicgen_beat
+
+        prompt = f"{(recipe.get('genre') or 'trap')} instrumental, {recipe.get('theme') or ''}, " \
+                 f"{(style or {}).get('target_bpm') or 0} bpm, no vocals, club ready"
+        return render_musicgen_beat(
+            prompt,
+            str(out_dir / "beat.wav"),
+            duration_sec=int((plan or {}).get("duration_sec") or 90),
+            model_name=str(recipe.get("musicgen_model") or "facebook/musicgen-small"),
+            device=str(recipe.get("musicgen_device") or "cpu"),
+        )
     if recipe.get("beat_engine") != "ace_step":
         return {"ok": False, "reason": f"unknown beat engine: {recipe.get('beat_engine')}"}
     if dry_run:

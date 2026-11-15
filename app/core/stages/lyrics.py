@@ -229,18 +229,61 @@ def _stage_lyrics(
         result["fallback_attempts"] = fallback_attempts
         return result
 
-    fb = _fallback_lyrics(theme, genre, n_verses)
-    fallback: dict[str, Any] = {
-        "ok": True,
-        "text": _struct_to_text(fb),
-        "lyrics": fb,
-        "fallback_used": True,
-        "provider": "local_template",
-        "reason": "no LLM available; template used",
+    # LLM нет — текста нет. Шаблон в проде отключён: заказчик слышит «текст
+    # связный, актуальный», а шаблонная связка «тема, жанр, время идёт» — это
+    # заглушка, которая обманывала и человека, и отчёт. Честный BLOCKED плюс
+    # причина, что именно запустить. Строки пользователя при этом впитываются:
+    # стадия получает их отдельным путём (`user_lyrics_lines`) выше.
+    blocked: dict[str, Any] = {
+        "ok": False,
+        "status": "BLOCKED",
+        "text": "",
+        "lyrics": {},
+        "blocked": True,
+        "fallback_used": False,
+        "provider": "BLOCKED",
+        "reason": "локальная LLM недоступна: запусти Ollama и `ollama pull qwen3:4b`",
+        "action": "ollama serve && ollama pull qwen3:4b",
+        "template_available": "ZSMM_ALLOW_TEMPLATE_LYRICS=1",
     }
     if fallback_attempts:
-        fallback["fallback_attempts"] = fallback_attempts
-    return fallback
+        blocked["fallback_attempts"] = fallback_attempts
+    if _template_allowed():
+        # Отладка/демо без модели: явный opt-in, а не молчаливая подмена.
+        fb = _fallback_lyrics(theme, genre, n_verses)
+        blocked.update({
+            "ok": True,
+            "status": "FALLBACK",
+            "text": _struct_to_text(fb),
+            "lyrics": fb,
+            "blocked": False,
+            "fallback_used": True,
+            "provider": "local_template",
+            "reason": "template enabled explicitly via ZSMM_ALLOW_TEMPLATE_LYRICS",
+        })
+    return blocked
+
+
+def _template_allowed() -> bool:
+    """Шаблонный текст — только по явному флагу окружения.
+
+    Правило «не выдавать шаблон за LLM» нельзя обеспечить комментарием: нужен
+    единственный вход, который видит и человек, и тест.
+    """
+    return os.environ.get("ZSMM_ALLOW_TEMPLATE_LYRICS", "").strip() in ("1", "true", "yes")
+
+
+def _mark_lyrics_blocked(stage: StageResult, out: dict[str, Any]):
+    """Текста нет — стадия честно BLOCKED, а не «OK с шаблоном».
+
+    Биту это не мешает: инструментал собирается, вокала не будет. Возвращает
+    готовый триплет стадии или `None`, если текст есть.
+    """
+    if out.get("text") or not out.get("blocked"):
+        return None
+    stage.status = StageStatus.BLOCKED
+    stage.reason = stage.reason or out.get("reason") or "lyrics blocked"
+    return stage, {}, ""
 
 
 def _run_lyrics_stage(recipe: dict[str, Any]) -> tuple[StageResult, dict[str, Any], str]:
@@ -303,6 +346,9 @@ def _run_lyrics_stage(recipe: dict[str, Any]) -> tuple[StageResult, dict[str, An
     stage.duration_sec = time.monotonic() - started
     out = _output(stage)
     stage.output = out
+    blocked = _mark_lyrics_blocked(stage, out)
+    if blocked is not None:
+        return blocked
     context_report["provided_to_generator"] = bool(
         creative_context and stage.ok and not out.get("fallback_used") and out.get("provider")
     )

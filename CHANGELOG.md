@@ -1,8 +1,17 @@
 # CHANGELOG
 
-> Актуальная версия: **41.1.2** (2026-11-14). План рефакторинга —
+> Актуальная версия: **42.0.0** (2026-11-15). План рефакторинга —
 > `docs/ROADMAP.md`, состояние — `PROJECT_STATE.md`.
 > История до v40 сохранена ниже как архив: удалённый `SESSION_LOG.md` больше не поддерживается.
+
+## 42.0.0 — FULLY AUTONOMOUS HIT FACTORY (2026-11-15) — CLEAN 310
+
+- **MusicGen в фабрике**: новый `modules/beat_gen_musicgen.py` (`render_musicgen_beat`, `musicgen_available`) — `facebook/musicgen-small`, EnCodec 32 кГц / 4 кодовые книги, CPU-чанки по 30 с, `get_model()`→`get_pretrained`; `modules/hit_factory/_state.py::_pick_beat_engine` выбирает `ace_step → musicgen → процедурка`, `adaptive._musicgen_usable` больше не требует 6 ГБ VRAM (CPU-путь честно работает). Нет `audiocraft` → `{"ok": False, "reason": …, "action": "python main.py --bootstrap --online"}`, а не тихий шум.
+- **Тексты = локальный LLM**: шаблонный fallback убран из `app/core/stages/lyrics.py` и `modules/llm/router.py`; без Ollama — `provider="BLOCKED"`, `fallback_used=False`, `error.action` с `ollama pull qwen3:4b` (шаблон только явным `ZSMM_ALLOW_TEMPLATE_LYRICS=1`).
+- **Голос = RVC, не TTS**: `app/core/stages/vocal_synth.py` (`_no_neural_tts`, `_system_tts_allowed`); без нейро-TTS стадия возвращает `{ok: False, engine: "BLOCKED"}` с действием, pyttsx3 только через `ZSMM_ALLOW_SYSTEM_TTS=1`.
+- **Bootstrap**: `OLLAMA_TEXT_MODEL=qwen3:4b` (был несуществующий `qwen3.5:4b`, override `ZSMM_OLLAMA_PULL_MODEL`), ошибка `ollama pull` логируется вместо тихого пропуска; `ensure_rvc_default_voice()` реально качает `f0G40k.pth` через `hf_hub_download` в `models/rvc/zs_default_female/`.
+- **Агенты в каждом прогоне**: `app/core/agent_wiring.py` (`wire_full_agents`, `trend_context`, `sample_context`, `prepare_run_context`) + `app/core/agent_context.py` — оркестратор один раз за прогон подмешивает тренды и сэмплы, отказ агента пишется в `blocked`, а не роняет трек.
+- **Проверено**: `2096 passed, 2 skipped` (pytest), `node --test --test-concurrency=1` `456/456`, `audit_honesty CLEAN 310`, `ast_dead_imports CLEAN 0`, `main --agent-hit` → мастер `hit_score 69.24 solid` за 136 с и честный `PARTIAL` (нет Ollama/голоса/сэмплов), `--readiness` 65 % (капы: нет микрофона, нет `musicgen/demucs` в этой песочнице), с `ZSMM_FAKE_HEAVY=1` — 90.18 %.
 
 ## 41.1.2 — HIT FACTORY HYGIENE FIX (2026-11-14) — CLEAN 2102
 

@@ -1,6 +1,6 @@
 {
-  "version": "41.4.0",
-  "build": "v41.4.0-agent-guide-autonomous-2026-11-15",
-  "based_on": "41.1.2",
-  "changes": "41.4.0 FEAT agent: ИИ-агентик-проводник (4 вопроса → хит автономно), вкладка Агент, досье/референсы по категориям, текст/голос/бит в одном окне, bootstrap silent all_heavy, hit_factory full_agents"
+  "version": "42.0.0",
+  "build": "v42.0.0-fully-autonomous-2026-11-15",
+  "based_on": "41.4.0",
+  "changes": "42.0.0 FULL AUTONOMOUS HIT FACTORY: MusicGen/AudioCraft CPU-чанки в hit_factory (`beat_engine=musicgen`), RVC-дефолтная модель + `hubert_base.pt`/`rmvpe.pt` через bootstrap, `ollama pull qwen3:4b` (был несуществующий qwen3.5:4b), тексты только локальный LLM (шаблон убран → честный BLOCKED + opt-in ZSMM_ALLOW_TEMPLATE_LYRICS), голос без нейро-TTS → BLOCKED вместо Windows TTS, `wire_full_agents`/`agent_context` в каждом прогоне, окно «Агент»: 4 вопроса → хит автономно"
 }

@@ -98,6 +98,8 @@ def build_recipe(wizard_state: dict[str, Any] | None) -> dict[str, Any]:
         "project_id": state.get("project_id"),
         "refs": [str(r) for r in (state.get("references") or [])],
         "theme": theme,
+        # MusicGen как бит-движок: `wizard_state` ставит `beat_engine=musicgen`,
+        # когда adaptive видит audiocraft+torch (в т.ч. на CPU чанками 30 с).
         "beat_engine": str(state.get("beat_engine") or "procedural"),
         "beat_input_path": str(state.get("beat_input_path") or ""),
         "recorded_backing_sha256": str(state.get("recorded_backing_sha256") or ""),

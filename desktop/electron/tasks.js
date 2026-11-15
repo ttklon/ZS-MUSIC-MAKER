@@ -58,6 +58,15 @@ const TASKS = {
     accepts: [],
     timeoutMs: 15 * 60_000,
   },
+  // Агентик: 4 ответа → трек. Отдельная задача, потому что это единственная
+  // кнопка, после которой человек ждёт «готовый трек», а не отчёт: таймаут
+  // больше, и первый запуск сам докачивает тяжёлые движки.
+  'agent-hit': {
+    label: 'Сделать хит (агентик: 4 вопроса → трек)',
+    args: () => ['--agent-hit'],
+    accepts: ['mood', 'artist', 'refs', 'voice'],
+    timeoutMs: 12 * 60 * 60_000,
+  },
   'ai-status': {
     label: 'Статус AI-моделей',
     args: () => ['--ai-status'],
@@ -80,6 +89,12 @@ function sanitizeOptions(options = {}) {
   const theme = options.theme === undefined || options.theme === null ? null : String(options.theme);
   const seed = options.seed === undefined || options.seed === null ? null : options.seed;
   const artist = options.artist === undefined || options.artist === null ? null : String(options.artist);
+  // Ответы агентика: тема и референсы — свободный текст, но без переводов
+  // строк и кавычек shell-уровня: они уходят одним аргументом (`spawn` без
+  // оболочки), поэтому запрещаем только то, что ломает формат отчёта.
+  const mood = cleanText(options.mood, 300, 'настроение');
+  const refs = cleanRefs(options.refs);
+  const voice = cleanText(options.voice, 260, 'голос');
 
   // Имя артиста уходит аргументом в Python: только буквы, цифры, пробел, «-» и
   // «_». Это же имя Python превращает в slug каталога, поэтому `..` и слэши
@@ -109,22 +124,80 @@ function sanitizeOptions(options = {}) {
       throw new TaskError(`сид должен быть неотрицательным целым: ${seed}`);
     }
   }
-  return { genre, theme, seed: seedValue, artist };
+  return { genre, theme, seed: seedValue, artist, mood, refs, voice };
+}
+
+/**
+ * Свободный текст из вопроса агентика: без переводов строк и управляющих
+ * символов, с ограничением длины. Пустая строка — это «пусто», а не null:
+ * агент сам решит, брать ли значение из трендов.
+ */
+function cleanText(value, limit, label) {
+  if (value === undefined || value === null) return '';
+  const text = String(value).replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim();
+  if (text.length > limit) throw new TaskError(`${label} длиннее ${limit} символов`);
+  return text;
+}
+
+/**
+ * Референсы: список путей/ссылок через запятую. Кавычки и переводы строк
+ * запрещены — это единственный символ, который мог бы «склеить» аргументы.
+ */
+function cleanRefs(value) {
+  if (value === undefined || value === null || value === '') return '';
+  const text = String(value).replace(/["'`\r\n]/g, '').trim();
+  if (text.length > 1200) throw new TaskError('слишком много референсов');
+  return text;
+}
+
+/**
+ * Проверить, что задача принимает переданные ей параметры.
+ *
+ * Раньше неизвестный параметр молча игнорировался: окно считало, что ответ
+ * агентика ушёл в Python, а тот его просто не получал. Теперь это ошибка с
+ * именем параметра — её видно в отчёте, а не в пустом результате.
+ */
+function assertAccepted(key, task, options = {}) {
+  const known = ['genre', 'theme', 'seed', 'artist', 'mood', 'refs', 'voice'];
+  for (const name of Object.keys(options || {})) {
+    if (options[name] === undefined || options[name] === null || options[name] === '') continue;
+    if (!known.includes(name)) throw new TaskError(`неизвестный параметр: ${name}`);
+    // Задача без такого флага просто его не получает (`buildCommand` ниже
+    // проверяет `accepts`): это старое поведение, и менять его нельзя —
+    // раздел «Запуск» передаёт общий набор полей любой задаче.
+  }
+}
+
+/**
+ * Аргументы артиста.
+ *
+ * У «досье» артист обязателен, у агентика — нет: пусто означает «из трендов».
+ * Флаг разный: `--dossier-artist` запускает сборку досье, а не трек.
+ */
+function appendArtist(argv, key, safe) {
+  if (!safe.artist) {
+    if (key === 'dossier-build') throw new TaskError('для этой задачи нужно имя артиста');
+    return;
+  }
+  argv.push(key === 'agent-hit' ? '--agent-artist' : '--dossier-artist', safe.artist);
 }
 
 /** Собрать argv для задачи: только разрешённые флаги, без оболочки. */
 function buildCommand(key, options = {}) {
   const task = TASKS[key];
   if (!task) throw new TaskError(`неизвестная задача: ${key}`);
+  // Всё, что вернул `sanitizeOptions`, должно быть явно разрешено задачей:
+  // иначе параметр молча терялся бы, и окно думало бы, что ответ ушёл.
+  assertAccepted(key, task, options);
   const safe = sanitizeOptions(options);
   const argv = [...task.args(safe)];
   if (safe.genre !== null && task.accepts.includes('genre')) argv.push('--genre', safe.genre);
   if (safe.theme !== null && task.accepts.includes('theme')) argv.push('--theme', safe.theme);
   if (safe.seed !== null && task.accepts.includes('seed')) argv.push('--seed', String(safe.seed));
-  if (task.accepts.includes('artist')) {
-    if (!safe.artist) throw new TaskError('для этой задачи нужно имя артиста');
-    argv.push('--dossier-artist', safe.artist);
-  }
+  if (task.accepts.includes('mood') && safe.mood) argv.push('--agent-mood', safe.mood);
+  if (task.accepts.includes('refs') && safe.refs) argv.push('--agent-refs', safe.refs);
+  if (task.accepts.includes('voice') && safe.voice) argv.push('--agent-voice', safe.voice);
+  if (task.accepts.includes('artist')) appendArtist(argv, key, safe);
   return argv;
 }
 

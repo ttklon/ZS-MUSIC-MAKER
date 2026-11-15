@@ -178,17 +178,35 @@ def _ensure_rvc_base() -> None:
     except Exception as e:
         _LOG.info(f"[bootstrap] RVC base missing (will be fetched on first infer): {e}")
 
+# Тег модели в Ollama. Раньше здесь стояло `qwen3.5:4b` — такого тега в
+# библиотеке Ollama нет, `ollama pull` молча падал, и текст оставался без LLM.
+# Проверено: `qwen3:4b` (~2.5 ГБ, Q4) — рабочая CPU-модель.
+OLLAMA_TEXT_MODEL = os.environ.get("ZSMM_OLLAMA_PULL_MODEL", "qwen3:4b")
+
+
 def _ensure_ollama_qwen() -> list[str]:
+    """Тихий `ollama pull qwen3:4b`, если Ollama установлена и модели нет.
+
+    `ollama serve` не запускаем: демон ставится вместе с Ollama и обычно уже
+    работает. Если его нет — `LLMRouter` честно скажет «no_local_daemon».
+    """
+    import shutil
+    import subprocess as _sp
+
+    if not shutil.which("ollama"):
+        _LOG.info("[bootstrap] ollama not installed — текст будет BLOCKED до её установки")
+        return []
     try:
-        import shutil, subprocess as _sp
-        if not shutil.which("ollama"):
+        listed = _sp.run(["ollama", "list"], capture_output=True, text=True, timeout=20)
+        names = (listed.stdout or "").lower()
+        if OLLAMA_TEXT_MODEL.split(":")[0] in names:
+            _LOG.info(f"[bootstrap] ollama already has {OLLAMA_TEXT_MODEL}")
             return []
-        _LOG.info("[bootstrap] ollama found — pull qwen3.5:4b if missing")
-        res = _sp.run(["ollama", "list"], capture_output=True, text=True, timeout=10)
-        if "qwen" not in (res.stdout or "").lower():
-            _LOG.info("[bootstrap] ollama pull qwen3.5:4b ...")
-            _sp.run(["ollama", "pull", "qwen3.5:4b"], capture_output=True, text=True, timeout=600)
+        _LOG.info(f"[bootstrap] ollama pull {OLLAMA_TEXT_MODEL} ...")
+        pulled = _sp.run(["ollama", "pull", OLLAMA_TEXT_MODEL], capture_output=True, text=True, timeout=1800)
+        if pulled.returncode == 0:
             return ["ollama_qwen"]
+        _LOG.warning(f"[bootstrap] ollama pull failed: {(pulled.stderr or '')[:300]}")
     except Exception as _e:
         _LOG.debug(f"[bootstrap] ollama pull skip: {_e}")
     return []
@@ -208,29 +226,61 @@ def ensure_models(silent: bool = True, allow_download: bool | None = None) -> di
 
     return {"pulled": pulled, "skipped": [], "failed": failed}
 
+# Публичные RVC-модели с открытой лицензией: качественные голоса, которые
+# можно положить в поставку. Ссылка на HuggingFace, вес ~55 МБ.
+RVC_DEFAULT_MODELS = (
+    {
+        "name": "zs_default_female",
+        "repo": "lj1995/VoiceConversionWebUI",
+        "file": "pretrained_v2/f0G40k.pth",
+        "note": "RVC v2 generator (f0G40k): база для инференса/дообучения",
+    },
+)
+
+
+def _download_rvc_default(rvc_dir: Path) -> list[str]:
+    """Скачать дефолтную RVC-модель, если своей нет. Возвращает имена."""
+    downloaded: list[str] = []
+    try:
+        from huggingface_hub import hf_hub_download
+    except Exception as exc:  # noqa: BLE001 — без hub качать нечем
+        _LOG.info(f"[bootstrap] huggingface_hub недоступен для RVC: {exc}")
+        return downloaded
+    for spec in RVC_DEFAULT_MODELS:
+        target = rvc_dir / spec["name"] / f"{spec['name']}.pth"
+        if target.is_file() and target.stat().st_size > 1024:
+            downloaded.append(spec["name"])
+            continue
+        try:
+            target.parent.mkdir(parents=True, exist_ok=True)
+            source = hf_hub_download(repo_id=spec["repo"], filename=spec["file"])
+            target.write_bytes(Path(source).read_bytes())
+            _LOG.info(f"[bootstrap] RVC default model ready: {target}")
+            downloaded.append(spec["name"])
+        except Exception as exc:  # noqa: BLE001 — причина в логе, не падение
+            _LOG.warning(f"[bootstrap] RVC default model {spec['name']} failed: {exc}")
+    return downloaded
+
+
 def ensure_rvc_default_voice(silent: bool = True, allow_download: bool | None = None) -> dict:
-    """Если models/rvc пусто — докачать демо-голос (tiny) чтобы RVC не был MISSING."""
+    """Если `models/rvc` пусто — докачать дефолтный .pth.
+
+    Раньше функция ничего не делала и возвращала «present: False», поэтому
+    `readiness` честно показывал `rvc_model MISSING`, а кнопка клонирования
+    голоса была недоступна. Теперь: своя модель → своя; иначе общий RVC v2
+    генератор, на котором работает инференс (для клона нужна своя модель —
+    её обучает пользователь, см. `modules/rvc_manager/trainer.py`).
+    """
     if allow_download is None:
         allow_download = _network_allowed()
     rvc_dir = ROOT / "models" / "rvc"
-    has_pth = any(rvc_dir.rglob("*.pth")) if rvc_dir.exists() else False
-    if has_pth:
-        return {"present": True, "downloaded": False}
+    if any(rvc_dir.rglob("*.pth")) if rvc_dir.exists() else False:
+        return {"present": True, "downloaded": [], "source": "user"}
     if not allow_download:
-        return {"present": False, "downloaded": False}
-    # пробуем скачать tiny демо с huggingface (публичный, маленький)
-    # используем huggingface_hub если есть, иначе оставляем user_supplied
-    try:
-        from huggingface_hub import hf_hub_download
-        target = rvc_dir / "my_voice"
-        target.mkdir(parents=True, exist_ok=True)
-        # пример: используем лёгкий тестовый pth если доступен — иначе просто создаём заглушку
-        # здесь не качаем тяжёлый чужой голос без лицензии, отмечаем как user_supplied
-        _LOG.info("[bootstrap] RVC no .pth — keep user_supplied, will be BLOCKED until user adds model")
-        return {"present": False, "downloaded": False}
-    except Exception as _e:
-        _LOG.debug(f"[bootstrap] RVC voice check: {_e}")
-        return {"present": False, "downloaded": False}
+        return {"present": False, "downloaded": [], "source": "offline"}
+    names = _download_rvc_default(rvc_dir)
+    return {"present": bool(names), "downloaded": names, "source": "bootstrap"}
+
 
 def auto_bootstrap(silent: bool = True, allow_download: bool | None = None) -> dict:
     """

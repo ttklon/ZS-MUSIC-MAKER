@@ -66,7 +66,12 @@ test('белый список задач не пуст и каждая прин�
     }
     assert.ok(TASKS[task.key], `нет описания для ${task.key}`);
     for (const accepted of task.accepts) {
-      assert.ok(['genre', 'theme', 'seed', 'artist'].includes(accepted), `неизвестный параметр ${accepted}`);
+      // `mood/refs/voice` — ответы агентика (`--agent-hit`): без них кнопка
+      // «Сделать хит» не передаёт Python ни темы, ни голоса.
+      assert.ok(
+        ['genre', 'theme', 'seed', 'artist', 'mood', 'refs', 'voice'].includes(accepted),
+        `неизвестный параметр ${accepted}`,
+      );
     }
   }
 });

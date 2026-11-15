@@ -53,6 +53,33 @@ def _maybe_silent_bootstrap(args) -> None:
     except Exception as _e:
         logging.getLogger(__name__).debug(f"silent bootstrap skip: {_e}")
 
+def _run_info_command(args) -> int | None:
+    """Команды без побочных эффектов на проект: версия, списки, отчёты, докачка.
+
+    Вынесено из `main()`, чтобы она осталась маршрутизатором, а не таблицей
+    флагов: правило проекта — функция ≤ 60 строк.
+    """
+    dispatch = (
+        (args.version, commands.run_version),
+        (args.list_genres, commands.run_list_genres),
+        (args.list_stages, pipeline_cmds.run_list_stages),
+        (args.smoke, commands.run_smoke),
+        (args.self_diag, commands.run_self_diag),
+        (args.health, commands.run_health),
+        (args.readiness, commands.run_readiness),
+        (args.dashboard, commands.run_dashboard),
+        (args.e2e, commands.run_e2e),
+        (args.onboarding, commands.run_onboarding),
+        (args.update, commands.run_update),
+    )
+    for enabled, handler in dispatch:
+        if enabled:
+            return handler()
+    if args.bootstrap or args.auto_bootstrap:
+        return commands.run_bootstrap(allow_online=bool(getattr(args, "online", False)))
+    return None
+
+
 def main() -> int:
     # Собранный PyInstaller-exe должен уметь порождать процессы (мастеринг
     # считает стенды параллельно): без freeze_support дочерний процесс
@@ -64,30 +91,9 @@ def main() -> int:
 
     _maybe_silent_bootstrap(args)
     # 1) Команды без побочных эффектов на проект.
-    if args.version:
-        return commands.run_version()
-    if args.list_genres:
-        return commands.run_list_genres()
-    if args.list_stages:
-        return pipeline_cmds.run_list_stages()
-    if args.smoke:
-        return commands.run_smoke()
-    if args.self_diag:
-        return commands.run_self_diag()
-    if args.health:
-        return commands.run_health()
-    if args.readiness:
-        return commands.run_readiness()
-    if args.bootstrap or args.auto_bootstrap:
-        return commands.run_bootstrap(allow_online=bool(getattr(args, 'online', False)))
-    if args.dashboard:
-        return commands.run_dashboard()
-    if args.e2e:
-        return commands.run_e2e()
-    if args.onboarding:
-        return commands.run_onboarding()
-    if args.update:
-        return commands.run_update()
+    early = _run_info_command(args)
+    if early is not None:
+        return early
 
     # 2) Пробы и оценка готового мастера.
     if args.score:
@@ -104,6 +110,10 @@ def main() -> int:
         return dossier_cmds.run_dossier_build(args.dossier_artist)
 
     # 4a) HIT FACTORY — автономная фабрика хитов (приоритет выше классики)
+    if getattr(args, "agent_hit", False):
+        from app.cli.agent_task import run_agent_hit
+
+        return run_agent_hit(args)
     if getattr(args, 'hit_factory', False):
         from app.cli.hitfactory import run_hit_factory
         return run_hit_factory(args)

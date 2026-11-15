@@ -1,10 +1,32 @@
 # PROJECT_STATE
 
-> Состояние репозитория `ZS-MUSIC-MAKER` на 2026-11-15 (версия 41.1.2) — HIT FACTORY HYGIENE.
+> Состояние репозитория `ZS-MUSIC-MAKER` на 2026-11-15 (версия 42.0.0) — FULL AUTONOMOUS HIT FACTORY.
 > Цифры ниже сняты с `PYTHONPATH=. python -m tools.readiness` + `pytest_isolated` (коммит этой же ветки),
 > а не вписаны вручную.
 
-## Готовность по внутреннему счётчику: 65.0 % (cap 65, weighted 56.44, DEPRECATED 43)
+## 42.0.0 — автономная фабрика (2026-11-15)
+
+Версия 42.0.0 закрывает разрывы между «кнопка есть» и «кнопка работает»:
+
+- **бит** — `modules/beat_gen_musicgen.py`: MusicGen-small (EnCodec 32 кГц, 4 книги,
+  CPU-чанки 30 с). `_pick_beat_engine` выбирает `ace_step → musicgen → процедурка`,
+  отсутствие `audiocraft` даёт `BLOCKED` с командой `--bootstrap --online`;
+- **текст** — только локальный LLM (`ollama qwen3:4b`), шаблон убран совсем:
+  без Ollama `provider="BLOCKED"`, `fallback_used=False`, действие в `error.action`;
+  шаблон доступен лишь явным `ZSMM_ALLOW_TEMPLATE_LYRICS=1`;
+- **голос** — RVC вместо Windows TTS: без нейро-движка стадия возвращает
+  `BLOCKED`/`engine="BLOCKED"` с действием, `pyttsx3` — только `ZSMM_ALLOW_SYSTEM_TTS=1`;
+- **агенты** — `app/core/agent_wiring.py` + `app/core/agent_context.py`: тренды и
+  сэмплы подмешиваются в каждый прогон, отказ агента становится строкой `blocked`;
+- **окно «Агент»** — 4 вопроса → «Сделать хит автономно» → `hit_factory full_agents`;
+- **bootstrap** — `qwen3:4b` (вместо несуществующего `qwen3.5:4b`), дефолтная RVC-модель
+  и `hubert_base.pt`/`rmvpe.pt` реально скачиваются, ошибки `ollama pull` логируются.
+
+Проверено: `2096 passed, 2 skipped`; `node --test --test-concurrency=1` `456/456`;
+`audit_honesty CLEAN 310`; `ast_dead_imports CLEAN 0`; `main --agent-hit` даёт мастер
+(`hit_score 69.24 solid`) и честный `PARTIAL` без Ollama/голоса/сэмплов.
+
+## Готовность по внутреннему счётчику: 65.0 % (cap 65, weighted 83.93, DEPRECATED 43)
 
 Счётчик ограничен сверху двумя колпаками: нет реального микрофона (≤ 80 %) и
 недоступны тяжёлые движки `musicgen_runtime` / `demucs_runtime` (≤ 65 %). Это

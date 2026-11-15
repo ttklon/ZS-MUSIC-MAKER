@@ -58,6 +58,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--hit-artist", type=str, default="", help="Артист-референс для прорыва (напр. ICEGERGERT) — ищет в интернете почему популярен, подгоняет стиль")
     parser.add_argument("--hit-refs", type=str, default="", help="Референс-треки/ссылки через запятую (1-7 wav/mp3/http) для style_vector — BPM/key/жанр")
     parser.add_argument("--hit-voice", type=str, default="", help="Сырая запись голоса wav для RVC конверсии (10 мин достаточно)")
+    # --- АГЕНТИК-ПРОВОДНИК (4 вопроса → хит, тихая докачка внутри) ---
+    parser.add_argument("--agent-hit", action="store_true", help="Агентик: 4 ответа → готовый трек (текст/голос/бит/мастер) за один прогон")
+    parser.add_argument("--agent-mood", type=str, default="", help="Агентик: настроение или тема (пусто = из трендов)")
+    parser.add_argument("--agent-artist", type=str, default="", help="Агентик: референс-артист (пусто = из трендов)")
+    parser.add_argument("--agent-refs", type=str, default="", help="Агентик: референс-треки (wav/ссылки через запятую)")
+    parser.add_argument("--agent-voice", type=str, default="", help="Агентик: record | путь к wav | пусто = без вокала")
+    parser.add_argument("--agent-output", type=str, default="", help="Агентик: каталог результатов (по умолчанию output/hits)")
     parser.add_argument("--online", action="store_true", help="Разрешить сеть для докачки моделей/референсов (иначе offline)")
     parser.add_argument("--bootstrap", action="store_true", help="Тихий авто-докач всего тяжёлого: torch/audiocraft/demucs/whisper/RVC base/ollama → готовность 100% если сеть разрешена")
     parser.add_argument("--auto-bootstrap", action="store_true", help=argparse.SUPPRESS)
