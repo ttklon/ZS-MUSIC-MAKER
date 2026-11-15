@@ -84,6 +84,17 @@ function renderBeatReport(report) {
         : 'не подключён',
     ),
     reportLine('секций / тактов', `${report.sections.length} / ${report.total_bars}`),
+    // «Сэмплы звучат» — число, а не слово: статус REAL_PASS без счётчика
+    // ничего не доказывал (см. samples_used в отчёте движка).
+    reportLine(
+      'прозвучало сэмплов',
+      report.samples_used
+        ? `${report.samples_used.total} (`
+          + `${Object.entries(report.samples_used.by_instrument)
+            .map(([name, count]) => `${name} ${count}`).join(', ') || 'синтез'}`
+          + ')'
+        : 'не считалось',
+    ),
     reportLine('хук в первые 15 с', report.dramaturgy.hook_within_15s ? 'да' : 'нет'),
     reportLine('дрейф темпа', `${drift.drift_pct || 0} % (пик ${drift.peak_deviation_ms || 0} мс)`),
     reportLine(

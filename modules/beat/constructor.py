@@ -75,7 +75,42 @@ class BeatConstructor(SampleBankMixin, VoicesMixin, ArrangementMixin, HarmonyMix
         self.bass_samples = []
         self.melody_samples = []
         self.fx_samples = []
+        # Сколько сэмплов реально прозвучало: раньше отчёт отдавал длину
+        # списков путей (обычно 0), то есть «0 сэмплов» рядом с честным
+        # `REAL_PASS` «drums come from the sample bank».
+        self.samples_used: dict[str, int] = {}
+        self.sample_source_used: dict[str, int] = {}
         self._classify_samples()
+
+    def _samples_used_report(self) -> dict:
+        """Фактически прозвучавшие сэмплы: по инструментам и по источникам.
+
+        `available` — что было предложено (пути из `samples=`), `by_instrument`
+        — что реально попало в трек. Раньше отчёт отдавал длину списков путей
+        рядом с `REAL_PASS` «drums come from the sample bank», то есть
+        утверждение без факта и противоречие самому себе.
+        """
+        return {
+            "by_instrument": dict(self.samples_used),
+            "by_source": dict(self.sample_source_used),
+            "total": sum(self.samples_used.values()),
+            "available": {
+                "kick": len(self.kick_samples),
+                "snare": len(self.snare_samples),
+                "clap": len(self.clap_samples),
+                "hat": len(self.hihat_samples),
+                "open_hat": len(self.open_hat_samples),
+                "bass": len(self.bass_samples),
+                "melody": len(self.melody_samples),
+                "fx": len(self.fx_samples),
+            },
+        }
+
+    def note_sample(self, instrument: str, source_is_bank: bool) -> None:
+        """Учесть прозвучавший сэмпл: инструмент и источник (банк/файл)."""
+        self.samples_used[instrument] = self.samples_used.get(instrument, 0) + 1
+        key = "bank" if source_is_bank else "file"
+        self.sample_source_used[key] = self.sample_source_used.get(key, 0) + 1
 
 
     def _drum_engine_report(self) -> dict:
@@ -208,14 +243,5 @@ class BeatConstructor(SampleBankMixin, VoicesMixin, ArrangementMixin, HarmonyMix
             "repetition": variation.repetition_report(stereo, self.sr, self.bpm),
             "slot_plan": self.build_slot_plan(max(1, sum(s["bars"] for s in section_info))),
             "total_bars": sum(s["bars"] for s in section_info),
-            "samples_used": {
-                "kicks": len(self.kick_samples),
-                "snares": len(self.snare_samples),
-                "claps": len(self.clap_samples),
-                "hihats": len(self.hihat_samples),
-                "open_hihats": len(self.open_hat_samples),
-                "bass": len(self.bass_samples),
-                "melody": len(self.melody_samples),
-                "fx": len(self.fx_samples),
-            },
+            "samples_used": self._samples_used_report(),
         }

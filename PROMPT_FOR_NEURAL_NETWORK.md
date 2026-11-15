@@ -10,7 +10,7 @@
 
 ## КОНТЕКСТ ПРОЕКТА
 
-- Репо: `ttklon/ZS-MUSIC-MAKER`, ветка `main`, текущая версия `42.0.5` (`version.json`), теги `v41.3.0`/`v41.4.0` уже в `main`.
+- Репо: `ttklon/ZS-MUSIC-MAKER`, ветка `main`, текущая версия `42.0.6` (`version.json`), теги `v41.3.0`/`v41.4.0` уже в `main`.
 - Стек: Python 3.10+ / Electron (Node 20.19+) / PyTorch 2.5.1 CPU / audiocraft / demucs / faster-whisper / rvc-python / Ollama.
 - Сейчас `readiness 65%` в песочнице без тяжёлых пакетов (кап `musicgen_runtime/demucs_runtime` до `main --bootstrap --online`), `weighted_sum 83.93`; с `ZSMM_FAKE_HEAVY=1` — `90.18 %` (остаётся кап микрофона). `audit_honesty CLEAN (310 файлов)`, `check_snapshot_freshness 0`, `desktop npm run check` OK, `node --test --test-concurrency=1` 456/456 (147s), `pytest` `2096 passed, 2 skipped`.
 

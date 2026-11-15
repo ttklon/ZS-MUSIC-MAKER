@@ -1,8 +1,24 @@
 # CHANGELOG
 
-> Актуальная версия: **42.0.5** (2026-11-15). План рефакторинга —
+> Актуальная версия: **42.0.6** (2026-11-15). План рефакторинга —
 > `docs/ROADMAP.md`, состояние — `PROJECT_STATE.md`.
 > История до v40 сохранена ниже как архив: удалённый `SESSION_LOG.md` больше не поддерживается.
+
+## 42.0.6 — ОТЧЁТ О СЭМПЛАХ ПОДТВЕРЖДЁН ЧИСЛОМ (2026-11-15)
+
+- **`samples_used` больше не врёт**: `build_track()` отдавал
+  `drum_engine.status = REAL_PASS` «drums come from the licensed sample bank» и рядом
+  `samples_used` = длина списков путей (все нули). Теперь считаются **фактически прозвучавшие**
+  удары: `by_instrument` (kick 36, hat 117, snare 36, clap 12, open_hat 11, 808 8 на 20 с),
+  `by_source` (`bank` / `file`), `total` и отдельно `available` — что было предложено.
+- **То же в окне**: `sampleUsageReport()` + `Object.assign(VoiceEngine.prototype, SampleUsageMixin)`
+  в `core/audio/sample-usage.js`; строка «прозвучало сэмплов» в отчёте бита. Статус REAL_PASS
+  теперь подтверждён числом, а не словом.
+- **Кэш чтения сэмплов** (`app/audio/samples.py::read_sample`): один файл читается с диска один
+  раз на процесс и отдаётся копией (питч-шифт мутирует массив). Раньше кик открывался заново на
+  каждый удар — до тысячи чтений на трек.
+- **Проверено**: `pytest` **2148 passed, 2 skipped**, `node --test` **477/477**,
+  `audit_honesty CLEAN (314)`, `ast_dead_imports CLEAN 0`.
 
 ## 42.0.5 — ТЕКСТОВЫЙ ДВИЖОК СТАВИТСЯ ИЗ ПРИЛОЖЕНИЯ (2026-11-15)
 

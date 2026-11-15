@@ -308,8 +308,8 @@ async function renderBeatInSteps(
  * @returns {{wav: Buffer, report: object}}
  */
 function finishRender({
-  plans, bpm, key, genre, seed, durationSec, bank, left, right, float32 = false,
-  vocalTake = null, vocalGain = 0.5,
+  plans, bpm, key, genre, seed, durationSec, bank, engine = null, left, right,
+  float32 = false, vocalTake = null, vocalGain = 0.5,
 }) {
   const sr = SAMPLE_RATE;
   const barSec = (60.0 / bpm) * 4;
@@ -354,6 +354,10 @@ function finishRender({
       deterministic: seed !== null && seed !== undefined,
       groove_family: patterns.familyForGenre(genre),
       drum_engine: drumEngineReport(bank),
+      // `drum_engine` говорит, что банк покрывает инструменты; `samples_used`
+      // — сколько сэмплов реально прозвучало. Без второго числа первый статус
+      // был утверждением без факта.
+      samples_used: engine.samplesReport ? engine.samplesReport() : null,
       sections: sectionInfo,
       total_bars: plans.reduce((sum, plan) => sum + plan.bars, 0),
       dramaturgy,

@@ -194,10 +194,40 @@ def load_bank(manifest_path: str | Path | None = None, verify_hash: bool = False
     return bank
 
 
+# Кэш прочитанных сэмплов: один и тот же кик звучит в такте 8 раз, а бит из
+# 120 тактов — почти тысячу. Без кэша `sf.read` открывал файл на каждый удар,
+# и рендер трека упирался в диск, а не в синтез. Ключ — путь + целевая частота
+# (`always_2d` не используется: в кэше уже моно float32).
+_SAMPLE_CACHE: dict[tuple[str, int], "Any"] = {}
+_SAMPLE_CACHE_LIMIT = 256
+
+
+def _cache_get(path: Path, sample_rate: int) -> "Any | None":
+    cached = _SAMPLE_CACHE.get((str(path), int(sample_rate)))
+    if cached is None:
+        return None
+    return cached.copy()  # вызывающий код меняет массив (питч-шифт, склейка)
+
+
+def _cache_put(path: Path, sample_rate: int, mono: "Any") -> "Any":
+    if len(_SAMPLE_CACHE) >= _SAMPLE_CACHE_LIMIT:
+        _SAMPLE_CACHE.clear()
+    _SAMPLE_CACHE[(str(path), int(sample_rate))] = mono.copy()
+    return mono
+
+
+def clear_sample_cache() -> None:
+    """Сброс кэша: нужен тестам и перезагрузке банка после импорта сэмплов."""
+    _SAMPLE_CACHE.clear()
+
+
 def read_sample(path: str | Path, sample_rate: int = 44_100) -> "Any | None":
     """Читает сэмпл в моно float32; ресемплинг — линейной интерполяцией."""
     if not (HAS_NUMPY and HAS_SOUNDFILE):
         return None
+    cached = _cache_get(Path(path), sample_rate)
+    if cached is not None:
+        return cached
     try:
         data, rate = sf.read(str(path), always_2d=True, dtype="float32")
     except Exception:
@@ -207,7 +237,7 @@ def read_sample(path: str | Path, sample_rate: int = 44_100) -> "Any | None":
         target = int(round(len(mono) * sample_rate / rate))
         positions = np.linspace(0.0, len(mono) - 1.0, target)
         mono = np.interp(positions, np.arange(len(mono)), mono).astype(np.float32)
-    return mono
+    return _cache_put(Path(path), sample_rate, mono)
 
 
 def pitch_shift(signal: "Any", semitones: float, sample_rate: int = 44_100) -> "Any":
