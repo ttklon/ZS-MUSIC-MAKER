@@ -1,6 +1,6 @@
 {
-  "version": "41.3.1",
-  "build": "v41.3.1-fix-shell-concurrency-2026-11-15",
+  "version": "41.4.0",
+  "build": "v41.4.0-agent-guide-autonomous-2026-11-15",
   "based_on": "41.1.2",
-  "changes": "41.3.1 FIX: shell tests --test-concurrency=1 (flaky race), desktop/package.json + build.yml + test_desktop_shell.py, 321 modules snapshot clean"
+  "changes": "41.4.0 FEAT agent: ИИ-агентик-проводник (4 вопроса → хит автономно), вкладка Агент, досье/референсы по категориям, текст/голос/бит в одном окне, bootstrap silent all_heavy, hit_factory full_agents"
 }

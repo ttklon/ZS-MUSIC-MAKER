@@ -181,6 +181,7 @@ const LOADERS = {
   dossiers: () => W.loadDossiers(),
   tracks: () => W.loadTracks(),
   run: () => W.loadRun(),
+  agent: () => W.loadAgent(),
   health: () => W.loadHealth(),
   help: () => W.loadHelp(),
 };
@@ -193,6 +194,7 @@ const TITLES = {
   dossiers: 'Досье',
   tracks: 'Треки',
   run: 'Запуск',
+  agent: 'Агент',
   health: 'Диагностика',
   help: 'Справка',
 };
