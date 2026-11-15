@@ -13,6 +13,9 @@
  * дискретизации, поэтому 44.1 и 48 кГц дают одинаковый результат.
  */
 
+const { truePeakDbtp } = require('./true-peak');
+const { limitStereo, softClip } = require('./limiter');
+
 const ABSOLUTE_GATE = -70.0;
 const RELATIVE_GATE = -10.0;
 const BLOCK_SEC = 0.4;
@@ -22,6 +25,12 @@ const HOP_SEC = 0.1;
 // в пределах 0.4 дБ, то есть это шум измерения, а не сдвиг шкалы. Самодельная
 // «поправка на слух» здесь была бы подгонкой.
 const CALIBRATION_DB = 0.0;
+// Потолок истинного пика — как в `modules/mastering/targets.py`.
+const TRUE_PEAK_CEILING_DBTP = -1.0;
+// Сходимость по громкости (порт `modules/mastering/loudness.py`): шаг 0.8 от
+// ошибки и допуск 0.25 LUFS стенда streaming.
+const CONVERGE_STEP = 0.8;
+const CONVERGE_TOLERANCE_DB = 0.25;
 
 /**
  * Ступень 1 K-взвешивания: полочный фильтр +4 дБ выше ~1.7 кГц.
@@ -149,18 +158,26 @@ function integratedLoudness(channels, sr) {
 }
 
 /**
- * Привести микс к целевой громкости, не пробивая потолок пика.
+ * Привести микс к целевой громкости, не пробивая потолок ИСТИННОГО пика.
  *
- * Если после усиления пик упирается в потолок, усиление уменьшается: клиппинг
- * хуже, чем «тише на полтора децибела». Второй замер подтверждает результат,
- * а не предполагает его.
+ * Потолок — −1 dBTP, тот же, что в `modules/mastering/targets.py`. Раньше
+ * здесь стоял сэмпловый потолок 0.97, и готовый микс уезжал на +0.51 dBTP:
+ * межсэмпловые выбросы выше полной шкалы при отчёте «пик в норме».
+ *
+ * Усиление доводится до цели, пики снимает лимитер, а не «умножить весь буфер»:
+ * пропорциональное срезание стоило на реальном миксе 2.9 дБ громкости, то есть
+ * ровно ту потерю, ради устранения которой нормализация и делалась.
  */
-function normalizeLoudness(left, right, sr, { targetLufs = -14.0, ceiling = 0.97 } = {}) {
+function normalizeLoudness(left, right, sr, {
+  targetLufs = -14.0,
+  ceilingDbtp = TRUE_PEAK_CEILING_DBTP,
+} = {}) {
   const before = integratedLoudness([left, right], sr);
   if (before.lufs === null) {
     return { ok: false, reason: before.reason, before: before.lufs, after: null, applied_db: 0 };
   }
-  const peakOf = () => {
+
+  const samplePeak = () => {
     let top = 0;
     for (const channel of [left, right]) {
       for (let i = 0; i < channel.length; i += 1) {
@@ -170,39 +187,96 @@ function normalizeLoudness(left, right, sr, { targetLufs = -14.0, ceiling = 0.97
     }
     return top;
   };
+  const truePeakBefore = truePeakDbtp([left, right]);
+  const peakBefore = samplePeak();
   const gainDb = targetLufs - before.lufs;
-  const gain = Math.pow(10, gainDb / 20);
-  for (const channel of [left, right]) {
-    for (let i = 0; i < channel.length; i += 1) channel[i] *= gain;
+  // За этими пределами это уже не нормализация, а вытягивание мёртвого
+  // материала шумом — честнее сказать «не дотянули», чем сделать вид.
+  const clamp = (value) => Math.min(18, Math.max(-6, value));
+
+  // Рендер кандидата: усиление → мягкий клиппер (ниже колена он математически
+  // ничего не меняет) → лимитер по истинному пику. Клиппер применяется всегда:
+  // «по условию» громкость скачет на дБ на границе включения.
+  const render = (gainValueDb) => {
+    const factor = Math.pow(10, gainValueDb / 20);
+    const channels = [
+      Float32Array.from(left, (value) => value * factor),
+      Float32Array.from(right, (value) => value * factor),
+    ];
+    const clip = softClip(channels, { kneeDbfs: ceilingDbtp });
+    const limited = limitStereo(channels[0], channels[1], sr, { ceilingDbtp });
+    return { channels, clip, limited, lufs: integratedLoudness(channels, sr).lufs };
+  };
+
+  const clipInfo = [];
+  let appliedGainDb = clamp(gainDb);
+
+  // Оценка потери на первом кандидате: громкость без лимитера и с ним.
+  // Одна поправка вместо трёх полных рендеров — отклик почти линейный.
+  const probeChannels = [
+    Float32Array.from(left, (value) => value * Math.pow(10, appliedGainDb / 20)),
+    Float32Array.from(right, (value) => value * Math.pow(10, appliedGainDb / 20)),
+  ];
+  const dryLufs = integratedLoudness(probeChannels, sr).lufs;
+  const probe = render(appliedGainDb);
+  if (dryLufs !== null && probe.lufs !== null && dryLufs - probe.lufs > 0.05) {
+    appliedGainDb = clamp(appliedGainDb + (targetLufs - probe.lufs));
   }
-  // Мягкое ограничение только тех пиков, что выше потолка. Отказываться от
-  // громкости из-за одного пика нельзя: трек на 5 дБ тише площадки — это
-  // реальная потеря, а тангенс-кривая на 0.1 дБ слышна как «ничего».
-  let clipped = 0;
-  for (const channel of [left, right]) {
-    for (let i = 0; i < channel.length; i += 1) {
-      const magnitude = Math.abs(channel[i]);
-      if (magnitude <= ceiling) continue;
-      clipped += 1;
-      const limited = ceiling * Math.tanh(magnitude / ceiling);
-      channel[i] = channel[i] < 0 ? -limited : limited;
+
+  let best = render(appliedGainDb);
+  clipInfo.push({
+    ...best.clip,
+    gain_db: Math.round(appliedGainDb * 100) / 100,
+    result_lufs: best.lufs,
+    limiter: best.limited,
+  });
+  if (best.lufs !== null && Math.abs(targetLufs - best.lufs) > CONVERGE_TOLERANCE_DB) {
+    const corrected = clamp(appliedGainDb + (targetLufs - best.lufs) * CONVERGE_STEP);
+    if (Math.abs(corrected - appliedGainDb) > 0.01) {
+      const attempt = render(corrected);
+      clipInfo.push({
+        ...attempt.clip,
+        gain_db: Math.round(corrected * 100) / 100,
+        result_lufs: attempt.lufs,
+        limiter: attempt.limited,
+      });
+      if (attempt.lufs !== null
+        && Math.abs(targetLufs - attempt.lufs) < Math.abs(targetLufs - best.lufs)) {
+        best = attempt;
+        appliedGainDb = corrected;
+      }
     }
   }
-  const after = integratedLoudness([left, right], sr);
+
+  left.set(best.channels[0]);
+  right.set(best.channels[1]);
+
+  const truePeakAfter = truePeakDbtp([left, right]);
+  const reached = best.lufs !== null && Math.abs(targetLufs - best.lufs) <= CONVERGE_TOLERANCE_DB;
   return {
     ok: true,
     before: before.lufs,
-    after: after.lufs,
+    after: best.lufs,
     target: targetLufs,
-    applied_db: Math.round(gainDb * 100) / 100,
-    limited_by_ceiling: clipped > 0,
-    limited_samples: clipped,
-    reason: clipped
-      ? `пики выше потолка (${clipped} отсчётов) мягко ограничены, громкость приведена к цели`
-      : '',
+    applied_db: Math.round(appliedGainDb * 100) / 100,
+    reached_target: reached,
+    true_peak_before: Math.round(truePeakBefore * 100) / 100,
+    true_peak_after: Math.round(truePeakAfter * 100) / 100,
+    ceiling_dbtp: ceilingDbtp,
+    // Потолок соблюдён — проверенный факт, а не намерение.
+    ceiling_ok: truePeakAfter <= ceilingDbtp + 0.01,
+    limited_by_ceiling: best.limited.gain_reduction_db > 0,
+    limiter: best.limited,
+    soft_clip_passes: clipInfo,
+    sample_peak: Math.round(peakBefore * 1000) / 1000,
+    reason: reached
+      ? ''
+      : `цель ${targetLufs} LUFS недостижима при потолке ${ceilingDbtp} dBTP: `
+        + `фактически ${best.lufs} LUFS`,
   };
 }
 
 module.exports = {
-  integratedLoudness, normalizeLoudness, kWeighting, highShelf, highPass, ABSOLUTE_GATE, RELATIVE_GATE,
+  integratedLoudness, normalizeLoudness, kWeighting, highShelf, highPass,
+  ABSOLUTE_GATE, RELATIVE_GATE, TRUE_PEAK_CEILING_DBTP,
 };

@@ -79,21 +79,38 @@ test('тишина и слишком короткий трек объясняю�
   assert.match(short.reason, /400/);
 });
 
-test('нормализация поднимает громкость и держит потолок', () => {
+test('нормализация: громкость к цели по LUFS, истинный пик под потолком', () => {
   const source = sine(1000, 3, 0.1);
   const left = Float32Array.from(source);
   const right = Float32Array.from(source);
-  const result = normalizeLoudness(left, right, SR, { targetLufs: -14, ceiling: 0.97 });
+  const result = normalizeLoudness(left, right, SR, { targetLufs: -14 });
   assert.strictEqual(result.ok, true);
   assert.ok(result.before < -19, `до ${result.before}`);
-  assert.ok(Math.abs(result.after + 14) < 0.5, `после ${result.after}`);
+  assert.ok(Math.abs(result.after + 14) <= 0.3, `после ${result.after}, цель −14`);
   assert.ok(result.applied_db > 5, `усиление ${result.applied_db}`);
+  // Потолок — истинный пик −1 dBTP, как в Python-пайплайне, а не сэмпловый.
+  assert.strictEqual(result.ceiling_dbtp, -1);
+  assert.ok(result.true_peak_after <= -0.99, `истинный пик ${result.true_peak_after}`);
+  assert.strictEqual(result.ceiling_ok, true);
+});
 
-  let peak = 0;
-  for (const channel of [left, right]) {
-    for (let i = 0; i < channel.length; i += 1) peak = Math.max(peak, Math.abs(channel[i]));
+test('потолок держится по истинному пику, а не по сэмпловому', () => {
+  // Синус на fs/4 со сдвигом 45° — худший случай: сэмплы на −3 dBFS, а
+  // между ними полная шкала. Сэмпловый лимитер такой сигнал не видит.
+  const n = SR * 3;
+  const left = new Float32Array(n);
+  const right = new Float32Array(n);
+  for (let i = 0; i < n; i += 1) {
+    const value = Math.sin((2 * Math.PI * (SR / 4) * i) / SR + Math.PI / 4);
+    left[i] = value;
+    right[i] = value;
   }
-  assert.ok(peak <= 0.9701, `пик ${peak} пробил потолок`);
+  const result = normalizeLoudness(left, right, SR, { targetLufs: -14 });
+  assert.strictEqual(result.ok, true);
+  assert.strictEqual(result.ceiling_ok, true);
+  assert.ok(result.true_peak_after <= -0.99, `истинный пик ${result.true_peak_after} пробил потолок`);
+  // Сэмпловый пик при этом заведомо ниже потолка — иначе тест ничего не значит.
+  assert.ok(result.sample_peak < 0.71, `сэмпловый пик ${result.sample_peak}`);
 });
 
 test('нормализация на тишине честно отказывается', () => {

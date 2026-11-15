@@ -415,9 +415,13 @@ test('громкость описана честно: до/после и что 
   assert.match(moved, /-19\.5 → -14\.1 LUFS/);
   assert.match(moved, /\+5\.4 дБ/);
 
+  // Потолок и лимитер называются числами: по ним видно, влезает ли трек в
+  // требования площадки, а не просто «звучит ровно».
   const limited = describeLoudness({
     ok: true, before: -19.5, after: -14.1, target: -14, applied_db: 5.4,
-    limited_by_ceiling: true, limited_samples: 42,
+    limited_by_ceiling: true, true_peak_after: -1, ceiling_dbtp: -1,
+    limiter: { gain_reduction_db: 2.4 },
   });
-  assert.match(limited, /мягко ограничены \(42/);
+  assert.match(limited, /истинный пик -1 dBTP/);
+  assert.match(limited, /лимитер снял 2\.4 дБ/);
 });

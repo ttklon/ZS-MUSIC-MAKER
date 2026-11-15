@@ -58,9 +58,15 @@ function describeLoudness(loudness) {
   const target = typeof loudness.target === 'number' ? loudness.target : -14;
   const moved = `${loudness.before} → ${loudness.after} LUFS (цель ${target}, `
     + `${loudness.applied_db > 0 ? '+' : ''}${loudness.applied_db} дБ)`;
-  return loudness.limited_by_ceiling
-    ? `${moved}, пики мягко ограничены (${loudness.limited_samples || 0} отсчётов)`
-    : moved;
+  // Истинный пик и потолок — числа, а не «громко/нормально»: по ним видно,
+  // что трек влезает в требования площадки, а не просто «кажется ровным».
+  const peak = typeof loudness.true_peak_after === 'number'
+    ? `, истинный пик ${loudness.true_peak_after} dBTP (потолок ${loudness.ceiling_dbtp})`
+    : '';
+  const limited = loudness.limited_by_ceiling && loudness.limiter
+    ? `, лимитер снял ${loudness.limiter.gain_reduction_db} дБ`
+    : '';
+  return `${moved}${peak}${limited}`;
 }
 
 // Экспорт для Node (тесты) и для браузера — два способа живут рядом, потому

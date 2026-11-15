@@ -304,10 +304,13 @@ function finishRender({
   // дрейф и шум комнаты меняют уровень на десятые доли дБ, а лимитер держит
   // потолок пика, а не громкость. Раньше окно отдавало −19.5 LUFS там, где
   // пайплайн мастерит в −14: трек звучал на 5.5 дБ тише всего на площадке.
-  const loudnessReport = loudness.normalizeLoudness(stereo.left, stereo.right, sr, {
+  // «Человечность» (дрейф уровня, шум комнаты) — ДО нормализации: иначе она
+  // меняет уровень уже после замера, и отчёт расходится с файлом на десятые
+  // доли дБ (проверено: −15.58 в отчёте против −15.84 в WAV).
+  const humanity = applyHumanity(stereo.left, stereo.right, sr, seed);
+  const loudnessReport = loudness.normalizeLoudness(humanity.left, humanity.right, sr, {
     targetLufs: LOUDNESS_TARGET_LUFS,
   });
-  const humanity = applyHumanity(stereo.left, stereo.right, sr, seed);
 
   const wav = encodeWav([humanity.left, humanity.right], sr, { float32 });
   const dramaturgy = arrangement.structureReport(plans, bpm);
