@@ -1,0 +1,203 @@
+name: Release - Fully Ready App
+
+# Собирает полностью готовое приложение со всеми зависимостями:
+# - Python EXE (PyInstaller onedir) включает core requirements.txt
+# - Electron NSIS installer + portable включает данные проекта
+# Пользователь скачивает один файл, распаковывает/устанавливает и сразу жмёт "Создать хит".
+# Обновление — кнопкой в приложении: updater скачивает ZIP из этого релиза и ставит поверх.
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Версия для релиза (например 41.2.0, без v)'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+jobs:
+  build-python-exe:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install core dependencies (fully ready = requirements.txt)
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+          pip install requests filelock
+
+      - name: Build EXE via spec (source of truth)
+        run: pyinstaller --noconfirm --clean packaging/zsmm.spec
+        shell: cmd
+
+      - name: Smoke test built EXE
+        run: .\dist\"ZS Music Maker"\"ZS Music Maker.exe" --version
+        shell: cmd
+
+      - name: Package Portable ZIP (onedir)
+        run: |
+          cd dist
+          powershell Compress-Archive -Path "ZS Music Maker" -DestinationPath "ZS-Music-Maker-Windows-Portable.zip" -Force
+        shell: cmd
+
+      - name: Upload EXE artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-exe
+          path: |
+            dist/ZS Music Maker/
+            dist/ZS-Music-Maker-Windows-Portable.zip
+          retention-days: 30
+
+  build-desktop-installer:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: desktop/package.json
+
+      - name: Detect code signing
+        id: signing
+        shell: pwsh
+        run: |
+          $ready = $true
+          foreach ($name in @('AZURE_CODE_SIGNING_ENDPOINT','AZURE_CODE_SIGNING_ACCOUNT_NAME','AZURE_CERTIFICATE_PROFILE_NAME','AZURE_CLIENT_ID','AZURE_TENANT_ID','AZURE_CLIENT_SECRET')) {
+            if (-not [Environment]::GetEnvironmentVariable($name)) { $ready = $false }
+          }
+          if ($ready) { "ZSMM_CODE_SIGNING=1" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8 }
+
+      - name: Install JS deps (skip Electron binary)
+        working-directory: desktop
+        shell: pwsh
+        run: |
+          $env:ELECTRON_SKIP_BINARY_DOWNLOAD='1'
+          npm install --no-audit --no-fund --ignore-scripts
+
+      - name: Cache Electron
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/AppData/Local/electron/Cache
+            ~/AppData/Local/electron-builder/Cache
+          key: ${{ runner.os }}-electron-${{ hashFiles('desktop/package.json') }}
+          restore-keys: ${{ runner.os }}-electron-
+
+      - name: Install Electron binary
+        working-directory: desktop
+        shell: pwsh
+        run: |
+          $version = (node -p "require('electron/package.json').version")
+          $dist = "node_modules/electron/dist"
+          if (Test-Path "$dist/electron.exe") { Write-Output "electron $version ready"; exit 0 }
+          $zip = "electron-v$version-win32-x64.zip"
+          $url = "https://github.com/electron/electron/releases/download/v$version/$zip"
+          curl.exe -L --fail --retry 3 --retry-delay 5 --max-time 900 -o $zip $url
+          New-Item -ItemType Directory -Force -Path $dist | Out-Null
+          Expand-Archive -Path $zip -DestinationPath $dist -Force
+          Set-Content -Path "node_modules/electron/path.txt" -Value "electron.exe" -NoNewline
+          Remove-Item $zip -Force
+
+      - name: Build NSIS + portable
+        working-directory: desktop
+        shell: pwsh
+        run: |
+          $ok=$false
+          for ($i=1; $i -le 2; $i++) {
+            $out = (& npm run dist 2>&1 | Out-String); $out | Write-Output
+            if ($LASTEXITCODE -eq 0) { $ok=$true; break }
+            Start-Sleep -Seconds (10*$i)
+          }
+          if (-not $ok) { exit 1 }
+
+      - name: List built installers
+        working-directory: desktop
+        shell: pwsh
+        run: Get-ChildItem dist | Format-Table Name, Length
+
+      - name: Upload installer artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer
+          path: |
+            desktop/dist/*.exe
+            desktop/dist/*.zip
+          retention-days: 30
+
+  publish-release:
+    needs: [build-python-exe, build-desktop-installer]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: _artifacts
+
+      - name: Determine version
+        id: ver
+        run: |
+          if [ "${{ github.event.inputs.version }}" != "" ]; then
+            echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+            echo "tag=v${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+            echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          else
+            VER=$(cat version.json | python3 -c "import json,sys;print(json.load(sys.stdin)['version'])")
+            echo "version=$VER" >> $GITHUB_OUTPUT
+            echo "tag=v$VER" >> $GITHUB_OUTPUT
+          fi
+          cat $GITHUB_OUTPUT
+
+      - name: Create source ZIP for updater (what updater installs)
+        run: |
+          # ZIP содержимого репозитория без мусора — именно его ставит updater/install_from_zip
+          zip -r _artifacts/ZS-Music-Maker-Source-${{ steps.ver.outputs.version }}.zip \
+            . -x ".git/*" ".github/*" "output/*" ".venv/*" "venv/*" "node_modules/*" "desktop/node_modules/*" "desktop/dist/*" "dist/*" "*.pyc" "__pycache__/*" ".pytest_cache/*" \
+            -q
+          ls -lh _artifacts/*.zip _artifacts/**/*.zip 2>&1 | head -n 20
+          ls -lh _artifacts/** 2>&1 | head -n 50
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.ver.outputs.tag }}
+          name: ZS Music Maker ${{ steps.ver.outputs.version }} — Fully Ready
+          body: |
+            **Полностью готовое приложение — скачай и сразу создавай хиты.**
+
+            ### Что внутри
+            - `ZS-Music-Maker-Windows-Portable.zip` — Python EXE (PyInstaller onedir) со всеми `requirements.txt`, готова без `pip install`. Запуск: распаковать и `ZS Music Maker.exe --help` или `scripts/run.cmd`.
+            - `ZS-Music-Maker-Setup-*.exe` — Electron установщик (NSIS) с данными проекта (жанры, пресеты, сэмплы). Устанавливается в Program Files, пишет данные в `%LOCALAPPDATA%\ZS Music Maker`.
+            - `ZS-Music-Maker-Source-*.zip` — исходники для обновления в один клик (кнопка «Обновить» в приложении скачивает его и вызывает `updater.install_from_zip` с сохранением `voice_vault/lyric_vault/output`).
+
+            ### Установка с нуля (Windows 11)
+            1. Скачай `Portable` или `Setup` из Assets ниже.
+            2. Запусти — Python и зависимости уже внутри, `hitmaker.py --count 5 --evolve` работает.
+            3. Обновление: в приложении `Справка → Обновления → Проверить` → `Скачать и установить` — не нужно переустанавливать вручную, бэкап и откат автоматические (`updater/backup`).
+
+            `version.json` — единый источник правды: `${{ steps.ver.outputs.version }}`
+          files: |
+            _artifacts/**/*.zip
+            _artifacts/**/*.exe
+            _artifacts/ZS-Music-Maker-Source-*.zip
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

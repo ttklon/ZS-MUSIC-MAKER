@@ -37,6 +37,8 @@ datas = [
     (str(ROOT / "data"), "data"),
     (str(ROOT / "docs"), "docs"),
     (str(ROOT / "scripts"), "scripts"),
+    (str(ROOT / "updater"), "updater"),
+    (str(ROOT / "config"), "config"),
     (str(ROOT / "version.json"), "."),
     (str(ROOT / "VERSION"), "."),
     (str(ROOT / "INSTALL.md"), "."),
@@ -60,6 +62,13 @@ hiddenimports = [
     "modules.genre_engine",
     "modules.mastering",
     "modules.anti_neuro",
+    "updater.updater",
+    "updater.install",
+    "updater.archive",
+    "updater.checks",
+    "updater.paths",
+    "updater.userdata",
+    "app.core.net_policy",
 ]
 
 excludes = [

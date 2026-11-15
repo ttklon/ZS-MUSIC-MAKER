@@ -1,6 +1,6 @@
 {
-  "version": "41.1.2",
-  "build": "v41.1.2-hit-factory-hygiene-fix-2026-11-14",
-  "based_on": "41.1.1",
-  "changes": "41.1.2 FIX: hygiene 308/221/75 split generator (was 578) CLEAN, func budget whitelist 9+main90, ast CLEAN, audit CLEAN 0/299, readiness tiktok REAL_PASS, suite 2102 passed."
+  "version": "41.2.0",
+  "build": "v41.2.0-fully-ready-release-2026-11-15",
+  "based_on": "41.1.2",
+  "changes": "41.2.0 FEAT: fully ready app — PyInstaller onedir includes updater+config, Electron installer portable+NSIS, GitHub Release workflow (release.yml) builds ZIP with all deps, one-click updater (desktop/electron/updater-service.js + preload + help.js panel) downloads Source ZIP from Releases and installs via updater.install_from_zip with backup/rollback, breakthrough 73.4 solid proof, audit CLEAN"
 }
