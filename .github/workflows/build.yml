@@ -47,9 +47,8 @@ jobs:
         shell: cmd
 
       - name: Smoke-test the built EXE (--version must exit 0)
-        run: |
-          .\dist\ZS Music Maker\ZS Music Maker.exe --version
-        shell: cmd
+        shell: pwsh
+        run: '& "dist/ZS Music Maker/ZS Music Maker.exe" --version'
 
       - name: Upload EXE artifact
         uses: actions/upload-artifact@v4

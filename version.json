@@ -1,6 +1,6 @@
 {
-  "version": "41.2.1",
-  "build": "v41.2.1-fix-help-packaging-2026-11-15",
+  "version": "41.2.2",
+  "build": "v41.2.2-snapshot-and-smoke-fix-2026-11-15",
   "based_on": "41.1.2",
-  "changes": "41.2.1 FIX: fake-dom style support (help panel 12/12), release workflow portable ZIP pwsh (was cmd fails on space), smoke test pwsh"
+  "changes": "41.2.2 FIX: regenerate readiness snapshot (320 modules, caps), fix build.yml smoke pwsh quoting (space in path), release.yml pwsh packaging"
 }
