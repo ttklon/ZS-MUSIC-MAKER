@@ -42,14 +42,12 @@ jobs:
         shell: cmd
 
       - name: Smoke test built EXE
-        run: .\dist\"ZS Music Maker"\"ZS Music Maker.exe" --version
-        shell: cmd
+        shell: pwsh
+        run: '& "dist/ZS Music Maker/ZS Music Maker.exe" --version'
 
       - name: Package Portable ZIP (onedir)
-        run: |
-          cd dist
-          powershell Compress-Archive -Path "ZS Music Maker" -DestinationPath "ZS-Music-Maker-Windows-Portable.zip" -Force
-        shell: cmd
+        shell: pwsh
+        run: Compress-Archive -Path "dist/ZS Music Maker" -DestinationPath "dist/ZS-Music-Maker-Windows-Portable.zip" -Force
 
       - name: Upload EXE artifact
         uses: actions/upload-artifact@v4
