@@ -66,6 +66,6 @@ UI: `desktop/src/sections/help.js` панель «Обновления» → р�
    - `RVC` → `.venv-rvc` авто-создание + `hubert_base` + demo `.pth` (если нет своего).
    - `MusicGen` CPU-чанки + `demucs` в `bootstrap` (уже частично).
 2. Полный прогон: `npm test --test-concurrency=1` (445), `pytest -q` (3 budget + 6 shell), `smoke_god`, `fallback_audit`.
-3. Релиз `v41.4.0-fully-autonomous` — один `Portable.zip` + `Setup.exe` с `data/ai_models` закэшированными (или докачкой при первом запуске с прогрессом).
+3. Релиз `v42.0.1` — клонирование голоса внутри приложения (`train_backend.py`, `--rvc-fork`, `--rvc-train`, кнопка «Клонировать мой голос» + индексация записи в vault). Далее `v41.4.0-fully-autonomous` — один `Portable.zip` + `Setup.exe` с `data/ai_models` закэшированными (или докачкой при первом запуске с прогрессом).
 
 Готов начать с `wizardAgent` и `lyrics` прямо сейчас — подтверди приоритет или скажи «делай 41.4.0».
