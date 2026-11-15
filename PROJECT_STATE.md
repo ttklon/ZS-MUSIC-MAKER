@@ -1,6 +1,6 @@
 # PROJECT_STATE
 
-> Состояние репозитория `ZS-MUSIC-MAKER` на 2026-11-15 (версия 42.0.0) — FULL AUTONOMOUS HIT FACTORY.
+> Состояние репозитория `ZS-MUSIC-MAKER` на 2026-11-15 (версия 42.0.2) — авторское окружение RVC внутри приложения.
 > Цифры ниже сняты с `PYTHONPATH=. python -m tools.readiness` + `pytest_isolated` (коммит этой же ветки),
 > а не вписаны вручную.
 
@@ -37,6 +37,9 @@
 - CLI: `--rvc-fork applio|mangio|rvc-webui`, `--rvc-train [--rvc-voice имя] [--rvc-epochs N]`.
 - Bootstrap: `ensure_rvc_trainer()` подтягивает форк Applio один раз при разрешённой сети
   (в офлайне — `network disabled` в отчёте, никакого тихого клонирования).
+- Окружение: `modules/rvc_manager/venv.py` создаёт `.venv-rvc` (Python 3.8–3.11,
+  `rvc-python==0.1.5`, `numpy<=1.23.5`), `--rvc-setup`, кнопка «Подготовить голосовой
+  движок»; readiness пробует `rvc_env` и держит кап ≤90 %, пока окружения нет.
 - Окно: кнопка «Клонировать мой голос (RVC)» в блоке вокала — запись → сохранение в файл
   → `zsmm:vocal-index` (реальная индексация через `voice_vault.add_recording`) → задача
   `rvc-train`. Раньше сохранённая запись не попадала в vault, и обучение не находило её.

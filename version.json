@@ -1,6 +1,6 @@
 {
-  "version": "42.0.1",
-  "build": "v42.0.1-voice-clone-2026-11-15",
-  "based_on": "42.0.0",
-  "changes": "42.0.1 FEAT voice clone: настоящий RVC-тренер (ZSMM_RVC_TRAIN_CMD / форк), --rvc-fork/--rvc-train, кнопка «Клонировать мой голос» с индексацией записи в vault, пустой текст = честный BLOCKED вместо FAILED, CI shell-тесты с Python и annotation-ом"
+  "version": "42.0.2",
+  "build": "v42.0.2-rvc-env-2026-11-15",
+  "based_on": "42.0.1",
+  "changes": "42.0.2 FEAT rvc env: авто-создание .venv-rvc (Python 3.8-3.11, numpy<=1.23.5, rvc-python 0.1.5, torch CPU), `--rvc-setup`, кнопка «Подготовить голосовой движок», проба rvc_env в readiness + честный кап 90%, bootstrap создаёт окружение перед базовыми весами"
 }

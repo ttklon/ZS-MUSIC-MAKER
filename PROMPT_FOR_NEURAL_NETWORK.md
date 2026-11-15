@@ -10,7 +10,7 @@
 
 ## КОНТЕКСТ ПРОЕКТА
 
-- Репо: `ttklon/ZS-MUSIC-MAKER`, ветка `main`, текущая версия `42.0.1` (`version.json`), теги `v41.3.0`/`v41.4.0` уже в `main`.
+- Репо: `ttklon/ZS-MUSIC-MAKER`, ветка `main`, текущая версия `42.0.2` (`version.json`), теги `v41.3.0`/`v41.4.0` уже в `main`.
 - Стек: Python 3.10+ / Electron (Node 20.19+) / PyTorch 2.5.1 CPU / audiocraft / demucs / faster-whisper / rvc-python / Ollama.
 - Сейчас `readiness 65%` в песочнице без тяжёлых пакетов (кап `musicgen_runtime/demucs_runtime` до `main --bootstrap --online`), `weighted_sum 83.93`; с `ZSMM_FAKE_HEAVY=1` — `90.18 %` (остаётся кап микрофона). `audit_honesty CLEAN (310 файлов)`, `check_snapshot_freshness 0`, `desktop npm run check` OK, `node --test --test-concurrency=1` 456/456 (147s), `pytest` `2096 passed, 2 skipped`.
 
@@ -45,7 +45,7 @@
 
 ## ЧТО ДОДЕЛАТЬ (чек-лист)
 
-- [x] **RVC fully-autonomous**: `hubert_base.pt/rmvpe.pt` автокачка в bootstrap, дефолтная модель `f0G40k.pth`, запись микрофона в окне, **обучение через `train_backend.py`** (`ZSMM_RVC_TRAIN_CMD` или форк из `models/rvc_forks/`, успех = код 0 + непустой `.pth`), инференс через `rvc_python`. Осталось: авто-создание `.venv-rvc` с Python 3.10 (сейчас тренер берётся из форка/команды).
+- [x] **RVC fully-autonomous**: `hubert_base.pt/rmvpe.pt` автокачка в bootstrap, дефолтная модель `f0G40k.pth`, запись микрофона в окне, **обучение через `train_backend.py`** (`ZSMM_RVC_TRAIN_CMD` или форк из `models/rvc_forks/`, успех = код 0 + непустой `.pth`), инференс через `rvc_python`. Окружение: `.venv-rvc` создаётся само (`modules/rvc_manager/venv.py`, `--rvc-setup`, кнопка «Подготовить голосовой движок»).
 - [x] **MusicGen CPU-чанки**: `MusicGen.get_pretrained('facebook/musicgen-small')`, 30с чанки, сшивка, fallback только честный BLOCKED (не заглушка).
 - [x] **LLM только Ollama**: убрать `lyrics/generator.py` шаблон-фолбэк, оставить `LLMRouter → ollama qwen3:4b`, `ollama serve` auto-check.
 - [~] **Demucs + Whisper** — проверить `demucs_runtime/faster-whisper` в `readiness` ≥90% после `bootstrap --online`.
@@ -89,7 +89,8 @@ cd desktop && node --test --test-concurrency=1  # → 456/456 147s (провер
 
 ## ОТКРЫТЫЕ ПУНКТЫ (честно, для следующего прогона)
 
-- `.venv-rvc` (Python 3.10 + `rvc-python`) автоматически ещё не создаётся. Обучение уже реальное (`--rvc-fork`/`ZSMM_RVC_TRAIN_CMD` + `--rvc-train`), но пока требует подтянутого форка; без него честный `blocked_backend` с командой.
+- В песочнице без сети `.venv-rvc` не создаётся (`network disabled`) — это проверяется только на машине с сетью: `python main.py --rvc-setup`.
+- Обучение идёт через подтянутый форк (`--rvc-fork applio`) или `ZSMM_RVC_TRAIN_CMD`; без них честный `blocked_backend` с командой.
 - `musicgen`/`demucs` требуют `--bootstrap --online`; в этой песочнице (2 CPU / 3 ГБ RAM, без torch) они `BLOCKED`, поэтому `readiness` упирается в кап 65 %.
 - Микрофон в CI не проверяется физически: `mic_recording` = `BLOCKED`, пока окно не получит доступ к устройству (`ZSMM_FAKE_MIC=1` — только для тестов).
 - `MusicGen` вызывается из `beat`-стадии; стемы `demucs` и `faster-whisper` подключены, но качество на CPU не измерялось (нет пакетов в песочнице).
