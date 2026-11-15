@@ -171,3 +171,19 @@ test('отчёт smoke попадает и в артефакты, и в рели
   const publish = yaml.slice(yaml.indexOf('publish-release:'));
   assert.match(publish, /smoke\.json/, 'smoke.json не попадает в релиз');
 });
+
+test('в установщик попадает код пайплайна, а не только данные', () => {
+  // Без этих записей собранное приложение умеет рисовать бит на JS, но не
+  // может ни сгенерировать текст (Ollama), ни бит MusicGen, ни клон голоса:
+  // «одна программа» превращалась в «окно + отдельный репозиторий».
+  const resources = new Map(pkg.build.extraResources.map((entry) => [entry.from, entry.to]));
+
+  assert.equal(resources.get('../main.py'), 'project/main.py');
+  for (const dir of ['app', 'modules', 'agents', 'tools']) {
+    assert.equal(resources.get(`../${dir}`), `project/${dir}`, `нет ${dir} в поставке`);
+  }
+  assert.equal(resources.get('../requirements.txt'), 'project/requirements.txt');
+  // Питон-исходники — только .py: кэши и тесты в установщике не нужны.
+  const entry = pkg.build.extraResources.find((item) => item.from === '../modules');
+  assert.deepEqual(entry.filter, ['**/*.py']);
+});

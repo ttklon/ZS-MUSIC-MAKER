@@ -70,6 +70,42 @@
         "filter": [
           "**/*.json"
         ]
+      },
+      {
+        "from": "../main.py",
+        "to": "project/main.py"
+      },
+      {
+        "from": "../app",
+        "to": "project/app",
+        "filter": [
+          "**/*.py"
+        ]
+      },
+      {
+        "from": "../modules",
+        "to": "project/modules",
+        "filter": [
+          "**/*.py"
+        ]
+      },
+      {
+        "from": "../agents",
+        "to": "project/agents",
+        "filter": [
+          "**/*.py"
+        ]
+      },
+      {
+        "from": "../tools",
+        "to": "project/tools",
+        "filter": [
+          "**/*.py"
+        ]
+      },
+      {
+        "from": "../requirements.txt",
+        "to": "project/requirements.txt"
       }
     ],
     "win": {

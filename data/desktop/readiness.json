@@ -1,17 +1,17 @@
 {
-  "generated_at": "2026-11-15T12:26:06.004Z",
+  "generated_at": "2026-11-15T12:30:43.839Z",
   "percent": 65,
   "module_inventory": {
-    "tracked_modules": 331,
-    "REAL_PASS": 291,
+    "tracked_modules": 332,
+    "REAL_PASS": 292,
     "REAL_FAIL": 0,
     "PLANNED": 1,
     "DEPRECATED": 39
   },
-  "module_reachability_share": 0.8792,
+  "module_reachability_share": 0.8795,
   "block_scores": {
     "architecture": 100,
-    "core_modules": 83.92,
+    "core_modules": 83.95,
     "audio_pipeline": 75,
     "voice_recording": 62.5,
     "release": 100,
@@ -95,7 +95,7 @@
       "voice clone engine not ready: rvc_env=BLOCKED (python main.py --bootstrap --online)"
     ]
   ],
-  "weighted_sum": 82.23,
+  "weighted_sum": 82.24,
   "cap_min": 65,
   "final_floor": 65
 }

@@ -144,3 +144,23 @@ test('корень пайплайна проверяется по коду, а �
 
   fs.rmSync(dataOnly, { recursive: true, force: true });
 });
+
+test('в установщике пайплайн находится в resources/project', () => {
+  const fs = require('node:fs');
+  const os = require('node:os');
+  const { resolvePipelineRoot } = require('../electron/runtime');
+
+  // Так выглядит установленная сборка: `resources/` — корень проекта с данными,
+  // а код пайплайна лежит внутри `project/` (extraResources в package.json).
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'zsmm-installed-'));
+  fs.writeFileSync(path.join(root, 'version.json'), '{}');
+  const project = path.join(root, 'project');
+  fs.mkdirSync(path.join(project, 'app'), { recursive: true });
+  fs.writeFileSync(path.join(project, 'main.py'), '');
+
+  const found = resolvePipelineRoot({ root });
+
+  assert.equal(found.root, project, 'без этого MusicGen/RVC/Ollama недоступны в одной программе');
+
+  fs.rmSync(root, { recursive: true, force: true });
+});

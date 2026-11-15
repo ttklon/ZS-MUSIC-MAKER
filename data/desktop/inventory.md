@@ -58,7 +58,7 @@
 | app/core/logger.py | REAL_PASS | PASS | 5 | 48 |
 | app/core/lyric_context.py | REAL_PASS | PASS | 1 | 7 |
 | app/core/musicgen_texture.py | REAL_PASS | PASS | 2 | 18 |
-| app/core/net_policy.py | REAL_PASS | PASS | 12 | 25 |
+| app/core/net_policy.py | REAL_PASS | PASS | 13 | 25 |
 | app/core/numba_cache.py | REAL_PASS | PASS | 8 | 39 |
 | app/core/orchestrator.py | REAL_PASS | PASS | 12 | 222 |
 | app/core/orchestrator_ai.py | REAL_PASS | PASS | 1 | 34 |
@@ -248,11 +248,12 @@
 | modules/render_queue.py | REAL_PASS | PASS | 1 | 11 |
 | modules/rvc_manager/__init__.py | REAL_PASS | PASS | 4 | 143 |
 | modules/rvc_manager/backend.py | REAL_PASS | PASS | 5 | 65 |
-| modules/rvc_manager/config.py | REAL_PASS | PASS | 7 | 52 |
+| modules/rvc_manager/config.py | REAL_PASS | PASS | 8 | 52 |
 | modules/rvc_manager/infer.py | REAL_PASS | PASS | 2 | 85 |
 | modules/rvc_manager/rvc_worker.py | REAL_PASS | PASS | 3 | 7 |
 | modules/rvc_manager/train_backend.py | REAL_PASS | PASS | 1 | 6 |
 | modules/rvc_manager/trainer.py | REAL_PASS | PASS | 1 | 76 |
+| modules/rvc_manager/venv.py | REAL_PASS | PASS | 3 | 32 |
 | modules/rvc_trainer.py | REAL_PASS | PASS | 1 | 19 |
 | modules/self_diag.py | REAL_PASS | PASS | 1 | 55 |
 | modules/sidechain.py | DEPRECATED | PASS | 0 | 42 |
