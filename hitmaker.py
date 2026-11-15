@@ -95,7 +95,7 @@ def _cli() -> int:
     p.add_argument("--output", type=str, default="output/hits", help="куда складывать хиты")
     p.add_argument("--breakthrough", action="store_true", help="ПРОРЫВ: медленный CPU offload ротатор 1× — работает даже на 3.85GB RAM (интернет, не фризит)")
     p.add_argument("--artist", type=str, default="", help="артист-референс для прорыва (напр. ICEGERGERT)")
-    p.add_argument("--refs", type=str, default="", help="референс-треки через запятую (1-7 wav/mp3)")
+    p.add_argument("--refs", type=str, default="", help="референс-треки/ссылки через запятую (1-7 wav/mp3/http)")
     p.add_argument("--voice", type=str, default="", help="сырая запись голоса wav для RVC (10 мин)")
     args = p.parse_args()
     # прорыв если явно указан флаг/env/артист/refs/voice

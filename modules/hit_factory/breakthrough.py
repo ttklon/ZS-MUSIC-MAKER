@@ -54,13 +54,57 @@ def _sequential_step(name: str, fn, *args, **kwargs):
     return res
 
 
-def analyze_references(reference_paths: list[str], weights: list[float] | None = None) -> dict[str, Any]:
-    """1) референсы → style_vector (BPM/key/genre_hint/mood)."""
-    from modules.reference_ingest import build_style_vector
+def _download_reference(url: str, tmp_dir: str = "data/reference_cache/downloads") -> str | None:
+    """Скачивает http(s) референс во временный файл (для links). Возвращает локальный путь или None."""
+    try:
+        import requests
+        from pathlib import Path as _P
+        import hashlib
+        dest = _P(tmp_dir)
+        dest.mkdir(parents=True, exist_ok=True)
+        h = hashlib.md5(url.encode()).hexdigest()[:10]
+        # сохраняем расширение из URL или .mp3
+        suffix = ".mp3"
+        for ext in (".wav", ".mp3", ".flac", ".m4a", ".ogg"):
+            if ext in url.lower():
+                suffix = ext
+                break
+        out = dest / f"dl_{h}{suffix}"
+        if out.exists() and out.stat().st_size > 1024:
+            return str(out)
+        with requests.get(url, stream=True, timeout=20) as r:
+            r.raise_for_status()
+            with open(out, "wb") as f:
+                for chunk in r.iter_content(chunk_size=8192):
+                    if chunk:
+                        f.write(chunk)
+        return str(out) if out.stat().st_size > 1024 else None
+    except Exception as _exc:
+        print(f"[breakthrough] download ignored {url[:60]}: {_exc}")
+        return None
 
+
+def analyze_references(reference_paths: list[str], weights: list[float] | None = None) -> dict[str, Any]:
+    """1) референсы → style_vector (BPM/key/genre_hint/mood). Поддерживает файлы и http(s) ссылки."""
+    from modules.reference_ingest import build_style_vector
     if not reference_paths:
         return {"ok": False, "reason": "no references — используем тренды 2026"}
-    return _sequential_step("reference_ingest", build_style_vector, reference_paths, weights)
+    local_paths: list[str] = []
+    for p in reference_paths:
+        p = str(p).strip()
+        if not p:
+            continue
+        if p.startswith("http://") or p.startswith("https://"):
+            dl = _download_reference(p)
+            if dl:
+                local_paths.append(dl)
+            else:
+                print(f"[breakthrough] skip undownloadable link: {p[:80]}")
+        else:
+            local_paths.append(p)
+    if not local_paths:
+        return {"ok": False, "reason": "no local references after download — используем тренды 2026"}
+    return _sequential_step("reference_ingest", build_style_vector, local_paths, weights)
 
 
 def build_artist_dossier(artist: str, reference_style: dict | None = None, use_llm: bool = True) -> dict[str, Any]:
