@@ -250,6 +250,16 @@
                 <tbody id="health-body"></tbody>
               </table>
             </div>
+            <h3>Сеть</h3>
+            <p class="muted">
+              По умолчанию всё офлайн: скачивание моделей и загрузка сэмплов не
+              выполняются. Галочка — ваше согласие, и оно доходит до задач Python.
+            </p>
+            <label class="row-inline">
+              <input type="checkbox" id="health-network-online" />
+              <span id="health-network-label">Разрешить приложению выходить в сеть (скачать RVC, Ollama, модель Ollama)</span>
+            </label>
+            <p class="muted" id="health-network-note">сеть выключена — всё работает офлайн</p>
             <h3>Приложение</h3>
             <p class="muted" id="health-env-note">Загрузка…</p>
             <div class="table-wrap">

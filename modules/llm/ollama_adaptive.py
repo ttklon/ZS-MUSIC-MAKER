@@ -45,6 +45,45 @@ def choose_installed_model(models: list[dict[str, Any]], available_gib: float | 
             "estimated_ram_gib": round(estimate, 2), "available_ram_gib": available_gib}
 
 
+def _installed(model: dict[str, Any], name: str) -> bool:
+    """Есть ли модель на диске под этим именем (с тегом или без)."""
+    short = str(model.get("name") or model.get("model") or "").lower()
+    return short == name.lower() or short.split(":")[0] == name.lower().split(":")[0]
+
+
+def prefer_installed(selection: dict[str, Any], models: list[dict[str, Any]], preferred: str) -> dict[str, Any]:
+    """Отдать скачанную bootstrap-ом модель, если выбрать по RAM не удалось.
+
+    Раньше адаптер рассматривал только «влезающие в RAM» модели: на машине с
+    4 ГБ `qwen3:4b` отбрасывался, и человек, честно сделавший
+    `--bootstrap --online`, всё равно получал `BLOCKED`. Отказ теперь честный и
+    объяснённый (сколько нужно памяти), но сама попытка — есть: Ollama умеет
+    выгружать модель в своп, и это её решение, а не наше.
+    """
+    if selection.get("model"):
+        return selection
+    for model in models:
+        if isinstance(model, dict) and _installed(model, preferred):
+            out = dict(selection)
+            out.update({
+                "model": preferred,
+                "reason": "bootstrap model present but estimated RAM is tight; "
+                          "attempting anyway (slow on CPU)",
+                "installed_but_tight": True,
+            })
+            return out
+    return selection
+
+
+def _preferred_model() -> str:
+    """Модель, которую ставит bootstrap: её и надо пробовать первой."""
+    import os
+
+    return (os.environ.get("ZSMM_OLLAMA_MODEL", "").strip()
+            or os.environ.get("ZSMM_OLLAMA_PULL_MODEL", "").strip()
+            or "qwen3:4b")
+
+
 def discover_ollama_model(base_url: str) -> dict[str, Any]:
     from app.ai.hardware import available_memory_gib
     try:
@@ -55,7 +94,12 @@ def discover_ollama_model(base_url: str) -> dict[str, Any]:
         models = payload.get("models") if isinstance(payload, dict) else None
         if not isinstance(models, list):
             return {"model": None, "reason": "invalid Ollama model list"}
-        return choose_installed_model(models, available_memory_gib())
+        from modules.llm.ollama_adaptive import (  # локальный импорт: модуль грузится сам
+            choose_installed_model, prefer_installed,
+        )
+        selection = choose_installed_model(models, available_memory_gib())
+        preferred = _preferred_model()
+        return prefer_installed(selection, models, preferred) if preferred else selection
     except Exception as exc:
         logging.getLogger(__name__).debug("Ollama model discovery failed", exc_info=True)
         return {"model": None, "reason": f"Ollama model discovery failed: {type(exc).__name__}: {exc}"}

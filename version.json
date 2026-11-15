@@ -1,6 +1,6 @@
 {
-  "version": "42.0.3",
-  "build": "v42.0.3-packaging-2026-11-15",
-  "based_on": "42.0.1",
-  "changes": "42.0.2 FEAT rvc env: авто-создание .venv-rvc (Python 3.8-3.11, numpy<=1.23.5, rvc-python 0.1.5, torch CPU), `--rvc-setup`, кнопка «Подготовить голосовой движок», проба rvc_env в readiness + честный кап 90%, bootstrap создаёт окружение перед базовыми весами"
+  "version": "42.0.4",
+  "build": "v42.0.4-network-hook-2026-11-15",
+  "based_on": "42.0.3",
+  "changes": "42.0.4 NETWORK+MUSIC: галочка сети из окна доходит до Python (ZSMM_ONLINE=1), флажок «разрешить сеть» в «Диагностике», скачанный bootstrap-ом qwen3:4b не отбрасывается по оценке RAM, мотив хука — фраза с паузами и повтором вместо арпеджио"
 }

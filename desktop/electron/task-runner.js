@@ -33,11 +33,29 @@ const { resolvePython, resolvePipelineRoot } = require('./runtime');
  * @param {Function} [params.onTaskStarted] вызывается после старта (для quit)
  * @returns {{handlers: string[]}}
  */
+/**
+ * Окружение процесса Python: галочка «сеть» из окна должна до него доходить.
+ *
+ * Раньше `networkOnline` жила только в настройках Electron: пользователь
+ * включал сеть в приложении, а `python main.py --rvc-setup` всё равно отвечал
+ * `network disabled`, потому что `app/core/net_policy.py` смотрит либо на
+ * `allow_online`, либо на `data/settings.json`. Явная переменная окружения —
+ * самый узкий мост: она действует ровно на запущенную задачу и не пишет
+ * чужой конфиг за спиной у пользователя.
+ */
+function taskEnv(networkOnline, base = process.env) {
+  const env = { ...base };
+  if (networkOnline === true) env.ZSMM_ONLINE = '1';
+  else delete env.ZSMM_ONLINE;
+  return env;
+}
+
 function registerTaskIpc({
   ipcMain,
   root = null,
   getProject,
   getWindows = () => null,
+  getSettings = () => null,
   state = { activeTask: null },
 }) {
   ipcMain.handle('zsmm:tasks', () => ({ ok: true, data: tasks.taskList() }));
@@ -92,11 +110,13 @@ function registerTaskIpc({
     if (!pipeline.root) return { ok: false, error: pipeline.error };
 
     try {
+      const settingsValue = (getSettings && getSettings()) || {};
       state.activeTask = tasks.runTask({
         key,
         options: options || {},
         python,
         root: pipeline.root,
+        env: taskEnv(settingsValue.networkOnline === true),
         onEvent: (payload) => {
           if (windows) windows.showTaskProgress(payload);
           send('zsmm:task-event', payload);
@@ -129,4 +149,4 @@ function registerTaskIpc({
   return { handlers: ['zsmm:tasks', 'zsmm:task-start', 'zsmm:task-stop'], start };
 }
 
-module.exports = { registerTaskIpc };
+module.exports = { registerTaskIpc, taskEnv };

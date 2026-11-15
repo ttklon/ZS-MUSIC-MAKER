@@ -9,7 +9,7 @@
  */
 
 const { filter, zeros, peak, mixInto } = require('./dsp');
-const { hookMotif, motifLead, isMajor } = require('./voices');
+const { hookMotif, motifLead, motifLoopForBar, isMajor } = require('./voices');
 const { buildBar } = require('./bar');
 const { Rng } = require('./rng');
 
@@ -131,29 +131,30 @@ function applyDrop(left, right, sectionInfo, sr) {
 
 /** Повторяющийся лид-мотив в интро и припевах (hook_repeatability). */
 function applyHookMotif(left, right, sectionInfo, sr, bpm, key) {
-  const motif = hookMotif(key);
   const barSec = (60.0 / bpm) * 4;
-  const noteSamples = Math.trunc((barSec / 4.0) * sr);
+  const stepSamples = barSec / 16.0;
   const forHook = ['hook', 'chorus'];
   const forMotif = ['hook', 'chorus', 'intro'];
-  let index = 0;
   for (const info of sectionInfo) {
     if (!forMotif.includes(info.name)) continue;
     const start = Math.trunc(info.start_sec * sr);
-    const length = Math.trunc(info.duration_sec * sr);
-    let position = start;
-    let note = index;
-    while (position + noteSamples < start + length && position + noteSamples < left.length) {
-      const lead = motifLead(sr, motif[note % 4], noteSamples / sr);
-      const pan = note % 2 === 0 ? 0.15 : -0.15;
-      const gain = forHook.includes(info.name) ? 0.12 : 0.085;
-      const angle = ((pan + 1.0) * Math.PI) / 4.0;
-      mixInto(left, lead, position, Math.cos(angle) * gain);
-      mixInto(right, lead, position, Math.sin(angle) * gain);
-      position += noteSamples;
-      note += 1;
+    const end = Math.min(left.length, Math.trunc((info.start_sec + info.duration_sec) * sr));
+    const gain = forHook.includes(info.name) ? 0.12 : 0.085;
+    // Фраза повторяется такт за тактом: тот же ритм и те же ноты. Раньше
+    // лид шёл сплошным потоком ровных нот и «мотивом» не был.
+    const barsInSection = Math.max(1, Math.round(info.duration_sec / barSec));
+    for (let bar = 0; bar < barsInSection; bar += 1) {
+      for (const note of motifLoopForBar(key, bar)) {
+        const position = start + Math.trunc((bar * 16 + note.step) * stepSamples * sr);
+        const noteSamples = Math.max(16, Math.trunc(note.lengthSteps * stepSamples * sr * 0.9));
+        if (position + noteSamples > end) continue;
+        const lead = motifLead(sr, note.freq, noteSamples / sr);
+        const pan = note.step % 8 === 0 ? 0.15 : -0.15;
+        const angle = ((pan + 1.0) * Math.PI) / 4.0;
+        mixInto(left, lead, position, Math.cos(angle) * gain);
+        mixInto(right, lead, position, Math.sin(angle) * gain);
+      }
     }
-    index = note;
   }
 }
 

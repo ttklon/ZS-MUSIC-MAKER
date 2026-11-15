@@ -240,6 +240,10 @@ function registerIpc(getProject) {
     root: ROOT,
     getProject,
     getWindows: () => windows,
+    // Галочка сети в окне — единственный источник согласия пользователя:
+    // без этого моста Python-задачи видели `network disabled` при включённой
+    // в приложении сети.
+    getSettings: () => settings().load().value,
     state: taskState,
   }));
 

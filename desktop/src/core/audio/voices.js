@@ -15,7 +15,7 @@ const harmony = require('./harmony');
 const { zeros, mixInto, peak } = require('./dsp');
 const { ROOT_FREQS } = require('./tuning');
 const { rootFreq, isMajor } = require('./tuning');
-const { hookMotif, motifLead } = require('./hook');
+const { hookMotif, motifLead, motifLoopForBar } = require('./hook');
 
 const KICK_VARIANTS = 3;
 const SNARE_VARIANTS = 3;
@@ -362,6 +362,7 @@ module.exports = {
   isMajor,
   hookMotif,
   motifLead,
+  motifLoopForBar,
   VoiceEngine,
   peak,
 };

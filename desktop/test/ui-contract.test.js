@@ -21,6 +21,7 @@ const html = fs.readFileSync(path.join(SRC, 'index.html'), 'utf8');
 const { windowScripts } = require('./fake-dom');
 const appJs = windowScripts(SRC).map((script) => script.source).join('\n');
 const preload = fs.readFileSync(path.join(ELECTRON, 'preload.js'), 'utf8');
+const healthJs = fs.readFileSync(path.join(SRC, 'sections', 'health.js'), 'utf8');
 
 /** Исходники главного процесса: main.js сам тонкий, IPC живёт рядом. */
 function readElectron(names) {
@@ -279,11 +280,22 @@ test('каждое поле ввода названо словами, а не т
     return !/aria-label=/.test(tag) && !/aria-labelledby=/.test(tag) && !/\bid="[^"]+"/.test(tag.replace(/aria-label[^>]*/, ''));
   });
   assert.deepEqual(nameless, [], 'поля без доступного имени');
-  const labelled = fields.filter((tag) => /aria-label=/.test(tag));
-  // Минус флажок «банк сэмплов»: он подписан текстом в <label>.
-  assert.equal(labelled.length, fields.length - 1, 'имя должно быть у каждого поля, а не у половины');
+  // Флажки подписаны текстом в <label> (или через aria-labelledby), поэтому
+  // `aria-label` обязателен только для остальных полей.
+  const nonCheckbox = fields.filter((tag) => !/type="checkbox"/.test(tag));
+  const labelled = nonCheckbox.filter((tag) => /aria-label=/.test(tag));
+  assert.equal(labelled.length, nonCheckbox.length, 'имя должно быть у каждого поля, а не у половины');
   // Флажок «банк сэмплов» подписан текстом внутри <label> — это допустимо.
   assert.match(html, /<label class="muted check"><input type="checkbox" id="beat-use-bank"/);
+});
+
+test('у флажка сети есть видимая подпись и связь с ней', () => {
+  assert.match(html, /<input type="checkbox" id="health-network-online"/);
+  assert.match(html, /id="health-network-label"/);
+  // aria-labelledby выставляется в health.js: разметка не должна полагаться
+  // на порядок соседних элементов.
+  assert.match(healthJs, /aria-labelledby/);
+  assert.match(healthJs, /networkOnline: online/);
 });
 
 test('сообщения об ошибке и о ходе работы объявлены живыми областями', () => {

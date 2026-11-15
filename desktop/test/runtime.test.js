@@ -164,3 +164,15 @@ test('в установщике пайплайн находится в resources
 
   fs.rmSync(root, { recursive: true, force: true });
 });
+
+
+test('галочка сети в окне доходит до Python как ZSMM_ONLINE', () => {
+  const { taskEnv } = require('../electron/task-runner');
+
+  assert.equal(taskEnv(true, {}).ZSMM_ONLINE, '1');
+  assert.equal(taskEnv(false, { ZSMM_ONLINE: '1' }).ZSMM_ONLINE, undefined);
+  // без сети ничего не «протекает» из окружения оболочки
+  assert.equal(taskEnv(null, {}).ZSMM_ONLINE, undefined);
+  // остальное окружение не теряется: python нужен PATH
+  assert.equal(taskEnv(true, { PATH: '/usr/bin' }).PATH, '/usr/bin');
+});

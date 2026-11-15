@@ -16,6 +16,53 @@ function envRow(key, value, hint) {
   return tr;
 }
 
+/**
+ * Галочка «сеть»: единственное место, где пользователь даёт согласие.
+ *
+ * Настройка `networkOnline` существовала в `electron/settings.js` с самого
+ * начала, но окна у неё не было — то есть включить сеть было нельзя вообще,
+ * и `--rvc-setup`/`--bootstrap --online` всегда отвечали `network disabled`.
+ */
+function wireNetworkToggle() {
+  const box = $('health-network-online');
+  const note = $('health-network-note');
+  if (!box) return;
+  // Windows Narrator читает флажок по подписи: без связи «флажок → текст»
+  // он объявляет просто «флажок», и согласие на сеть даётся вслепую.
+  const label = $('health-network-label');
+  if (label) box.setAttribute('aria-labelledby', label.id);
+  const renderNote = (online) => {
+    if (!note) return;
+    note.textContent = online
+      ? 'сеть разрешена: задачи Python получают ZSMM_ONLINE=1'
+      : 'сеть выключена — всё работает офлайн';
+  };
+  const canPersist = typeof window.zsmm.saveSettings === 'function';
+  const load = typeof window.zsmm.loadSettings === 'function'
+    ? window.zsmm.loadSettings()
+    : Promise.resolve(null);
+  Promise.resolve(load)
+    .then((reply) => {
+      const online = !!(reply && reply.ok === true && reply.data && reply.data.networkOnline === true);
+      box.checked = online;
+      renderNote(online);
+    })
+    .catch(() => renderNote(false));
+  box.addEventListener('change', () => {
+    const online = box.checked === true;
+    renderNote(online);
+    if (!canPersist) {
+      if (note) {
+        note.textContent = 'настройки недоступны в предпросмотре: значение не сохранено';
+      }
+      return;
+    }
+    Promise.resolve(window.zsmm.saveSettings({ networkOnline: online })).catch((err) => {
+      if (note) note.textContent = `настройка не сохранена: ${err.message}`;
+    });
+  });
+}
+
 async function loadHealth() {
   const [system, readiness] = await Promise.all([ask('system'), ask('readiness')]);
   // Окружение приложения (пути, Python, worker) знает только главный процесс;
@@ -84,5 +131,6 @@ W.loadHealth = loadHealth;
   // живёт в своей функции, а наружу отдаёт только одно имя.
   window.ZSMM_SECTIONS.initHealth = function () {
     W.loadHealth = loadHealth;
+    wireNetworkToggle();
   };
 })();
