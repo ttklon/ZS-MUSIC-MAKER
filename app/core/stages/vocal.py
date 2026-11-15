@@ -41,10 +41,16 @@ def _stage_voice_synth(lyrics_text: str, out_dir: Path) -> dict[str, Any]:
     """
     out_wav = str(out_dir / "voice_preview.wav")
     if not lyrics_text or not lyrics_text.strip():
+        # Нет текста — это не поломка стадии, а отсутствующий вход: проект
+        # везде помечает такое `ok: True, blocked: True` (как стемы без demucs
+        # или RVC без модели). Иначе инструментальный прогон получал FAILED и
+        # вердикт PARTIAL вместо честного PASS_BLOCKED.
         return {
-            "ok": False,
+            "ok": True,
+            "blocked": True,
             "reason": "empty lyrics",
             "notice": "voice synth requires lyrics text",
+            "action": "сгенерируй текст (нужна Ollama) или запиши свой вокал в разделе «Вокал»",
         }
     fallback_attempts: list[dict[str, str]] = []
 

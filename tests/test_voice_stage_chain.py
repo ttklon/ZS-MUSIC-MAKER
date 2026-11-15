@@ -149,9 +149,11 @@ def test_empty_lyrics_is_refused_before_any_engine(out_dir, monkeypatch) -> None
 
     result = vocal_stage._stage_voice_synth("   ", out_dir)
 
-    assert result["ok"] is False
+    # Отсутствие текста — честный BLOCKED, а не поломка стадии: иначе
+    # инструментальный прогон получал FAILED и вердикт PARTIAL.
+    assert result["ok"] is True and result["blocked"] is True
     assert result["reason"] == "empty lyrics"
-    assert "notice" in result
+    assert "notice" in result and "action" in result
 
 
 def test_missing_voice_synth_module_uses_pyttsx3(out_dir, monkeypatch) -> None:
