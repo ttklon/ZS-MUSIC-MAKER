@@ -184,32 +184,23 @@ def _ensure_rvc_base() -> None:
 OLLAMA_TEXT_MODEL = os.environ.get("ZSMM_OLLAMA_PULL_MODEL", "qwen3:4b")
 
 
-def _ensure_ollama_qwen() -> list[str]:
-    """Тихий `ollama pull qwen3:4b`, если Ollama установлена и модели нет.
+from app.core import ollama_bootstrap  # noqa: E402 - ленивый импорт не нужен, модуль тонкий
+
+# Тег модели в Ollama: оставлен для совместимости импортов (`OLLAMA_TEXT_MODEL`).
+OLLAMA_TEXT_MODEL = ollama_bootstrap.OLLAMA_TEXT_MODEL
+
+# Отчёт последней попытки подготовки Ollama (см. `auto_bootstrap.ollama`).
+auto_bootstrap_last: dict = ollama_bootstrap.last_attempt
+
+
+def _ensure_ollama_qwen(allow_download: bool | None = None) -> list[str]:
+    """Тихий `ollama pull qwen3:4b`; без бинаря — установщик (см. модуль).
 
     `ollama serve` не запускаем: демон ставится вместе с Ollama и обычно уже
     работает. Если его нет — `LLMRouter` честно скажет «no_local_daemon».
     """
-    import shutil
-    import subprocess as _sp
+    return ollama_bootstrap.ensure_ollama_qwen(allow_download)
 
-    if not shutil.which("ollama"):
-        _LOG.info("[bootstrap] ollama not installed — текст будет BLOCKED до её установки")
-        return []
-    try:
-        listed = _sp.run(["ollama", "list"], capture_output=True, text=True, timeout=20)
-        names = (listed.stdout or "").lower()
-        if OLLAMA_TEXT_MODEL.split(":")[0] in names:
-            _LOG.info(f"[bootstrap] ollama already has {OLLAMA_TEXT_MODEL}")
-            return []
-        _LOG.info(f"[bootstrap] ollama pull {OLLAMA_TEXT_MODEL} ...")
-        pulled = _sp.run(["ollama", "pull", OLLAMA_TEXT_MODEL], capture_output=True, text=True, timeout=1800)
-        if pulled.returncode == 0:
-            return ["ollama_qwen"]
-        _LOG.warning(f"[bootstrap] ollama pull failed: {(pulled.stderr or '')[:300]}")
-    except Exception as _e:
-        _LOG.debug(f"[bootstrap] ollama pull skip: {_e}")
-    return []
 
 def ensure_models(silent: bool = True, allow_download: bool | None = None) -> dict:
     """Тихая докачка моделей через tools/pull_ai_models --all + RVC base."""
@@ -221,8 +212,8 @@ def ensure_models(silent: bool = True, allow_download: bool | None = None) -> di
     pulled, failed = _pull_missing_roles()
     # 2) RVC base assets — тихо
     _ensure_rvc_base()
-    # 3) Ollama qwen3.5:4b — если ollama установлен, тихо pull
-    pulled += _ensure_ollama_qwen()
+    # 3) Ollama qwen3:4b — тихий pull, установщик если бинаря нет
+    pulled += _ensure_ollama_qwen(allow_download=allow_download)
 
     return {"pulled": pulled, "skipped": [], "failed": failed}
 
@@ -343,8 +334,10 @@ def auto_bootstrap(silent: bool = True, allow_download: bool | None = None) -> d
         _LOG.debug(f"[bootstrap] readiness before skip: {_e}")
 
     res["hardware"] = silent_hardware_budget()
+    res["ollama"] = {}
     res["heavy"] = ensure_heavy_engines(silent=silent, allow_download=allow_download)
     res["models"] = ensure_models(silent=silent, allow_download=allow_download)
+    res["ollama"] = dict(auto_bootstrap_last.get("ollama") or {})
     res["rvc"] = ensure_rvc_default_voice(silent=silent, allow_download=allow_download)
     res["rvc_trainer"] = ensure_rvc_trainer(silent=silent, allow_download=allow_download)
     # 4) окружение RVC: сначала оно, потом базовые веса (пакет кладёт их внутрь себя)

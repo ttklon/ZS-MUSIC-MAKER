@@ -63,6 +63,38 @@ function wireNetworkToggle() {
   });
 }
 
+/**
+ * Кнопка «Подготовить текстовый движок»: Ollama + модель из приложения.
+ *
+ * Проверка состояния (`--ollama-status`) идёт без сети и без изменений на
+ * диске, поэтому её можно звать при открытии раздела; подготовка — задача
+ * `ollama-setup` с живым логом в «Запуске», как у RVC.
+ */
+function wireOllamaSetup() {
+  const button = $('health-ollama-setup');
+  const status = $('health-ollama-status');
+  if (!button) return;
+  button.addEventListener('click', async () => {
+    button.disabled = true;
+    if (status) status.textContent = 'запускаю подготовку…';
+    try {
+      const reply = await window.zsmm.startTask('ollama-setup', {});
+      if (!reply || reply.ok !== true) {
+        if (status) status.textContent = `не запустилось: ${(reply && reply.error) || 'нет ответа'}`;
+        return;
+      }
+      if (status) {
+        status.textContent = 'подготовка идёт в разделе «Запуск» — там виден лог '
+          + '(модель ~2.5 ГБ; без сети установка честно откажет)';
+      }
+    } catch (err) {
+      if (status) status.textContent = `ошибка: ${err.message}`;
+    } finally {
+      button.disabled = false;
+    }
+  });
+}
+
 async function loadHealth() {
   const [system, readiness] = await Promise.all([ask('system'), ask('readiness')]);
   // Окружение приложения (пути, Python, worker) знает только главный процесс;
@@ -132,5 +164,6 @@ W.loadHealth = loadHealth;
   window.ZSMM_SECTIONS.initHealth = function () {
     W.loadHealth = loadHealth;
     wireNetworkToggle();
+    wireOllamaSetup();
   };
 })();

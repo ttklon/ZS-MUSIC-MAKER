@@ -75,6 +75,12 @@ def _run_info_command(args) -> int | None:
     for enabled, handler in dispatch:
         if enabled:
             return handler()
+    if args.ollama_status:
+        return commands.run_ollama_status()
+
+    if args.ollama_setup:
+        return commands.run_ollama_setup()
+
     if args.rvc_setup:
         return commands.run_rvc_setup()
     if args.rvc_train:

@@ -90,6 +90,21 @@ def probe_core_modules() -> dict[str, str]:
     return p
 
 
+def _lyrics_llm_status() -> str:
+    """REAL_PASS — Ollama отвечает и текстовая модель на диске.
+
+    Ошибка внутри пробы не должна ронять весь отчёт: любой сбой — BLOCKED с
+    причиной в логе (сеть здесь не используется, только localhost).
+    """
+    try:
+        from modules.llm.ollama_setup import install_report
+
+        return "REAL_PASS" if install_report().get("ready") else "BLOCKED"
+    except Exception:  # noqa: BLE001 - отчёт готовности важнее деталей
+        _LOGGER.debug("lyrics_llm probe failed", exc_info=True)
+        return "BLOCKED"
+
+
 def probe_audio_pipeline() -> dict[str, str]:
     p: dict[str, str] = {}
     p["matchering_runtime"] = _dependency_status("matchering")
@@ -102,6 +117,10 @@ def probe_audio_pipeline() -> dict[str, str]:
     )
     p["musicgen_runtime"] = _dependency_status("audiocraft")
     p["demucs_runtime"] = _dependency_status("demucs")
+    # Текст песен — половина хита. Без Ollama LLM честно отдаёт BLOCKED, значит
+    # готовность не может быть максимальной. Проба не ходит в сеть: смотрит
+    # бинарь `ollama` и локальный демон (127.0.0.1) с таймаутом 2 с.
+    p["lyrics_llm"] = _lyrics_llm_status()
     p["mastering_adapter"] = (
         "REAL_PASS" if _module_exists("modules.mastering_reference") else "MISSING"
     )

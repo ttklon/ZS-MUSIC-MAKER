@@ -263,6 +263,44 @@ def run_rvc_setup() -> int:
         return 2
 
 
+def run_ollama_status() -> int:
+    """Состояние текстового движка: без сети и без изменений на диске."""
+    try:
+        from modules.llm.ollama_setup import install_report
+
+        report = install_report()
+        safe_print(json.dumps(report, ensure_ascii=False, indent=2))
+        return 0 if report.get("ready") else 1
+    except Exception as e:  # noqa: BLE001 - CLI обязан вернуть код и причину
+        safe_print(f"[main --ollama-status] failed: {e}")
+        return 2
+
+
+def run_ollama_setup() -> int:
+    """Подготовить Ollama и текстовую модель; печатает отчёт и следующий шаг.
+
+    Раньше установка Ollama и `ollama pull` были возможны только руками в
+    консоли: `bootstrap._ensure_ollama_qwen` молча ничего не делал без `ollama`
+    в `PATH`, и чистая машина получала `BLOCKED` без объяснения в окне.
+    """
+    try:
+        from app.core.net_policy import network_allowed
+        from modules.llm.ollama_setup import ensure_ollama
+
+        allow = network_allowed()
+        safe_print("[ollama-setup] проверяю Ollama и текстовую модель…")
+        result = ensure_ollama(allow_download=allow)
+        safe_print(json.dumps(result, ensure_ascii=False, indent=2))
+        if result.get("needs_user_action"):
+            safe_print(f"[ollama-setup] нужен шаг человека: {result.get('action')}")
+        elif not result.get("ok"):
+            safe_print(f"[ollama-setup] не готово: {result.get('reason')}")
+        return 0 if result.get("ok") else 1
+    except Exception as e:  # noqa: BLE001
+        safe_print(f"[main --ollama-setup] failed: {e}")
+        return 2
+
+
 def run_rvc_train(voice_name: str = "my_voice", epochs: int = 100) -> int:
     """Обучить RVC-модель и напечатать отчёт: модель или честная причина."""
     try:

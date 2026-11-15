@@ -82,6 +82,17 @@ def _add_engine_flags(parser: argparse.ArgumentParser) -> None:
                         help="Обучить RVC-модель на записях из voice_vault (нужен тренер: --rvc-fork или ZSMM_RVC_TRAIN_CMD)")
     parser.add_argument("--rvc-voice", type=str, default="my_voice", help="Имя голоса для --rvc-train")
     parser.add_argument("--rvc-epochs", type=int, default=100, help="Эпох обучения для --rvc-train")
+    parser.add_argument(
+        "--ollama-setup",
+        action="store_true",
+        help=("Подготовить текстовый движок: Ollama + модель qwen3:4b "
+              "(скачивание только при разрешённой сети)"),
+    )
+    parser.add_argument(
+        "--ollama-status",
+        action="store_true",
+        help="Показать состояние Ollama и текстовой модели (без сети и изменений)",
+    )
     parser.add_argument("--rvc-setup", action="store_true",
                         help="Создать отдельное окружение RVC (.venv-rvc + rvc-python 0.1.5) и проверить базовые веса")
 

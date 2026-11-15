@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-11-15T13:07:30.227Z",
+  "generated_at": "2026-11-15T13:26:08.761Z",
   "percent": 65,
   "module_inventory": {
     "tracked_modules": 332,
@@ -12,7 +12,7 @@
   "block_scores": {
     "architecture": 100,
     "core_modules": 83.95,
-    "audio_pipeline": 75,
+    "audio_pipeline": 66.67,
     "voice_recording": 62.5,
     "release": 100,
     "testing": 100
@@ -54,6 +54,7 @@
       "librosa_soundfile_runtime": "REAL_PASS",
       "musicgen_runtime": "BLOCKED",
       "demucs_runtime": "BLOCKED",
+      "lyrics_llm": "BLOCKED",
       "mastering_adapter": "REAL_PASS",
       "smoke_scripts": "REAL_PASS"
     },
@@ -93,9 +94,13 @@
     [
       90,
       "voice clone engine not ready: rvc_env=BLOCKED (python main.py --bootstrap --online)"
+    ],
+    [
+      75,
+      "lyrics engine not ready: Ollama/модель не найдены (python main.py --ollama-setup)"
     ]
   ],
-  "weighted_sum": 82.24,
+  "weighted_sum": 80.16,
   "cap_min": 65,
   "final_floor": 65
 }

@@ -86,6 +86,14 @@ const TASKS = {
     accepts: ['voice'],
     timeoutMs: 4 * 60 * 60_000,
   },
+  // Текст песен делает локальная модель: без Ollama припев честно BLOCKED.
+  // Раньше её установка была возможна только руками в консоли.
+  'ollama-setup': {
+    label: 'Подготовить текстовый движок (Ollama)',
+    args: () => ['--ollama-setup'],
+    accepts: [],
+    timeoutMs: 3 * 60 * 60_000,
+  },
   'ai-status': {
     label: 'Статус AI-моделей',
     args: () => ['--ai-status'],

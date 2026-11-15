@@ -210,3 +210,11 @@ test('сборка досье запускает тот же CLI, что тер�
     ['--dossier-build', '--dossier-artist', 'МС Тест'],
   );
 });
+
+test('задача ollama-setup зовёт --ollama-setup и не просит полей', () => {
+  assert.ok(TASKS['ollama-setup'], 'задача подготовки текстового движка пропала');
+  assert.deepEqual(buildCommand('ollama-setup', {}), ['--ollama-setup']);
+  assert.deepEqual(TASKS['ollama-setup'].accepts, []);
+  // Модель ~2.5 ГБ на медленном канале: таймаут не должен быть «на минуту».
+  assert.ok(TASKS['ollama-setup'].timeoutMs >= 60 * 60_000);
+});

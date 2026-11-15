@@ -1,6 +1,6 @@
 {
-  "version": "42.0.4",
-  "build": "v42.0.4-network-hook-2026-11-15",
-  "based_on": "42.0.3",
-  "changes": "42.0.4 NETWORK+MUSIC: галочка сети из окна доходит до Python (ZSMM_ONLINE=1), флажок «разрешить сеть» в «Диагностике», скачанный bootstrap-ом qwen3:4b не отбрасывается по оценке RAM, мотив хука — фраза с паузами и повтором вместо арпеджио"
+  "version": "42.0.5",
+  "build": "v42.0.5-ollama-setup-2026-11-15",
+  "based_on": "42.0.4",
+  "changes": "42.0.5 TEXT ENGINE: установка Ollama и qwen3:4b из приложения (--ollama-setup / кнопка в «Диагностике»), честные состояния бинарь/демон/модель, проба lyrics_llm с капом 75 %, app/core/ollama_bootstrap.py вместо тихого пропуска"
 }

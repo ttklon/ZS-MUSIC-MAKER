@@ -85,6 +85,12 @@ function computeReadiness({ probes = {}, inventory = null } = {}) {
       + '(python main.py --bootstrap --online)']);
   }
 
+  // Без текстового движка припев пустой — потолок честный и с готовой командой.
+  if (audio.lyrics_llm === 'BLOCKED') {
+    caps.push([75, 'lyrics engine not ready: Ollama/модель не найдены '
+      + '(python main.py --ollama-setup)']);
+  }
+
   const capMin = caps.length ? Math.min(...caps.map(([value]) => value)) : 100;
   const percent = Math.floor(Math.min(totalScore, capMin));
 

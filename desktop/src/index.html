@@ -260,6 +260,13 @@
               <span id="health-network-label">Разрешить приложению выходить в сеть (скачать RVC, Ollama, модель Ollama)</span>
             </label>
             <p class="muted" id="health-network-note">сеть выключена — всё работает офлайн</p>
+            <div class="row">
+              <!-- Текст песен делает локальная модель. Раньше её установка была
+                   возможна только руками в консоли, и чистая машина получала
+                   BLOCKED без единой кнопки. -->
+              <button class="ghost" id="health-ollama-setup">Подготовить текстовый движок (Ollama)</button>
+              <span class="muted" id="health-ollama-status" role="status" aria-live="polite"></span>
+            </div>
             <h3>Приложение</h3>
             <p class="muted" id="health-env-note">Загрузка…</p>
             <div class="table-wrap">
