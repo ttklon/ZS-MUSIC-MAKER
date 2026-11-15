@@ -107,7 +107,14 @@ test('скрипты окна делят одну глобальную обла�
   // Каждый раздел обёрнут в функцию: только так он не выбрасывает свои имена
   // в общую область. Проверяем структурно, а не по отступам.
   for (const { name, source } of scripts) {
+    // `app.js` — хост окна и регистрирует разделы сам; `recorder.js` считает
+    // себя библиотекой; `core/report-text.js` — не раздел, а набор чистых
+    // функций отчёта: он тоже в IIFE, но инициализатора у него нет.
     if (name === 'app.js' || name === 'sections/recorder.js') continue;
+    if (name.startsWith('core/')) {
+      assert.match(source, /^\(function \(\) \{/m, `${name} не обёрнут в функцию`);
+      continue;
+    }
     const live = source
       .replace(/^\s*\/\*[\s\S]*?\*\//gm, '')
       .split('\n')

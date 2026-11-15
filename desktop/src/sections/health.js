@@ -37,9 +37,13 @@ function wireNetworkToggle() {
       ? 'сеть разрешена: задачи Python получают ZSMM_ONLINE=1'
       : 'сеть выключена — всё работает офлайн';
   };
-  const canPersist = typeof window.zsmm.saveSettings === 'function';
-  const load = typeof window.zsmm.loadSettings === 'function'
-    ? window.zsmm.loadSettings()
+  // Мост может отсутствовать (предпросмотр в браузере, упавший preload):
+  // без `?.` инициализатор раздела падал целиком, и «Диагностика» не
+  // открывалась даже там, где всё остальное работало.
+  const bridge = window.zsmm && typeof window.zsmm === 'object' ? window.zsmm : null;
+  const canPersist = Boolean(bridge && typeof bridge.saveSettings === 'function');
+  const load = bridge && typeof bridge.loadSettings === 'function'
+    ? bridge.loadSettings()
     : Promise.resolve(null);
   Promise.resolve(load)
     .then((reply) => {
@@ -57,7 +61,7 @@ function wireNetworkToggle() {
       }
       return;
     }
-    Promise.resolve(window.zsmm.saveSettings({ networkOnline: online })).catch((err) => {
+    Promise.resolve(bridge.saveSettings({ networkOnline: online })).catch((err) => {
       if (note) note.textContent = `настройка не сохранена: ${err.message}`;
     });
   });
@@ -77,6 +81,11 @@ function wireOllamaSetup() {
   button.addEventListener('click', async () => {
     button.disabled = true;
     if (status) status.textContent = 'запускаю подготовку…';
+    if (!window.zsmm || typeof window.zsmm.startTask !== 'function') {
+      if (status) status.textContent = 'запуск задач доступен только в приложении';
+      button.disabled = false;
+      return;
+    }
     try {
       const reply = await window.zsmm.startTask('ollama-setup', {});
       if (!reply || reply.ok !== true) {

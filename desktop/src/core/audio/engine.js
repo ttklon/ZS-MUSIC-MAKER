@@ -37,6 +37,9 @@ const master = require('./master');
 const takes = require('./takes');
 const { encodeWav } = require('./wav');
 const analysis = require('./analysis');
+const { balanceMix } = require('./balance');
+const { drumEngineReport } = require('./engine-report');
+const { buildReport } = require('./report');
 
 const SAMPLE_RATE = 44100;
 
@@ -136,42 +139,6 @@ function prepareRender({
  *
  * @returns {{wav: Buffer, report: object}}
  */
-/**
- * Отчёт об источнике звука — замена `_drum_engine_report()` из Python.
- *
- * Правило то же: если из банка покрыто ≥ 4 барабанных инструмента, статус
- * REAL_PASS и имя движка не врёт (`sample_bank+procedural`); иначе FALLBACK с
- * причиной, сколько инструментов реально покрыто.
- */
-function drumEngineReport(bank) {
-  const base = { ...drums.CAPABILITIES };
-  if (!bank || typeof bank.report !== 'function') {
-    base.reason = 'sample bank is not connected to this render; synthesised one-shots are used';
-    return base;
-  }
-  const report = bank.report();
-  const covered = (report.drum_instruments_with_samples || [])
-    .filter((name) => ['kick', 'snare', 'clap', 'hat', 'open_hat', '808'].includes(name));
-  const out = {
-    ...base,
-    sample_bank: {
-      instruments_with_samples: covered,
-      total_samples: report.total_samples || 0,
-      loaded_samples: report.loaded_samples || 0,
-      velocity_mode: report.velocity_mode,
-    },
-  };
-  if (covered.length >= 4) {
-    out.status = 'REAL_PASS';
-    out.engine = 'sample_bank+procedural';
-    out.reason = 'drums come from the licensed sample bank';
-  } else {
-    out.reason = `sample bank covers ${covered.length} of 6 drum instruments; the rest is synthesised`;
-  }
-  if (report.errors && report.errors.length) out.sample_load_errors = report.errors.slice();
-  return out;
-}
-
 /**
  * Полная сборка трека — замена `BeatConstructor.build_track`.
  *
@@ -323,6 +290,9 @@ function finishRender({
   // не выдаёт себя за запись с микрофона.
   const vocalInfo = mixVocal({ left, right, take: vocalTake, gain: vocalGain, sr, target });
   const fitted = fitLength(left, right, target);
+  // Баланс полос правится ДО ширины и «человечности»: коррекция меняет спектр,
+  // и делать её после дрейфа/шума значит измерять уже другой трек.
+  const balance = balanceMix(fitted.left, fitted.right, sr);
   const stereo = finalizeStereo(fitted.left, fitted.right, sr);
   const humanity = applyHumanity(stereo.left, stereo.right, sr, seed);
 
@@ -341,36 +311,10 @@ function finishRender({
 
   return {
     wav,
-    report: {
-      ok: true,
-      sample_rate: sr,
-      channels: 2,
-      bits: float32 ? 32 : 16,
-      duration_sec: Math.round((humanity.left.length / sr) * 100) / 100,
-      bpm,
-      key,
-      genre,
-      seed: seed === null || seed === undefined ? null : seed,
-      deterministic: seed !== null && seed !== undefined,
-      groove_family: patterns.familyForGenre(genre),
-      drum_engine: drumEngineReport(bank),
-      // `drum_engine` говорит, что банк покрывает инструменты; `samples_used`
-      // — сколько сэмплов реально прозвучало. Без второго числа первый статус
-      // был утверждением без факта.
-      samples_used: engine.samplesReport ? engine.samplesReport() : null,
-      sections: sectionInfo,
-      total_bars: plans.reduce((sum, plan) => sum + plan.bars, 0),
-      dramaturgy,
-      humanity: humanity.report,
-      measured_humanity: measured,
-      repetition,
-      bytes: wav.length,
-      slot_plan: Object.fromEntries(
-        Object.entries(slotPatterns).map(([slot, row]) => [slot, row.concat(row, row, row)]),
-      ),
-      motif_is_major: isMajor(key),
-      vocal: vocalInfo,
-    },
+    report: buildReport({
+      sr, float32, humanity, bpm, key, genre, seed, bank, engine, sectionInfo,
+      plans, dramaturgy, balance, measured, repetition, wav, slotPatterns, vocalInfo,
+    }),
   };
 }
 
@@ -389,7 +333,6 @@ module.exports = {
   applyHumanity,
   limitBar,
   applyLowTrim,
-  drumEngineReport,
   prepareRender,
   finishRender,
   renderBeat,

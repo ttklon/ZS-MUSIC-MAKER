@@ -285,8 +285,69 @@ function humanityReport(mono, sampleRate) {
   };
 }
 
+/**
+ * Спектральный баланс микса: доли энергии в полосах + два честных флага.
+ *
+ * Зачем: «низ не съедает середину» и «верх не режет уши» до сих пор были
+ * словами в описании. Здесь это измерение по готовому файлу: доли энергии
+ * ниже 120 Гц, 120–5 кГц и выше 10 кГц, плюс «низ перевесил» и «трек глухой».
+ * Пороги не «на глаз»: у фонка и трэпа низ действительно доминирует, поэтому
+ * флаг ставится на 0.62, а не на «больше половины».
+ */
+function spectrumReport(mono, sampleRate) {
+  const empty = {
+    ok: false,
+    reason: 'signal too short for a spectrum measurement',
+    bands: null,
+  };
+  const windowSize = 4096;
+  if (!mono || mono.length < windowSize) {
+    return { ...empty, reason: `${empty.reason} (${mono ? mono.length : 0} < ${windowSize} samples)` };
+  }
+  // Окно Ханна и одно БПФ на кадр: точности «доля энергии в полосе» хватает.
+  const window = hann(windowSize);
+  const bands = { low: 0, mid: 0, high: 0 };
+  const nyquist = sampleRate / 2;
+  const binHz = nyquist / (windowSize / 2);
+  const lowBin = Math.max(1, Math.trunc(120 / binHz));
+  const midBin = Math.trunc(5000 / binHz);
+  const highBin = Math.max(midBin + 1, Math.trunc(10000 / binHz));
+  // Кадры берутся по всей длине: 64 окна — статистика, а не «один такт».
+  const frames = Math.min(64, Math.floor(mono.length / windowSize));
+  const stepFrames = Math.max(1, Math.floor((mono.length - windowSize) / Math.max(1, frames - 1)));
+  for (let index = 0; index < frames; index += 1) {
+    const start = Math.min(mono.length - windowSize, index * stepFrames);
+    const frame = new Float32Array(windowSize);
+    for (let i = 0; i < windowSize; i += 1) frame[i] = mono[start + i] * window[i];
+    const { magnitudes } = fft(frame);
+    for (let bin = 1; bin < magnitudes.length; bin += 1) {
+      const power = magnitudes[bin] * magnitudes[bin];
+      if (bin < lowBin) bands.low += power;
+      else if (bin < midBin) bands.mid += power;
+      else if (bin >= highBin) bands.high += power;
+    }
+  }
+  const total = bands.low + bands.mid + bands.high;
+  if (!(total > 0)) return empty;
+  const share = {
+    low: Math.round((bands.low / total) * 1000) / 1000,
+    mid: Math.round((bands.mid / total) * 1000) / 1000,
+    high: Math.round((bands.high / total) * 1000) / 1000,
+  };
+  return {
+    ok: true,
+    bands: share,
+    low_heavy: share.low > 0.62,
+    dull: share.high < 0.002,
+    reason: share.low > 0.62
+      ? 'low end dominates: the mid is masked and the track will sound boomy'
+      : (share.high < 0.002 ? 'almost no energy above 10 kHz: the mix sounds dull' : 'balanced'),
+  };
+}
+
 module.exports = {
   BAR_FEATURES,
+  spectrumReport,
   MIN_ENTROPY,
   MAX_TYPES,
   fft,

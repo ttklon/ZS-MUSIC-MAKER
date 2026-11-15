@@ -105,6 +105,25 @@ def master_with_matchering(
     }
 
 
+
+def spectrum_of(path: str) -> dict[str, Any]:
+    """Баланс полос готового файла — измерение, а не обещание.
+
+    Окно считает его тем же способом (`desktop/src/core/audio/analysis.js::
+    spectrumReport`), поэтому числа совпадают. Ошибка измерения не роняет
+    мастеринг: отчёт говорит причину, а не притворяется, что всё измерено.
+    """
+    try:
+        import soundfile as sf
+
+        from modules.beat.spectrum import spectrum_report
+
+        audio, sr = sf.read(path, always_2d=True)
+        return spectrum_report(audio, int(sr))
+    except Exception as exc:  # noqa: BLE001
+        return {"ok": False, "bands": None, "reason": f"{type(exc).__name__}: {exc}"}
+
+
 def master_ai(
     input_wav: str,
     out_wav: str,
@@ -148,6 +167,7 @@ def master_ai(
 
     res = mastering.master_one(input_wav, out_wav, stand="streaming")
     res = res if isinstance(res, dict) else {"ok": True, "path": out_wav}
+    res["spectrum"] = spectrum_of(out_wav)
     loudness = normalize_master_loudness(
         out_wav, out_wav, target_lufs=target_lufs, ceiling_db=-1.2
     )

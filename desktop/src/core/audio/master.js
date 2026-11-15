@@ -235,6 +235,7 @@ function finalizeStereo(left, right, sr) {
   return { left: outLeft, right: outRight };
 }
 
+
 /** Плавный дрейф темпа ±amountPct процентов (линейная интерполяция). */
 function tempoDrift(left, right, sr, amountPct = 0.2, periodSec = 45.0) {
   const n = left.length;
