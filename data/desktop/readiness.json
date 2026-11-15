@@ -1,18 +1,18 @@
 {
-  "generated_at": "2026-11-08T13:54:35.373Z",
+  "generated_at": "2026-11-15T05:15:19.964Z",
   "percent": 65,
   "module_inventory": {
-    "tracked_modules": 300,
-    "REAL_PASS": 264,
+    "tracked_modules": 321,
+    "REAL_PASS": 281,
     "REAL_FAIL": 0,
     "PLANNED": 1,
-    "DEPRECATED": 35
+    "DEPRECATED": 39
   },
-  "module_reachability_share": 0.88,
+  "module_reachability_share": 0.8754,
   "block_scores": {
     "architecture": 100,
-    "core_modules": 84,
-    "audio_pipeline": 62.5,
+    "core_modules": 83.56,
+    "audio_pipeline": 75,
     "voice_recording": 71.43,
     "release": 100,
     "testing": 100
@@ -48,7 +48,7 @@
       "presets_library": "REAL_PASS"
     },
     "audio_pipeline": {
-      "matchering_runtime": "BLOCKED",
+      "matchering_runtime": "REAL_PASS",
       "pedalboard_runtime": "REAL_PASS",
       "pyloudnorm_runtime": "REAL_PASS",
       "librosa_soundfile_runtime": "REAL_PASS",
@@ -90,7 +90,7 @@
       "heavy engines unavailable: ['musicgen_runtime', 'demucs_runtime']"
     ]
   ],
-  "weighted_sum": 80.91,
+  "weighted_sum": 83.93,
   "cap_min": 65,
   "final_floor": 65
 }

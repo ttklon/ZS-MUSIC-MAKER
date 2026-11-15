@@ -8,7 +8,6 @@ modules.hit_factory.themes — выбор темы / жанра / BPM.
 from __future__ import annotations
 
 import random
-import time
 from typing import Any
 
 from modules.hit_factory.config import BPM_MAP, HIT_GENRE_WEIGHTS, THEME_POOL

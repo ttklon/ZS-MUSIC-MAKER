@@ -18,7 +18,7 @@ import shutil
 from pathlib import Path
 from typing import Any
 
-from modules.hit_factory.config import BPM_MAP, HIT_GENRE_WEIGHTS
+from modules.hit_factory.config import HIT_GENRE_WEIGHTS
 from modules.hit_factory.kpi import collect_hits
 
 def analyze(output_root: str | Path = "output/hits") -> dict[str, Any]:

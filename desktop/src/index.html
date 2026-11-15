@@ -28,6 +28,7 @@
           <button class="nav-item" data-view="dossiers">Досье</button>
           <button class="nav-item" data-view="tracks">Треки</button>
           <button class="nav-item" data-view="run">Запуск</button>
+          <button class="nav-item" data-view="agent">Агент</button>
           <button class="nav-item" data-view="health">Диагностика</button>
           <button class="nav-item" data-view="help">Справка</button>
         </nav>
@@ -227,6 +228,14 @@
           </div>
         </section>
 
+        <section class="view is-hidden" id="view-agent">
+          <div class="panel">
+            <h2>ИИ-агентик — проводник</h2>
+            <p class="muted">Один экран — 4 вопроса → хит. Досье/референсы по категориям — отдельно, но агент сам всё свяжет.</p>
+          </div>
+          <div id="agent-body"></div>
+        </section>
+
         <section class="view is-hidden" id="view-health">
           <div class="panel">
             <h2>Окружение и снимок</h2>
@@ -279,6 +288,7 @@
     <script src="sections/tracks.js"></script>
     <script src="sections/run.js"></script>
     <script src="sections/health.js"></script>
+    <script src="sections/agent.js"></script>
     <script src="sections/help.js"></script>
   </body>
 </html>

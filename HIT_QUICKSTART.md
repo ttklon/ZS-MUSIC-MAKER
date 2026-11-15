@@ -175,5 +175,34 @@ python tools/blind_listening_prep.py --hits 5     # output/blind_test/01..10.wav
 # затем слушай по docs/BLIND_LISTENING.md и заполни docs/BLIND_LISTENING_RESULT.md
 ```
 
+## 8. ПРОРЫВ — от референсов до хита на любом железе (even 3.85GB RAM)
+
+Интернет есть → веса докачаются; нет GPU/мало RAM → медленно, с подлагами, но **без фриза** (ротатор 1×, CPU offload, чанки 30с, `memory_guard 0.8GB` с `GC+sleep2s+empty_cache`).
+
+```bash
+# 1) референсы → style_vector 1-7 файлов (BPM/key/chroma/mfcc/гармония) + кэш data/reference_cache/<md5>.json
+# 2) артист → dossier (почему популярен, биты/подача/темы) через artist_dossier + trend_scout + LLMRouter (Ollama qwen2.5-coder:3b бесплатно)
+# 3) лирика в стиле артиста (ICEGERGERT и любой) — не плагиат, как будто поёшь ты → утверждение текста
+# 4) голос RVC (CPU, 10 мин записи достаточно, .venv-rvc отдельно, 0.1.5) → вокал в микс
+# 5) биты на выбор — MusicGen small 300M CPU 30с чанки (если есть torch) или enhanced DSP (humanize не игрушка)
+# 6) эдиты/сборки + tiktok (15/30с, hook_loop) + cover.png + vertical mp4 + мастеринг 4 таргета + релиз чартовый
+
+# полностью автономно, бесплатно, исчерпывающе — 1 вызов:
+python hitmaker.py --breakthrough --artist ICEGERGERT --refs ref1.mp3,ref2.mp3 --theme "ночь, деньги, движ" --count 1
+python hitmaker.py --breakthrough --voice raw.wav --duration 90 --seed 42
+python main.py --hit-factory --hit-breakthrough --hit-artist ICEGERGERT --hit-refs ref1.mp3,ref2.mp3 --hit-voice raw.wav
+
+# или через ENV (адаптив форсит level 2 medium BREAKTHROUGH даже на слабом PC):
+ZSMM_BREAKTHROUGH=1 python hitmaker.py --count 5 --evolve
+ZSMM_BREAKTHROUGH=1 python main.py --hit-factory --hit-count 3 --hit-genre trap
+
+# Python API
+from modules.hit_factory.breakthrough import full_orchestrate
+res = full_orchestrate(artist="ICEGERGERT", theme="ночь движ", reference_paths=["ref1.mp3"], raw_voice_path=None, duration_sec=90, seed=42, breakthrough=True)
+print(res["hit"]["hit_score"], res["hit"]["master_path"], res["elapsed_s"])  # 73.4 solid 107s на 3.85GB CPU — proof output/hits_test_breakthrough
+
+# доказано на стенде 3.85GB RAM CPU-only (текущий): 30с хит 73.4 solid за 107с, 28M мастера/tiktok/cover/release — не фризит
+```
+
 ---
-ZS Music Maker HIT FACTORY v1.6 ADAPTIVE — 2026-11-14 (41.1.1, demo 73.45/70.59/69.29, audit CLEAN, readiness 65%)
+ZS Music Maker HIT FACTORY v1.7 BREAKTHROUGH — 2026-11-15 (41.1.2, demo 73.45/70.59/69.29 + прорыв 73.4 solid, audit CLEAN, readiness 65%, 3.85GB RAM CPU OK)

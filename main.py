@@ -19,6 +19,7 @@ ZS Music Maker — единая точка входа
 
 from __future__ import annotations
 
+import logging
 import multiprocessing
 import sys
 from pathlib import Path
@@ -38,6 +39,20 @@ VERSION = ctx.version
 BUILD = ctx.build
 
 
+def _maybe_silent_bootstrap(args) -> None:
+    """Тихий авто-докач — сам понимает, без вопросов."""
+    try:
+        from tools.readiness.scoring import compute as _rc
+        _pct, _info = _rc()
+        _heavy = _info.get("raw_probes", {}).get("audio_pipeline", {})
+        if any(v == "BLOCKED" for v in _heavy.values()):
+            from app.core.net_policy import network_allowed
+            if network_allowed(allow_online=bool(getattr(args, "online", False))):
+                from app.core.bootstrap import auto_bootstrap as _ab
+                _ab(silent=True, allow_download=True)
+    except Exception as _e:
+        logging.getLogger(__name__).debug(f"silent bootstrap skip: {_e}")
+
 def main() -> int:
     # Собранный PyInstaller-exe должен уметь порождать процессы (мастеринг
     # считает стенды параллельно): без freeze_support дочерний процесс
@@ -47,6 +62,7 @@ def main() -> int:
     header()
     args = build_parser().parse_args()
 
+    _maybe_silent_bootstrap(args)
     # 1) Команды без побочных эффектов на проект.
     if args.version:
         return commands.run_version()
@@ -62,6 +78,8 @@ def main() -> int:
         return commands.run_health()
     if args.readiness:
         return commands.run_readiness()
+    if args.bootstrap or args.auto_bootstrap:
+        return commands.run_bootstrap(allow_online=bool(getattr(args, 'online', False)))
     if args.dashboard:
         return commands.run_dashboard()
     if args.e2e:

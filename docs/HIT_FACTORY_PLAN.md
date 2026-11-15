@@ -1,5 +1,5 @@
 # HIT FACTORY — Автономная фабрика хитов ZS Music Maker
-> Версия 1.6 ADAPTIVE — 2026-11-14 (41.1.1, любое железо, enhanced DSP, demo 73.45+70.59, adaptive ultra_light). Полностью бесплатно. Нероншно. Как человек.
+> Версия 1.6 ADAPTIVE — 2026-11-14 (41.1.2, любое железо, enhanced DSP, demo 73.45+70.59, adaptive ultra_light). Полностью бесплатно. Нероншно. Как человек.
 
 ## 0. TL;DR — что это
 
@@ -256,5 +256,5 @@ python main.py --hit-factory --count 5 --genre phonk --theme "ночь, неон
 
 - Демо `hit_trap_20261114_102332_2ba0a8` 60с `78.8 solid` (hook 100, repeat 100, chorus 84, tiktok 84) + `release` 29 файлов + `blind_test` 6 файлов.
 - KPI 11 хитов avg 53.8 -> last5 70.5, `autotune` дал рекомендации (jersey +0.1, hyperpop -0.1), `benchmark` просчитал жанры.
-- ADAPTIVE 41.1.1: AMD/NVIDIA/Intel/CPU, RAM/VRAM, ultra_light enhanced DSP (сатурация+хорус+EQ) убирает игрушечность даже без GPU; level 0-3, ACE-Step/MusicGen/Silero опционально. Готово к любому компу — Windows `setup.cmd` + демо 90с.
+- ADAPTIVE 41.1.2: AMD/NVIDIA/Intel/CPU, RAM/VRAM, ultra_light enhanced DSP (сатурация+хорус+EQ) убирает игрушечность даже без GPU; level 0-3, ACE-Step/MusicGen/Silero опционально. Готово к любому компу — Windows `setup.cmd` + демо 90с.
 

@@ -16,6 +16,7 @@
 const path = require('node:path');
 
 const DEFAULTS = {
+  networkOnline: false,
   genre: 'phonk',
   bpm: 140,
   seed: 7,
@@ -101,6 +102,8 @@ function sanitizeSettings(raw) {
   }
 
   if (typeof value.useBank === 'boolean') out.useBank = value.useBank;
+  if (typeof value.networkOnline === 'boolean') out.networkOnline = value.networkOnline;
+  else if (typeof value['network.online'] === 'boolean') out.networkOnline = value['network.online'];
   if (typeof value.view === 'string' && VIEWS.includes(value.view)) out.view = value.view;
   else if (value.view !== undefined) errors.push('view');
 

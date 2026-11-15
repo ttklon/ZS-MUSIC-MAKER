@@ -49,6 +49,65 @@ const DOES_NOT = [
   ['Отдельный процесс для рендера', 'Рендер живёт в потоке (worker_threads): окно отвечает, но на слабых машинах возможны просадки анимаций.'],
 ];
 
+function createUpdatePanel() {
+  const box = el('div', 'panel');
+  box.append(el('h2', null, 'Обновления — один клик'));
+  const info = el('p', 'muted', 'Текущая версия читается из version.json. Кнопка ниже качает релиз с GitHub (требует сеть) и ставит поверх без переустановки вручную. Пользовательские данные (voice_vault/lyric_vault/output) сохраняются, бэкап и откат — автоматически.');
+  box.append(info);
+  const row = el('div', null);
+  row.style.display = 'flex'; row.style.gap = '8px'; row.style.flexWrap = 'wrap'; row.style.marginTop = '8px';
+  const btnCheck = el('button', 'btn', 'Проверить обновления');
+  const btnInstall = el('button', 'btn', 'Скачать и установить');
+  btnInstall.disabled = true;
+  const status = el('p', 'muted', '');
+  status.style.marginTop = '8px'; status.style.whiteSpace = 'pre-wrap';
+  let pending = null; // {url, name}
+  async function doCheck() {
+    status.textContent = 'Проверяю GitHub…';
+    btnCheck.disabled = true;
+    try {
+      if (!window.zsmm || !window.zsmm.updaterCheck) throw new Error('мост обновлений не подключён');
+      const r = await window.zsmm.updaterCheck();
+      if (!r || r.ok === false) throw new Error(r.error || 'нет ответа');
+      if (r.offline) { status.textContent = 'Сеть запрещена: включи сеть в настройках или запусти с --online. Текущая: ' + (r.current || 'unknown'); btnInstall.disabled = true; return; }
+      const ver = r.current || 'unknown';
+      const latest = r.latest || r.tag || 'unknown';
+      if (r.updateAvailable) {
+        status.textContent = `Доступно обновление: ${ver} → ${latest}\n${(r.changelog || '').slice(0, 800)}${r.changelog && r.changelog.length>800?'…':''}\nРелиз: ${r.releaseUrl || ''}`;
+        if (r.sourceZip && r.sourceZip.url) { pending = { url: r.sourceZip.url, name: r.sourceZip.name }; btnInstall.disabled = false; }
+        else { pending = null; btnInstall.disabled = true; }
+      } else {
+        status.textContent = `Обновлений нет. Текущая ${ver}, последняя ${latest}. ${r.releaseUrl || ''}`;
+        pending = null; btnInstall.disabled = true;
+      }
+    } catch (e) {
+      status.textContent = 'Ошибка проверки: ' + e.message;
+    } finally { btnCheck.disabled = false; }
+  }
+  async function doInstall() {
+    if (!pending || !pending.url) { status.textContent = 'Нет ZIP для установки'; return; }
+    status.textContent = 'Скачиваю ' + pending.name + '…';
+    btnInstall.disabled = true; btnCheck.disabled = true;
+    try {
+      const dl = await window.zsmm.updaterDownload(pending.url, pending.name);
+      if (!dl || !dl.ok) throw new Error(dl.error || 'скачивание не удалось');
+      status.textContent = `Скачано ${(dl.bytes/1e6).toFixed(1)} MB → устанавливаю… Требуется перезапуск.`;
+      const res = await window.zsmm.updaterInstall(dl.path);
+      if (res && res.ok) { status.textContent = 'Готово! Установлена ' + (res.version || 'новая версия') + '. Перезапусти приложение.'; }
+      else { status.textContent = 'Ошибка установки: ' + (res.error || JSON.stringify(res).slice(0,500)); btnInstall.disabled = false; }
+    } catch (e) {
+      status.textContent = 'Ошибка: ' + e.message; btnInstall.disabled = false;
+    } finally { btnCheck.disabled = false; }
+  }
+  btnCheck.addEventListener('click', doCheck);
+  btnInstall.addEventListener('click', doInstall);
+  row.append(btnCheck, btnInstall);
+  box.append(row, status);
+  // авто-проверка при открытии раздела, но тихо
+  setTimeout(() => { if (window.zsmm && window.zsmm.updaterInfo) window.zsmm.updaterInfo().then(r=>{ if(r&&r.ok) status.textContent = 'Текущая версия: '+(r.current||'unknown')+' — нажми Проверить'; }); }, 300);
+  return box;
+}
+
 function section(title, items) {
   const box = el('div', 'panel');
   box.append(el('h2', null, title));
@@ -62,6 +121,7 @@ function section(title, items) {
 
 async function loadHelp() {
   const parts = [
+    createUpdatePanel(),
     section('Что действительно работает', WORKS),
     section('Чего здесь нет (честно)', DOES_NOT),
   ];

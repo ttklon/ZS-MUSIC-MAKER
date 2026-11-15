@@ -1,6 +1,6 @@
 {
-  "version": "41.1.1",
-  "build": "v41.1.1-hit-factory-adaptive-fix-2026-11-14",
-  "based_on": "41.1.0",
-  "changes": "41.1.1 FIX: audit CLEAN 0/297 (adaptive/generator silent_except → logged), readiness 65% cap, 10/10 hit_factory, demo 51M 90с trap enhanced, adaptive ultra_light 90с."
+  "version": "41.4.0",
+  "build": "v41.4.0-agent-guide-autonomous-2026-11-15",
+  "based_on": "41.1.2",
+  "changes": "41.4.0 FEAT agent: ИИ-агентик-проводник (4 вопроса → хит автономно), вкладка Агент, досье/референсы по категориям, текст/голос/бит в одном окне, bootstrap silent all_heavy, hit_factory full_agents"
 }

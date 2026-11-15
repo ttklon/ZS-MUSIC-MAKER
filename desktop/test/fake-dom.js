@@ -50,6 +50,10 @@ class FakeElement {
     // заголовка раздела или `aria-label` у кнопки без текста.
     this.attributes = {};
     this.tabIndex = -1;
+    // `element.style.xxx = '...'` используется в разделах (panel помощи и
+    // т.д.). В настоящем DOM это CSSStyleDeclaration, в двойнике достаточно
+    // простого объекта, лишь бы присваивание не падало с TypeError.
+    this.style = {};
   }
 
   getAttribute(name) {

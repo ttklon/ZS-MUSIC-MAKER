@@ -71,7 +71,7 @@ def test_shell_sources_parse() -> None:
 def test_shell_suite_passes() -> None:
     files = sorted(f"test/{p.name}" for p in (DESKTOP / "test").glob("*.test.js"))
     assert files, "в desktop/test нет ни одного файла *.test.js"
-    run = _run_node(["--test", *files])
+    run = _run_node(["--test", "--test-concurrency=1", *files])
     # Node может ответить без stdout (упал до запуска тестов, или вывод не
     # декодировался в cp1251 на Windows). Падение должно называть причину,
     # а не ``argument of type 'NoneType' is not iterable``.

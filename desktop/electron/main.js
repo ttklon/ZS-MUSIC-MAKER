@@ -23,6 +23,7 @@ const smoke = require('./smoke');
 const { resolveRoot, resolvePython, resolvePipelineRoot } = require('./runtime');
 const { createSettingsStore, DEFAULTS } = require('./settings');
 const { registerTaskIpc } = require('./task-runner');
+const { registerUpdaterIpc } = require('./updater-service');
 const policy = require('./window-policy');
 const appMenu = require('./app-menu');
 const appPaths = require('./app-paths');
@@ -177,6 +178,13 @@ function registerIpc(getProject) {
     getWindows: () => windows,
     state: taskState,
   });
+
+  // Обновления в один клик: кнопка в приложении скачивает релиз с GitHub и ставит поверх
+  try {
+    registerUpdaterIpc({ ipcMain, root: ROOT, settingsStore: settings(), resolvePython });
+  } catch (e) {
+    console.error('updater ipc failed', e);
+  }
 
   // Рендер, банк сэмплов, сохранения бита и вокальный вход — в
   // `beat-service.js`. Здесь передаём только то, что умеет Electron: диалоги,

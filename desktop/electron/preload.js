@@ -168,11 +168,28 @@ function revealRoot() {
   return ipcRenderer.invoke('zsmm:reveal-root');
 }
 
+function updaterCheck() {
+  return ipcRenderer.invoke('zsmm:updater-check');
+}
+function updaterDownload(url, name) {
+  return ipcRenderer.invoke('zsmm:updater-download', { url, name });
+}
+function updaterInstall(zipPath) {
+  return ipcRenderer.invoke('zsmm:updater-install', { zipPath });
+}
+function updaterInfo() {
+  return ipcRenderer.invoke('zsmm:updater-info');
+}
+
 function openExternal(url) {
   return ipcRenderer.invoke('zsmm:open-external', url);
 }
 
 contextBridge.exposeInMainWorld('zsmm', {
+  updaterCheck: () => updaterCheck(),
+  updaterDownload: (url, name) => updaterDownload(url, name),
+  updaterInstall: (zipPath) => updaterInstall(zipPath),
+  updaterInfo: () => updaterInfo(),
   version: () => section('version'),
   genres: () => section('genres'),
   modules: () => section('modules'),
