@@ -155,3 +155,29 @@ test('индексация без Python не превращается в усп
   assert.equal(reply.ok, false);
   assert.match(reply.error, /Python/);
 });
+
+test('«Подготовить голосовой движок» запускает настоящую задачу rvc-setup', async () => {
+  const tasks = [];
+  const env = bootVocal({
+    startTask: async (key, options) => {
+      tasks.push([key, options]);
+      return { ok: true, data: { pid: 3, command: ['main.py', '--rvc-setup'] } };
+    },
+  });
+
+  const button = env.document.getElementById('vocal-rvc-setup');
+  assert.ok(button, 'кнопки подготовки движка нет в разметке');
+  button.dispatch('click');
+  await flush();
+  await flush();
+
+  assert.deepEqual(tasks, [['rvc-setup', {}]]);
+  assert.match(env.document.getElementById('vocal-clone-status').textContent, /Запуск/);
+});
+
+test('белый список знает rvc-setup и rvc-train как разные задачи', () => {
+  const tasks = require('../electron/tasks');
+
+  assert.deepEqual(tasks.buildCommand('rvc-setup', {}), ['--rvc-setup']);
+  assert.deepEqual(tasks.buildCommand('rvc-train', { voice: 'мой голос' }), ['--rvc-train', '--rvc-voice', 'мой_голос']);
+});

@@ -9,7 +9,11 @@ tools/readiness/probes.py — пробы подсистем.
 
 from __future__ import annotations
 
+import logging
+
 from tools.readiness.paths import ROOT, TEST_ROOT
+
+_LOGGER = logging.getLogger(__name__)
 
 
 def _module_exists(name: str) -> bool:
@@ -124,6 +128,16 @@ def probe_voice_recording() -> dict[str, str]:
     p["rvc_model"] = (
         "REAL_PASS" if list((ROOT / "models" / "rvc").rglob("*.pth")) else "MISSING"
     )
+    # Инференс клона живёт в отдельном окружении (numpy<=1.23.5 у rvc-python).
+    # Проверяем сам интерпретатор, а не намерение: без него «клонировать» нельзя.
+    try:
+        from modules.rvc_manager.venv import rvc_venv_report
+
+        report = rvc_venv_report()
+        p["rvc_env"] = "REAL_PASS" if report.get("installed") else "BLOCKED"
+    except Exception as exc:  # noqa: BLE001 - проба не должна ронять отчёт
+        _LOGGER.debug("rvc venv probe failed: %s", exc)
+        p["rvc_env"] = "MISSING"
     try:
         from modules import voice_recording as vr
 

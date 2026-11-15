@@ -67,6 +67,12 @@ def compute() -> tuple[float, dict[str, Any]]:
         caps.append((65.0, f"heavy engines unavailable: {heavy}"))
     if blocks_raw["architecture"].get("updater_module") != "REAL_PASS":
         caps.append((85.0, "no updater module"))
+    # Клон голоса — заявленная функция, а не «желательно»: без окружения RVC
+    # инференс физически невозможен, поэтому потолок честный и с причиной.
+    rvc_env = blocks_raw["voice_recording"].get("rvc_env")
+    if rvc_env not in (None, "REAL_PASS"):
+        caps.append((90.0, f"voice clone engine not ready: rvc_env={rvc_env} "
+                           f"(python main.py --bootstrap --online)"))
 
     cap_min = min([cap[0] for cap in caps], default=100.0)
     final = math.floor(min(total, cap_min))

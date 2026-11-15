@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-11-15T12:08:43.398Z",
+  "generated_at": "2026-11-15T12:26:06.004Z",
   "percent": 65,
   "module_inventory": {
     "tracked_modules": 331,
@@ -13,7 +13,7 @@
     "architecture": 100,
     "core_modules": 83.92,
     "audio_pipeline": 75,
-    "voice_recording": 71.43,
+    "voice_recording": 62.5,
     "release": 100,
     "testing": 100
   },
@@ -64,6 +64,7 @@
       "voice_cleaner": "REAL_PASS",
       "vocal_fx": "REAL_PASS",
       "rvc_model": "MISSING",
+      "rvc_env": "BLOCKED",
       "mic_recording": "BLOCKED"
     },
     "release": {
@@ -88,9 +89,13 @@
     [
       65,
       "heavy engines unavailable: ['musicgen_runtime', 'demucs_runtime']"
+    ],
+    [
+      90,
+      "voice clone engine not ready: rvc_env=BLOCKED (python main.py --bootstrap --online)"
     ]
   ],
-  "weighted_sum": 84.02,
+  "weighted_sum": 82.23,
   "cap_min": 65,
   "final_floor": 65
 }

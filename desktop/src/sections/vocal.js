@@ -115,6 +115,8 @@ async function wireVocal() {
   if (saveRecordingButton) saveRecordingButton.addEventListener('click', saveVocalRecording);
   const cloneButton = $('vocal-clone');
   if (cloneButton) cloneButton.addEventListener('click', cloneVoice);
+  const setupButton = $('vocal-rvc-setup');
+  if (setupButton) setupButton.addEventListener('click', prepareVoiceEngine);
 }
 
 /** Начать запись: разрешение и устройства — у окна, а не у главного процесса. */
@@ -224,6 +226,31 @@ async function saveVocalRecording() {
     }
   } finally {
     if (button) button.disabled = !recordedTake;
+  }
+}
+
+/**
+ * Подготовить голосовой движок: отдельное окружение RVC и базовые веса.
+ *
+ * Зачем кнопка: `rvc-python` не ставится в основное окружение (у него
+ * `numpy<=1.23.5`), поэтому на чистой машине клон физически не мог работать.
+ * Раньше это была ручная инструкция в INSTALL.md — теперь видимая задача с
+ * логом, которую можно запустить до записи голоса.
+ */
+async function prepareVoiceEngine() {
+  const status = $('vocal-clone-status');
+  const button = $('vocal-rvc-setup');
+  if (button) button.disabled = true;
+  try {
+    if (status) status.textContent = 'готовлю окружение RVC… (первый раз качается ~2 ГБ)';
+    const reply = await window.zsmm.startTask('rvc-setup', {});
+    if (!reply || reply.ok !== true) {
+      showError(`Подготовка не запустилась: ${(reply && reply.error) || 'нет ответа'}`);
+      return;
+    }
+    if (status) status.textContent = 'подготовка идёт в разделе «Запуск» — там виден лог';
+  } finally {
+    if (button) button.disabled = false;
   }
 }
 

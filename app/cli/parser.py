@@ -82,6 +82,8 @@ def _add_engine_flags(parser: argparse.ArgumentParser) -> None:
                         help="Обучить RVC-модель на записях из voice_vault (нужен тренер: --rvc-fork или ZSMM_RVC_TRAIN_CMD)")
     parser.add_argument("--rvc-voice", type=str, default="my_voice", help="Имя голоса для --rvc-train")
     parser.add_argument("--rvc-epochs", type=int, default=100, help="Эпох обучения для --rvc-train")
+    parser.add_argument("--rvc-setup", action="store_true",
+                        help="Создать отдельное окружение RVC (.venv-rvc + rvc-python 0.1.5) и проверить базовые веса")
 
 
 def build_parser() -> argparse.ArgumentParser:

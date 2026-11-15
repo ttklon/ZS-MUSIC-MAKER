@@ -237,6 +237,32 @@ def run_rvc_fork(fork: str = "applio") -> int:
     return 1
 
 
+def run_rvc_setup() -> int:
+    """Подготовить окружение RVC: `.venv-rvc`, `rvc-python`, базовые веса.
+
+    Отдельная команда, потому что это долгая установка (~2–3 ГБ), и человек
+    должен видеть её вывод, а не ждать молча. Окно зовёт её кнопкой
+    «Подготовить голосовой движок».
+    """
+    try:
+        from app.core.bootstrap import ensure_rvc_environment, ensure_rvc_default_voice
+        from app.core.net_policy import network_allowed
+        from modules.rvc_manager.venv import rvc_venv_report
+
+        allow = network_allowed()
+        safe_print("[rvc-setup] создаю отдельное окружение RVC (numpy<=1.23.5, rvc-python 0.1.5)…")
+        env = ensure_rvc_environment(silent=False, allow_download=allow)
+        safe_print(json.dumps({"environment": env}, ensure_ascii=False, indent=2))
+        voice = ensure_rvc_default_voice(silent=False, allow_download=allow)
+        safe_print(json.dumps({"model": voice}, ensure_ascii=False, indent=2))
+        report = rvc_venv_report()
+        safe_print(json.dumps({"report": report}, ensure_ascii=False, indent=2))
+        return 0 if report.get("installed") else 1
+    except Exception as e:  # noqa: BLE001 - CLI обязан вернуть код и причину
+        safe_print(f"[main --rvc-setup] failed: {e}")
+        return 2
+
+
 def run_rvc_train(voice_name: str = "my_voice", epochs: int = 100) -> int:
     """Обучить RVC-модель и напечатать отчёт: модель или честная причина."""
     try:

@@ -282,6 +282,23 @@ def ensure_rvc_default_voice(silent: bool = True, allow_download: bool | None = 
     return {"present": bool(names), "downloaded": names, "source": "bootstrap"}
 
 
+def ensure_rvc_environment(silent: bool = True, allow_download: bool | None = None) -> dict:
+    """Создать `.venv-rvc` с `rvc-python` — без него инференс клона невозможен.
+
+    `rvc-python` не ставится в основное окружение (numpy<=1.23.5 против >=1.26),
+    поэтому у него отдельный интерпретатор. Раньше это была ручная инструкция,
+    и кнопка «Клонировать мой голос» на чистой машине не работала.
+    """
+    from modules.rvc_manager.venv import ensure_rvc_venv
+
+    result = ensure_rvc_venv(allow_download=allow_download, silent=silent)
+    if result.get("ok"):
+        _LOG.info("[bootstrap] RVC окружение: %s", result.get("python"))
+    else:
+        _LOG.info("[bootstrap] RVC окружение не готово: %s", result.get("reason"))
+    return result
+
+
 def ensure_rvc_trainer(silent: bool = True, allow_download: bool | None = None) -> dict:
     """Подтянуть тренер RVC, без которого клонирование голоса не работает.
 
@@ -316,7 +333,7 @@ def auto_bootstrap(silent: bool = True, allow_download: bool | None = None) -> d
     """
     if allow_download is None:
         allow_download = _network_allowed()
-    res: dict = {"hardware": {}, "heavy": {}, "models": {}, "rvc": {}, "rvc_trainer": {},
+    res: dict = {"hardware": {}, "heavy": {}, "models": {}, "rvc": {}, "rvc_trainer": {}, "rvc_env": {},
                  "readiness_before": None, "readiness_after": None}
     try:
         from tools.readiness.scoring import compute as readiness_compute
@@ -330,6 +347,10 @@ def auto_bootstrap(silent: bool = True, allow_download: bool | None = None) -> d
     res["models"] = ensure_models(silent=silent, allow_download=allow_download)
     res["rvc"] = ensure_rvc_default_voice(silent=silent, allow_download=allow_download)
     res["rvc_trainer"] = ensure_rvc_trainer(silent=silent, allow_download=allow_download)
+    # 4) окружение RVC: сначала оно, потом базовые веса (пакет кладёт их внутрь себя)
+    res["rvc_env"] = ensure_rvc_environment(silent=silent, allow_download=allow_download)
+    if res["rvc_env"].get("ok"):
+        _ensure_rvc_base()
 
     # авто-жанр/full_agents уже в breakthrough/orchestrator — здесь только гарантия что heavy есть
     try:

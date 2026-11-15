@@ -75,6 +75,8 @@ def _run_info_command(args) -> int | None:
     for enabled, handler in dispatch:
         if enabled:
             return handler()
+    if args.rvc_setup:
+        return commands.run_rvc_setup()
     if args.rvc_train:
         return commands.run_rvc_train(args.rvc_voice, args.rvc_epochs)
     if args.rvc_fork:
