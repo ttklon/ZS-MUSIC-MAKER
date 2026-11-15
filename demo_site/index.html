@@ -2,7 +2,7 @@
 <html lang="ru">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ZS Music Maker — HIT FACTORY ADAPTIVE 41.1.0 — 90с не игрушечно</title>
+<title>ZS Music Maker — HIT FACTORY HYGIENE 41.1.2 — 90с не игрушечно</title>
 <style>
 body{font-family:Inter,system-ui,sans-serif;background:#0f0f12;color:#eee;margin:0;padding:32px}
 h1{font-size:28px;margin:0 0 8px}h2{font-size:14px;color:#aaa;font-weight:400;margin:0 0 24px;line-height:1.5}
@@ -15,11 +15,24 @@ hr{border:none;border-top:1px solid #222;margin:28px 0}
 .badge{display:inline-block;background:#ff3b30;color:#fff;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:600;vertical-align:middle;margin-left:8px}
 </style>
 <div class="card">
-<h1>ZS MUSIC MAKER — HIT FACTORY <span class="badge">ADAPTIVE 41.1.0</span></h1>
-<h2>Любое железо: AMD/NVIDIA/Intel/CPU + RAM/VRAM → auto 90-120с • <b>не игрушечно</b> — enhanced DSP (сатурация+хорус+EQ) даже без GPU • LIVE PREVIEW 8000 • <code>main</code> da9d12b → 41.1.0</h2>
+<h1>ZS MUSIC MAKER — HIT FACTORY <span class="badge">HYGIENE 41.1.2</span></h1>
+<h2>Любое железо: AMD/NVIDIA/Intel/CPU + RAM/VRAM → auto 90-120с • <b>не игрушечно</b> — enhanced DSP (сатурация+хорус+EQ) даже без GPU • hygiene 308/221/75 • LIVE PREVIEW 8000 • <code>main</code> a4249ee + 41.1.2 → 2102 passed</h2>
 
 <div style="background:#1e1e26;border-radius:12px;padding:16px;margin:0 0 24px">
-<b style="color:#4ade80">▶ NEW — Trap 90с — 69.28 solid — ADAPTIVE ultra_light enhanced</b> <span class="tag">90с</span><span class="tag">trap 143 BPM</span><span class="tag">enhanced DSP ✓</span><span class="tag">adaptive lvl 0</span>
+<b style="color:#4ade80">▶ NEW 41.1.2 — Trap 30с — 68.1 solid — HYGIENE 308 ultra_light enhanced</b> <span class="tag">30с</span><span class="tag">trap 148 BPM</span><span class="tag">68.1 solid</span><span class="tag">enhanced DSP ✓</span><span class="tag">aggression 0.8</span>
+<img class="cover" src="cover_trap30_68.png" alt="trap 30 68 cover">
+<div>
+<span class="tag">vocal_presence 65</span><span class="tag">structure 61</span><span class="tag">novelty 69</span><span class="tag">distortion 100</span><span class="tag">tiktok off</span>
+</div>
+<audio controls preload="metadata" src="demo_trap30_68_master.wav"></audio>
+<div class="meta">30с, 5.1МБ, hit_score 68.1 solid (lvl0, tanh2%+chorus12ms+tiltEQ) — тема «город спит, а мой мотор рычит, вайб», hype «залетело, имба, база…». Сгенерено 2026-11-15 <code>python hitmaker.py --genre trap --duration 30 --seed 999</code> (adaptive lvl0, hygiene split). <a href="demo_trap30_68_master.wav" download>скачать WAV</a></div>
+<h4>TikTok 15с</h4>
+<audio controls preload="metadata" src="demo_trap30_68_tiktok15.wav"></audio>
+<div class="meta"><a href="demo_trap30_68_tiktok15.wav" download>скачать tiktok 15с</a> — cover 1400 <a href="cover_trap30_68.png" download>скачать</a></div>
+</div>
+
+<div style="background:#1e1e26;border-radius:12px;padding:16px;margin:0 0 24px">
+<b style="color:#4ade80">▶ Trap 90с — 69.28 solid — ADAPTIVE ultra_light enhanced</b> <span class="tag">90с</span><span class="tag">trap 143 BPM</span><span class="tag">enhanced DSP ✓</span><span class="tag">adaptive lvl 0</span>
 <img class="cover" src="cover_trap90.png" alt="trap 90 cover">
 <div>
 <span class="tag">hook_repeat 69.5</span><span class="tag">drop 44</span><span class="tag">stereo 0.64</span><span class="tag">BPM 75</span><span class="tag">aggression 0.75</span><span class="tag">tiktok 56-81с</span>
@@ -50,11 +63,11 @@ hr{border:none;border-top:1px solid #222;margin:28px 0}
 
 <hr>
 <div class="meta">
-<p><b>Что изменилось — теперь не игрушечно:</b><br>
-Раньше 30с + простая процедурка = заставка. Теперь <code>adaptive.py</code> на любом компе ставит <b>90с</b> даже на 3.85GB RAM, <code>aggression ≥0.75</code> для динамики, <code>enhanced DSP</code> (сатурация + хорус 12мс + tilt EQ) — звук теплее/шире, без нейросетей. Если есть AMD/NVIDIA + RAM>8GB + ACE-Step сервер на 8001 — автоматом берёт нейросеть, иначе — улучшенный DSP (фолбэк без падения).</p>
-<p><b>Адаптив под любое железо:</b> <code>AMD Radeon → DirectML/CPU, NVIDIA → CUDA/ROCm, нет GPU → DSP</code> — меряет RAM/VRAM, выбирает level 0-3. Твоя AMD — сейчас <code>ultra_light enhanced (3.85GB, CPU, ACE-Step False → DSP+saturation)</code>, на твоём компе с GPU и 16GB RAM автоматом станет <code>medium/heavy</code> и возьмёт <code>ACE-Step 1.5 / MusicGen / Silero</code> если установлены.</p>
+<p><b>Что изменилось — теперь не игрушечно (41.1.1→41.1.2):</b><br>
+Раньше 30с + процедурка = заставка. Теперь <code>adaptive.py</code> ставит <b>90с</b> даже на 3.85GB RAM, <code>aggression ≥0.75</code>, <code>enhanced DSP</code> (tanh 2% + хорус 12мс + tilt EQ +1.5дБ) — теплее/шире без нейросетей. 41.1.2: hygiene <code>generator 308 + _runner/_state</code>, <code>audit 0/299</code>, <code>2102 passed</code>, tiktok REAL_PASS. Если есть AMD/NVIDIA 8GB+ + ACE-Step 8001 — автоматом нейросеть, иначе — улучшенный DSP (фолбэк).</p>
+<p><b>Адаптив под любое железо (41.1.2):</b> <code>AMD → DirectML/CPU, NVIDIA → CUDA/ROCm, нет GPU → DSP</code> — меряет RAM/VRAM, level 0-3. Стенд 3.85GB ultra_light: 30с 68.1 + 90с 69.28 solid (enhanced). На 16GB+GPU автоматом <code>medium/heavy</code> → <code>ACE-Step/MusicGen/Silero</code> если установлены.</p>
 <p><b>Генерить:</b> <code>python hitmaker.py --count 5 --evolve --min-score 68 --duration 90</code> (adaptive 90с) • <code>python -m modules.hit_factory.kpi</code> • <code>python hitmaker.py --genre trap --theme "ночь, деньги" --seed 42 --duration 90</code></p>
-<p>Ветка <code>arena/a9a7013e</code> → <code>41.1.0 ADAPTIVE</code> в <code>main</code>. LIVE PREVIEW порт 8000 — слушай все 3 трека прямо здесь. Если всё ещё «заставка» — скажи жанр/референс, сгенерю под него с другой агрессией/темой.</p>
+<p>Ветка <code>arena/fa61e3de</code> → <code>41.1.2 HYGIENE</code> в PR #15 (2102 passed, hygiene CLEAN). LIVE PREVIEW порт 8000 — слушай 4 трека (30с 68.1 + 90с 69.28 + jersey 73.45 + phonk 70.59) прямо здесь. Если всё ещё «заставка» — скажи жанр/референс, сгенерю под него с другой агрессией/темой.</p>
 </div>
 </div>
 </div>
