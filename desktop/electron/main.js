@@ -164,6 +164,10 @@ function wireBeatIpc() {
   return beatService.registerBeatIpc({
     ipcMain,
     dialog,
+    // Python нужен индексации записи в голосовое хранилище: путь ищется той
+    // же функцией, что и для задач, чтобы окно не угадывало интерпретатор.
+    python: resolvePython,
+    pipelineRoot: resolvePipelineRoot,
     rootDir: SAMPLE_ROOT || path.resolve(__dirname, '..', '..'),
     getWindow: () => (windows ? windows.get() : null),
     musicDir: safeMusicDir,

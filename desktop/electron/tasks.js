@@ -67,6 +67,16 @@ const TASKS = {
     accepts: ['mood', 'artist', 'refs', 'voice'],
     timeoutMs: 12 * 60 * 60_000,
   },
+  // Клонирование голоса: обучение RVC на записях из voice_vault. Кнопка
+  // существует только потому, что у неё есть настоящий исполнитель
+  // (`--rvc-train`), а не заглушка: без тренера Python отвечает «не
+  // подключено» и подсказывает `--rvc-fork`.
+  'rvc-train': {
+    label: 'Обучить голос (RVC) на моих записях',
+    args: () => ['--rvc-train'],
+    accepts: ['voice'],
+    timeoutMs: 4 * 60 * 60_000,
+  },
   'ai-status': {
     label: 'Статус AI-моделей',
     args: () => ['--ai-status'],
@@ -95,6 +105,10 @@ function sanitizeOptions(options = {}) {
   const mood = cleanText(options.mood, 300, 'настроение');
   const refs = cleanRefs(options.refs);
   const voice = cleanText(options.voice, 260, 'голос');
+  // Имя голоса уходит в `--rvc-voice` и становится каталогом модели.
+  const voiceModeName = options.rvcVoice === undefined || options.rvcVoice === null
+    ? ''
+    : cleanText(options.rvcVoice, 40, 'имя голоса').replace(/\s+/g, '_');
 
   // Имя артиста уходит аргументом в Python: только буквы, цифры, пробел, «-» и
   // «_». Это же имя Python превращает в slug каталога, поэтому `..` и слэши
@@ -108,6 +122,9 @@ function sanitizeOptions(options = {}) {
   }
   if (theme !== null && !/^[\w \-]{1,64}$/u.test(theme)) {
     throw new TaskError(`недопустимая тема: ${theme}`);
+  }
+  if (voiceModeName && !/^[\w\-]{1,40}$/u.test(voiceModeName)) {
+    throw new TaskError(`недопустимое имя голоса: ${voiceModeName}`);
   }
   let seedValue = null;
   if (seed !== null && seed !== '') {
@@ -124,7 +141,7 @@ function sanitizeOptions(options = {}) {
       throw new TaskError(`сид должен быть неотрицательным целым: ${seed}`);
     }
   }
-  return { genre, theme, seed: seedValue, artist, mood, refs, voice };
+  return { genre, theme, seed: seedValue, artist, mood, refs, voice, rvcVoice: voiceModeName };
 }
 
 /**
@@ -158,7 +175,7 @@ function cleanRefs(value) {
  * именем параметра — её видно в отчёте, а не в пустом результате.
  */
 function assertAccepted(key, task, options = {}) {
-  const known = ['genre', 'theme', 'seed', 'artist', 'mood', 'refs', 'voice'];
+  const known = ['genre', 'theme', 'seed', 'artist', 'mood', 'refs', 'voice', 'rvcVoice'];
   for (const name of Object.keys(options || {})) {
     if (options[name] === undefined || options[name] === null || options[name] === '') continue;
     if (!known.includes(name)) throw new TaskError(`неизвестный параметр: ${name}`);
@@ -189,14 +206,22 @@ function buildCommand(key, options = {}) {
   // Всё, что вернул `sanitizeOptions`, должно быть явно разрешено задачей:
   // иначе параметр молча терялся бы, и окно думало бы, что ответ ушёл.
   assertAccepted(key, task, options);
-  const safe = sanitizeOptions(options);
+  // У обучения голоса поле «голос» — это имя модели, а не путь к записи:
+  // окно присылает его в `voice`, поэтому переводим в `rvcVoice` до проверки.
+  const prepared = key === 'rvc-train'
+    ? { ...options, rvcVoice: options.rvcVoice || options.voice }
+    : options;
+  const safe = sanitizeOptions(prepared);
   const argv = [...task.args(safe)];
   if (safe.genre !== null && task.accepts.includes('genre')) argv.push('--genre', safe.genre);
   if (safe.theme !== null && task.accepts.includes('theme')) argv.push('--theme', safe.theme);
   if (safe.seed !== null && task.accepts.includes('seed')) argv.push('--seed', String(safe.seed));
   if (task.accepts.includes('mood') && safe.mood) argv.push('--agent-mood', safe.mood);
   if (task.accepts.includes('refs') && safe.refs) argv.push('--agent-refs', safe.refs);
-  if (task.accepts.includes('voice') && safe.voice) argv.push('--agent-voice', safe.voice);
+  if (key === 'rvc-train' && safe.rvcVoice) argv.push('--rvc-voice', safe.rvcVoice);
+  else if (task.accepts.includes('voice') && safe.voice && key !== 'rvc-train') {
+    argv.push('--agent-voice', safe.voice);
+  }
   if (task.accepts.includes('artist')) appendArtist(argv, key, safe);
   return argv;
 }

@@ -149,6 +149,11 @@
                    уезжала вниз и читалась как часть записи. -->
               <div class="row">
                 <button class="ghost" id="vocal-save" disabled>Сохранить дубль как WAV</button>
+                <!-- Клонирование голоса: запись → vault → обучение RVC. Одна
+                     кнопка на весь путь, потому что иначе человек записывает
+                     голос и не понимает, почему «клон» не появился. -->
+                <button class="ghost" id="vocal-clone" disabled>Клонировать мой голос (RVC)</button>
+                <span class="muted" id="vocal-clone-status" role="status" aria-live="polite"></span>
               </div>
               <p class="muted" id="vocal-note">Вокал выключен: трек будет без голоса.</p>
             </fieldset>

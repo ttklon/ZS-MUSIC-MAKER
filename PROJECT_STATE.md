@@ -26,6 +26,19 @@
 `audit_honesty CLEAN 310`; `ast_dead_imports CLEAN 0`; `main --agent-hit` даёт мастер
 (`hit_score 69.24 solid`) и честный `PARTIAL` без Ollama/голоса/сэмплов.
 
+## Клонирование голоса (RVC) — 42.0.0
+
+- `modules/rvc_manager/train_backend.py` — настоящий тренер: команда из
+  `ZSMM_RVC_TRAIN_CMD` (подстановки `{dataset} {voice} {epochs} {device} {out} {batch}`)
+  или скрипт форка из `models/rvc_forks/` (Applio → Mangio → RVC-WebUI).
+  Успех только при коде 0 **и** непустом `.pth` на диске; иначе `error` с хвостом лога.
+- `RVCTrainer.train()` больше не возвращает `blocked_backend` безусловно: без тренера
+  он честно просит `python main.py --rvc-fork applio` (или `ZSMM_RVC_TRAIN_CMD`).
+- CLI: `--rvc-fork applio|mangio|rvc-webui`, `--rvc-train [--rvc-voice имя] [--rvc-epochs N]`.
+- Окно: кнопка «Клонировать мой голос (RVC)» в блоке вокала — запись → сохранение в файл
+  → `zsmm:vocal-index` (реальная индексация через `voice_vault.add_recording`) → задача
+  `rvc-train`. Раньше сохранённая запись не попадала в vault, и обучение не находило её.
+
 ## Готовность по внутреннему счётчику: 65.0 % (cap 65, weighted 83.93, DEPRECATED 43)
 
 Счётчик ограничен сверху двумя колпаками: нет реального микрофона (≤ 80 %) и

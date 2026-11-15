@@ -213,6 +213,43 @@ def run_bootstrap(allow_online: bool = False) -> int:
         return 2
 
 
+def run_rvc_fork(fork: str = "applio") -> int:
+    """Подтянуть тренер RVC — без него клонирование голоса честно заблокировано.
+
+    Обучение RVC не входит в `rvc-python` (там только инференс), поэтому тренер
+    берётся из открытого форка. Это отдельная явная команда: git clone на
+    гигабайты не должен случаться «сам» посреди рендера.
+    """
+    from modules.rvc_manager.backend import ensure_fork
+    from modules.rvc_manager.config import AMD_FORKS, FORKS_DIR
+
+    name = (fork or "applio").strip().lower()
+    if name not in AMD_FORKS:
+        safe_print(f"[rvc-fork] неизвестный форк {name!r}; доступны: {', '.join(sorted(AMD_FORKS))}")
+        return 2
+    path = ensure_fork(name, on_progress=lambda msg: safe_print(f"[rvc-fork] {msg}"))
+    trainer = FORKS_DIR / name
+    if (trainer / ".git").exists():
+        safe_print(f"[rvc-fork] тренер готов: {path}")
+        safe_print(f"[rvc-fork] обучение: python main.py --rvc-train --rvc-voice <имя>")
+        return 0
+    safe_print(f"[rvc-fork] форк НЕ подтянут ({path}): проверь git и сеть, затем повтори")
+    return 1
+
+
+def run_rvc_train(voice_name: str = "my_voice", epochs: int = 100) -> int:
+    """Обучить RVC-модель и напечатать отчёт: модель или честная причина."""
+    try:
+        from modules.voice_convert import train_rvc_model
+
+        result = train_rvc_model(voice_name=voice_name, epochs=int(epochs))
+        safe_print(json.dumps(result, ensure_ascii=False, indent=2))
+        return 0 if result.get("ok") else 1
+    except Exception as e:  # noqa: BLE001 - CLI обязан вернуть код, а не трейсбек
+        safe_print(f"[main --rvc-train] failed: {e}")
+        return 2
+
+
 def run_console() -> int:
     """Консольный REPL — запасной путь, когда GUI невозможен."""
     safe_print("[main --console] запущен без GUI. Команды:")

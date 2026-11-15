@@ -131,6 +131,15 @@ function saveBeat(wavBase64) {
  *
  * @param {{wavBase64: string, seconds?: number, name?: string}} payload
  */
+/**
+ * Положить запись в голосовое хранилище — иначе обучение RVC её не увидит.
+ * Сохранение файла и индексация разделены: сохранение делает диск, а vault
+ * считает фичи записи (SNR, дедупликацию) настоящим Python-модулем.
+ */
+async function indexRecording(filePath) {
+  return ipcRenderer.invoke('zsmm:vocal-index', { filePath });
+}
+
 function saveRecording(payload) {
   return ipcRenderer.invoke('zsmm:vocal-save-recording', payload);
 }
@@ -231,6 +240,7 @@ contextBridge.exposeInMainWorld('zsmm', {
   pickVocalFile,
   vocalInput,
   saveRecording,
+  indexRecording,
   dossierAdd,
   dossierRemove,
   dossierTracks,

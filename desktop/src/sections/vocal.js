@@ -22,6 +22,9 @@ const recorder = window.ZSMM_RECORDER;
 // «тестовый дубль» не превращается в «запись с микрофона» ни при каких
 // настройках.
 let vocalFile = null;
+// Путь сохранённой записи: нужен клонированию голоса, потому что обучение
+// читает WAV из файла и кладёт его в голосовое хранилище.
+let savedRecordingPath = null;
 /** Последняя запись с микрофона: `{wavBase64, seconds, sampleRate}`. */
 let recordedTake = null;
 /** Текущая сессия записи (`null`, когда не пишем). */
@@ -110,6 +113,8 @@ async function wireVocal() {
   if (stopButton) stopButton.addEventListener('click', stopVocalRecording);
   const saveRecordingButton = $('vocal-save-recording');
   if (saveRecordingButton) saveRecordingButton.addEventListener('click', saveVocalRecording);
+  const cloneButton = $('vocal-clone');
+  if (cloneButton) cloneButton.addEventListener('click', cloneVoice);
 }
 
 /** Начать запись: разрешение и устройства — у окна, а не у главного процесса. */
@@ -210,11 +215,59 @@ async function saveVocalRecording() {
     // Успех без пути тоже бывает: в предпросмотре браузер скачивает файл, и
     // «отменено» здесь было бы неправдой — рядом лежал только что записанный WAV.
     const saved = reply.data || {};
+    if (saved.path) savedRecordingPath = saved.path;
+    updateVocalNote();
     if (status) {
       if (saved.path) status.textContent = `запись сохранена: ${saved.path}`;
       else if (saved.downloaded) status.textContent = 'запись скачана файлом (браузер)';
       else status.textContent = 'сохранение записи отменено';
     }
+  } finally {
+    if (button) button.disabled = !recordedTake;
+  }
+}
+
+/**
+ * Клонировать голос: запись → голосовое хранилище → обучение RVC.
+ *
+ * Три шага нарочно видны в статусе: человек записал голос и ждёт клон, а
+ * «обучение не подключено» без объяснения выглядит как поломка кнопки.
+ * Порядок обязателен — обучение берёт записи из vault, а не из папки
+ * «Музыка», поэтому сначала индексируем.
+ */
+async function cloneVoice() {
+  const status = $('vocal-clone-status');
+  const button = $('vocal-clone');
+  if (!recordedTake) {
+    showError('Сначала запишите дубль — клонировать пока нечего');
+    return;
+  }
+  if (!savedRecordingPath) {
+    await saveVocalRecording();
+  }
+  if (!savedRecordingPath) {
+    showError('Запись не сохранилась в файл, поэтому обучение её не найдёт');
+    return;
+  }
+  if (button) button.disabled = true;
+  try {
+    if (typeof window.zsmm.indexRecording === 'function') {
+      if (status) status.textContent = 'добавляю запись в голосовое хранилище…';
+      const indexed = await window.zsmm.indexRecording(savedRecordingPath);
+      if (!indexed || indexed.ok !== true) {
+        showError(`Запись не попала в хранилище: ${(indexed && indexed.error) || 'нет ответа'}`);
+        return;
+      }
+    }
+    if (status) status.textContent = 'запускаю обучение RVC…';
+    // Имя голоса фиксировано: окно показывает одну кнопку «мой голос», и
+    // модель ложится в `models/rvc/my_voice`.
+    const reply = await window.zsmm.startTask('rvc-train', { voice: 'my_voice', rvcVoice: 'my_voice' });
+    if (!reply || reply.ok !== true) {
+      showError(`Обучение не запустилось: ${(reply && reply.error) || 'нет ответа'}`);
+      return;
+    }
+    if (status) status.textContent = 'обучение идёт в разделе «Запуск» — там виден лог';
   } finally {
     if (button) button.disabled = !recordedTake;
   }
@@ -237,6 +290,8 @@ function updateVocalNote() {
   // зависит от того, собран трек или нет.
   const saveRecordingBtn = $('vocal-save-recording');
   if (saveRecordingBtn) saveRecordingBtn.disabled = !recordedTake || Boolean(recording);
+  const cloneBtn = $('vocal-clone');
+  if (cloneBtn) cloneBtn.disabled = !recordedTake || Boolean(recording);
   // Запись нужна модулю захвата: без него кнопка остаётся заблокированной, а
   // причина написана рядом, а не выясняется нажатием.
   if (recordBtn) recordBtn.disabled = mode !== 'record' || !recorder || Boolean(recording);

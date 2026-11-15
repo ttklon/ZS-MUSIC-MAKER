@@ -18,4 +18,7 @@ def test_progress_parser_records_malformed_epoch_token(monkeypatch):
     trainer._run_with_progress(["fake-train"], job)
 
     assert job.progress == 0.0
-    assert trainer.progress_parse_errors == ["ValueError: invalid literal for int() with base 10: ''"]
+    # Формат ошибки теперь прямо называет испорченный токен: по нему видно,
+    # что именно прислал тренер, а не только «int() не смог».
+    assert trainer.progress_parse_errors == ["ValueError: invalid epoch token '???'"]
+    assert job.progress == 0.0
