@@ -37,7 +37,28 @@ except Exception:
     log_adaptive = lambda: {}
 
 
+def _maybe_auto_genre(genre: str | None, theme: str | None) -> str | None:
+    """full_agents автономно: trend_scout везде, сам понимает без вопросов."""
+    try:
+        from app.core.bootstrap import wire_full_agents
+        wire_full_agents()
+        if not genre:
+            try:
+                from agents.trend_scout import scout
+                _trend = scout(theme=theme or "лето", offline_only=False)
+                _hype = _trend.get("hype_words") or []
+                for w in _hype:
+                    if w.lower() in ("phonk","trap","drift","house","techno","hyperpop"):
+                        return w.lower()
+            except Exception as _e:
+                _LOG.debug(f"[hit_factory] trend auto genre skip: {_e}")
+    except Exception as _e:
+        _LOG.debug(f"[hit_factory] wire agents skip: {_e}")
+    return genre
+
+
 class HitFactory:
+
     """
     Автономная фабрика хитов.
 
@@ -127,6 +148,7 @@ class HitFactory:
         evolve: bool | None = None,
     ) -> dict[str, Any]:
         """Сгенерить один хит с эволюцией. Возвращает лучший attempt dict."""
+        genre = _maybe_auto_genre(genre, theme)
         rng = random.Random(int(seed) if seed is not None else random.randint(1, 1_000_000))
         do_evolve = self.evolve if evolve is None else bool(evolve)
         base_state = self._build_wizard_state(

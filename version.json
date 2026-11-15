@@ -1,6 +1,6 @@
 {
-  "version": "41.2.2",
-  "build": "v41.2.2-snapshot-and-smoke-fix-2026-11-15",
+  "version": "41.3.0",
+  "build": "v41.3.0-fully-autonomous-bootstrap-2026-11-15",
   "based_on": "41.1.2",
-  "changes": "41.2.2 FIX: regenerate readiness snapshot (320 modules, caps), fix build.yml smoke pwsh quoting (space in path), release.yml pwsh packaging"
+  "changes": "41.3.0 FEAT autonomous: silent hardware auto-detect, all_heavy auto-download (torch/audiocraft/demucs/whisper/RVC base/ollama) via app/core/bootstrap --bootstrap/--online, setup.cmd auto-bootstrap, main.py silent auto-bootstrap if heavy BLOCKED, hit_factory full_agents trend_scout everywhere, no hardware UI"
 }

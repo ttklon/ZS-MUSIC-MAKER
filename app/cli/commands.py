@@ -192,6 +192,27 @@ def run_ai_pull(target: str) -> int:
         return 2
 
 
+def run_bootstrap(allow_online: bool = False) -> int:
+    try:
+        from app.core.bootstrap import auto_bootstrap, wire_full_agents
+        safe_print("[bootstrap] тихий авто-докач all_heavy — железо определяется само, без вопросов...")
+        wire_full_agents()
+        # allow_online передаётся из CLI --online или settings network.online
+        from app.core.net_policy import network_allowed
+        allow = allow_online or network_allowed()
+        res = auto_bootstrap(silent=False, allow_download=allow)
+        safe_print(f"[bootstrap] готовность {res.get('readiness_before')} → {res.get('readiness_after')} caps {res.get('caps_after')}")
+        safe_print(f"[bootstrap] heavy {res.get('heavy')} models {len(res.get('models',{}).get('pulled',[]))} pulled")
+        # если сеть запрещена — подсказка
+        if res.get('heavy',{}).get('skipped') or res.get('models',{}).get('skipped'):
+            safe_print("[bootstrap] сеть запрещена: включи network.online=true или --online и повтори")
+        return 0 if res.get('readiness_after',0) >= 65 else 1
+    except Exception as e:
+        safe_print(f"[main --bootstrap] failed: {e}")
+        import traceback; traceback.print_exc()
+        return 2
+
+
 def run_console() -> int:
     """Консольный REPL — запасной путь, когда GUI невозможен."""
     safe_print("[main --console] запущен без GUI. Команды:")

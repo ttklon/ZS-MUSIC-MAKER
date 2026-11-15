@@ -1,28 +1,28 @@
 | Versioned module | Status | AST syntax | Production refs | Test refs |
 |---|---|---:|---:|---:|
 | agents/__init__.py | REAL_PASS | PASS | 0 | 151 |
-| agents/sample_hunter/__init__.py | REAL_PASS | PASS | 1 | 132 |
+| agents/sample_hunter/__init__.py | REAL_PASS | PASS | 2 | 132 |
 | agents/sample_hunter/config.py | REAL_PASS | PASS | 3 | 50 |
 | agents/sample_hunter/hunter.py | REAL_PASS | PASS | 1 | 98 |
 | agents/sample_hunter/license.py | REAL_PASS | PASS | 2 | 86 |
 | agents/sample_hunter/local.py | REAL_PASS | PASS | 2 | 148 |
 | agents/sample_hunter/planner.py | REAL_PASS | PASS | 2 | 15 |
 | agents/sample_hunter/web.py | REAL_PASS | PASS | 1 | 66 |
-| agents/trend_scout.py | REAL_PASS | PASS | 4 | 58 |
+| agents/trend_scout.py | REAL_PASS | PASS | 6 | 58 |
 | app/__init__.py | REAL_PASS | PASS | 0 | 955 |
 | app/ai/__init__.py | REAL_PASS | PASS | 0 | 215 |
 | app/ai/acestep.py | REAL_PASS | PASS | 1 | 3 |
-| app/ai/hardware.py | REAL_PASS | PASS | 7 | 65 |
+| app/ai/hardware.py | REAL_PASS | PASS | 8 | 65 |
 | app/ai/llm_service.py | REAL_PASS | PASS | 5 | 23 |
-| app/ai/model_catalog.py | REAL_PASS | PASS | 1 | 4 |
+| app/ai/model_catalog.py | REAL_PASS | PASS | 2 | 4 |
 | app/ai/prompts.py | REAL_PASS | PASS | 5 | 35 |
 | app/ai/quality/__init__.py | REAL_PASS | PASS | 10 | 144 |
 | app/ai/quality/analysis.py | REAL_PASS | PASS | 1 | 52 |
 | app/ai/quality/audio.py | REAL_PASS | PASS | 2 | 648 |
 | app/ai/quality/lyrics.py | REAL_PASS | PASS | 3 | 499 |
 | app/ai/quality/metadata.py | REAL_PASS | PASS | 1 | 80 |
-| app/ai/registry.py | REAL_PASS | PASS | 15 | 275 |
-| app/ai/sequential_runner.py | REAL_PASS | PASS | 3 | 17 |
+| app/ai/registry.py | REAL_PASS | PASS | 16 | 275 |
+| app/ai/sequential_runner.py | REAL_PASS | PASS | 4 | 17 |
 | app/ai/weights.py | REAL_PASS | PASS | 2 | 105 |
 | app/audio/samples.py | REAL_PASS | PASS | 3 | 269 |
 | app/cli/backup.py | REAL_PASS | PASS | 1 | 99 |
@@ -43,6 +43,7 @@
 | app/core/ai/stages_music.py | REAL_PASS | PASS | 1 | 24 |
 | app/core/ai/stages_vocal.py | REAL_PASS | PASS | 1 | 27 |
 | app/core/auto_backup.py | REAL_PASS | PASS | 1 | 4 |
+| app/core/bootstrap.py | REAL_PASS | PASS | 3 | 0 |
 | app/core/font_utils.py | REAL_PASS | PASS | 2 | 2 |
 | app/core/hw_autodetect.py | REAL_PASS | PASS | 5 | 16 |
 | app/core/i18n.py | REAL_PASS | PASS | 13 | 19 |
@@ -54,7 +55,7 @@
 | app/core/logger.py | REAL_PASS | PASS | 5 | 48 |
 | app/core/lyric_context.py | REAL_PASS | PASS | 1 | 7 |
 | app/core/musicgen_texture.py | REAL_PASS | PASS | 2 | 18 |
-| app/core/net_policy.py | REAL_PASS | PASS | 6 | 25 |
+| app/core/net_policy.py | REAL_PASS | PASS | 9 | 25 |
 | app/core/numba_cache.py | REAL_PASS | PASS | 8 | 39 |
 | app/core/orchestrator.py | REAL_PASS | PASS | 12 | 222 |
 | app/core/orchestrator_ai.py | REAL_PASS | PASS | 1 | 34 |
@@ -240,7 +241,7 @@
 | modules/rvc_manager/backend.py | REAL_PASS | PASS | 3 | 56 |
 | modules/rvc_manager/config.py | REAL_PASS | PASS | 4 | 50 |
 | modules/rvc_manager/infer.py | REAL_PASS | PASS | 2 | 83 |
-| modules/rvc_manager/rvc_worker.py | REAL_PASS | PASS | 2 | 7 |
+| modules/rvc_manager/rvc_worker.py | REAL_PASS | PASS | 3 | 7 |
 | modules/rvc_manager/trainer.py | REAL_PASS | PASS | 1 | 41 |
 | modules/rvc_trainer.py | REAL_PASS | PASS | 1 | 17 |
 | modules/self_diag.py | REAL_PASS | PASS | 1 | 55 |
@@ -296,7 +297,7 @@
 | tools/gitignore_guard.py | REAL_PASS | PASS | 0 | 4 |
 | tools/hit_factory.py | REAL_PASS | PASS | 0 | 24 |
 | tools/import_samples.py | REAL_PASS | PASS | 0 | 11 |
-| tools/pull_ai_models.py | REAL_PASS | PASS | 1 | 10 |
+| tools/pull_ai_models.py | REAL_PASS | PASS | 2 | 10 |
 | tools/pytest_isolated.py | PLANNED | PASS | 0 | 0 |
 | tools/readiness/__init__.py | REAL_PASS | PASS | 2 | 124 |
 | tools/readiness/__main__.py | REAL_PASS | PASS | 0 | 11 |
@@ -305,7 +306,7 @@
 | tools/readiness/paths.py | REAL_PASS | PASS | 5 | 58 |
 | tools/readiness/probes.py | REAL_PASS | PASS | 2 | 5 |
 | tools/readiness/reachability.py | REAL_PASS | PASS | 1 | 1 |
-| tools/readiness/scoring.py | REAL_PASS | PASS | 2 | 9 |
+| tools/readiness/scoring.py | REAL_PASS | PASS | 4 | 9 |
 | tools/samples_audit.py | REAL_PASS | PASS | 0 | 12 |
 | tools/smoke_audio.py | REAL_PASS | PASS | 0 | 16 |
 | tools/smoke_god.py | REAL_PASS | PASS | 0 | 14 |

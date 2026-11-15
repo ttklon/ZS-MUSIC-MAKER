@@ -40,6 +40,16 @@ if errorlevel 1 (
     echo [setup] health-check вернул предупреждения - программа всё равно запустится.
 )
 
+echo [setup] тихий авто-докач тяжёлых движков (torch/audiocraft/demucs/whisper/RVC) если сеть разрешена...
+"%VPY%" main.py --bootstrap --online >nul 2>&1
+if errorlevel 1 (
+    echo [setup] авто-докач пропущен (сеть запрещена или уже всё установлено).
+) else (
+    echo [setup] авто-докач завершён.
+)
+echo [setup] финальная проверка готовности...
+"%VPY%" main.py --readiness
+
 echo.
 echo [setup] ГОТОВО. Запуск: scripts\run.cmd   (или scripts\run_silent.cmd без консоли)
 exit /b 0
