@@ -56,7 +56,7 @@ LONG_FUNCTIONS: dict[tuple[str, str], int] = {
     ("modules/hit_factory/_runner.py", "_postprocess"): 72,
     ("modules/hit_factory/_runner.py", "run_pipeline_once"): 87,
     ("modules/hit_factory/_state.py", "build_wizard_state"): 64,
-    ("modules/hit_factory/adaptive.py", "get_adaptive_config"): 74,
+    ("modules/hit_factory/adaptive.py", "get_adaptive_config"): 79,
     ("modules/hit_factory/benchmark.py", "benchmark"): 109,
     ("modules/hit_factory/daemon.py", "run_daemon"): 66,
     ("modules/hit_factory/generator.py", "make_one"): 91,

@@ -54,4 +54,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--hit-duration", type=int, default=None, help="Длительность хита сек (65/90/120)")
     parser.add_argument("--hit-min-score", type=float, default=68.0, help="Порог hit_score для эволюции (68=solid, 82=chart_ready)")
     parser.add_argument("--hit-no-evolve", action="store_true", help="Выключить эволюцию (одна попытка на трек)")
+    parser.add_argument("--hit-breakthrough", action="store_true", help="ПРОРЫВ: медленный CPU offload ротатор 1x — работает даже на 3.85GB RAM (требует интернет для докачки весов, не фризит)")
+    parser.add_argument("--hit-artist", type=str, default="", help="Артист-референс для прорыва (напр. ICEGERGERT) — ищет в интернете почему популярен, подгоняет стиль")
+    parser.add_argument("--hit-refs", type=str, default="", help="Референс-треки через запятую (1-7 wav/mp3) для style_vector — BPM/key/жанр")
+    parser.add_argument("--hit-voice", type=str, default="", help="Сырая запись голоса wav для RVC конверсии (10 мин достаточно)")
     return parser

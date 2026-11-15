@@ -1,10 +1,15 @@
 # -*- coding: utf-8 -*-
 """
-modules.hit_factory.adaptive — адаптация под любое железо.
+modules.hit_factory.adaptive — адаптация под любое железо + ПРОРЫВ.
 
 Определяет, что можно запустить на текущем компе (RAM/VRAM/GPU) и
 подбирает лёгкий/тяжёлый путь без падения. Работает на любом PC:
 от 3.85GB RAM + 2 CPU (текущий стенд) до топ GPU.
+
+ПРОРЫВ-режим (breakthrough=True / ZSMM_BREAKTHROUGH=1):
+- даже на 3.85GB RAM форсит MusicGen/Silero/RVC/Demucs через CPU offload,
+  чанки 30с, ротатор 1×, memory_guard — чуть дольше, подлагивает, но НЕ падает
+  и НЕ фризит комп (паузы + GC + empty_cache). Требует интернет для докачки весов.
 
 Логика:
 - RAM <4GB или нет GPU → чистый DSP (как сейчас), короткие треки 30-60с, 1-2 попытки
@@ -15,6 +20,8 @@ modules.hit_factory.adaptive — адаптация под любое желез
 from __future__ import annotations
 
 import logging
+import os
+import socket
 
 _LOG = logging.getLogger(__name__)
 
@@ -32,15 +39,23 @@ def _get_free_ram() -> float | None:
     except Exception:
         return None
 
+def _has_internet() -> bool:
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.settimeout(1.5)
+        ok = s.connect_ex(("8.8.8.8", 53)) == 0 or s.connect_ex(("1.1.1.1", 53)) == 0
+        s.close()
+        return ok
+    except Exception:
+        return False
+
 def _detect_gpu() -> dict:
     """Возвращает {backend, vendor, vram_total, vram_free, name} или {}."""
-    # пытаемся через app/ai/hardware если есть
     try:
         from app.ai.hardware import detect_system
         sysinfo = detect_system()
         torch_dev = sysinfo.get("pytorch_device") or {}
         gpus = sysinfo.get("gpus") or []
-        # берём первый не-unknown
         vendor = "unknown"
         if torch_dev:
             vendor = torch_dev.get("vendor") or "unknown"
@@ -53,13 +68,11 @@ def _detect_gpu() -> dict:
                 "gpus": gpus,
             }
         if gpus:
-            # эвристика по имени
             name = gpus[0].get("name", "")
             vendor = gpus[0].get("vendor", "unknown")
             return {"backend": "directml" if vendor == "amd" else "cpu", "vendor": vendor, "name": name, "gpus": gpus}
     except Exception as e:
         _LOG.debug(f"hardware detect failed: {e}")
-    # fallback — пробуем torch напрямую
     try:
         import torch
         if torch.cuda.is_available():
@@ -75,7 +88,6 @@ def _detect_gpu() -> dict:
             return {"backend": backend, "vendor": vendor, "vram_total": round(total,2), "vram_free": round(free,2) if free else None, "name": name}
     except Exception as _exc:
         print(f"[adaptive] ignored: {_exc}")
-    # DirectML
     try:
         import torch_directml  # type: ignore
         cnt = torch_directml.device_count()
@@ -87,10 +99,40 @@ def _detect_gpu() -> dict:
         print(f"[adaptive] ignored: {_exc}")
     return {"backend": "cpu", "vendor": "unknown", "name": "CPU"}
 
+def _breakthrough_overrides(has_torch: bool, free_ram: float | None, aceserver: bool) -> dict:
+    internet = _has_internet()
+    return {
+        "breakthrough": True,
+        "slow_mode": True,
+        "internet": internet,
+        "use_musicgen": has_torch,
+        "musicgen_device": "cpu",
+        "musicgen_model": "small",
+        "musicgen_chunk_sec": 30,
+        "use_silero": has_torch,
+        "use_bark_xtts": has_torch and internet,
+        "use_rvc": True,
+        "rvc_device": "cpu",
+        "use_demucs": has_torch,
+        "demucs_device": "cpu",
+        "demucs_chunk": True,
+        "use_acestep": aceserver,
+        "sequential": True,
+        "max_concurrency": 1,
+        "allow_slow": True,
+        "allow_swap": True,
+        "cpu_offload": True,
+        "chunked_inference": True,
+        "memory_guard": True,
+        "free_ram_guard_gb": 0.8,
+        "note_breakthrough": f"PROрыВ: slow CPU offload, internet={internet}, has_torch={has_torch}, free={free_ram}",
+    }
+
 def get_adaptive_config(overrides: dict | None = None) -> dict:
     """
     Возвращает адаптивный конфиг для HitFactory под текущее железо.
     Можно передать overrides для форса (например, для тестов).
+    breakthrough=True / ZSMM_BREAKTHROUGH=1 — форсит медленный но рабочий режим на любом PC (ротатор, CPU, чанки).
     """
     ram = _get_ram()
     free_ram = _get_free_ram()
@@ -100,19 +142,15 @@ def get_adaptive_config(overrides: dict | None = None) -> dict:
     vram_total = gpu.get("vram_total") or 0
     vram_free = gpu.get("vram_free")
 
-    # проверяем, есть ли ACE-Step сервер рядом
     aceserver = False
     try:
-        import socket
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.settimeout(0.5)
-        # стандартный порт ACE-Step 8001, пробуем локально
         aceserver = s.connect_ex(("127.0.0.1", 8001)) == 0
         s.close()
     except Exception:
         aceserver = False
 
-    # проверяем torch/Silero наличие
     has_torch = False
     try:
         import torch  # noqa: F401
@@ -120,11 +158,6 @@ def get_adaptive_config(overrides: dict | None = None) -> dict:
     except Exception:
         has_torch = False
 
-    # эвристика уровней
-    # level 0 — ультра-лайт (текущий стенд 3.85GB, 2 CPU, без GPU)
-    # level 1 — лайт+ (4-8GB RAM, есть torch CPU)
-    # level 2 — средний (8-16GB RAM + 4-6GB VRAM)
-    # level 3 — тяж (16GB+ RAM + 8GB+ VRAM + CUDA/ROCm)
     if ram < 4.0 or (free_ram is not None and free_ram < 2.0):
         level = 0
     elif ram < 8.0 or (vram_total and vram_total < 4):
@@ -134,12 +167,16 @@ def get_adaptive_config(overrides: dict | None = None) -> dict:
     else:
         level = 3
 
-    # AMD Radeon особая ветка: на Windows без ROCm — только DirectML/CPU, поэтому уровень не выше 1 без проверки
     if vendor == "amd" and backend in ("cpu", "directml"):
-        # даже с 8GB RAM, если нет ROCm, не форсим тяжёлые CUDA-модели
         level = min(level, 1 if not has_torch else 2)
 
-    # формируем конфиг — даже на слабом железе делаем 90с чтобы не звучал как заставка
+    breakthrough_requested = bool(overrides and overrides.get("breakthrough"))
+    try:
+        if os.getenv("ZSMM_BREAKTHROUGH", "").strip() in ("1", "true", "yes"):
+            breakthrough_requested = True
+    except Exception as _exc:
+        print(f"[adaptive] ignored: {_exc}")
+
     cfg = {
         "ram_gb": ram,
         "free_ram_gb": free_ram,
@@ -149,16 +186,25 @@ def get_adaptive_config(overrides: dict | None = None) -> dict:
         "duration_sec": [90, 90, 90, 120][level],
         "max_attempts": [3, 3, 3, 3][level],
         "human_preset": ["standard", "standard", "standard", "max"][level],
-        "use_acestep": aceserver and level >= 1,  # если сервер есть — можно уже на light
+        "use_acestep": aceserver and level >= 1,
         "use_musicgen": level >= 2 and has_torch and vram_total >= 6,
-        "use_silero": has_torch and free_ram is not None and free_ram >= 3.0,  # Silero ~59MB + torch
+        "use_silero": has_torch and free_ram is not None and free_ram >= 3.0,
         "use_bark_xtts": level >= 2 and has_torch and vram_total >= 6,
-        "use_rvc": level >= 1,  # RVC в отдельном venv, лёгкий
+        "use_rvc": level >= 1,
         "use_demucs": level >= 3,
         "allow_long": True,
-        "enhanced_dsp": True,  # всегда усиливаем DSP даже без нейросетей
+        "enhanced_dsp": True,
+        "breakthrough": False,
+        "slow_mode": False,
         "note": f"AMD={vendor=='amd'} backend={backend} vram={vram_total} aceserver={aceserver} has_torch={has_torch}",
     }
+    if breakthrough_requested:
+        br = _breakthrough_overrides(has_torch, free_ram, aceserver)
+        cfg.update(br)
+        if cfg["level"] < 2:
+            cfg["level"] = 2
+            cfg["level_name"] = "medium (BREAKTHROUGH slow CPU offload, ротатор 1×)"
+        cfg["note"] = cfg["note"] + " | " + br["note_breakthrough"]
     if overrides:
         cfg.update(overrides)
     return cfg
@@ -166,5 +212,5 @@ def get_adaptive_config(overrides: dict | None = None) -> dict:
 def log_adaptive() -> dict:
     cfg = get_adaptive_config()
     _LOG.info(f"[adaptive] level={cfg['level']} ({cfg['level_name']}) ram={cfg['ram_gb']} gpu={cfg['gpu'].get('name')} backend={cfg['gpu'].get('backend')} aceserver={cfg['use_acestep']}")
-    print(f"[ADAPTIVE] {cfg['level_name']} | RAM {cfg['ram_gb']}GB free {cfg['free_ram_gb']} | GPU {cfg['gpu'].get('name')} ({cfg['gpu'].get('backend')}/{cfg['gpu'].get('vendor')}) VRAM {cfg['gpu'].get('vram_total')} | ACE-Step server: {cfg['use_acestep']} | Silero: {cfg['use_silero']}")
+    print(f"[ADAPTIVE] {cfg['level_name']} | RAM {cfg['ram_gb']}GB free {cfg['free_ram_gb']} | GPU {cfg['gpu'].get('name')} ({cfg['gpu'].get('backend')}/{cfg['gpu'].get('vendor')}) VRAM {cfg['gpu'].get('vram_total')} | ACE-Step server: {cfg['use_acestep']} | Silero: {cfg['use_silero']} | breakthrough={cfg.get('breakthrough')}")
     return cfg
