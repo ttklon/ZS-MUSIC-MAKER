@@ -11,7 +11,8 @@
 - **Окно**: кнопка «Клонировать мой голос (RVC)» — запись → файл → `zsmm:vocal-index` (`voice_vault.add_recording`) → задача `rvc-train`; новая задача в белом списке `tasks.js` с проверкой имени голоса. Раньше сохранённая запись не попадала в vault, и обучение её не находило.
 - **Пустой текст**: `_stage_voice_synth` без текста отдаёт `ok:true, blocked:true` + `action`, а не `ok:false`: инструментальный прогон получал `FAILED` и вердикт `PARTIAL` вместо честного `PASS_BLOCKED`. `smoke_god` снова `8/8`.
 - **CI**: `desktop-shell` ставит Python до тестов оболочки, прогоняет их с `--test-concurrency=1` и печатает упавшие тесты annotation-ом (раньше шаг падал с «exit code 1» без причины).
-- **Проверено**: `pytest` зелёный, `node --test --test-concurrency=1` **461/461**, `audit_honesty CLEAN (311)`, `ast_dead_imports CLEAN 0`, `smoke_god 8/8`, `smoke_audio 6/6`.
+- **Bootstrap**: `ensure_rvc_trainer()` — форк Applio подтягивается один раз (`auto_bootstrap.rvc_trainer`), в офлайне честно `network disabled`.
+- **Проверено**: `pytest` **2105 passed, 2 skipped**, `node --test --test-concurrency=1` **461/461**, `audit_honesty CLEAN (311)`, `ast_dead_imports CLEAN 0`, `smoke_god 8/8`, `smoke_audio 6/6`.
 
 ## 42.0.0 — FULLY AUTONOMOUS HIT FACTORY (2026-11-15) — CLEAN 310
 

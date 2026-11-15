@@ -151,3 +151,19 @@ def test_cli_help_lists_voice_training_and_does_not_crash() -> None:
 
     assert result.returncode == 0, result.stderr[-500:]
     assert "--rvc-train" in result.stdout and "--rvc-fork" in result.stdout
+
+
+def test_bootstrap_fetches_trainer_only_with_network(tmp_path, monkeypatch) -> None:
+    """Форк-тренер качается один раз и только при разрешённой сети."""
+    from app.core import bootstrap
+
+    monkeypatch.setattr("modules.rvc_manager.config.FORKS_DIR", tmp_path / "forks")
+    monkeypatch.setitem(train_backend.__dict__, "FORKS_DIR", tmp_path / "forks")
+
+    offline = bootstrap.ensure_rvc_trainer(allow_download=False)
+    assert offline["present"] is False and offline["reason"] == "network disabled"
+
+    (tmp_path / "forks" / "applio" / ".git").mkdir(parents=True)
+    online = bootstrap.ensure_rvc_trainer(allow_download=True)
+    assert online["present"] is True and online["downloaded"] == [], "уже подтянутый форк не качается заново"
+    assert online["forks"] == ["applio"]

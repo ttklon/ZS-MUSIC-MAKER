@@ -282,6 +282,33 @@ def ensure_rvc_default_voice(silent: bool = True, allow_download: bool | None = 
     return {"present": bool(names), "downloaded": names, "source": "bootstrap"}
 
 
+def ensure_rvc_trainer(silent: bool = True, allow_download: bool | None = None) -> dict:
+    """Подтянуть тренер RVC, без которого клонирование голоса не работает.
+
+    `rvc-python` умеет только инференс, поэтому обучение берётся из форка
+    (Applio — CPU-совместимый). Git clone делается один раз и только при
+    разрешённой сети: молча качать гигабайты в офлайне нельзя.
+    """
+    from modules.rvc_manager.config import AMD_FORKS, FORKS_DIR
+
+    if allow_download is None:
+        allow_download = _network_allowed()
+    forks = [path for name in AMD_FORKS if (path := FORKS_DIR / name).joinpath(".git").exists()]
+    if forks:
+        return {"present": True, "downloaded": [], "forks": [p.name for p in forks]}
+    if not allow_download:
+        return {"present": False, "downloaded": [], "reason": "network disabled"}
+    from modules.rvc_manager.backend import ensure_fork
+
+    try:
+        ensure_fork("applio", on_progress=lambda msg: _LOG.info(f"[bootstrap] {msg}"))
+    except Exception as exc:  # noqa: BLE001 — причина важнее падения bootstrap
+        _LOG.warning(f"[bootstrap] RVC trainer fork failed: {exc}")
+        return {"present": False, "downloaded": [], "reason": str(exc)[:200]}
+    ready = (FORKS_DIR / "applio" / ".git").exists()
+    return {"present": ready, "downloaded": ["applio"] if ready else [], "forks": ["applio"] if ready else []}
+
+
 def auto_bootstrap(silent: bool = True, allow_download: bool | None = None) -> dict:
     """
     Главный тихий авто-докач: железо → heavy pip → модели → RVC.
@@ -289,7 +316,8 @@ def auto_bootstrap(silent: bool = True, allow_download: bool | None = None) -> d
     """
     if allow_download is None:
         allow_download = _network_allowed()
-    res: dict = {"hardware": {}, "heavy": {}, "models": {}, "rvc": {}, "readiness_before": None, "readiness_after": None}
+    res: dict = {"hardware": {}, "heavy": {}, "models": {}, "rvc": {}, "rvc_trainer": {},
+                 "readiness_before": None, "readiness_after": None}
     try:
         from tools.readiness.scoring import compute as readiness_compute
         _, before = readiness_compute()
@@ -301,6 +329,7 @@ def auto_bootstrap(silent: bool = True, allow_download: bool | None = None) -> d
     res["heavy"] = ensure_heavy_engines(silent=silent, allow_download=allow_download)
     res["models"] = ensure_models(silent=silent, allow_download=allow_download)
     res["rvc"] = ensure_rvc_default_voice(silent=silent, allow_download=allow_download)
+    res["rvc_trainer"] = ensure_rvc_trainer(silent=silent, allow_download=allow_download)
 
     # авто-жанр/full_agents уже в breakthrough/orchestrator — здесь только гарантия что heavy есть
     try:

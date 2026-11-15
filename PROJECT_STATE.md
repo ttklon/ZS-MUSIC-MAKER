@@ -35,6 +35,8 @@
 - `RVCTrainer.train()` больше не возвращает `blocked_backend` безусловно: без тренера
   он честно просит `python main.py --rvc-fork applio` (или `ZSMM_RVC_TRAIN_CMD`).
 - CLI: `--rvc-fork applio|mangio|rvc-webui`, `--rvc-train [--rvc-voice имя] [--rvc-epochs N]`.
+- Bootstrap: `ensure_rvc_trainer()` подтягивает форк Applio один раз при разрешённой сети
+  (в офлайне — `network disabled` в отчёте, никакого тихого клонирования).
 - Окно: кнопка «Клонировать мой голос (RVC)» в блоке вокала — запись → сохранение в файл
   → `zsmm:vocal-index` (реальная индексация через `voice_vault.add_recording`) → задача
   `rvc-train`. Раньше сохранённая запись не попадала в vault, и обучение не находило её.
