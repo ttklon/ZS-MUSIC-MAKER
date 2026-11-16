@@ -119,3 +119,25 @@ test('нормализация на тишине честно отказывае
   assert.strictEqual(result.after, null);
   assert.match(result.reason, /тишин/i);
 });
+
+test('плотный материал: клиппер ниже потолка дотягивает громкость', () => {
+  // Высокий crest: пики держат потолок, тело тихое. Без клиппера ниже потолка
+  // такой трек остаётся на 0.3–0.5 дБ тише цели (проверено на reggaeton).
+  const n = SR * 5;
+  const left = new Float32Array(n);
+  const right = new Float32Array(n);
+  for (let i = 0; i < n; i += 1) {
+    const t = i / SR;
+    const body = 0.06 * Math.sin(2 * Math.PI * 110 * t) + 0.04 * Math.sin(2 * Math.PI * 700 * t);
+    // Редкие острые пики — как транзиенты бочки в плотном миксе.
+    const spike = i % 22050 < 40 ? 0.85 * Math.sin(2 * Math.PI * 60 * t) : 0;
+    left[i] = body + spike;
+    right[i] = body + spike * 0.9;
+  }
+  const result = normalizeLoudness(left, right, SR, { targetLufs: -14 });
+  assert.strictEqual(result.ok, true);
+  assert.strictEqual(result.ceiling_ok, true);
+  assert.ok(result.true_peak_after <= -0.99, `истинный пик ${result.true_peak_after}`);
+  assert.ok(Math.abs(result.after + 14) <= 0.35, `громкость ${result.after} далека от −14`);
+  assert.ok(result.clip_knee_dbfs <= -1, `колено ${result.clip_knee_dbfs}`);
+});

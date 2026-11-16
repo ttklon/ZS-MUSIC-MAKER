@@ -31,6 +31,12 @@ const TRUE_PEAK_CEILING_DBTP = -1.0;
 // ошибки и допуск 0.25 LUFS стенда streaming.
 const CONVERGE_STEP = 0.8;
 const CONVERGE_TOLERANCE_DB = 0.25;
+// Дополнительные проходы доводки: 2 — компромисс между точностью и временем
+// рендера (каждый проход это полная цепь клиппер+лимитер).
+const EXTRA_PASSES = 1;
+// Лестница колена клиппера для плотного материала. Начинаем с мягкого:
+// −2.5 dBFS уже даёт децибел громкости, а глубже без нужды лезть не нужно.
+const KNEE_LADDER = [-2.5, -4.0, -6.0];
 
 /**
  * Ступень 1 K-взвешивания: полочный фильтр +4 дБ выше ~1.7 кГц.
@@ -197,13 +203,13 @@ function normalizeLoudness(left, right, sr, {
   // Рендер кандидата: усиление → мягкий клиппер (ниже колена он математически
   // ничего не меняет) → лимитер по истинному пику. Клиппер применяется всегда:
   // «по условию» громкость скачет на дБ на границе включения.
-  const render = (gainValueDb) => {
+  const render = (gainValueDb, kneeDbfs = ceilingDbtp) => {
     const factor = Math.pow(10, gainValueDb / 20);
     const channels = [
       Float32Array.from(left, (value) => value * factor),
       Float32Array.from(right, (value) => value * factor),
     ];
-    const clip = softClip(channels, { kneeDbfs: ceilingDbtp });
+    const clip = softClip(channels, { kneeDbfs });
     const limited = limitStereo(channels[0], channels[1], sr, { ceilingDbtp });
     return { channels, clip, limited, lufs: integratedLoudness(channels, sr).lufs };
   };
@@ -218,33 +224,74 @@ function normalizeLoudness(left, right, sr, {
     Float32Array.from(right, (value) => value * Math.pow(10, appliedGainDb / 20)),
   ];
   const dryLufs = integratedLoudness(probeChannels, sr).lufs;
-  const probe = render(appliedGainDb);
-  if (dryLufs !== null && probe.lufs !== null && dryLufs - probe.lufs > 0.05) {
-    appliedGainDb = clamp(appliedGainDb + (targetLufs - probe.lufs));
-  }
-
   let best = render(appliedGainDb);
+  // Проба переиспользуется как кандидат: раньше здесь стоял второй полный
+  // рендер с тем же усилением — лишняя цепочка клиппер+лимитер на каждый бит.
+  if (dryLufs !== null && best.lufs !== null && dryLufs - best.lufs > 0.05) {
+    const correctedGain = clamp(appliedGainDb + (targetLufs - best.lufs));
+    const corrected = render(correctedGain);
+    if (corrected.lufs !== null
+      && Math.abs(targetLufs - corrected.lufs) < Math.abs(targetLufs - best.lufs)) {
+      best = corrected;
+      appliedGainDb = correctedGain;
+    }
+  }
   clipInfo.push({
     ...best.clip,
     gain_db: Math.round(appliedGainDb * 100) / 100,
     result_lufs: best.lufs,
     limiter: best.limited,
   });
-  if (best.lufs !== null && Math.abs(targetLufs - best.lufs) > CONVERGE_TOLERANCE_DB) {
+  // Доводка: каждая полная итерация (усиление → клиппер → лимитер) даёт
+  // примерно 0.8 от запрошенной ошибки, потому что лимитер забирает часть
+  // прироста. Одной поправки не хватало на плотных жанрах: reggaeton
+  // оставался на −14.45 при цели −14, честно помеченный как «не достиг».
+  for (let pass = 0; pass < EXTRA_PASSES; pass += 1) {
+    if (best.lufs === null || Math.abs(targetLufs - best.lufs) <= CONVERGE_TOLERANCE_DB) break;
     const corrected = clamp(appliedGainDb + (targetLufs - best.lufs) * CONVERGE_STEP);
-    if (Math.abs(corrected - appliedGainDb) > 0.01) {
-      const attempt = render(corrected);
+    if (Math.abs(corrected - appliedGainDb) < 0.01) break;
+    const attempt = render(corrected);
+    clipInfo.push({
+      ...attempt.clip,
+      gain_db: Math.round(corrected * 100) / 100,
+      result_lufs: attempt.lufs,
+      limiter: attempt.limited,
+    });
+    if (attempt.lufs !== null
+      && (best.lufs === null || Math.abs(targetLufs - attempt.lufs) < Math.abs(targetLufs - best.lufs))) {
+      best = attempt;
+      appliedGainDb = corrected;
+    } else {
+      // Стало хуже — дальше идти некуда, оставляем лучший результат.
+      break;
+    }
+  }
+
+  // Если доводка уперлась в лимитер (плотный материал: crest высокий, потолок
+  // не даёт добрать громкость), работает клиппер ниже потолка — ровно как в
+  // `modules/mastering/loudness.py`. Первое колено — −2.5 dBFS: на реальном
+  // reggaeton это +1.09 дБ громкости при 2 % затронутых отсчётов. Мягче
+  // материал отдаёт больше громкости за ту же цену; принимается только то,
+  // что ближе к цели и держит потолок.
+  let usedKnee = ceilingDbtp;
+  if (best.lufs !== null && Math.abs(targetLufs - best.lufs) > CONVERGE_TOLERANCE_DB
+    && best.limited.gain_reduction_db > 1.0) {
+    for (const knee of KNEE_LADDER) {
+      const withKnee = render(appliedGainDb, knee);
       clipInfo.push({
-        ...attempt.clip,
-        gain_db: Math.round(corrected * 100) / 100,
-        result_lufs: attempt.lufs,
-        limiter: attempt.limited,
+        ...withKnee.clip,
+        gain_db: Math.round(appliedGainDb * 100) / 100,
+        knee_dbfs: knee,
+        result_lufs: withKnee.lufs,
+        limiter: withKnee.limited,
       });
-      if (attempt.lufs !== null
-        && Math.abs(targetLufs - attempt.lufs) < Math.abs(targetLufs - best.lufs)) {
-        best = attempt;
-        appliedGainDb = corrected;
+      if (!withKnee.limited || withKnee.limited.true_peak_dbtp > ceilingDbtp + 0.01) continue;
+      if (withKnee.lufs !== null
+        && Math.abs(targetLufs - withKnee.lufs) < Math.abs(targetLufs - best.lufs)) {
+        best = withKnee;
+        usedKnee = knee;
       }
+      if (withKnee.lufs !== null && Math.abs(targetLufs - withKnee.lufs) <= CONVERGE_TOLERANCE_DB) break;
     }
   }
 
@@ -267,6 +314,7 @@ function normalizeLoudness(left, right, sr, {
     ceiling_ok: truePeakAfter <= ceilingDbtp + 0.01,
     limited_by_ceiling: best.limited.gain_reduction_db > 0,
     limiter: best.limited,
+    clip_knee_dbfs: usedKnee,
     soft_clip_passes: clipInfo,
     sample_peak: Math.round(peakBefore * 1000) / 1000,
     reason: reached

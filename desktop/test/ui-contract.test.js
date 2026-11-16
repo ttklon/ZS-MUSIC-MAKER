@@ -424,4 +424,13 @@ test('громкость описана честно: до/после и что 
   });
   assert.match(limited, /истинный пик -1 dBTP/);
   assert.match(limited, /лимитер снял 2\.4 дБ/);
+  // Клиппер меняет форму пиков — он называется, а не прячется.
+  assert.doesNotMatch(limited, /клиппером/);
+
+  const knee = describeLoudness({
+    ok: true, before: -18.2, after: -14.2, target: -14, applied_db: 4.2,
+    true_peak_after: -1, ceiling_dbtp: -1, limited_by_ceiling: true,
+    limiter: { gain_reduction_db: 3.9 }, clip_knee_dbfs: -2.5,
+  });
+  assert.match(knee, /клиппером на -2\.5 dBFS/);
 });

@@ -66,7 +66,13 @@ function describeLoudness(loudness) {
   const limited = loudness.limited_by_ceiling && loudness.limiter
     ? `, лимитер снял ${loudness.limiter.gain_reduction_db} дБ`
     : '';
-  return `${moved}${peak}${limited}`;
+  // Клиппер ниже потолка — заметное вмешательство: он меняет форму пиков,
+  // поэтому называется, а не прячется за словом «нормализовано».
+  const clipped = typeof loudness.clip_knee_dbfs === 'number'
+    && loudness.clip_knee_dbfs < (loudness.ceiling_dbtp ?? -1) - 0.01
+    ? `, пики подрезаны клиппером на ${loudness.clip_knee_dbfs} dBFS`
+    : '';
+  return `${moved}${peak}${limited}${clipped}`;
 }
 
 // Экспорт для Node (тесты) и для браузера — два способа живут рядом, потому
