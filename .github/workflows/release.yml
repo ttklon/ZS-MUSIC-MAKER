@@ -178,6 +178,24 @@ jobs:
           du -h "_artifacts/ZS-Music-Maker-Source-$V.zip"
           ls -lh _artifacts/** 2>&1 | head -n 50
 
+      - name: Drop assets of an existing release for this tag
+        # Повторная публикация того же тега (например, после force-push тега)
+        # раньше падала на `action-gh-release`: он пытается удалить ассет,
+        # которого уже нет → «Not Found ... delete-a-release-asset». Ассеты
+        # удаляются заранее и молча; отсутствие релиза — не ошибка.
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ steps.ver.outputs.tag }}"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release view "$TAG" --json assets -q '.assets[].name' | while read -r name; do
+              [ -n "$name" ] && gh release delete-asset "$TAG" "$name" --yes || true
+            done
+            echo "ассеты релиза $TAG очищены перед перезаписью"
+          else
+            echo "релиза $TAG нет — создаётся с нуля"
+          fi
+
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
