@@ -149,3 +149,28 @@ def test_orchestrator_release_receives_final_master(tmp_path, monkeypatch):
     orchestrator.run_full_pipeline("mock-id", {"genre": "house"}, out_root=tmp_path / "render")
 
     assert released == [polished], f"релиз получил не тот мастер: {released}"
+
+
+def test_crest_gate_measures_same_metric_as_optimiser():
+    """Гейт и оптимизатор обязаны говорить об одном числе.
+
+    `_converge_loudness`/`_control_crest` правят `reference_crest_db` (самый
+    громкий участок), а гейт раньше судил по сквозному `crest_db`: мастер с
+    reference 13.34 дБ считался провалившим коридор 8…14 по 14.46 дБ.
+    """
+    from modules.dsp import metrics
+
+    sr = 8000
+    # тихая часть + громкая с редкими пиками: сквозной crest и crest самого
+    # громкого участка расходятся именно на таком материале
+    quiet = 0.02 * np.sin(np.arange(sr * 6) * 0.05)
+    loud = 0.1 * np.sin(np.arange(sr * 6) * 0.05)
+    loud[::797] = 0.9
+    signal = np.concatenate([quiet, loud])
+    report = metrics.loudness_report(signal, sr)
+
+    assert "reference_crest_db" in report
+    # в отчёте значение округлено до 0.01 дБ
+    assert round(metrics.reference_crest_db(signal, sr), 2) == report["reference_crest_db"]
+    # метрики действительно разные величины, а не дубликат
+    assert report["crest_db"] > report["reference_crest_db"]

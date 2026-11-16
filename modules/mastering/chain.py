@@ -117,6 +117,41 @@ def _control_crest(
     return mastered, info
 
 
+def _guard_crest_after_topup(
+    mastered: np.ndarray,
+    source: np.ndarray,
+    sample_rate: int,
+    stand: str,
+    target_lufs: float,
+    crest_high: float,
+    current_lufs: float,
+) -> tuple[np.ndarray, dict[str, Any] | None]:
+    """Вернуть плотность в коридор, если добор громкости её раздвинул.
+
+    Бисекция `_converge_loudness` проверяет crest на 30-секундном фрагменте, а
+    итог измеряется по всему треку: после topup `reference_crest` выходил за
+    верхнюю границу на 0.1–0.2 дБ и гейт честно падал. Страховка пускает
+    правку плотности ещё раз и принимает результат только если crest реально
+    снизился, а громкость не ушла дальше прежней ошибки.
+    """
+    guard_crest = float(metrics.reference_crest_db(mastered, sample_rate))
+    if guard_crest <= crest_high:
+        return mastered, None
+    guarded, guard_info = _control_crest(mastered, source, sample_rate, stand, target_lufs)
+    guarded_crest = float(metrics.reference_crest_db(guarded, sample_rate))
+    guarded_lufs = float(metrics.integrated_lufs(guarded, sample_rate)[0])
+    if guarded_crest >= guard_crest or abs(guarded_lufs - target_lufs) > max(
+        0.5, abs(current_lufs - target_lufs)
+    ):
+        return mastered, None
+    return guarded, {
+        "crest_before": round(guard_crest, 2),
+        "crest_after": round(guarded_crest, 2),
+        "lufs_after": round(guarded_lufs, 2),
+        "actions": guard_info.get("actions"),
+    }
+
+
 def _gates(report: dict[str, Any], stand: str) -> dict[str, bool]:
     lufs = float(report["lufs"])
     target = STAND_TARGET_LUFS.get(stand, -14.0)
@@ -239,6 +274,11 @@ def master_one(
             "lufs_after": topup_info.get("achieved_lufs"),
             "gain_db": topup_info.get("gain_applied_db"),
         }
+        mastered, guard = _guard_crest_after_topup(
+            mastered, compressed, sr, stand, target, crest_high, current_lufs
+        )
+        if guard:
+            crest_info["topup_guard"] = guard
     loudness_info["crest_control"] = crest_info
     mastered = np.nan_to_num(mastered, nan=0.0, posinf=0.0, neginf=0.0)
     report = metrics.loudness_report(mastered, sr)

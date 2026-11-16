@@ -78,7 +78,7 @@ LONG_FUNCTIONS: dict[tuple[str, str], int] = {
     ("modules/llm/router.py", "complete"): 126,
     ("modules/lyrics/generate.py", "generate_lyrics"): 79,
     ("modules/mastering/chain.py", "_control_crest"): 70,
-    ("modules/mastering/chain.py", "master_one"): 127,
+    ("modules/mastering/chain.py", "master_one"): 132,
     ("modules/mastering/loudness.py", "_converge_loudness"): 113,
     ("modules/mix/bus.py", "build_mix"): 129,
     ("modules/mix/ducking.py", "duck_low_band"): 65,
