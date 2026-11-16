@@ -194,6 +194,52 @@ def _stage_stems(master_wav: str, out_dir: Path) -> dict[str, Any]:
         }
 
 
+
+def apply_adaptive_enhance(master_wav: str, adaptive_level: int, enhanced_dsp: bool) -> dict[str, Any]:
+    """Лёгкая сатурация + расширение для ultra_light без нейросетей.
+
+    Живёт в пайплайне, а не после него: раньше хит-фабрика вызывала этот шаг
+    уже после `run_full_pipeline`, из-за чего hit-score, релизный пакет и
+    `artifact_integrity` описывали один мастер, а на диске лежал другой.
+    Теперь обработка — часть стадии `_stage_polish`, до всех измерений.
+    """
+    if not enhanced_dsp or int(adaptive_level or 0) != 0:
+        return {"ok": True, "applied": False, "reason": "adaptive DSP disabled for this level"}
+    try:
+        import numpy as np
+        import soundfile as sf
+
+        from modules.hit_factory.adaptive import get_adaptive_config
+
+        cfg = get_adaptive_config()
+        if cfg.get("use_acestep") or cfg.get("use_musicgen"):
+            return {"ok": True, "applied": False, "reason": "neural engine owns the master"}
+        data, sr = sf.read(str(master_wav))
+        if data.ndim == 1:
+            data = np.stack([data, data], axis=1)
+        if data.shape[0] > sr * 0.02:
+            drive = 0.02
+            data = np.tanh(data * (1 + drive)) / np.tanh(1 + drive)
+            delay = int(sr * 0.012)
+            if delay > 0 and data.shape[0] > delay:
+                data[delay:, 1] = 0.7 * data[delay:, 1] + 0.3 * data[:-delay, 1]
+        try:
+            from scipy.signal import butter, lfilter
+
+            b, a = butter(2, 80 / (sr / 2), btype="low")
+            low = lfilter(b, a, data, axis=0)
+            data = data * 0.85 + low * 0.15 * 1.2
+        except Exception as _exc:  # noqa: BLE001 - фильтр опционален
+            print(f"[adaptive] ignored: {_exc}")
+        peak = float(np.max(np.abs(data)) + 1e-9)
+        if peak > 0.99:
+            data = data / peak * 0.95
+        sf.write(str(master_wav), data, sr)
+        return {"ok": True, "applied": True, "engine": "adaptive.ultra_light"}
+    except Exception as exc:  # noqa: BLE001 - обработка не критична
+        return {"ok": False, "applied": False, "reason": f"{type(exc).__name__}: {exc}"}
+
+
 def _stage_hit_score(master_wav: str) -> dict[str, Any]:
     """v19 FIX (P0): раньше искали hit_scorer.score(...), но реальная функция —
     hit_scorer.score_track(...). Из-за этого пайплайн всегда отдавал

@@ -11,6 +11,7 @@ import os
 import shutil
 import tempfile
 from pathlib import Path
+from typing import Any
 
 from app.core.pipeline_runtime import _output
 from app.pipeline import StageResult, StageStatus
@@ -54,6 +55,30 @@ def add_mix_integrity(report: dict, stage: StageResult, out_root: Path, warnings
         }}
     except Exception as exc:  # noqa: BLE001 - rendering succeeds, revision is unavailable
         warnings.append(f"mix integrity not recorded; revision unavailable: {type(exc).__name__}: {exc}")
+
+
+def add_master_integrity(report: dict, master_path: Any, out_root: Path, warnings: list[str]) -> None:
+    """Записать хеш финального мастера — того, что реально измерен и отдан в релиз.
+
+    Раньше `artifact_integrity` знал только про `mix.wav`, поэтому проверка
+    переоткрытия не замечала, что хит-фабрика переписала мастер уже после
+    отчёта (hit-score, metadata и громкость относились к другому файлу).
+    """
+    if not master_path:
+        return
+    try:
+        root = out_root.resolve()
+        path = Path(str(master_path)).resolve(strict=True)
+        if not path.is_file():
+            raise ValueError("master is not a regular file")
+        relative = path.relative_to(root)
+        report.setdefault("artifact_integrity", {})["master"] = {
+            "relative_path": relative.as_posix(),
+            "bytes": path.stat().st_size,
+            "sha256": _sha256(path),
+        }
+    except Exception as exc:  # noqa: BLE001 - рендер важнее ревизии
+        warnings.append(f"master integrity not recorded: {type(exc).__name__}: {exc}")
 
 
 def _checked_mix(source: Path, report: dict) -> tuple[Path, dict]:

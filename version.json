@@ -1,6 +1,6 @@
 {
-  "version": "42.0.11",
-  "build": "v42.0.11-slim-release-2026-11-16",
-  "based_on": "42.0.10",
-  "changes": "42.0.11 SLIM: source-ZIP больше не заглатывает собранные EXE (632 МБ -> ~20 МБ), демо-WAV убраны из git (55 МБ), size_guard и .gitignore guard в CI, старые релизы вычищены (16.7 ГБ -> 3.2 ГБ)"
+  "version": "42.0.12",
+  "build": "v42.0.12-report-truth-2026-11-16",
+  "based_on": "42.0.11",
+  "changes": "42.0.12 TRUTH: один мастер на всё (hit-score/релиз/artifact_integrity описывали файл, который затем перезаписывался), переоткрытие проекта починено (adaptive_level/enhanced_dsp/musicgen_* в RECIPE_KEYS), crest-гейт мерит той же метрикой, что и оптимизатор, релиз получает имя из темы"
 }

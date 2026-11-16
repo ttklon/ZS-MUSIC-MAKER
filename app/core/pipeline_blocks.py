@@ -20,6 +20,17 @@ from typing import Any, Callable
 
 from app.pipeline import StageResult
 
+# Зависимости по умолчанию. Импортируются на уровне модуля, чтобы
+# монкипатч `orchestrator._stage_*` действительно влиял на прогон: раньше
+# импорт жил внутри функции, и подмена молча игнорировалась — тесты
+# «проходили», проверяя настоящий рендер вместо макета.
+from app.core.stages.master import (  # noqa: E402
+    _stage_hit_score,
+    _stage_polish,
+    _stage_stems,
+    apply_adaptive_enhance,
+)
+
 from app.core.pipeline_runtime import (
     MASTER_STANDS,
     STAGE_RECORDS,
@@ -211,15 +222,34 @@ def _run_post_master_stages(
     out_root: Path,
     only: Any,
 ) -> list[StageResult]:
-    """Полировка, стемы и hit-score после мастеринга."""
-    from app.core.stages.master import _stage_hit_score, _stage_polish, _stage_stems
+    """Полировка, стемы и hit-score после мастеринга.
 
+    Порядок связан: `polished.wav` — финальный мастер, поэтому стемы и
+    hit-score обязаны читать именно его. Раньше все три стадии смотрели на
+    сырой `streaming`-мастер, и полировка (включая адаптивный DSP) оставалась
+    мёртвым файлом — на диске был один звук, а в отчёте другой.
+    """
     export_stems = recipe.get("export_stems", True)
     produced: list[StageResult] = []
+    final_master = streaming_master
+
+    def polish_with_dsp() -> dict[str, Any]:
+        nonlocal final_master
+        result = _stage_polish(streaming_master, out_root)
+        path = (result or {}).get("path") if isinstance(result, dict) else None
+        if path and Path(path).exists():
+            final_master = str(path)
+            if recipe.get("enhanced_dsp", True):
+                dsp = apply_adaptive_enhance(
+                    final_master, recipe.get("adaptive_level", 0), True
+                )
+                result["adaptive_dsp"] = dsp
+        return result
+
     for key, name, fn in (
-        ("polish", "_stage_polish", lambda: _stage_polish(streaming_master, out_root)),
-        ("stems", "_stage_stems", lambda: _stage_stems(streaming_master, out_root)),
-        ("hit_score", "_stage_hit_score", lambda: _stage_hit_score(streaming_master)),
+        ("polish", "_stage_polish", polish_with_dsp),
+        ("stems", "_stage_stems", lambda: _stage_stems(final_master, out_root)),
+        ("hit_score", "_stage_hit_score", lambda: _stage_hit_score(final_master)),
     ):
         if not streaming_master:
             produced.append(_blocked(name, "no master"))

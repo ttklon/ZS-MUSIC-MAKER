@@ -30,7 +30,6 @@ LONG_FUNCTIONS: dict[tuple[str, str], int] = {
     ("app/ai/sequential_runner.py", "run"): 84,
     ("app/core/ai/render.py", "extend_beat_with_stereo_sections"): 61,
     ("app/core/musicgen_texture.py", "generate_texture"): 65,
-    ("app/core/orchestrator.py", "_build_report"): 65,
     ("app/core/orchestrator.py", "run_full_pipeline"): 140,
     ("app/core/orchestrator_ai.py", "run_ai_pipeline"): 86,
     ("app/core/project_inputs.py", "apply_replacement_inputs"): 74,

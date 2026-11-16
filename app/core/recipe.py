@@ -30,6 +30,19 @@ def _as_int(value: Any, default: int | None = None) -> int | None:
         return default
 
 
+def _sound_flags(state: dict) -> dict:
+    """Флаги, которые меняют готовый звук, а не маршрут пайплайна.
+
+    Вынесены из `build_recipe`, чтобы функция не разрасталась: адаптивный DSP
+    и его уровень обязан знать мастеринг-этап, иначе переоткрытие проекта
+    рендерило бы трек с другим звуком.
+    """
+    return {
+        "adaptive_level": _as_int(state.get("adaptive_level"), 0) or 0,
+        "enhanced_dsp": bool(state.get("enhanced_dsp", True)),
+    }
+
+
 def _as_float(value: Any, default: float | None = None) -> float | None:
     try:
         return float(value) if value not in (None, "") else default
@@ -133,6 +146,7 @@ def build_recipe(wizard_state: dict[str, Any] | None) -> dict[str, Any]:
         "tune": bool(state.get("tune", False)),
         # явные флаги пользователя: конвейер их уважает, а не игнорирует
         "export_stems": bool(state.get("export_stems", True)),
+        **_sound_flags(state),
         "bilingual": bool(state.get("bilingual", True)),
         # какие стадии пересобирать; None/пусто = полный прогон
         "only": _only_stages(state.get("only")),

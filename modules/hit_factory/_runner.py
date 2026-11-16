@@ -14,46 +14,22 @@ _LOG = logging.getLogger(__name__)
 
 
 def _enhance_master(master: str | Path, wizard_state: dict[str, Any]) -> None:
-    """Лёгкая сатурация + расширение для ultra_light без нейросетей."""
-    try:
-        lvl = int(wizard_state.get("adaptive_level", 0))
-        if lvl != 0:
-            return
-        from modules.hit_factory.adaptive import get_adaptive_config as _gac
+    """Совместимость: обработка мастера теперь живёт внутри пайплайна.
 
-        _cfg = _gac()
-        if _cfg.get("use_acestep") or _cfg.get("use_musicgen"):
-            return
-        try:
-            import numpy as np
-            import soundfile as sf
+    Раньше этот шаг вызывался уже после `run_full_pipeline`, из-за чего
+    изменённый файл расходился с hit-score, релизным пакетом и
+    `artifact_integrity`. Реальная работа — `stages.master.apply_adaptive_enhance`
+    в стадии `_stage_polish`; здесь остаётся тонкая обёртка для внешних вызовов.
+    """
+    from app.core.stages.master import apply_adaptive_enhance
 
-            data, sr = sf.read(str(master))
-            if data.ndim == 1:
-                data = np.stack([data, data], axis=1)
-            if data.shape[0] > sr * 0.02:
-                drive = 0.02
-                data = np.tanh(data * (1 + drive)) / np.tanh(1 + drive)
-                delay = int(sr * 0.012)
-                if delay > 0 and data.shape[0] > delay:
-                    data[delay:, 1] = 0.7 * data[delay:, 1] + 0.3 * data[:-delay, 1]
-            try:
-                from scipy.signal import butter, lfilter
-
-                b, a = butter(2, 80 / (sr / 2), btype="low")
-                low = lfilter(b, a, data, axis=0)
-                data = data * 0.85 + low * 0.15 * 1.2
-            except Exception as _exc:
-                print(f"[adaptive] ignored: {_exc}")
-            peak = float(np.max(np.abs(data)) + 1e-9)
-            if peak > 0.99:
-                data = data / peak * 0.95
-            sf.write(str(master), data, sr)
-            _LOG.info(f"[adaptive] enhanced DSP applied to {master} (lvl 0, ultra_light)")
-        except Exception as _e:
-            _LOG.debug(f"adaptive enhance failed: {_e}")
-    except Exception as _exc:
-        print(f"[adaptive] ignored: {_exc}")
+    res = apply_adaptive_enhance(
+        str(master),
+        int(wizard_state.get("adaptive_level", 0) or 0),
+        bool(wizard_state.get("enhanced_dsp", True)),
+    )
+    if res.get("applied"):
+        _LOG.info(f"[adaptive] enhanced DSP applied to {master} (in pipeline)")
 
 
 def _postprocess(
@@ -189,8 +165,6 @@ def run_pipeline_once(
             raise
 
     master = report.get("master_path")
-    if master and Path(master).exists() and wizard_state.get("enhanced_dsp"):
-        _enhance_master(master, wizard_state)
 
     hit = None
     if master and Path(master).exists():

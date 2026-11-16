@@ -124,10 +124,16 @@ def _gates(report: dict[str, Any], stand: str) -> dict[str, bool]:
     crest_lo, crest_hi = CREST_RANGE.get(stand, DEFAULT_CREST)
     corr = float(report["stereo_correlation"]) if int(report["channels"]) > 1 else 0.5
     corr_lo, corr_hi = CORRELATION_RANGE.get(stand, DEFAULT_CORRELATION)
+    # Гейт обязан мерить тем же crest, которым правит оптимизатор
+    # (`_converge_loudness`/`_control_crest` берут `reference_crest_db` —
+    # crest самого громкого участка). Пока здесь стоял сквозной `crest_db`,
+    # мастер с reference-crest 13.34 «падал» по crest 14.46, и отчёт
+    # показывал провал гейта при фактически корректной динамике.
+    gate_crest = float(report.get("reference_crest_db", report["crest_db"]))
     return {
         "true_peak": float(report["true_peak_dbtp"]) <= TRUE_PEAK_CEILING,
         "lufs": abs(lufs - target) <= tol,
-        "crest": crest_lo <= float(report["crest_db"]) <= crest_hi,
+        "crest": crest_lo <= gate_crest <= crest_hi,
         "correlation": corr_lo <= corr <= corr_hi,
         "mono_loss": float(report["mono_loss_db"]) <= 3.0,
         "no_clipping": int(report["clipping_samples"]) == 0,

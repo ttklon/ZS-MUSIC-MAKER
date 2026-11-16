@@ -21,6 +21,11 @@ RECIPE_KEYS = frozenset({
     "own_vocal_wav", "vocal_wav", "use_rvc", "rvc_model_path", "rvc_index_path",
     "rvc_pitch_shift", "vocal_offset_ms", "use_vocal_fx", "tune", "export_stems",
     "bilingual", "only", "variant",
+    # Настройки адаптивного DSP: они меняют готовый мастер (`_enhance_master`
+    # включает сатурацию и расширение при `adaptive_level == 0` и
+    # `enhanced_dsp == True`). Без них в снапшоте проект открывался бы с
+    # другим звуком, чем был отрендерен, — то есть переоткрытие врало бы.
+    "adaptive_level", "enhanced_dsp", "musicgen_model", "musicgen_device",
 })
 
 
