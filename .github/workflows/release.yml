@@ -166,11 +166,16 @@ jobs:
 
       - name: Create source ZIP for updater (what updater installs)
         run: |
-          # ZIP содержимого репозитория без мусора — именно его ставит updater/install_from_zip
-          zip -r _artifacts/ZS-Music-Maker-Source-${{ steps.ver.outputs.version }}.zip \
-            . -x ".git/*" ".github/*" "output/*" ".venv/*" "venv/*" "node_modules/*" "desktop/node_modules/*" "desktop/dist/*" "dist/*" "*.pyc" "__pycache__/*" ".pytest_cache/*" \
+          # Архив пишется в /tmp, а НЕ в _artifacts/: раньше файл создавался внутри
+          # того же каталога, который архифицировал, и zip глатал уже собранные
+          # EXE. В релизах 42.0.x это давало 632 МБ вместо 68 МБ источника.
+          # _artifacts сюда попадает только как исключение — на случай порядка шагов.
+          V="${{ steps.ver.outputs.version }}"
+          zip -r "/tmp/ZS-Music-Maker-Source-$V.zip" \
+            . -x ".git/*" ".github/*" "output/*" ".venv/*" "venv/*" "node_modules/*" "desktop/node_modules/*" "desktop/dist/*" "dist/*" "*.pyc" "__pycache__/*" ".pytest_cache/*" "demo_site/*.wav" "_artifacts/*" \
             -q
-          ls -lh _artifacts/*.zip _artifacts/**/*.zip 2>&1 | head -n 20
+          cp "/tmp/ZS-Music-Maker-Source-$V.zip" "_artifacts/"
+          du -h "_artifacts/ZS-Music-Maker-Source-$V.zip"
           ls -lh _artifacts/** 2>&1 | head -n 50
 
       - name: Create Release

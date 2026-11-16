@@ -18,7 +18,7 @@
 | app/ai/prompts.py | REAL_PASS | PASS | 5 | 35 |
 | app/ai/quality/__init__.py | REAL_PASS | PASS | 10 | 144 |
 | app/ai/quality/analysis.py | REAL_PASS | PASS | 1 | 52 |
-| app/ai/quality/audio.py | REAL_PASS | PASS | 2 | 660 |
+| app/ai/quality/audio.py | REAL_PASS | PASS | 2 | 662 |
 | app/ai/quality/lyrics.py | REAL_PASS | PASS | 3 | 508 |
 | app/ai/quality/metadata.py | REAL_PASS | PASS | 1 | 80 |
 | app/ai/registry.py | REAL_PASS | PASS | 16 | 275 |
@@ -194,7 +194,7 @@
 | modules/hit_factory/ui.py | DEPRECATED | PASS | 0 | 656 |
 | modules/hit_scorer/__init__.py | REAL_PASS | PASS | 5 | 138 |
 | modules/hit_scorer/__main__.py | DEPRECATED | PASS | 0 | 11 |
-| modules/hit_scorer/audio.py | REAL_PASS | PASS | 3 | 661 |
+| modules/hit_scorer/audio.py | REAL_PASS | PASS | 3 | 663 |
 | modules/hit_scorer/hook_metrics.py | REAL_PASS | PASS | 2 | 18 |
 | modules/hit_scorer/mix_metrics.py | REAL_PASS | PASS | 1 | 12 |
 | modules/hit_scorer/scoring.py | REAL_PASS | PASS | 1 | 11 |
@@ -205,7 +205,7 @@
 | modules/kpi_dashboard/checklist.py | REAL_PASS | PASS | 2 | 2 |
 | modules/kpi_dashboard/config.py | REAL_PASS | PASS | 4 | 51 |
 | modules/kpi_dashboard/models.py | REAL_PASS | PASS | 3 | 70 |
-| modules/kpi_dashboard/report.py | REAL_PASS | PASS | 2 | 877 |
+| modules/kpi_dashboard/report.py | REAL_PASS | PASS | 2 | 884 |
 | modules/kpi_dashboard/sources.py | REAL_PASS | PASS | 3 | 30 |
 | modules/kpi_monitor.py | DEPRECATED | PASS | 0 | 10 |
 | modules/llm/__init__.py | REAL_PASS | PASS | 2 | 134 |
@@ -267,7 +267,7 @@
 | modules/user_profile.py | REAL_PASS | PASS | 3 | 9 |
 | modules/video_edit/__init__.py | DEPRECATED | PASS | 0 | 127 |
 | modules/video_edit/__main__.py | DEPRECATED | PASS | 0 | 11 |
-| modules/video_edit/audio.py | DEPRECATED | PASS | 3 | 661 |
+| modules/video_edit/audio.py | DEPRECATED | PASS | 3 | 663 |
 | modules/video_edit/console.py | DEPRECATED | PASS | 3 | 11 |
 | modules/video_edit/edits.py | DEPRECATED | PASS | 2 | 20 |
 | modules/video_edit/lrc.py | DEPRECATED | PASS | 3 | 27 |
@@ -294,7 +294,7 @@
 | modules/voice_synth.py | REAL_PASS | PASS | 2 | 90 |
 | modules/voice_synth_ai.py | REAL_PASS | PASS | 1 | 11 |
 | modules/voice_vault.py | REAL_PASS | PASS | 1 | 43 |
-| tools/__init__.py | REAL_PASS | PASS | 0 | 183 |
+| tools/__init__.py | REAL_PASS | PASS | 0 | 184 |
 | tools/ast_dead_imports.py | REAL_PASS | PASS | 0 | 4 |
 | tools/ast_undefined_names.py | REAL_PASS | PASS | 0 | 5 |
 | tools/audio_golden_metrics.py | REAL_PASS | PASS | 0 | 7 |
@@ -322,6 +322,7 @@
 | tools/readiness/reachability.py | REAL_PASS | PASS | 1 | 1 |
 | tools/readiness/scoring.py | REAL_PASS | PASS | 4 | 9 |
 | tools/samples_audit.py | REAL_PASS | PASS | 0 | 12 |
+| tools/size_guard.py | REAL_PASS | PASS | 0 | 3 |
 | tools/smoke_audio.py | REAL_PASS | PASS | 0 | 16 |
 | tools/smoke_god.py | REAL_PASS | PASS | 0 | 14 |
 | ui/__init__.py | REAL_PASS | PASS | 0 | 774 |
