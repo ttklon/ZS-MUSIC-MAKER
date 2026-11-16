@@ -131,11 +131,17 @@ def run_readiness() -> int:
         return 2
 
 
-def run_update() -> int:
+def run_update(allow_online: bool = False) -> int:
+    """Проверить обновления. Без `--online` апдейтер честно отвечает `offline`.
+
+    Раньше флаг не пробрасывался: `--update --online` всегда возвращал
+    «remote update check requires --online», то есть проверить обновления было
+    невозможно в принципе — ни из CLI, ни из GUI.
+    """
     try:
         from updater.updater import check_git_update_status
 
-        report = check_git_update_status(ROOT)
+        report = check_git_update_status(ROOT, allow_online=allow_online)
     except Exception as e:
         safe_print(f"[main --update] failed: {e}")
         return 2

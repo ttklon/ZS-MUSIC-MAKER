@@ -70,7 +70,7 @@ def _run_info_command(args) -> int | None:
         (args.dashboard, commands.run_dashboard),
         (args.e2e, commands.run_e2e),
         (args.onboarding, commands.run_onboarding),
-        (args.update, commands.run_update),
+        (args.update, lambda: commands.run_update(allow_online=bool(getattr(args, "online", False)))),
     )
     for enabled, handler in dispatch:
         if enabled:

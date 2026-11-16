@@ -144,11 +144,15 @@ def test_score_success_and_error(said, monkeypatch) -> None:
 
 
 def test_update_ok_and_failure(said, monkeypatch) -> None:
-    _stub(monkeypatch, "updater.updater", check_git_update_status=lambda root: {"ok": True, "behind": 0})
+    # сигнатура апдейтера принимает `allow_online` — заглушка обязана совпадать,
+    # иначе тест падал бы на TypeError вместо проверки кода возврата
+    _stub(monkeypatch, "updater.updater",
+          check_git_update_status=lambda root, allow_online=False: {"ok": True, "behind": 0})
 
     assert commands.run_update() == 0
 
-    _stub(monkeypatch, "updater.updater", check_git_update_status=lambda root: {"ok": False, "reason": "no git"})
+    _stub(monkeypatch, "updater.updater",
+          check_git_update_status=lambda root, allow_online=False: {"ok": False, "reason": "no git"})
     assert commands.run_update() == 2, "непроверяемое обновление не выдаётся за успех"
 
 

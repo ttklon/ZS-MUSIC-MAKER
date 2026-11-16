@@ -116,6 +116,10 @@ LONG_FUNCTIONS: dict[tuple[str, str], int] = {
 SKIP_DIRS = {
     ".git", ".venv", "venv", "__pycache__", "output", "build", "dist",
     "node_modules", "models", "data", "assets", "logs", ".pytest_cache",
+    # Изолированные окружения движков (`--bootstrap` создаёт `.venv-rvc`):
+    # там лежит чужой код, и гейт «наши функции не растут» на нём не имеет
+    # смысла — он просто падал сотнями строк из pip.
+    ".venv-rvc", ".venv-musicgen", ".venv-rvc-torch",
 }
 
 
