@@ -35,7 +35,7 @@ def _wav(path: Path, value: float = 0.1) -> str:
     return str(path)
 
 
-def _fake_polish(src: str, out_root: Path) -> dict[str, Any]:
+def _fake_polish(src: str, out_root: Path, seed: int | None = None) -> dict[str, Any]:
     """Полировка, которая реально создаёт новый файл, как настоящая стадия."""
     target = Path(out_root) / "polished.wav"
     shutil.copy(src, target)
@@ -179,3 +179,31 @@ def test_crest_gate_measures_same_metric_as_optimiser():
     assert round(metrics.reference_crest_db(signal, sr), 2) == report["reference_crest_db"]
     # метрики действительно разные величины, а не дубликат
     assert report["crest_db"] > report["reference_crest_db"]
+
+
+def test_polish_is_deterministic_for_same_seed(tmp_path):
+    """Один рецепт + один seed = побайтово один мастер.
+
+    Регрессия 42.0.14: три места в `anti_neuro_track` брали
+    `seed or int(time.time())`, поэтому каждый прогон давал другой
+    `polished.wav` — при побайтово идентичных `beat.wav` и
+    `master_streaming.wav`. Недетерминизм жил ровно в полировке, а обещание
+    `--seed` распространялось на весь трек.
+    """
+    from app.core.stages.master import _stage_polish
+
+    src = _wav(tmp_path / "src.wav", value=0.25)
+    first = _stage_polish(src, tmp_path / "a", seed=4242)
+    second = _stage_polish(src, tmp_path / "b", seed=4242)
+
+    assert first["ok"] and second["ok"]
+    assert Path(first["path"]).read_bytes() == Path(second["path"]).read_bytes()
+
+
+def test_polish_seed_default_is_stable():
+    """Отсутствие seed — стабильное значение, а не текущее время."""
+    from modules.anti_neuro_track import DEFAULT_SEED, _resolve_seed
+
+    assert _resolve_seed(None) == DEFAULT_SEED
+    assert _resolve_seed(None) == _resolve_seed(None)
+    assert _resolve_seed(7) == 7

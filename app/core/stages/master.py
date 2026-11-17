@@ -47,11 +47,15 @@ def _stage_mastering(
         return {"ok": False, "reason": str(e)}
 
 
-def _stage_polish(input_wav: str, out_dir: Path) -> dict[str, Any]:
+def _stage_polish(input_wav: str, out_dir: Path, seed: int | None = None) -> dict[str, Any]:
     """Anti-neuro обработка мастера: трековая цепочка → вокальная → честная копия.
 
     Каждый движок пробуется изолированно: сбой одного не отменяет следующий,
     а полный отказ заканчивается явной копией с `fallback_used=True`.
+
+    `seed` пробрасывается в цепочку полировки: без него эффекты брали текущее
+    время, и одинаковый рецепт давал разные файлы (beat.wav и мастер при этом
+    совпадали побайтово — недетерминизм жил ровно в полировке).
     """
     out_wav = str(out_dir / "polished.wav")
     attempts: list[str] = []
@@ -70,11 +74,11 @@ def _stage_polish(input_wav: str, out_dir: Path) -> dict[str, Any]:
             result: Any = None
             try:
                 if name == "polish_track":
-                    result = fn(input_wav, out_wav, preset="standard")
+                    result = fn(input_wav, out_wav, preset="standard", seed=seed)
                 elif name == "apply_polish":
                     result = fn(input_wav, out_wav, intensity=0.5)
                 else:
-                    result = fn(input_wav, out_wav, preset="standard")
+                    result = fn(input_wav, out_wav, preset="standard", seed=seed)
             except TypeError:
                 try:
                     result = fn(input_wav, out_wav)

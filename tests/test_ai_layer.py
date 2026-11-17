@@ -288,8 +288,10 @@ def test_stage_polish_reports_engine_and_falls_back_honestly(monkeypatch, tmp_pa
     import modules
     from app.core import orchestrator
 
+    # сигнатура стадии теперь несёт seed: заглушка должна его принимать,
+    # иначе TypeError уводит вызов на ветку «движок недоступен»
     fake = types.SimpleNamespace(
-        polish_vocal=lambda source, output, preset: {"ok": True, "path": output}
+        polish_vocal=lambda source, output, preset, seed=None: {"ok": True, "path": output}
     )
     monkeypatch.setitem(sys.modules, "modules.anti_neuro", fake)
     monkeypatch.setattr(modules, "anti_neuro", fake, raising=False)

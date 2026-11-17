@@ -9,7 +9,7 @@
 | agents/sample_hunter/planner.py | REAL_PASS | PASS | 2 | 15 |
 | agents/sample_hunter/web.py | REAL_PASS | PASS | 1 | 66 |
 | agents/trend_scout.py | REAL_PASS | PASS | 8 | 60 |
-| app/__init__.py | REAL_PASS | PASS | 0 | 986 |
+| app/__init__.py | REAL_PASS | PASS | 0 | 987 |
 | app/ai/__init__.py | REAL_PASS | PASS | 0 | 215 |
 | app/ai/acestep.py | REAL_PASS | PASS | 1 | 4 |
 | app/ai/hardware.py | REAL_PASS | PASS | 8 | 65 |
@@ -35,7 +35,7 @@
 | app/cli/parser.py | REAL_PASS | PASS | 1 | 15 |
 | app/cli/pipeline.py | REAL_PASS | PASS | 1 | 270 |
 | app/cli/probes.py | REAL_PASS | PASS | 2 | 6 |
-| app/core/__init__.py | REAL_PASS | PASS | 0 | 308 |
+| app/core/__init__.py | REAL_PASS | PASS | 0 | 309 |
 | app/core/agent_context.py | REAL_PASS | PASS | 1 | 1 |
 | app/core/agent_wiring.py | REAL_PASS | PASS | 1 | 5 |
 | app/core/ai/__init__.py | REAL_PASS | PASS | 0 | 121 |
@@ -76,15 +76,15 @@
 | app/core/report_finalize.py | REAL_PASS | PASS | 1 | 0 |
 | app/core/revision.py | REAL_PASS | PASS | 4 | 42 |
 | app/core/security_utils.py | REAL_PASS | PASS | 3 | 5 |
-| app/core/stages/__init__.py | REAL_PASS | PASS | 0 | 158 |
-| app/core/stages/beat.py | REAL_PASS | PASS | 1 | 683 |
+| app/core/stages/__init__.py | REAL_PASS | PASS | 0 | 159 |
+| app/core/stages/beat.py | REAL_PASS | PASS | 1 | 684 |
 | app/core/stages/beat_arrangement.py | REAL_PASS | PASS | 1 | 0 |
 | app/core/stages/beat_synth.py | REAL_PASS | PASS | 1 | 20 |
 | app/core/stages/imported_beat.py | REAL_PASS | PASS | 1 | 2 |
 | app/core/stages/lyrics.py | REAL_PASS | PASS | 2 | 512 |
 | app/core/stages/lyrics_providers.py | REAL_PASS | PASS | 1 | 0 |
 | app/core/stages/lyrics_templates.py | REAL_PASS | PASS | 1 | 2 |
-| app/core/stages/master.py | REAL_PASS | PASS | 4 | 620 |
+| app/core/stages/master.py | REAL_PASS | PASS | 4 | 623 |
 | app/core/stages/mix.py | REAL_PASS | PASS | 1 | 419 |
 | app/core/stages/prep.py | REAL_PASS | PASS | 2 | 79 |
 | app/core/stages/release.py | REAL_PASS | PASS | 1 | 215 |
@@ -112,7 +112,7 @@
 | app/gui/wizard/window.py | REAL_PASS | PASS | 1 | 60 |
 | app/hw_probe.py | REAL_PASS | PASS | 1 | 25 |
 | app/pipeline/__init__.py | REAL_PASS | PASS | 8 | 127 |
-| app/pipeline/stage.py | REAL_PASS | PASS | 1 | 938 |
+| app/pipeline/stage.py | REAL_PASS | PASS | 1 | 942 |
 | app/plugins/advanced.py | DEPRECATED | PASS | 0 | 6 |
 | app/plugins/base.py | DEPRECATED | PASS | 1 | 108 |
 | app/runtime_orchestrator.py | REAL_PASS | PASS | 1 | 55 |
@@ -122,7 +122,7 @@
 | hitmaker.py | DEPRECATED | PASS | 0 | 0 |
 | install.py | REAL_PASS | PASS | 0 | 208 |
 | main.py | REAL_PASS | PASS | 1 | 254 |
-| modules/__init__.py | REAL_PASS | PASS | 0 | 921 |
+| modules/__init__.py | REAL_PASS | PASS | 0 | 922 |
 | modules/agent_guide/__init__.py | REAL_PASS | PASS | 1 | 122 |
 | modules/agent_guide/narration.py | REAL_PASS | PASS | 1 | 0 |
 | modules/agent_guide/questions.py | REAL_PASS | PASS | 2 | 1 |
@@ -130,8 +130,8 @@
 | modules/ai_arranger.py | DEPRECATED | PASS | 0 | 0 |
 | modules/ai_detector_pro.py | REAL_PASS | PASS | 1 | 19 |
 | modules/analyzer.py | REAL_PASS | PASS | 1 | 81 |
-| modules/anti_neuro.py | REAL_PASS | PASS | 1 | 27 |
-| modules/anti_neuro_track.py | REAL_PASS | PASS | 3 | 9 |
+| modules/anti_neuro.py | REAL_PASS | PASS | 1 | 30 |
+| modules/anti_neuro_track.py | REAL_PASS | PASS | 3 | 12 |
 | modules/arrangement_engine.py | REAL_PASS | PASS | 1 | 7 |
 | modules/arrangement_genres.py | REAL_PASS | PASS | 1 | 0 |
 | modules/artist_dossier/__init__.py | REAL_PASS | PASS | 3 | 139 |

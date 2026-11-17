@@ -236,7 +236,7 @@ def _run_post_master_stages(
 
     def polish_with_dsp() -> dict[str, Any]:
         nonlocal final_master
-        result = _stage_polish(streaming_master, out_root)
+        result = _stage_polish(streaming_master, out_root, seed=recipe.get("seed"))
         path = (result or {}).get("path") if isinstance(result, dict) else None
         if path and Path(path).exists():
             final_master = str(path)

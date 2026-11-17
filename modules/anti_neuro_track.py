@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import math
 import random
-import time
 from pathlib import Path
 
 try:
@@ -57,10 +56,26 @@ def _write_track(path: str, y, sr):
 
 
 # ============================================================ effects
+DEFAULT_SEED = 42
+
+
+def _resolve_seed(seed: int | None) -> int:
+    """Стабильный seed для эффектов полировки.
+
+    Раньше три места использовали `seed or int(time.time())`: без явного seed
+    каждый прогон давал другой мастер (проверено — три запуска подряд дали три
+    разных SHA-256 `polished.wav`, при побайтово идентичных beat.wav и
+    master_streaming.wav). Модуль обещает детерминизм по seed, значит
+    отсутствие seed — это стабильное значение по умолчанию, а не текущее время.
+    """
+    return DEFAULT_SEED if seed is None else int(seed)
+
+
+
 def _micro_timing_jitter(y, sr, amount_ms: float = 5.0, seed: int | None = None):
     if not NP_OK:
         return y
-    rng = _np.random.default_rng(seed or int(time.time()))
+    rng = _np.random.default_rng(_resolve_seed(seed))
     seg_len = int(sr * 0.5)  # 500 мс блоки
     max_shift = int(sr * amount_ms / 1000.0)
     if max_shift <= 0:
@@ -107,7 +122,7 @@ def _breath_insert(
 def _section_dynamics_variation(y, sr, sections: list, seed: int | None = None):
     if not NP_OK or not sections:
         return y
-    rng = random.Random(seed or int(time.time()))
+    rng = random.Random(_resolve_seed(seed))
     out = y.copy()
     for sec in sections:
         s = int(sec.get("start_sec", 0.0) * sr)
@@ -154,7 +169,7 @@ def _ghost_harmonies_kill(y, sr):
 def _formulaic_structure_bust(y, sr, seed: int | None = None):
     if not NP_OK:
         return y
-    rng = random.Random(seed or int(time.time()))
+    rng = random.Random(_resolve_seed(seed))
     dur = len(y) / sr
     if dur < 30:
         return y
