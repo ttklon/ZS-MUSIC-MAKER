@@ -17,7 +17,18 @@
   поэтому в CI и на машине разработчика они законно разные. Сверять их —
   значит требовать одинакового набора пакетов везде, а это неправда.
 
-Запускается после `node desktop/scripts/snapshot-readiness.js` в CI.
+Режимы сверки
+-------------
+В режиме `--tree` сверяется **рабочее дерево**: снимок на диске против
+пересчёта во временный каталог. Это то, что нужно локально: правка модуля
+обязана сразу валить pytest, а не только CI-шаг после пуша.
+
+`--head` (по умолчанию) сверяет снимок с тем, что закоммичено в `HEAD`:
+пересчёт совпал, но снимок не закоммичен — значит в CI он разойдётся.
+
+Почему раньше было больно: сверка шла только с `HEAD`, поэтому локально после
+правки кода тест был зелёным (в `HEAD` лежал старый снимок и старый код —
+они «совпадали»), а CI падал уже после пуша и тега. Два релиза подряд.
 
 Кода возврата два: 0 — снимок свежий, 1 — устарел, 2 — сравнивать не с чем
 (нет git или HEAD, например при прогоне из архива). «Не с чем сравнить» — не
@@ -28,7 +39,10 @@ from __future__ import annotations
 
 import difflib
 import json
+import os
+import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -98,8 +112,69 @@ def have_history() -> bool:
     return result.returncode == 0
 
 
+def _recompute_into(tmp_dir: Path) -> int:
+    """Пересчитать снимок во временный каталог, не трогая рабочие файлы."""
+    node = shutil.which("node")
+    if not node:
+        print("::warning title=snapshot::node не найден — пересчёт невозможен")
+        return 2
+    script = ROOT / "desktop" / "scripts" / "snapshot-readiness.js"
+    env = dict(os.environ, ZSMM_SNAPSHOT_OUT=str(tmp_dir))
+    proc = subprocess.run(
+        [node, str(script)], cwd=str(ROOT), capture_output=True, text=True, env=env,
+    )
+    if proc.returncode != 0:
+        print(f"::error title=snapshot::пересчёт не удался: {(proc.stderr or '')[-500:]}")
+        return 1
+    return 0
+
+
+def _compare_tree() -> tuple[int, list[str]]:
+    """Сверить файлы на диске с пересчётом во временный каталог."""
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        target = Path(tmp)
+        code = _recompute_into(target)
+        if code != 0:
+            return code, []
+        problems: list[str] = []
+        fresh_ready = target / "readiness.json"
+        fresh_inv = target / "inventory.md"
+        if not fresh_ready.is_file():
+            return 2, ["пересчёт не создал readiness.json (нет ZSMM_SNAPSHOT_OUT?)"]
+        old = payload(SNAPSHOT.read_text(encoding="utf-8")) if SNAPSHOT.is_file() else {}
+        new = payload(fresh_ready.read_text(encoding="utf-8"))
+        for field in ("module_inventory", "caps_triggered"):
+            if old.get(field) != new.get(field):
+                problems.append(f"readiness.json: {field} устарел относительно кода")
+        if INVENTORY.is_file() and fresh_inv.is_file():
+            before = INVENTORY.read_text(encoding="utf-8")
+            after = fresh_inv.read_text(encoding="utf-8")
+            if inventory_rows(before) != inventory_rows(after):
+                problems.append(
+                    "inventory.md устарел относительно кода: "
+                    + _diff_excerpt(inventory_signature(before), inventory_signature(after))
+                )
+        return (1 if problems else 0), problems
+
+
 def main() -> int:
     problems: list[str] = []
+
+    mode = "tree" if "--tree" in sys.argv else "head"
+    if mode == "tree":
+        code, tree_problems = _compare_tree()
+        if code == 2:
+            print("снимок: пересчёт недоступен (нет node или каталога) — сверка пропущена")
+            return 2
+        if code == 1:
+            for problem in tree_problems:
+                print(f"::error title=snapshot drift::{problem} — перегенерируйте снимок")
+            print("снимок устарел: " + "; ".join(tree_problems))
+            return 1
+        print("снимок готовности соответствует пересчёту (рабочее дерево)")
+        return 0
 
     if not have_history():
         print("::warning title=snapshot::нет git-истории — сравнить снимок не с чем")

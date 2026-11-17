@@ -105,9 +105,15 @@ def test_snapshot_files_are_committed_and_fresh() -> None:
     # модуль (например modules/release/note.py) валил только CI-шаг «Regenerate
     # readiness snapshot», а локальный pytest молчал — и провал всплывал уже
     # после пуша и тега.
+    # `--tree` сверяет снимок с пересчётом по РАБОЧЕМУ ДЕРЕВУ. Режим по
+    # умолчанию сверяет с `HEAD`, и это ловушка: после правки кода локально
+    # в `HEAD` лежат и старый снимок, и старый код, они «совпадают», pytest
+    # зелёный — а CI падает уже после пуша и тега. Проверено дважды на 42.0.17
+    # и 42.0.18: оба раза красным становился только шаг «Regenerate readiness
+    # snapshot».
     check = ROOT / "tools" / "check_snapshot_freshness.py"
     result = subprocess.run(
-        [sys.executable, str(check)], cwd=ROOT, capture_output=True, text=True
+        [sys.executable, str(check), "--tree"], cwd=ROOT, capture_output=True, text=True
     )
     assert result.returncode == 0, (
         "снимок готовности устарел — перегенерируйте: "
