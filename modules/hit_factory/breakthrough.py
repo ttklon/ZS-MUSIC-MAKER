@@ -243,6 +243,19 @@ def _reference_warnings(reference_paths, style) -> list[str]:
     return []
 
 
+
+def _rendered_stage(hit: dict[str, Any], name: str) -> dict[str, Any]:
+    """Expose the selected render's output, not an unused preliminary generation."""
+    for stage in (hit.get("report") or {}).get("stages") or []:
+        if not isinstance(stage, dict) or stage.get("name") != name:
+            continue
+        output = stage.get("output")
+        output = dict(output) if isinstance(output, dict) else {}
+        return {**output, "ok": stage.get("status") in {"OK", "FALLBACK"},
+                "stage_status": stage.get("status"), "stage_reason": stage.get("reason")}
+    return {"ok": False, "reason": f"{name}: selected pipeline stage result unavailable"}
+
+
 def full_orchestrate(
     artist: str = "ICEGERGERT",
     theme: str | None = None,
@@ -258,9 +271,7 @@ def full_orchestrate(
     t0 = time.time()
     style = analyze_references(reference_paths or [])
     dossier = build_artist_dossier(artist, style if style.get("ok") else None)
-    lyrics_ctx = generate_lyrics_in_style(artist, theme, dossier, style if style.get("ok") else None, seed)
     voice = prepare_voice(raw_voice_path, use_rvc=False)
-    beats = generate_beats_with_style(style if style.get("ok") else None, lyrics_ctx, duration_sec, seed, breakthrough)
     genre = _resolve_genre(style if style.get("ok") else None)
     factory = HitFactory(output_root=output_root, min_score=68, evolve=True, duration_sec=duration_sec, verbose=False, adaptive=True)
     if breakthrough:
@@ -269,8 +280,8 @@ def full_orchestrate(
             factory.adaptive_cfg = get_adaptive_config(overrides={"breakthrough": True})
         except Exception as _exc:
             print(f"[breakthrough] adaptive override ignored: {_exc}")
-    # тема из лирики приоритетнее входной
-    final_theme = lyrics_ctx.get("theme") or theme or "ночь, деньги, движ"
+    # Lyrics and beats are rendered only by the canonical pipeline, not twice.
+    final_theme = theme or next(iter(dossier.get("hype_words") or []), "ночь, деньги, движ")
     ref_warnings = _reference_warnings(reference_paths, style)
     hit = _sequential_step(
         "hitfactory",
@@ -296,6 +307,7 @@ def full_orchestrate(
         "ok": readiness["ready"], "readiness": readiness,
         "master_created": bool(hit.get("master_path") and Path(hit["master_path"]).is_file()),
         "artist": artist, "theme": final_theme, "style": style, "dossier": dossier,
-        "lyrics": lyrics_ctx, "voice": voice, "beats": beats, "hit": hit,
+        "lyrics": _rendered_stage(hit, "_stage_lyrics"), "voice": voice,
+        "beats": _rendered_stage(hit, "_stage_beat"), "hit": hit,
         "elapsed_s": round(dt, 1), "note": "Музыкальный балл не равен технической готовности: см. readiness и report",
     }
