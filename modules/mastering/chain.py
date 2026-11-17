@@ -292,7 +292,10 @@ def master_one(
 
     out = Path(out_wav)
     out.parent.mkdir(parents=True, exist_ok=True)
-    sf.write(str(out), mastered.astype(np.float32), sr, subtype=MASTER_SUBTYPE)
+    # Каноническая запись: без чанка `PEAK`, в который libsndfile кладёт текущее
+    # время. Иначе одинаковый рецепт давал файлы, различающиеся одним байтом.
+    from modules.dsp.wavio import write_wav
+    write_wav(out, mastered.astype(np.float32), sr, subtype=str(MASTER_SUBTYPE))
 
     return {
         "ok": True,

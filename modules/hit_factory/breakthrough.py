@@ -262,7 +262,30 @@ def full_orchestrate(
             print(f"[breakthrough] adaptive override ignored: {_exc}")
     # тема из лирики приоритетнее входной
     final_theme = lyrics_ctx.get("theme") or theme or "ночь, деньги, движ"
-    hit = _sequential_step("hitfactory", factory.make_one, genre, final_theme, seed, None, None, duration_sec)
+    # Референсы обязаны доехать до рецепта: раньше они анализировались здесь и
+    # выбрасывались, поэтому `_stage_analyze` честно писал «generate-from-scratch»
+    # (n_refs=0) даже когда пользователь дал файл. Если референс задан, но не
+    # прочитался — это предупреждение в отчёт, а не тишина.
+    ref_warnings: list[str] = []
+    if reference_paths and not style.get("ok"):
+        ref_warnings.append(
+            "references not applied: "
+            + str(style.get("error") or "analysis failed")
+            + f" (requested {len(reference_paths)})"
+        )
+    hit = _sequential_step(
+        "hitfactory",
+        factory.make_one,
+        genre,
+        final_theme,
+        seed,
+        None,
+        None,
+        duration_sec,
+        None,
+        list(reference_paths or []),
+        ref_warnings,
+    )
     dt = time.time() - t0
     return {
         "ok": bool(hit.get("master_path")),

@@ -238,7 +238,9 @@ def apply_adaptive_enhance(master_wav: str, adaptive_level: int, enhanced_dsp: b
         peak = float(np.max(np.abs(data)) + 1e-9)
         if peak > 0.99:
             data = data / peak * 0.95
-        sf.write(str(master_wav), data, sr)
+        from modules.dsp.wavio import write_wav
+
+        write_wav(master_wav, data, sr, subtype="FLOAT")
         return {"ok": True, "applied": True, "engine": "adaptive.ultra_light"}
     except Exception as exc:  # noqa: BLE001 - обработка не критична
         return {"ok": False, "applied": False, "reason": f"{type(exc).__name__}: {exc}"}

@@ -30,6 +30,18 @@ def _as_int(value: Any, default: int | None = None) -> int | None:
         return default
 
 
+def _ref_flags(state: dict) -> dict:
+    """Референсы и причина, по которой они не применились.
+
+    `ref_warnings` нужен отчёту: без него неудачный анализ референса выглядел
+    как «референсов не было» (`source=genre_default`, `n_refs=0`, тишина).
+    """
+    return {
+        "refs": [str(item) for item in (state.get("references") or [])],
+        "ref_warnings": [str(w) for w in (state.get("reference_warnings") or [])],
+    }
+
+
 def _sound_flags(state: dict) -> dict:
     """Флаги, которые меняют готовый звук, а не маршрут пайплайна.
 
@@ -109,7 +121,7 @@ def build_recipe(wizard_state: dict[str, Any] | None) -> dict[str, Any]:
 
     return {
         "project_id": state.get("project_id"),
-        "refs": [str(r) for r in (state.get("references") or [])],
+        **_ref_flags(state),
         "theme": theme,
         # MusicGen как бит-движок: `wizard_state` ставит `beat_engine=musicgen`,
         # когда adaptive видит audiocraft+torch (в т.ч. на CPU чанками 30 с).

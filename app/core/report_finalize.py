@@ -39,6 +39,10 @@ def finalize_report(
     initial_integrity: dict[str, Any],
 ) -> dict[str, Any]:
     """Отчёт прогона: вердикт, стадии, предупреждения, снимок рецепта."""
+    # Причина, по которой заданный референс не применился, обязана быть видна в
+    # отчёте: иначе всё выглядит так, будто референсов не было вовсе
+    # (`source=genre_default`, `n_refs=0`, ноль предупреждений).
+    warnings.extend(str(w) for w in recipe.get("ref_warnings") or [])
     report = _report_skeleton(
         project_id=project_id,
         recipe=recipe,

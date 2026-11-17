@@ -57,6 +57,21 @@ def _maybe_auto_genre(genre: str | None, theme: str | None) -> str | None:
     return genre
 
 
+def _apply_overrides(state: dict[str, Any], **kwargs: Any) -> None:
+    """Перенести референсы и причину их отказа в `wizard_state`.
+
+    Базовые поля (жанр/тема/seed/bpm/aggression/длительность) выставляет
+    `_build_wizard_state`; здесь только то, чего он не знает. Отдельная
+    функция, потому что `make_one` упирался в бюджет длины.
+    """
+    refs = kwargs.get("references")
+    if refs:
+        state["references"] = [str(item) for item in refs if str(item).strip()]
+    warns = kwargs.get("reference_warnings")
+    if warns:
+        state["reference_warnings"] = [str(w) for w in warns]
+
+
 class HitFactory:
 
     """
@@ -146,8 +161,16 @@ class HitFactory:
         aggression: float | None = None,
         duration_sec: int | None = None,
         evolve: bool | None = None,
+        references: list[str] | None = None,
+        reference_warnings: list[str] | None = None,
     ) -> dict[str, Any]:
-        """Сгенерить один хит с эволюцией. Возвращает лучший attempt dict."""
+        """Сгенерить один хит с эволюцией. Возвращает лучший attempt dict.
+
+        `references` и `reference_warnings` едут в `wizard_state` → рецепт →
+        `_stage_analyze` (см. `_apply_overrides`): раньше путь «breakthrough»
+        анализировал референсы и выбрасывал их, а отчёт показывал
+        `n_refs: 0`/`source: genre_default` без единого предупреждения.
+        """
         genre = _maybe_auto_genre(genre, theme)
         rng = random.Random(int(seed) if seed is not None else random.randint(1, 1_000_000))
         do_evolve = self.evolve if evolve is None else bool(evolve)
@@ -160,17 +183,11 @@ class HitFactory:
             duration_sec=duration_sec,
             rng=rng,
         )
-        base_state["genre"] = genre or base_state["genre"]
-        if theme:
-            base_state["theme"] = theme
-        if seed is not None:
-            base_state["seed"] = int(seed)
-        if bpm_override is not None:
-            base_state["bpm_override"] = int(bpm_override)
-        if aggression is not None:
-            base_state["aggression"] = float(aggression)
-        if duration_sec is not None:
-            base_state["duration_sec"] = int(duration_sec)
+        # `_build_wizard_state` знает только базовые поля; референсы и причина
+        # их отказа добавляются здесь — через один вызов, без повторов.
+        _apply_overrides(
+            base_state, references=references, reference_warnings=reference_warnings
+        )
 
         attempts: list[dict[str, Any]] = []
         cur_state = dict(base_state)

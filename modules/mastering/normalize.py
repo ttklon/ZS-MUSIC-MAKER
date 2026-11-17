@@ -11,7 +11,6 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-import soundfile as sf
 
 from modules.dsp import metrics
 from modules.mastering.chain import _load
@@ -38,7 +37,8 @@ def normalize_master_loudness(
     report = metrics.loudness_report(normalized, sr)
     out = Path(output_wav)
     out.parent.mkdir(parents=True, exist_ok=True)
-    sf.write(str(out), normalized.astype(np.float32), sr, subtype="FLOAT")
+    from modules.dsp.wavio import write_wav
+    write_wav(out, normalized.astype(np.float32), sr, subtype="FLOAT")
     return {
         "ok": True,
         "path": str(out),

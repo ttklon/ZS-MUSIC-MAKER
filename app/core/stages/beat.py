@@ -181,7 +181,9 @@ def _synth_beat(
 
         stereo, section_info, sr, length = _render_beat_buffer(duration, bpm, key_root)
         Path(out_wav).parent.mkdir(parents=True, exist_ok=True)
-        sf.write(out_wav, stereo, sr)
+        from modules.dsp.wavio import write_wav
+
+        write_wav(out_wav, stereo, sr, subtype="FLOAT")
         return {
             "ok": True,
             "path": out_wav,

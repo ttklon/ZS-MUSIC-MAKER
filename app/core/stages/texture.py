@@ -9,6 +9,16 @@ from pathlib import Path
 from typing import Any
 
 
+def write_texture_wav(out_wav: str, stereo, sr: int) -> None:
+    """Каноническая запись текстуры: без чанка `PEAK` с текущим временем.
+
+    Отдельная функция, чтобы `_texture_scaffold` не выходил за бюджет длины.
+    """
+    from modules.dsp.wavio import write_wav
+
+    write_wav(out_wav, stereo, sr, subtype="FLOAT")
+
+
 def _texture_scaffold(prompt: str, out_dir: Path) -> dict[str, Any]:
     """v23: честный синтезированный ambient-scaffold вместо пустого path.
 
@@ -49,7 +59,7 @@ def _texture_scaffold(prompt: str, out_dir: Path) -> dict[str, Any]:
         stereo = stereo / peak * 0.32  # текстура должна сидеть под миксом
         Path(out_dir).mkdir(parents=True, exist_ok=True)
         out_wav = str(Path(out_dir) / "texture_scaffold.wav")
-        sf.write(out_wav, stereo, sr)
+        write_texture_wav(out_wav, stereo, sr)
         return {
             "ok": True,
             "path": out_wav,

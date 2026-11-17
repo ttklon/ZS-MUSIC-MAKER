@@ -251,7 +251,9 @@ def _pyttsx3_speak(text: str, out_wav: str) -> dict[str, Any]:
         if peak > 0.9:
             y = y / peak * 0.9
         Path(out_wav).parent.mkdir(parents=True, exist_ok=True)
-        _sf.write(out_wav, y, sr)
+        from modules.dsp.wavio import write_wav
+
+        write_wav(out_wav, y, sr, subtype="FLOAT")
         if Path(out_wav).exists() and Path(out_wav).stat().st_size > 1000:
             return {
                 "ok": True,

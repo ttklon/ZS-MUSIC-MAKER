@@ -51,8 +51,15 @@ def _read_track(path: str):
 
 
 def _write_track(path: str, y, sr):
+    """Каноническая запись: одинаковый seed → одинаковые байты.
+
+    `soundfile.write` добавляет чанк `PEAK` с текущим временем, из-за чего
+    побитово одинаковое аудио сохранялось разными файлами.
+    """
+    from modules.dsp.wavio import write_wav
+
     Path(path).parent.mkdir(parents=True, exist_ok=True)
-    _sf.write(path, y, sr)
+    write_wav(path, y, sr, subtype="FLOAT")
 
 
 # ============================================================ effects
