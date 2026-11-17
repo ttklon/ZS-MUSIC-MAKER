@@ -59,7 +59,7 @@ def _maybe_auto_genre(genre: str | None, theme: str | None) -> str | None:
 
 
 def _apply_overrides(state: dict[str, Any], **kwargs: Any) -> None:
-    """Перенести референсы и причину их отказа в `wizard_state`.
+    """Перенести референсы, запись вокала и настройки артиста в `wizard_state`.
 
     Базовые поля (жанр/тема/seed/bpm/aggression/длительность) выставляет
     `_build_wizard_state`; здесь только то, чего он не знает. Отдельная
@@ -68,6 +68,15 @@ def _apply_overrides(state: dict[str, Any], **kwargs: Any) -> None:
     refs = kwargs.get("references")
     if refs:
         state["references"] = [str(item) for item in refs if str(item).strip()]
+    own_vocal = kwargs.get("own_vocal_wav")
+    if own_vocal is not None:
+        if not str(own_vocal).strip():
+            raise ValueError("own_vocal_wav must not be blank")
+        state["own_vocal_wav"] = str(own_vocal)
+    if kwargs.get("use_rvc") is not None:
+        state["use_rvc"] = bool(kwargs["use_rvc"])
+    if kwargs.get("artist") is not None:
+        state["artist"] = str(kwargs["artist"])
     warns = kwargs.get("reference_warnings")
     if warns:
         state["reference_warnings"] = [str(w) for w in warns]
@@ -199,6 +208,10 @@ class HitFactory:
         evolve: bool | None = None,
         references: list[str] | None = None,
         reference_warnings: list[str] | None = None,
+        *,
+        own_vocal_wav: str | None = None,
+        use_rvc: bool | None = None,
+        artist: str | None = None,
     ) -> dict[str, Any]:
         """Сгенерить один хит с эволюцией. Возвращает лучший attempt dict.
 
@@ -222,7 +235,8 @@ class HitFactory:
         # `_build_wizard_state` знает только базовые поля; референсы и причина
         # их отказа добавляются здесь — через один вызов, без повторов.
         _apply_overrides(
-            base_state, references=references, reference_warnings=reference_warnings
+            base_state, references=references, reference_warnings=reference_warnings,
+            own_vocal_wav=own_vocal_wav, use_rvc=use_rvc, artist=artist,
         )
 
         attempts: list[dict[str, Any]] = []

@@ -51,7 +51,11 @@ def _run_breakthrough_cli(args, refs: list[str], artist: str | None, voice: str 
         safe_print(f"[hit-factory breakthrough] batch done: {ok}/{count} ready renders")
         return 0 if ok == count else 1
     except Exception as exc:  # noqa: BLE001
-        safe_print(f"[hit-factory breakthrough] failed: {type(exc).__name__}: {exc} — fallback to standard")
+        safe_print(f"[hit-factory breakthrough] failed: {type(exc).__name__}: {exc}")
+        if refs or artist or voice:
+            safe_print("[hit-factory] standard fallback refused: explicit voice, references or artist must not be discarded")
+            return 2
+        safe_print("[hit-factory] fallback to standard")
         return None
 
 

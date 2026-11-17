@@ -234,6 +234,15 @@ def _resolve_genre(style: dict | None) -> str:
     return genre_map.get(genre, genre.split()[0] if genre else "trap")
 
 
+
+def _reference_warnings(reference_paths, style) -> list[str]:
+    """Keep requested reference failures visible in the downstream report."""
+    if reference_paths and not style.get("ok"):
+        return ["references not applied: " + str(style.get("error") or "analysis failed")
+                + f" (requested {len(reference_paths)})"]
+    return []
+
+
 def full_orchestrate(
     artist: str = "ICEGERGERT",
     theme: str | None = None,
@@ -250,7 +259,7 @@ def full_orchestrate(
     style = analyze_references(reference_paths or [])
     dossier = build_artist_dossier(artist, style if style.get("ok") else None)
     lyrics_ctx = generate_lyrics_in_style(artist, theme, dossier, style if style.get("ok") else None, seed)
-    voice = prepare_voice(raw_voice_path, use_rvc=True)
+    voice = prepare_voice(raw_voice_path, use_rvc=False)
     beats = generate_beats_with_style(style if style.get("ok") else None, lyrics_ctx, duration_sec, seed, breakthrough)
     genre = _resolve_genre(style if style.get("ok") else None)
     factory = HitFactory(output_root=output_root, min_score=68, evolve=True, duration_sec=duration_sec, verbose=False, adaptive=True)
@@ -262,17 +271,7 @@ def full_orchestrate(
             print(f"[breakthrough] adaptive override ignored: {_exc}")
     # тема из лирики приоритетнее входной
     final_theme = lyrics_ctx.get("theme") or theme or "ночь, деньги, движ"
-    # Референсы обязаны доехать до рецепта: раньше они анализировались здесь и
-    # выбрасывались, поэтому `_stage_analyze` честно писал «generate-from-scratch»
-    # (n_refs=0) даже когда пользователь дал файл. Если референс задан, но не
-    # прочитался — это предупреждение в отчёт, а не тишина.
-    ref_warnings: list[str] = []
-    if reference_paths and not style.get("ok"):
-        ref_warnings.append(
-            "references not applied: "
-            + str(style.get("error") or "analysis failed")
-            + f" (requested {len(reference_paths)})"
-        )
+    ref_warnings = _reference_warnings(reference_paths, style)
     hit = _sequential_step(
         "hitfactory",
         factory.make_one,
@@ -285,11 +284,18 @@ def full_orchestrate(
         None,
         list(reference_paths or []),
         ref_warnings,
+        own_vocal_wav=raw_voice_path or None,
+        use_rvc=bool(raw_voice_path),
+        artist=artist,
     )
+    from modules.hit_factory.readiness import attempt_readiness
+
     dt = time.time() - t0
+    readiness = attempt_readiness(hit)
     return {
-        "ok": bool(hit.get("master_path")),
+        "ok": readiness["ready"], "readiness": readiness,
+        "master_created": bool(hit.get("master_path") and Path(hit["master_path"]).is_file()),
         "artist": artist, "theme": final_theme, "style": style, "dossier": dossier,
         "lyrics": lyrics_ctx, "voice": voice, "beats": beats, "hit": hit,
-        "elapsed_s": round(dt, 1), "note": "PROРЫВ: всё от референсов до хита — 1 вызов, ротатор 1×, CPU offload, чанки, не фризит",
+        "elapsed_s": round(dt, 1), "note": "Музыкальный балл не равен технической готовности: см. readiness и report",
     }
