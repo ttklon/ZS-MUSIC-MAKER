@@ -40,6 +40,7 @@ STAGE_KEYS = (
     "master",
     "polish",
     "stems",
+    "auto_qa",
     "hit_score",
     "release",
 )
@@ -69,6 +70,7 @@ STAGE_RECORDS = (
     "_stage_mastering",
     "_stage_polish",
     "_stage_stems",
+    "_stage_auto_qa",
     "_stage_hit_score",
     "_stage_release_pack",
 )

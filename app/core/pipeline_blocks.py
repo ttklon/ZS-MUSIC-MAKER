@@ -25,6 +25,7 @@ from app.pipeline import StageResult
 # импорт жил внутри функции, и подмена молча игнорировалась — тесты
 # «проходили», проверяя настоящий рендер вместо макета.
 from app.core.stages.master import (  # noqa: E402
+    _stage_auto_qa,
     _stage_hit_score,
     _stage_polish,
     _stage_stems,
@@ -249,6 +250,9 @@ def _run_post_master_stages(
     for key, name, fn in (
         ("polish", "_stage_polish", polish_with_dsp),
         ("stems", "_stage_stems", lambda: _stage_stems(final_master, out_root)),
+        # QA идёт после полировки и до hit-score: он смотрит ровно тот файл,
+        # который уйдёт в релиз.
+        ("auto_qa", "_stage_auto_qa", lambda: _stage_auto_qa(final_master)),
         ("hit_score", "_stage_hit_score", lambda: _stage_hit_score(final_master)),
     ):
         if not streaming_master:

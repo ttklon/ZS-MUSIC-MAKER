@@ -240,6 +240,32 @@ def apply_adaptive_enhance(master_wav: str, adaptive_level: int, enhanced_dsp: b
         return {"ok": False, "applied": False, "reason": f"{type(exc).__name__}: {exc}"}
 
 
+def _stage_auto_qa(master_wav: str) -> dict[str, Any]:
+    """Второе «ухо» на финальный мастер: QA-вердикт и конкретные правки.
+
+    `modules/auto_qa.audit_track` умел это давно, но в пайплайн не был
+    подключён ни разу — QA-отчёт существовал только как ручной вызов. Стадия
+    возвращает `verdict` (`release`/`patch`/`rebuild`) и список `actions`;
+    она не переводит трек в FAILED: замечания к качеству — это информация,
+    а не поломка рендера.
+    """
+    try:
+        from modules.auto_qa import audit_track
+
+        report = audit_track(master_wav)
+        if not report.get("ok"):
+            return {"ok": False, "reason": report.get("error") or "auto QA failed"}
+        return {
+            "ok": True,
+            "verdict": report.get("verdict"),
+            "verdict_text": report.get("verdict_text"),
+            "actions": [item.get("reason") for item in report.get("actions") or []],
+            "report_path": report.get("report_path"),
+        }
+    except Exception as exc:  # noqa: BLE001 - QA не должен ронять рендер
+        return {"ok": False, "reason": f"{type(exc).__name__}: {exc}"}
+
+
 def _stage_hit_score(master_wav: str) -> dict[str, Any]:
     """v19 FIX (P0): раньше искали hit_scorer.score(...), но реальная функция —
     hit_scorer.score_track(...). Из-за этого пайплайн всегда отдавал

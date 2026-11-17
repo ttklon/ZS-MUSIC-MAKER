@@ -50,6 +50,7 @@ from app.core.report_finalize import finalize_report
 from app.core.stages.beat import _stage_ai_beat, _stage_beat  # noqa: F401
 from app.core.stages.lyrics import _run_lyrics_stage  # noqa: F401
 from app.core.stages.master import (  # noqa: F401
+    _stage_auto_qa,
     _stage_hit_score,
     _stage_mastering,
     _stage_polish,

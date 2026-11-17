@@ -66,7 +66,12 @@ def test_stems_and_hit_score_read_polished_master(tmp_path, monkeypatch):
     assert seen["hit"] == polished, "hit-score обязан мерить финальный мастер"
     assert seen["stems"] == polished, "стемы обязаны резать финальный мастер"
     assert seen["hit"] != raw_master
-    assert [s.name for s in stages] == ["_stage_polish", "_stage_stems", "_stage_hit_score"]
+    assert [s.name for s in stages] == [
+        "_stage_polish",
+        "_stage_stems",
+        "_stage_auto_qa",
+        "_stage_hit_score",
+    ]
 
 
 def test_adaptive_enhance_is_disabled_for_neural_engines(tmp_path):

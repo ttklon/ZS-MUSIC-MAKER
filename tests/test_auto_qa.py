@@ -86,13 +86,20 @@ class TestStructure:
         assert "error" in res
         assert "too short" in res["error"]
 
-    def test_20_second_track_is_still_too_short(self) -> None:
-        # Порог — 24 с (24 с уже проходят, 20 с нет); граница названа в тексте.
+    def test_20_second_track_is_checked(self) -> None:
+        """20 с — рабочий размер хит-фабрики, и структура обязана проверяться.
+
+        Раньше окно хука было фиксированным (8 с) и требовало ≥24 с: короткий
+        рендер уходил из QA с «too short», то есть без проверки вообще.
+        """
         sr = 22050
         y = np.tile(np.linspace(0.05, 1.0, 512), sr * 20 // 512 + 1)[: sr * 20]
         res = auto_qa._structure_check(y, sr)
-        assert "too short" in res["error"]
-        assert res["hook_score"] == 0.0
+        assert "error" not in res, f"короткий трек снова не проверился: {res}"
+        assert res["sections_detected"] > 0
+        # hook_score — корреляция секций: у линейной рампы она близка к нулю,
+        # важно что проверка состоялась, а не конкретное число
+        assert 0.0 <= res["hook_score"] <= 1.0
 
     def test_long_track_scores_hook(self, track) -> None:
         y, sr = sf.read(track(seconds=60.0))
@@ -195,7 +202,7 @@ class TestAuditTrack:
         from modules import ai_detector_pro
 
         monkeypatch.setattr(
-            ai_detector_pro, "analyze_track", lambda p: {"neuronoshnost_percent": 82}
+            ai_detector_pro, "analyze_track", lambda p: {"ai_risk_percent": 82}
         )
         res = auto_qa.audit_track(track())
         assert any(a["target"] == "voice" for a in res["actions"])
@@ -204,7 +211,7 @@ class TestAuditTrack:
         from modules import ai_detector_pro
 
         monkeypatch.setattr(
-            ai_detector_pro, "analyze_track", lambda p: {"neuroness_percent": 55}
+            ai_detector_pro, "analyze_track", lambda p: {"ai_risk_percent": 55}
         )
         res = auto_qa.audit_track(track())
         targets = [a["target"] for a in res["actions"]]
@@ -214,7 +221,7 @@ class TestAuditTrack:
         from modules import ai_detector_pro
 
         monkeypatch.setattr(
-            ai_detector_pro, "analyze_track", lambda p: {"neuronoshnost_percent": 10}
+            ai_detector_pro, "analyze_track", lambda p: {"ai_risk_percent": 10}
         )
         res = auto_qa.audit_track(track())
         assert not any(a["target"] in ("voice", "vocal_humanization") for a in res["actions"])
@@ -252,7 +259,7 @@ class TestVerdict:
 
         # без оценки детектора «релиза» быть не может — даёт 20 %
         monkeypatch.setattr(
-            ai_detector_pro, "analyze_track", lambda p: {"neuronoshnost_percent": 20}
+            ai_detector_pro, "analyze_track", lambda p: {"ai_risk_percent": 20}
         )
         monkeypatch.setattr(auto_qa, "_structure_check", lambda y, sr: {"hook_score": 0.9})
         monkeypatch.setattr(
@@ -289,3 +296,61 @@ class TestShouldRetry:
 
     def test_report_without_actions(self) -> None:
         assert auto_qa.should_retry({"verdict": "patch"}) == (True, [])
+
+
+def test_qa_loudness_uses_bs1770_not_rms_minus_three(tmp_path) -> None:
+    """QA обязан мерить громкость тем же движком, что и мастеринг.
+
+    Регрессия 42.0.13: `_loudness` считала `lufs_approx = rms_db - 3.0` и на
+    живом мастере давала −20.43 LUFS там, где BS.1770 показывал −14.37. QA
+    объявлял правильно сведённый трек «слишком тихим» и выставлял
+    `verdict=rebuild`.
+    """
+    import numpy as np
+    import soundfile as sf
+
+    from modules.auto_qa import _loudness
+
+    sr = 44100
+    t = np.arange(sr * 5)
+    # ровный тон с умеренной громкостью: настоящий LUFS около -14
+    tone = 0.14 * np.sin(2 * np.pi * 200 * t / sr)
+    stereo = np.stack([tone, tone], axis=1)
+    path = tmp_path / "tone.wav"
+    sf.write(path, stereo, sr)
+
+    measured = _loudness(stereo, sr)
+    assert "lufs" in measured, "настоящий LUFS обязан быть в ответе"
+    assert measured["lufs"] != measured["lufs_approx"], "метрика не должна быть той же оценкой"
+    assert abs(measured["lufs"] - measured["lufs_approx"]) > 1.0, "оценка RMS-3 врёт больше чем на 1 дБ"
+
+
+def test_qa_default_target_is_streaming_target(tmp_path) -> None:
+    """Без явной цели QA берёт цель мастеринга, а не литерал −9.0."""
+    import inspect
+
+    from modules.auto_qa import audit_track
+    from modules.mastering.targets import STAND_TARGET_LUFS
+
+    source = inspect.getsource(audit_track)
+    assert "-9.0" not in source, "литерал −9.0 спорил с целью мастеринга"
+    assert STAND_TARGET_LUFS["streaming"] == -14.0
+
+
+def test_structure_check_works_on_short_render(tmp_path) -> None:
+    """20-секундный трек должен проверяться, а не получать «too short».
+
+    Окно хука было фиксированным (8 с) и требовало минимум 24 с — короткий
+    рендер хит-фабрики оставался вообще без проверки структуры.
+    """
+    import numpy as np
+
+    from modules.auto_qa import _structure_check
+
+    sr = 8000
+    t = np.arange(sr * 20)
+    y = 0.2 * np.sin(2 * np.pi * 220 * t / sr)
+    result = _structure_check(y, sr)
+
+    assert "error" not in result, f"короткий трек не проверился: {result}"
+    assert result["sections_detected"] > 0

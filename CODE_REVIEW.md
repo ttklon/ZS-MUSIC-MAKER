@@ -16,7 +16,7 @@
 
 Что действительно хорошо:
 
-- Пайплайн из 15 стадий с единым контрактом `StageResult` / `StageStatus` и **одним**
+- Пайплайн из 16 стадий с единым контрактом `StageResult` / `StageStatus` и **одним**
   местом подсчёта вердикта (`app/pipeline/stage.py:summarize`). Нет «почти ок».
 - Fallback'и почти всегда помечены (`fallback_used`, `synthetic`, `blocked`, `engine`,
   `reason`), а `tools/audit_honesty.py` + `tools/fallback_audit.py` статически это стерегут.
@@ -68,7 +68,7 @@ PySide6 импортируется, но окно не поднимается (�
 | `python -m tools.readiness` | 60 % без зависимостей → **65 %** с зависимостями (caps: микрофон 80, тяжёлые движки 65) |
 | `tools/smoke_audio.py` | **6/6 PASS** (LUFS −14.0, true-peak −1.06 dBTP) |
 | `tools/smoke_god.py` | **8/8 PASS** (120 с, peak −2.21 dB, 8 стендов) |
-| `python main.py --e2e` | PARTIAL, 15/15 стадий, 8/8 мастеров, 9 файлов релиза |
+| `python main.py --e2e` | PARTIAL, 16/16 стадий, 8/8 мастеров, 9 файлов релиза |
 | `--run --only master` (dry-run) | PASS, 50 % |
 | `--run --seed 42` (полный, 20 с) | PARTIAL 87 %, 4 BLOCKED, 1 FALLBACK — 73 с |
 
@@ -87,7 +87,7 @@ main.py (138) ── app/cli/parser.py (31 флаг) ── app/cli/{commands,pi
               ┌───────────────────────────────────────┼──────────────────────────────┐
               │                                       │                              │
   app/core/orchestrator.py (400)          orchestrator_ai.py (129)      orchestrator_god.py (99)
-  run_full_pipeline — 15 стадий           SequentialAIRunner            = тот же DAG, 120 с
+  run_full_pipeline — 16 стадий           SequentialAIRunner            = тот же DAG, 120 с
               │                                       │
    app/core/stages/*.py (12 файлов)        app/core/ai/stages_*.py (5 файлов)
               │                                       │
