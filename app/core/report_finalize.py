@@ -17,6 +17,25 @@ from app.core.project_snapshot import snapshot_recipe
 from app.core.revision import add_master_integrity, add_mix_integrity
 
 
+def _stage_warnings(stages: list[Any]) -> list[str]:
+    """Предупреждения из результатов стадий — в общий список отчёта.
+
+    Стадия может честно сказать «здесь я не измерила, а оценила»
+    (`output["warnings"]`). Пока эти строки не поднимались наверх, отчёт о них
+    молчал: балл за громкость выглядел измеренным, хотя был оценкой.
+    """
+    collected: list[str] = []
+    for stage in stages:
+        output = getattr(stage, "output", None) or {}
+        if not isinstance(output, dict):
+            continue
+        for item in output.get("warnings") or []:
+            text = str(item).strip()
+            if text and text not in collected:
+                collected.append(text)
+    return collected
+
+
 def finalize_report(
     *,
     project_id: str,
@@ -43,6 +62,9 @@ def finalize_report(
     # отчёте: иначе всё выглядит так, будто референсов не было вовсе
     # (`source=genre_default`, `n_refs=0`, ноль предупреждений).
     warnings.extend(str(w) for w in recipe.get("ref_warnings") or [])
+    # Предупреждения самих стадий (например, «громкость не измерена, балл —
+    # RMS-оценка») раньше оставались внутри `output` и до отчёта не доходили.
+    warnings.extend(_stage_warnings(stages))
     report = _report_skeleton(
         project_id=project_id,
         recipe=recipe,

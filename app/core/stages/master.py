@@ -314,6 +314,10 @@ def _stage_hit_score(master_wav: str) -> dict[str, Any]:
             "metrics": r.get("metrics"),
             "tiktok_slice": r.get("tiktok_slice"),
             "actions": r.get("actions"),
+            # Оценщик знает, когда балл стоит на приблизительной метрике
+            # (например, громкость не измерилась и заменена RMS-оценкой).
+            # Без проброса это знание оставалось внутри и отчёт молчал.
+            "warnings": r.get("warnings") or [],
             "engine": "hit_scorer." + fn.__name__,
         }
     except Exception as e:
