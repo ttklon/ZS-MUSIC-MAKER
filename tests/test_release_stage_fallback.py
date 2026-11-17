@@ -207,3 +207,43 @@ def test_minimal_pack_builds_mp3_and_cover_when_libraries_present(
     assert exported["format"] == "mp3" and exported["bitrate"] == "320k"
     assert saved["size"] == (1400, 1400)
     assert (out / "full_master.mp3").stat().st_size > 1000
+
+
+def test_hit_report_contains_real_metrics_and_actions() -> None:
+    """Релизный отчёт обязан показывать то, что измерил hit-score.
+
+    Регрессия 42.0.12: `_hit_report` перебирал ключи `hook_strength`,
+    `mix_balance`, `loudness`, `originality`, которых `score_track` не
+    возвращает. Файл в релизе состоял из трёх строк, а разбор по 13 метрикам
+    и советы «что улучшить» оставались только в report.json.
+    """
+    from modules.release.pack import _hit_report
+
+    metrics = {
+        "hit_score": 66.55,
+        "verdict": "needs_work",
+        "metrics": {
+            "hook_energy": {"score": 21.32, "hint": "loud-quiet dynamic"},
+            "distortion": {"score": 99.98, "hint": "clipping and flat tops"},
+        },
+        "actions": ["Припев тише куплета — подними RMS припева на +2 dB"],
+        "tiktok_slice": {"start_sec": 0.0, "end_sec": 20.0},
+    }
+    text = _hit_report({"title": "город спит", "artist": "ZS", "genre": "trap"}, metrics)
+
+    assert "Score: 66.55" in text
+    assert "город спит" in text
+    assert "hook_energy" in text and "21.32" in text
+    assert "distortion" in text
+    assert "## Что улучшить" in text
+    assert "подними RMS припева" in text
+    assert "## TikTok-срез" in text
+
+
+def test_hit_report_survives_missing_metrics() -> None:
+    """Без метрик отчёт остаётся валидным, а не падает."""
+    from modules.release.pack import _hit_report
+
+    text = _hit_report({"title": "x", "hit_score": 10}, None)
+    assert "Score: 10" in text
+    assert "## Метрики" not in text

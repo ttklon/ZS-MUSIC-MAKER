@@ -1,6 +1,6 @@
 {
-  "version": "42.0.12",
-  "build": "v42.0.12-report-truth-2026-11-16",
-  "based_on": "42.0.11",
-  "changes": "42.0.12 TRUTH: один мастер на всё (hit-score/релиз/artifact_integrity описывали файл, который затем перезаписывался), переоткрытие проекта починено (adaptive_level/enhanced_dsp/musicgen_* в RECIPE_KEYS), crest-гейт мерит той же метрикой, что и оптимизатор, релиз получает имя из темы"
+  "version": "42.0.13",
+  "build": "v42.0.13-honest-release-2026-11-17",
+  "based_on": "42.0.12",
+  "changes": "42.0.13 HONEST PACK: релизный hit_report.md показывает реальные 13 метрик и советы вместо трёх строк, в пакете появился README.txt с составом и честными оговорками (инструментал, ISRC), --only/--bootstrap/--update --online проверены вживую"
 }

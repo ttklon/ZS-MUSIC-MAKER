@@ -82,6 +82,13 @@ def _copy_stems(stems_map: dict[str, str] | None, out: Path) -> list[str]:
 
 
 def _hit_report(meta: dict[str, Any], hit_metrics: dict[str, Any] | None) -> str:
+    """Релизный отчёт: оценка, разбор по метрикам и что конкретно править.
+
+    Раньше здесь перебирались ключи `hook_strength`/`mix_balance`/`loudness`/
+    `originality`, которых `score_track` не возвращает вовсе: на выходе был
+    файл из трёх строк, а реальный разбор (`metrics` + `actions`) в релиз не
+    попадал. Покупатель видел «Score: 67.02» и больше ничего.
+    """
     metrics = hit_metrics or {}
     lines = [
         f"# Hit Report — {meta.get('title') or 'Untitled'}",
@@ -89,9 +96,33 @@ def _hit_report(meta: dict[str, Any], hit_metrics: dict[str, Any] | None) -> str
         f"- Score: {metrics.get('hit_score', meta.get('hit_score', 'n/a'))}",
         f"- Verdict: {metrics.get('verdict', meta.get('verdict', 'n/a'))}",
     ]
-    for key in ("hook_strength", "mix_balance", "loudness", "originality"):
-        if key in metrics:
-            lines.append(f"- {key}: {metrics[key]}")
+    if meta.get("artist"):
+        lines.append(f"- Artist: {meta['artist']}")
+    if meta.get("genre"):
+        lines.append(f"- Genre: {meta['genre']}")
+    detailed = metrics.get("metrics") if isinstance(metrics.get("metrics"), dict) else {}
+    if detailed:
+        lines += [
+            "", "## Метрики", "",
+            "| метрика | балл | что измеряет |", "| --- | --- | --- |",
+        ]
+        for name, payload in detailed.items():
+            if not isinstance(payload, dict):
+                continue
+            score = payload.get("score")
+            hint = str(payload.get("hint") or "").replace("|", "/")
+            lines.append(
+                f"| {name} | {score if score is not None else 'n/a'} | {hint} |"
+            )
+    actions = metrics.get("actions") or []
+    if isinstance(actions, list) and actions:
+        lines += ["", "## Что улучшить", ""]
+        lines += [f"- {item}" for item in actions if item]
+    slice_info = metrics.get("tiktok_slice")
+    if isinstance(slice_info, dict) and slice_info:
+        lines += ["", "## TikTok-срез", ""]
+        for key, value in slice_info.items():
+            lines.append(f"- {key}: {value}")
     lines.append("")
     return "\n".join(lines)
 
