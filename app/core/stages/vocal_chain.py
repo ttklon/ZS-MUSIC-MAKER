@@ -43,7 +43,8 @@ def _vocal_fx_stage(
         return _blocked("_stage_vocal_fx", "no vocal")
     if not recipe.get("use_vocal_fx", True):
         return _blocked(
-            "_stage_vocal_fx", "vocal effects disabled by user; original vocal retained"
+            "_stage_vocal_fx", "vocal effects disabled by user; original vocal retained",
+            output={"requested": False, "skip_kind": "user_disabled", "retained_path": vocal_final},
         )
     return _timed(
         "_stage_vocal_fx",
@@ -116,7 +117,9 @@ def _run_vocal_chain(
     synthetic = bool(_output(synth).get("synthetic"))
 
     if voice_wav and not recipe.get("use_rvc", False):
-        rvc = _blocked("_stage_rvc", "RVC disabled by user; original recording retained")
+        rvc = _blocked("_stage_rvc", "RVC disabled by user; original recording retained",
+                       output={"requested": False, "skip_kind": "user_disabled",
+                               "retained_path": voice_wav, "synthetic": synthetic})
     elif voice_wav:
         rvc = _timed(
             "_stage_rvc",

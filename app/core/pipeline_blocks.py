@@ -261,7 +261,8 @@ def _run_post_master_stages(
             produced.append(_blocked(name, "skipped by --only"))
         elif key == "stems" and not export_stems:
             # пользователь снял галочку — стадия помечается, а не исчезает молча
-            produced.append(_blocked(name, "stems disabled by user (export_stems=false)"))
+            produced.append(_blocked(name, "stems disabled by user (export_stems=false)",
+                                     output={"requested": False, "skip_kind": "user_disabled"}))
         else:
             produced.append(_timed(name, fn))
     return produced

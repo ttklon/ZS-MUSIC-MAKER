@@ -118,9 +118,9 @@ def _timed(name: str, fn: Callable[[], Any]) -> StageResult:
     )
 
 
-def _blocked(name: str, reason: str) -> StageResult:
+def _blocked(name: str, reason: str, *, output: dict[str, Any] | None = None) -> StageResult:
     """Честно пропущенная стадия (нет входа или выключена пользователем)."""
-    return StageResult(name=name, status=StageStatus.BLOCKED, reason=reason)
+    return StageResult(name=name, status=StageStatus.BLOCKED, reason=reason, output=output)
 
 
 def _normalize_path_map(data: Any, keys: list[str] | None = None) -> dict[str, str]:
