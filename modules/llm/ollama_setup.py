@@ -85,12 +85,11 @@ def _daemon_models(base_url: str, timeout: float = 2.0) -> list[str] | None:
 
 
 def _has_model(models: list[str], wanted: str) -> bool:
-    short = wanted.lower().split(":")[0]
-    for name in models:
-        lowered = name.lower()
-        if lowered == wanted.lower() or lowered.split(":")[0] == short:
-            return True
-    return False
+    normalized = wanted.lower() if ":" in wanted else wanted.lower() + ":latest"
+    return any(
+        (name.lower() if ":" in name else name.lower() + ":latest") == normalized
+        for name in models
+    )
 
 
 def install_report(base_url: str | None = None) -> dict[str, Any]:
@@ -110,7 +109,7 @@ def install_report(base_url: str | None = None) -> dict[str, Any]:
     else:
         daemon = "up"
 
-    installed = bool(binary) or daemon == "up"
+    installed = bool(binary) or models is not None
     ready = bool(models) and _has_model(models, wanted)
     if ready:
         reason = ""
@@ -176,7 +175,7 @@ def _download(url: str, target: Path, timeout: float = 900.0) -> dict[str, Any]:
         return {"ok": False, "reason": f"{type(exc).__name__}: {exc}", "url": url}
 
 
-def _pull_model(model: str, timeout: float = 1800.0) -> dict[str, Any]:
+def _pull_model(model: str, timeout: float = 1800.0, base_url: str | None = None) -> dict[str, Any]:
     """`ollama pull` с честным хвостом stderr — без него причина непонятна."""
     binary = _ollama_bin()
     if not binary:
@@ -185,6 +184,7 @@ def _pull_model(model: str, timeout: float = 1800.0) -> dict[str, Any]:
         done = subprocess.run(  # noqa: S603 - команда собрана из констант
             [binary, "pull", model],
             capture_output=True, text=True, timeout=timeout,
+            env=dict(os.environ, OLLAMA_HOST=base_url or os.environ.get("ZSMM_OLLAMA_URL", DEFAULT_OLLAMA_URL)),
         )
     except subprocess.TimeoutExpired:
         return {"ok": False, "reason": "timeout", "model": model}
@@ -204,8 +204,9 @@ def ensure_ollama(
     """Подготовить Ollama и текстовую модель; идемпотентно.
 
     Порядок: уже готово → ничего не делаем; демон есть — только `pull`;
-    демона нет — скачиваем установщик (если сеть разрешена) и возвращаем
-    `needs_user_action`, потому что установка требует UAC и подтверждения.
+    установленный демон остановлен — запускаем локально; бинаря нет —
+    скачиваем установщик (при разрешённой сети). Установка требует UAC.
+    Уже скачанная модель работает без сети, включая запуск демона.
 
     `dry_run=True` ничего не скачивает и не запускает: возвращает тот же отчёт
     с планом. Это то, что безопасно звать из интерфейса при наведении.
@@ -215,6 +216,17 @@ def ensure_ollama(
         return {**report, "ok": True, "changed": False, "reason": "", "action": ""}
     if dry_run:
         return {**report, "ok": False, "dry_run": True, "changed": False}
+
+    if report["daemon"] == "down" and report.get("binary"):
+        from modules.llm.ollama_daemon import start_local_daemon
+
+        startup = start_local_daemon(report["binary"], report["base_url"], _daemon_models)
+        if not startup["ok"]:
+            return {**report, "ok": False, "changed": False, "startup": startup,
+                    "reason": startup["reason"]}
+        report = {**install_report(base_url), "startup": startup}
+        if report["ready"]:
+            return {**report, "ok": True, "changed": bool(startup.get("started"))}
 
     if allow_download is None:
         from app.core.net_policy import network_allowed
@@ -233,14 +245,14 @@ def ensure_ollama(
 
 def _pull_only(report: dict[str, Any], base_url: str | None) -> dict[str, Any]:
     """Демон жив — нужен только `ollama pull`; состояние перечитывается заново."""
-    pulled = _pull_model(report["model"])
+    pulled = _pull_model(report["model"], base_url=base_url) if base_url else _pull_model(report["model"])
     after = install_report(base_url)
     return {
         **after, "ok": bool(pulled.get("ok")) and after["ready"],
         "changed": bool(pulled.get("ok")),
         "pull": pulled,
-        "reason": "" if pulled.get("ok") else str(pulled.get("reason")),
-        "action": "" if pulled.get("ok") else f"ollama pull {report['model']}",
+        "reason": after["reason"] if pulled.get("ok") else str(pulled.get("reason")),
+        "action": after["action"] if pulled.get("ok") else f"ollama pull {report['model']}",
     }
 
 

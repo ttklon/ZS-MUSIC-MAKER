@@ -29,6 +29,7 @@ else:
     _IMPORT_ERROR = None
 
 from modules.hit_factory.evolver import mutate, select_best, should_evolve
+from modules.hit_factory.readiness import attempt_readiness
 
 try:
     from modules.hit_factory.adaptive import get_adaptive_config, log_adaptive
@@ -70,6 +71,41 @@ def _apply_overrides(state: dict[str, Any], **kwargs: Any) -> None:
     warns = kwargs.get("reference_warnings")
     if warns:
         state["reference_warnings"] = [str(w) for w in warns]
+
+
+def _save_factory_summary(best, attempts, min_score, do_evolve) -> None:
+    """Persist musical ratings separately from render readiness."""
+    if best:
+        try:
+            summary_path = Path(best["out_root"]) / "factory_summary.json"
+            summary_path.write_text(
+                json.dumps(
+                    {
+                        "best_project_id": best["project_id"],
+                        "best_hit_score": best["hit_score"],
+                        "best_verdict": best["verdict"],
+                        "readiness": best["readiness"],
+                        "attempts": [
+                            {
+                                "project_id": a["project_id"],
+                                "hit_score": a["hit_score"],
+                                "verdict": a["verdict"],
+                                "readiness": a["readiness"],
+                                "master_path": a["master_path"],
+                                "wizard_state": a["wizard_state"],
+                            }
+                            for a in attempts
+                        ],
+                        "min_score": min_score,
+                        "evolve": do_evolve,
+                    },
+                    ensure_ascii=False,
+                    indent=2,
+                ),
+                encoding="utf-8",
+            )
+        except Exception as _exc:
+            print(f"[hit_factory] ignored: {_exc}")
 
 
 class HitFactory:
@@ -196,6 +232,7 @@ class HitFactory:
             pid = self._new_project_id(cur_state["genre"])
             self._log(f"\n[HIT FACTORY] Попытка {attempt_idx+1}/{attempts_limit}  genre={cur_state['genre']}  BPM={cur_state['bpm_override']}  seed={cur_state['seed']}  theme='{cur_state['theme'][:60]}'")
             ctx = self._run_pipeline_once(pid, cur_state, rng)
+            ctx["readiness"] = attempt_readiness(ctx)
             ctx["attempt"] = attempt_idx + 1
             ctx["wizard_state"] = dict(cur_state)
             attempts.append(ctx)
@@ -204,41 +241,13 @@ class HitFactory:
             self._log(f"[HIT FACTORY] -> {pid}  hit_score={hit_score:.1f}  verdict={verdict}  master={ctx.get('master_path')}")
             if not do_evolve or attempt_idx + 1 >= attempts_limit:
                 break
-            if not should_evolve(hit_score, verdict, self.min_score):
+            if ctx["readiness"]["ready"] and not should_evolve(hit_score, verdict, self.min_score):
                 self._log(f"[HIT FACTORY] Порог {self.min_score} пробит ({hit_score:.1f} ≥ {self.min_score}) — стоп эволюция.")
                 break
             cur_state = mutate(cur_state, ctx.get("hit"), rng)
             self._log(f"[HIT FACTORY] Эволюция → next BPM={cur_state['bpm_override']} seed={cur_state['seed']} aggression={cur_state['aggression']}")
         best = select_best(attempts)
-        if best:
-            try:
-                summary_path = Path(best["out_root"]) / "factory_summary.json"
-                summary_path.write_text(
-                    json.dumps(
-                        {
-                            "best_project_id": best["project_id"],
-                            "best_hit_score": best["hit_score"],
-                            "best_verdict": best["verdict"],
-                            "attempts": [
-                                {
-                                    "project_id": a["project_id"],
-                                    "hit_score": a["hit_score"],
-                                    "verdict": a["verdict"],
-                                    "master_path": a["master_path"],
-                                    "wizard_state": a["wizard_state"],
-                                }
-                                for a in attempts
-                            ],
-                            "min_score": self.min_score,
-                            "evolve": do_evolve,
-                        },
-                        ensure_ascii=False,
-                        indent=2,
-                    ),
-                    encoding="utf-8",
-                )
-            except Exception as _exc:
-                print(f"[hit_factory] ignored: {_exc}")
+        _save_factory_summary(best, attempts, self.min_score, do_evolve)
         try:
             from modules.hit_factory.kpi import build_kpi
 

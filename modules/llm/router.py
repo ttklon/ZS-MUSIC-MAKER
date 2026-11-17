@@ -71,6 +71,10 @@ class LLMRouter:
             out["ollama"] = True
         except Exception:
             logging.getLogger(__name__).debug("ignored exception", exc_info=True)
+        if not out["ollama"]:
+            from modules.llm.ollama_daemon import ensure_local_server
+
+            out["ollama"] = ensure_local_server(self.ollama_url)
         return out
 
     def _try_provider(self, name: str, fn):

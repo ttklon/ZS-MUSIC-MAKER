@@ -291,19 +291,16 @@ def _stage_hit_score(master_wav: str) -> dict[str, Any]:
                 break
         if fn is None:
             return {
-                "ok": True,
-                "hit_score": 60.0,
-                "verdict": "solid",
-                "fallback_used": True,
+                "ok": False,
                 "reason": "hit_scorer: no scoring entry exposed",
             }
         r = fn(master_wav)
         if not isinstance(r, dict):
             return {"ok": False, "reason": f"hit_scorer.{fn.__name__} bad return type"}
-        if r.get("error"):
+        if r.get("error") or r.get("verdict") == "invalid_audio":
             return {
                 "ok": False,
-                "reason": r["error"],
+                "reason": r.get("error") or r.get("reason") or "invalid audio",
                 "hit_score": r.get("hit_score", 0.0),
                 "verdict": r.get("verdict", "flop_risk"),
             }

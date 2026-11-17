@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import logging
 import os
-import shutil
 import subprocess
 
 _LOG = logging.getLogger(__name__)
@@ -64,6 +63,12 @@ def pull_model() -> list[str]:
 
 def ensure_ollama_qwen(allow_download: bool | None = None) -> list[str]:
     """Идемпотентно: нет бинаря → установщик; есть → только `pull` модели."""
-    if not shutil.which("ollama"):
-        return install_when_missing(allow_download)
-    return pull_model()
+    from modules.llm.ollama_setup import ensure_ollama
+
+    prepared = ensure_ollama(allow_download=allow_download)
+    last_attempt["ollama"] = prepared
+    if prepared.get("installer"):
+        return ["ollama_installer"]
+    if prepared.get("ok") and prepared.get("changed"):
+        return ["ollama_qwen"]
+    return []

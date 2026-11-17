@@ -8,6 +8,8 @@ select_best() — выбирает лучшего по hit_score среди по
 from __future__ import annotations
 
 import random
+
+from modules.hit_factory.readiness import attempt_rank, usable_score
 from typing import Any
 
 from modules.hit_factory.config import BPM_MAP, MUTATION_RANGES
@@ -70,16 +72,12 @@ def mutate(
 
 def select_best(attempts: list[dict[str, Any]]) -> dict[str, Any] | None:
     """
-    Выбирает лучшую попытку по hit_score.
+    Выбирает завершённый рендер прежде неполного, затем по hit_score.
     Каждый attempt: {recipe, report, hit_score, verdict, master_path}
     """
     if not attempts:
         return None
-    # фильтр: у кого есть hit_score
-    scored = [a for a in attempts if isinstance(a.get("hit_score"), (int, float))]
-    if not scored:
-        return attempts[0]
-    return max(scored, key=lambda a: float(a["hit_score"]))
+    return max(attempts, key=attempt_rank)
 
 
 def should_evolve(
@@ -87,8 +85,6 @@ def should_evolve(
     verdict: str | None,
     min_score: float = 68.0,
 ) -> bool:
-    if hit_score is None:
+    if not usable_score(hit_score):
         return True
-    if verdict in ("chart_ready", "solid") and hit_score >= min_score:
-        return False
-    return hit_score < min_score
+    return verdict not in ("chart_ready", "solid") or hit_score < min_score

@@ -13,6 +13,17 @@ def _parse_refs(s: str) -> list[str]:
     return [p.strip() for p in s.split(",") if p.strip()]
 
 
+def _print_readiness(hit: dict) -> bool:
+    """A master path is not proof of a complete autonomous song."""
+    from modules.hit_factory.readiness import attempt_readiness
+
+    readiness = attempt_readiness(hit)
+    safe_print(f"[hit-factory] render_ready={readiness['ready']}")
+    for reason in readiness["reasons"]:
+        safe_print(f"[hit-factory] not ready: {reason}")
+    return readiness["ready"]
+
+
 def _run_breakthrough_cli(args, refs: list[str], artist: str | None, voice: str | None, theme: str | None, duration) -> int | None:
     try:
         from modules.hit_factory.breakthrough import full_orchestrate
@@ -27,18 +38,18 @@ def _run_breakthrough_cli(args, refs: list[str], artist: str | None, voice: str 
             hit = res.get("hit") or {}
             safe_print(f"[hit-factory breakthrough] artist={effective_artist} theme={effective_theme} refs={len(refs)} voice={'yes' if voice else 'no'}")
             safe_print(f"[hit-factory] done: {hit.get('project_id')} score={hit.get('hit_score')} verdict={hit.get('verdict')} elapsed={res.get('elapsed_s')}s")
-            return 0 if hit.get("master_path") else 1
+            return 0 if _print_readiness(hit) else 1
         ok = 0
         for i in range(count):
             cur_seed = (int(seed) + i) if seed is not None else None
             res = full_orchestrate(artist=effective_artist, theme=effective_theme, reference_paths=refs or None,
                                    raw_voice_path=voice, duration_sec=dur, seed=cur_seed, breakthrough=True)
             hit = res.get("hit") or {}
-            if hit.get("master_path"):
+            if _print_readiness(hit):
                 ok += 1
             safe_print(f"[hit-factory breakthrough] {i+1}/{count} -> {hit.get('project_id')} score={hit.get('hit_score')}")
-        safe_print(f"[hit-factory breakthrough] batch done: {ok}/{count} masters")
-        return 0 if ok else 1
+        safe_print(f"[hit-factory breakthrough] batch done: {ok}/{count} ready renders")
+        return 0 if ok == count else 1
     except Exception as exc:  # noqa: BLE001
         safe_print(f"[hit-factory breakthrough] failed: {type(exc).__name__}: {exc} — fallback to standard")
         return None
@@ -69,11 +80,11 @@ def _run_standard_cli(args) -> int:
     if count <= 1:
         hit = factory.make_one(genre=genre, theme=theme, seed=seed, duration_sec=duration)
         safe_print(f"[hit-factory] done: {hit.get('project_id')} score={hit.get('hit_score')} verdict={hit.get('verdict')}")
-        return 0 if hit.get("master_path") else 1
+        return 0 if _print_readiness(hit) else 1
     batch = factory.make_batch(count=count, genre=genre, theme=theme, seed=seed, duration_sec=duration)
-    ok = sum(1 for r in batch if r.get("master_path"))
-    safe_print(f"[hit-factory] batch done: {ok}/{len(batch)} masters")
-    return 0 if ok else 1
+    ok = sum(1 for r in batch if _print_readiness(r))
+    safe_print(f"[hit-factory] batch done: {ok}/{len(batch)} ready renders")
+    return 0 if ok == count and len(batch) == count else 1
 
 
 def run_hit_factory(args) -> int:

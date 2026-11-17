@@ -84,7 +84,7 @@ def _synth_via_synth(voice_synth, lyrics_text: str, out_wav: str,
     if not hasattr(voice_synth, "synth"):
         return None
     try:
-        path = voice_synth.synth(lyrics_text, engine="auto", out_name=Path(out_wav).name)
+        path = voice_synth.synth(lyrics_text, engine="auto", out_name=str(Path(out_wav).resolve()))
         if path and Path(path).exists() and Path(path).stat().st_size > 1000:
             return {"ok": True, "path": path, "engine": "voice_synth.synth"}
         fallback_attempts.append({

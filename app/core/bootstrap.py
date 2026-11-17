@@ -197,8 +197,8 @@ from app.core.ollama_bootstrap import (  # noqa: E402
 def _ensure_ollama_qwen(allow_download: bool | None = None) -> list[str]:
     """Тихий `ollama pull qwen3:4b`; без бинаря — установщик (см. модуль).
 
-    `ollama serve` не запускаем: демон ставится вместе с Ollama и обычно уже
-    работает. Если его нет — `LLMRouter` честно скажет «no_local_daemon».
+    Установленный остановленный демон запускается локально автоматически.
+    Готовая модель не требует сети; установка и pull требуют разрешения.
     """
     return _ensure_ollama_engine(allow_download=allow_download)
 
