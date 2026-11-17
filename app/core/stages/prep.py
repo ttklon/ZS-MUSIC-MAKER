@@ -87,6 +87,18 @@ def _default_style_for_genre(genre: str) -> dict[str, Any]:
     return dict(_GENRE_STYLE_DEFAULTS.get(g, _GENRE_STYLE_DEFAULTS["drift_phonk"]))
 
 
+def _failure_reason(exc: BaseException) -> str:
+    """Читаемая причина отказа, даже когда у исключения пустое сообщение.
+
+    `audioread.exceptions.NoBackendError` не несёт текста: `str(e)` == "". В
+    отчёте это выглядело как `reason: ""` — стадия падала «молча», и понять,
+    что дело в неподдерживаемом формате референса, было невозможно.
+    """
+    text = str(exc).strip()
+    name = type(exc).__name__
+    return f"{name}: {text}" if text else name
+
+
 def _stage_analyze(
     refs: list[str], dry_run: bool, genre: str = "drift_phonk"
 ) -> dict[str, Any]:
@@ -117,7 +129,13 @@ def _stage_analyze(
             res = analyzer.analyze_multi(refs)
         return {"ok": True, "analysis": res}
     except Exception as e:
-        return {"ok": False, "reason": str(e), "fallback_used": True}
+        # У части исключений чтения аудио пустой `str(e)` — `NoBackendError`
+        # из audioread именно такой. `reason: ""` в отчёте бесполезен: человек
+        # видит «стадия упала» и ни одной зацепки. Поэтому имя типа обязательно.
+        reason = _failure_reason(e)
+        if refs:
+            reason += f"; references not applied (requested {len(refs)})"
+        return {"ok": False, "reason": reason, "fallback_used": True}
 
 
 def _stage_groove(refs: list[str], genre: str = "drift_phonk") -> dict[str, Any]:
@@ -155,7 +173,7 @@ def _stage_groove(refs: list[str], genre: str = "drift_phonk") -> dict[str, Any]
             g = None
         return {"ok": True, "groove": g}
     except Exception as e:
-        return {"ok": False, "reason": str(e)}
+        return {"ok": False, "reason": _failure_reason(e)}
 
 
 DEFAULT_ARRANGEMENT_SEC = 150.0
