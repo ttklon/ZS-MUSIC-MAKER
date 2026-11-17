@@ -9,6 +9,8 @@ modules/artist_dossier/manager.py — `DossierManager`: жизненный ци�
 
 from __future__ import annotations
 
+from modules.errors import failure_reason
+
 import shutil
 import time
 from pathlib import Path
@@ -139,7 +141,7 @@ class DossierManager:
                 self._analyze_single_track(slug, tr, progress_cb=progress_cb)
             except Exception as e:
                 tr.status = "failed"
-                tr.dossier = {"error": str(e)}
+                tr.dossier = {"error": failure_reason(e)}
                 self._save_track(slug, tr)
         a.dossier = self._aggregate_artist_dossier(slug, a)
         a.updated_at = time.time()

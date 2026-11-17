@@ -9,6 +9,8 @@ modules/vocal_fx/throw.py — delay throw на концах фраз.
 
 from __future__ import annotations
 
+from modules.errors import failure_reason
+
 from modules.vocal_fx.double import VocalFxResult
 from modules.vocal_fx.dsp import (
     _OK,
@@ -95,5 +97,5 @@ def apply_delay_throw(
         )
     except Exception as e:
         return VocalFxResult(
-            False, "", "none", False, False, 0, -100.0, -100.0, reason=str(e)
+            False, "", "none", False, False, 0, -100.0, -100.0, reason=failure_reason(e)
         )

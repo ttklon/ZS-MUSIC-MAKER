@@ -20,6 +20,8 @@
 
 from __future__ import annotations
 
+from modules.errors import failure_reason
+
 import hashlib
 import json
 import re
@@ -270,7 +272,7 @@ def search_author_online(
         with urllib.request.urlopen(req, timeout=8) as r:
             html = r.read().decode("utf-8", errors="ignore")
     except Exception as e:
-        return [{"error": str(e)}]
+        return [{"error": failure_reason(e)}]
 
     results = []
     for m in re.finditer(

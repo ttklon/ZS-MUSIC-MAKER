@@ -5,6 +5,8 @@ app/core/stages/master.py — Мастер: стенды, anti-neuro полир�
 
 from __future__ import annotations
 
+from modules.errors import failure_reason
+
 from pathlib import Path
 from typing import Any
 
@@ -44,7 +46,7 @@ def _stage_mastering(
         r["fallback_used"] = fb
         return r
     except Exception as e:
-        return {"ok": False, "reason": str(e)}
+        return {"ok": False, "reason": failure_reason(e)}
 
 
 def _stage_polish(input_wav: str, out_dir: Path, seed: int | None = None) -> dict[str, Any]:

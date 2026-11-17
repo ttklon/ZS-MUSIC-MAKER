@@ -8,6 +8,8 @@
 
 from __future__ import annotations
 
+from modules.errors import failure_reason
+
 import json
 import logging
 import re
@@ -233,7 +235,7 @@ def get_progress() -> dict:
 
         return vault_summary()
     except Exception as e:
-        return {"error": str(e)}
+        return {"error": failure_reason(e)}
 
 
 if __name__ == "__main__":

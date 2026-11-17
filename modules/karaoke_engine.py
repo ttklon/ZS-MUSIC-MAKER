@@ -13,6 +13,8 @@ ZS Music Maker v10 — Karaoke Engine v10
 
 from __future__ import annotations
 
+from modules.errors import failure_reason
+
 import json
 import logging
 import threading
@@ -183,7 +185,7 @@ def score_take(
             "expected_active_pct": round(exp_active, 3),
         }
     except Exception as e:
-        return {"ok": False, "reason": str(e), "score": 0}
+        return {"ok": False, "reason": failure_reason(e), "score": 0}
 
 
 if __name__ == "__main__":

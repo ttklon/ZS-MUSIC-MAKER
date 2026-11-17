@@ -5,6 +5,8 @@ app/core/stages/vocal.py — Вокал: TTS-синтез, конвертаци�
 
 from __future__ import annotations
 
+from modules.errors import failure_reason
+
 import logging
 import os
 
@@ -319,9 +321,9 @@ def _stage_rvc(
         return {"ok": bool(r), "path": r or out_wav, "engine": "rvc_python",
                 "execution": "isolated_python" if os.environ.get("ZSMM_RVC_PYTHON", "").strip() else "in_process"}
     except RuntimeError as e:
-        return {"ok": True, "blocked": True, "path": "", "reason": str(e)}
+        return {"ok": True, "blocked": True, "path": "", "reason": failure_reason(e)}
     except Exception as e:
-        return {"ok": False, "reason": str(e)}
+        return {"ok": False, "reason": failure_reason(e)}
 
 
 def _split_key(key: str | None) -> tuple[str, str]:

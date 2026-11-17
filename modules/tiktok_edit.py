@@ -18,6 +18,8 @@
 
 from __future__ import annotations
 
+from modules.errors import failure_reason
+
 import json
 import shutil
 import subprocess
@@ -246,7 +248,7 @@ def make_vertical_video(
             return {"ok": False, "error": p.stderr[-500:].decode("utf-8", "ignore")}
         return {"ok": True, "output": output_mp4}
     except Exception as e:
-        return {"ok": False, "error": str(e)}
+        return {"ok": False, "error": failure_reason(e)}
 
 
 if __name__ == "__main__":

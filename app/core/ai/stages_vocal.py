@@ -8,6 +8,8 @@ XTTS → честный voice_synth-фоллбек, RVC-конвертация, 
 
 from __future__ import annotations
 
+from modules.errors import failure_reason
+
 import re
 from pathlib import Path
 
@@ -123,4 +125,4 @@ def stage_mix(_, ctx):
         sf.write(mix_path, mix, sr_b)
         return {"ok": True, "mix_path": mix_path, "vocal": True, "texture_mixed": texture_mixed}
     except Exception as e:
-        return {"ok": False, "reason": str(e)}
+        return {"ok": False, "reason": failure_reason(e)}

@@ -2,6 +2,8 @@
 """modules.hit_factory._runner — исполнение пайплайна + постобработка (вынесено из generator)."""
 from __future__ import annotations
 
+from modules.errors import failure_reason
+
 import json
 import logging
 import random
@@ -49,7 +51,7 @@ def _postprocess(
             hres = ensure_human(master, preset=human_preset, seed=wizard_state.get("seed"))
             report["humanizer"] = hres
         except Exception as exc:  # noqa: BLE001
-            report["humanizer"] = {"ok": False, "reason": str(exc)}
+            report["humanizer"] = {"ok": False, "reason": failure_reason(exc)}
 
         # tiktok cuts
         try:

@@ -21,6 +21,8 @@ modules/mastering_reference.py — мастеринг по референсу (M
 
 from __future__ import annotations
 
+from modules.errors import failure_reason
+
 import logging
 from pathlib import Path
 from typing import Any, Optional
@@ -62,7 +64,7 @@ def match_to_reference(
         mg.process(target=target, reference=reference, results=results)
     except Exception as exc:  # noqa: BLE001 - движок кидает что угодно
         log.warning("matchering failed: %s", exc)
-        return {"ok": False, "engine": "matchering", "reason": str(exc), "out_wav": out_wav}
+        return {"ok": False, "engine": "matchering", "reason": failure_reason(exc), "out_wav": out_wav}
     if not Path(out_wav).exists():
         return {"ok": False, "engine": "matchering", "reason": "no output produced", "out_wav": out_wav}
     return {"ok": True, "engine": "matchering", "out_wav": out_wav, "out_mp3": out_mp3}

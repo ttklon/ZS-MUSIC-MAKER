@@ -24,6 +24,8 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from modules.errors import failure_reason  # noqa: E402 - нужен ROOT в sys.path
+
 
 def _synthesize_reference(
     out_wav: Path, duration: float = 15.0, sr: int = 44100, bpm: int = 140
@@ -76,7 +78,7 @@ def _check_wav(path: str) -> dict:
             "size_bytes": Path(path).stat().st_size,
         }
     except Exception as e:
-        return {"exists": False, "path": path, "error": str(e)}
+        return {"exists": False, "path": path, "error": failure_reason(e)}
 
 
 def main() -> int:

@@ -387,7 +387,8 @@ def test_rvc_runtime_error_is_blocked_not_crash(tmp_path, monkeypatch) -> None:
     )
 
     assert result["ok"] is True and result["blocked"] is True
-    assert result["reason"] == "RVC env not installed"
+    # причина теперь включает имя типа: беcтекстовое исключение иначе даёт ""
+    assert result["reason"] == "RuntimeError: RVC env not installed"
 
 
 def test_rvc_unexpected_error_is_not_disguised_as_success(tmp_path, monkeypatch) -> None:
@@ -404,7 +405,7 @@ def test_rvc_unexpected_error_is_not_disguised_as_success(tmp_path, monkeypatch)
     )
 
     assert result["ok"] is False
-    assert result["reason"] == "bad index"
+    assert result["reason"] == "ValueError: bad index"
 
 
 @pytest.mark.parametrize(

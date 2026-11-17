@@ -7,6 +7,8 @@ Index updates preserve damaged or unreadable user data rather than resetting it.
 
 from __future__ import annotations
 
+from modules.errors import failure_reason
+
 import hashlib
 import json
 import logging
@@ -339,7 +341,7 @@ def maybe_trigger_retrain(rvc_trainer=None) -> dict:
     except Exception as e:
         return {
             "triggered": False,
-            "reason": str(e),
+            "reason": failure_reason(e),
             "manifest": manifest,
             "stats": stats,
         }

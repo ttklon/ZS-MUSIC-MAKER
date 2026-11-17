@@ -5,6 +5,8 @@ app/core/stages/beat.py — Бит: вызов `beat_constructor` и честн�
 
 from __future__ import annotations
 
+from modules.errors import failure_reason
+
 from pathlib import Path
 from typing import Any
 
@@ -122,7 +124,7 @@ def _stage_beat(
                 beat_wav, duration=_dur, bpm=_bpm, key_root=_key.split()[0], key_name=_key
             )
         except Exception:
-            return {"ok": False, "reason": str(e)}
+            return {"ok": False, "reason": failure_reason(e)}
 
 
 def recipe_key(style: dict[str, Any] | None) -> str:
@@ -196,6 +198,6 @@ def _synth_beat(
             "reason": "synthesized structured beat (beat_constructor unavailable)",
         }
     except Exception as e:
-        return {"ok": False, "reason": str(e)}
+        return {"ok": False, "reason": failure_reason(e)}
 
 

@@ -20,6 +20,8 @@ Auto-QA берёт финальный master.wav и прогоняет его ч
 
 from __future__ import annotations
 
+from modules.errors import failure_reason
+
 import json
 import math
 import time
@@ -107,7 +109,7 @@ def _structure_check(y, sr) -> dict:
             "sections_detected": len(chunks),
         }
     except Exception as e:
-        return {"hook_score": 0.0, "error": str(e)}
+        return {"hook_score": 0.0, "error": failure_reason(e)}
 
 
 def _audit_ai_detector(master_wav: Path) -> tuple[dict, list[dict]]:
@@ -167,7 +169,7 @@ def _audit_ai_detector(master_wav: Path) -> tuple[dict, list[dict]]:
             )
         return ad, actions
     except Exception as e:
-        return {"error": str(e)}, actions
+        return {"error": failure_reason(e)}, actions
 
 
 def _audit_loudness(y, sr, target_lufs: float) -> tuple[dict, list[dict]]:

@@ -25,6 +25,8 @@ ZS Music Maker v14 — sidechain.py (настоящий sidechain, TZ 19.5, P0.0
 
 from __future__ import annotations
 
+from modules.errors import failure_reason
+
 import json
 import math
 from dataclasses import dataclass
@@ -237,7 +239,7 @@ def _numpy_dsp(
             bus_before_rms_db=-100,
             bus_after_rms_db=-100,
             ducking_db=0.0,
-            reason=str(e),
+            reason=failure_reason(e),
         )
 
 

@@ -9,6 +9,8 @@ modules/vocal_fx/pipeline.py — единая цепочка обработки 
 
 from __future__ import annotations
 
+from modules.errors import failure_reason
+
 import json
 import shutil
 from pathlib import Path
@@ -62,7 +64,7 @@ def process_vocal(
                 cur = str(cleaner["path"])
                 stages.append("clean")
         except Exception as exc:
-            cleaner = {"ok": False, "reason": str(exc)}
+            cleaner = {"ok": False, "reason": failure_reason(exc)}
 
     if use_tune or use_deess:
         cur, tune_report, deess_report = _shape_vocal(
