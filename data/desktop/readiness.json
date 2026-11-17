@@ -1,17 +1,17 @@
 {
-  "generated_at": "2026-11-17T00:24:28.126Z",
+  "generated_at": "2026-11-17T00:37:57.579Z",
   "percent": 65,
   "module_inventory": {
-    "tracked_modules": 337,
-    "REAL_PASS": 297,
+    "tracked_modules": 338,
+    "REAL_PASS": 298,
     "REAL_FAIL": 0,
     "PLANNED": 1,
     "DEPRECATED": 39
   },
-  "module_reachability_share": 0.8813,
+  "module_reachability_share": 0.8817,
   "block_scores": {
     "architecture": 100,
-    "core_modules": 84.12,
+    "core_modules": 84.15,
     "audio_pipeline": 66.67,
     "voice_recording": 62.5,
     "release": 100,
