@@ -2,7 +2,7 @@
 """
 modules.hit_factory.evolver — эволюционная петля hit_score.
 
-mutate() — слегка сдвигает recipe (BPM ±5, aggression ±0.15, seed+1, duration вариант)
+mutate() — сдвигает BPM, aggression и seed, сохраняя заданную длительность
 select_best() — выбирает лучшего по hit_score среди попыток.
 """
 from __future__ import annotations
@@ -60,9 +60,8 @@ def mutate(
     dagr = rng.uniform(-MUTATION_RANGES["aggression_delta"], MUTATION_RANGES["aggression_delta"])
     nxt["aggression"] = round(max(0.3, min(0.95, cur_agr + dagr)), 2)
 
-    # duration — иногда меняем длину (tiktok vs full влияет на структуру)
-    if rng.random() < 0.25:
-        nxt["duration_sec"] = rng.choice(MUTATION_RANGES["duration_variants"])
+    # Duration is a render budget/user constraint, not a quality mutation.
+    # In particular a short requested clip must never turn into 120 seconds.
 
     # если слабые метрики указывают на low_end или стерео — чуть подвигаем aggression/жанр не трогаем
     # жанр оставляем тем же, чтобы не ломать expectation; смену жанра делает верхнеуровневый batch
