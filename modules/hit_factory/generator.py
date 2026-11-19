@@ -30,6 +30,7 @@ else:
 
 from modules.hit_factory.evolver import mutate, select_best, should_evolve
 from modules.hit_factory.readiness import attempt_readiness
+from modules.hit_factory.retry import stop_for_environment
 
 try:
     from modules.hit_factory.adaptive import get_adaptive_config, log_adaptive
@@ -85,6 +86,8 @@ def _apply_overrides(state: dict[str, Any], **kwargs: Any) -> None:
 def _save_factory_summary(best, attempts, min_score, do_evolve) -> None:
     """Persist musical ratings separately from render readiness."""
     if best:
+        if attempts[-1].get("evolution_stop"):
+            best["evolution_stop"] = attempts[-1]["evolution_stop"]
         try:
             summary_path = Path(best["out_root"]) / "factory_summary.json"
             summary_path.write_text(
@@ -94,6 +97,7 @@ def _save_factory_summary(best, attempts, min_score, do_evolve) -> None:
                         "best_hit_score": best["hit_score"],
                         "best_verdict": best["verdict"],
                         "readiness": best["readiness"],
+                        "evolution_stop": best.get("evolution_stop"),
                         "attempts": [
                             {
                                 "project_id": a["project_id"],
@@ -253,7 +257,7 @@ class HitFactory:
             hit_score = float(ctx.get("hit_score") or 0.0)
             verdict = str(ctx.get("verdict") or "")
             self._log(f"[HIT FACTORY] -> {pid}  hit_score={hit_score:.1f}  verdict={verdict}  master={ctx.get('master_path')}")
-            if not do_evolve or attempt_idx + 1 >= attempts_limit:
+            if stop_for_environment(ctx, self._log) or not do_evolve or attempt_idx + 1 >= attempts_limit:
                 break
             if ctx["readiness"]["ready"] and not should_evolve(hit_score, verdict, self.min_score):
                 self._log(f"[HIT FACTORY] Порог {self.min_score} пробит ({hit_score:.1f} ≥ {self.min_score}) — стоп эволюция.")

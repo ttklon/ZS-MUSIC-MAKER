@@ -18,6 +18,7 @@ from app.core.stages.lyrics_providers import (  # noqa: F401
     LLMRouter,
     _build_lyrics_prompt,
     _discover_auto_model,
+    _retry_metadata,
     _try_llm_router,
     _try_local_lyrics_model,
 )
@@ -245,6 +246,7 @@ def _stage_lyrics(
         "reason": "локальная LLM недоступна: запусти Ollama и `ollama pull qwen3:4b`",
         "action": "ollama serve && ollama pull qwen3:4b",
         "template_available": "ZSMM_ALLOW_TEMPLATE_LYRICS=1",
+        **_retry_metadata(fallback_attempts),
     }
     if fallback_attempts:
         blocked["fallback_attempts"] = fallback_attempts

@@ -226,6 +226,7 @@ def _no_llm_result(chain: list[str], errs: dict[str, Any], theme: str,
             "ok": False, "text": "", "provider": "BLOCKED", "model": None,
             "tokens": 0, "provider_chain": chain, "fallback_used": False,
             "error": errors,
+            **_environment_retry(errs),
         }
     text = local_fallback_lyrics(theme or "движение", genre, language)
     chain.append("local_template")
@@ -234,6 +235,17 @@ def _no_llm_result(chain: list[str], errs: dict[str, Any], theme: str,
         "model": "punch_lib_v1", "tokens": len(text.split()),
         "provider_chain": chain, "fallback_used": True, "error": errors,
     }
+
+
+
+def _environment_retry(errors: dict[str, Any]) -> dict[str, str]:
+    """Only known static provider failures justify avoiding a new audio render."""
+    unavailable = {"no_internet", "no_api_key"}
+    if errors.get("ollama") == "no_local_daemon" and all(
+        errors.get(name) in unavailable for name in ("openrouter", "grok", "gemini")
+    ):
+        return {"retry_scope": "environment", "action": "ollama serve && ollama pull qwen3:4b"}
+    return {}
 
 
 def _template_allowed() -> bool:
