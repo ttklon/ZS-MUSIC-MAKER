@@ -159,7 +159,7 @@ jobs:
           fi
           cat $GITHUB_OUTPUT
 
-      - name: Create source ZIP for updater (what updater installs)
+      - name: Create source ZIP for developers
         run: |
           # Архив пишется в /tmp, а НЕ в _artifacts/: раньше файл создавался внутри
           # того же каталога, который архифицировал, и zip глатал уже собранные
@@ -194,6 +194,7 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
+          make_latest: true
           tag_name: ${{ steps.ver.outputs.tag }}
           name: ZS Music Maker ${{ steps.ver.outputs.version }}
           body: |
