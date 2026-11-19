@@ -118,7 +118,7 @@ test('версия приложения совпадает с версией п�
 
   // В окне показывается version.json проекта, в свойствах EXE — package.json.
   // Расхождение читается как «приложение старое».
-  assert.equal(pkg.version.split('.')[0], '1', 'мажор package.json — 1.x');
+  assert.equal(pkg.version, version.version, 'версия EXE должна совпадать с версией проекта');
   assert.ok(version.version, 'version.json читается');
 });
 

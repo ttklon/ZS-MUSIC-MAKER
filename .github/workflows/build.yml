@@ -459,6 +459,7 @@ jobs:
       - name: Publish Windows installer
         uses: softprops/action-gh-release@v2
         with:
+          make_latest: false
           tag_name: desktop-v${{ steps.version.outputs.value }}
           name: ZS Music Maker ${{ steps.version.outputs.value }} (Electron, Windows 11)
           body: |
@@ -501,6 +502,7 @@ jobs:
         continue-on-error: true
         uses: softprops/action-gh-release@v2
         with:
+          make_latest: false
           tag_name: ${{ github.ref_name }}
           generate_release_notes: true
           files: ZS-Music-Maker-Windows.zip

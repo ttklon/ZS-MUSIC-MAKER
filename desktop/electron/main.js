@@ -249,7 +249,7 @@ function registerIpc(getProject) {
 
   // Обновления в один клик: кнопка в приложении скачивает релиз с GitHub и ставит поверх
   try {
-    registerUpdaterIpc({ ipcMain, root: ROOT, settingsStore: settings(), resolvePython });
+    registerUpdaterIpc({ ipcMain, root: ROOT, settingsStore: settings(), app, shell });
   } catch (e) {
     console.error('updater ipc failed', e);
   }

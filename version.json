@@ -1,6 +1,6 @@
 {
-  "version": "42.0.26",
-  "build": "v42.0.26-environment-retry-2026-11-15",
-  "based_on": "42.0.25",
-  "changes": "Фабрика не повторяет дорогой рендер при явно подтверждённой блокировке LLM-окружения; причина и действие сохраняются в evolution_stop."
+  "version": "42.0.27",
+  "build": "v42.0.27-desktop-updater-2026-11-15",
+  "based_on": "42.0.26",
+  "changes": "Windows updater downloads and verifies NSIS installer without Python; correct desktop release version; offline Silero packages."
 }

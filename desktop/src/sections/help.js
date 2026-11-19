@@ -52,7 +52,7 @@ const DOES_NOT = [
 function createUpdatePanel() {
   const box = el('div', 'panel');
   box.append(el('h2', null, 'Обновления — один клик'));
-  const info = el('p', 'muted', 'Текущая версия читается из version.json. Кнопка ниже качает релиз с GitHub (требует сеть) и ставит поверх без переустановки вручную. Пользовательские данные (voice_vault/lyric_vault/output) сохраняются, бэкап и откат — автоматически.');
+  const info = el('p', 'muted', 'Текущая версия читается из version.json. Включите сеть в настройках. Кнопка скачивает Windows-установщик с GitHub и проверяет SHA-256. Затем приложение закрывается и открывается мастер установки. Данные в пользовательском каталоге сохраняются. Исходники ZIP не устанавливаются.');
   box.append(info);
   const row = el('div', null);
   row.style.display = 'flex'; row.style.gap = '8px'; row.style.flexWrap = 'wrap'; row.style.marginTop = '8px';
@@ -63,6 +63,7 @@ function createUpdatePanel() {
   status.style.marginTop = '8px'; status.style.whiteSpace = 'pre-wrap';
   let pending = null; // {url, name}
   async function doCheck() {
+    pending = null; btnInstall.disabled = true;
     status.textContent = 'Проверяю GitHub…';
     btnCheck.disabled = true;
     try {
@@ -74,8 +75,8 @@ function createUpdatePanel() {
       const latest = r.latest || r.tag || 'unknown';
       if (r.updateAvailable) {
         status.textContent = `Доступно обновление: ${ver} → ${latest}\n${(r.changelog || '').slice(0, 800)}${r.changelog && r.changelog.length>800?'…':''}\nРелиз: ${r.releaseUrl || ''}`;
-        if (r.sourceZip && r.sourceZip.url) { pending = { url: r.sourceZip.url, name: r.sourceZip.name }; btnInstall.disabled = false; }
-        else { pending = null; btnInstall.disabled = true; }
+        if (r.installer && r.installer.url) { pending = r.installer; btnInstall.disabled = false; }
+        else { pending = null; btnInstall.disabled = true; status.textContent += '\n' + (r.unavailableReason || 'Установщик пока недоступен'); }
       } else {
         status.textContent = `Обновлений нет. Текущая ${ver}, последняя ${latest}. ${r.releaseUrl || ''}`;
         pending = null; btnInstall.disabled = true;
@@ -85,7 +86,7 @@ function createUpdatePanel() {
     } finally { btnCheck.disabled = false; }
   }
   async function doInstall() {
-    if (!pending || !pending.url) { status.textContent = 'Нет ZIP для установки'; return; }
+    if (!pending || !pending.url) { status.textContent = 'Нет установщика для установки'; return; }
     status.textContent = 'Скачиваю ' + pending.name + '…';
     btnInstall.disabled = true; btnCheck.disabled = true;
     try {
@@ -93,7 +94,7 @@ function createUpdatePanel() {
       if (!dl || !dl.ok) throw new Error(dl.error || 'скачивание не удалось');
       status.textContent = `Скачано ${(dl.bytes/1e6).toFixed(1)} MB → устанавливаю… Требуется перезапуск.`;
       const res = await window.zsmm.updaterInstall(dl.path);
-      if (res && res.ok) { status.textContent = 'Готово! Установлена ' + (res.version || 'новая версия') + '. Перезапусти приложение.'; }
+      if (res && res.ok) { status.textContent = 'Установщик запущен. Завершите установку в открывшемся мастере.'; }
       else { status.textContent = 'Ошибка установки: ' + (res.error || JSON.stringify(res).slice(0,500)); btnInstall.disabled = false; }
     } catch (e) {
       status.textContent = 'Ошибка: ' + e.message; btnInstall.disabled = false;

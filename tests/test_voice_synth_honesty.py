@@ -114,8 +114,7 @@ def test_silero_audio_writes_without_torchaudio(tmp_path, monkeypatch):
             return np.sin(np.arange(4800) * 0.1).astype("float32") * 0.2
 
     model = types.SimpleNamespace(apply_tts=lambda **kw: Audio())
-    torch = types.SimpleNamespace(hub=types.SimpleNamespace(load=lambda **kw: (model, None)))
-    monkeypatch.setitem(sys.modules, "torch", torch)
+    monkeypatch.setattr("modules.silero_loader.load_silero", lambda: model)
     monkeypatch.setitem(sys.modules, "torchaudio", None)
     path = tmp_path / "silero.wav"
     assert voice_synth._synth_silero("текст", str(path))

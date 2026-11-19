@@ -23,16 +23,9 @@ LOGGER = logging.getLogger(__name__)
 def _synth_silero(text: str, out_path: str, speaker: str = "aidar") -> bool:
     """Silero v3.1 RU — быстро и локально."""
     try:
-        import torch
+        from modules.silero_loader import load_silero
 
-        # Silero через torch.hub (первый раз скачивает ~50 MB)
-        model, _ = torch.hub.load(
-            repo_or_dir="snakers4/silero-models",
-            model="silero_tts",
-            language="ru",
-            speaker="v3_1_ru",
-            trust_repo=True,
-        )
+        model = load_silero()
         from modules.voice_text import silero_audio
         from modules.dsp.wavio import write_wav
 

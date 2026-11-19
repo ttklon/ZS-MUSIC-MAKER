@@ -1,10 +1,7 @@
-name: Release - Fully Ready App
+name: Release - Windows App
 
-# Собирает полностью готовое приложение со всеми зависимостями:
-# - Python EXE (PyInstaller onedir) включает core requirements.txt
-# - Electron NSIS installer + portable включает данные проекта
-# Пользователь скачивает один файл, распаковывает/устанавливает и сразу жмёт "Создать хит".
-# Обновление — кнопкой в приложении: updater скачивает ZIP из этого релиза и ставит поверх.
+# Windows desktop installer and separate Python CLI build.
+# Neural runtimes and model weights are not bundled by this workflow.
 
 on:
   push:
@@ -30,7 +27,7 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install core dependencies (fully ready = requirements.txt)
+      - name: Install core dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
@@ -53,9 +50,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: windows-exe
-          path: |
-            dist/ZS Music Maker/
-            dist/ZS-Music-Maker-Windows-Portable.zip
+          path: dist/ZS-Music-Maker-Windows-Portable.zip
           retention-days: 30
 
   build-desktop-installer:
@@ -200,21 +195,26 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.ver.outputs.tag }}
-          name: ZS Music Maker ${{ steps.ver.outputs.version }} — Fully Ready
+          name: ZS Music Maker ${{ steps.ver.outputs.version }}
           body: |
-            **Полностью готовое приложение — скачай и сразу создавай хиты.**
+            ### Windows-приложение
+            - `ZS-Music-Maker-Setup-*.exe` — установщик Electron: интерфейс, локальный JS-аудиодвижок, жанры, пресеты, сэмплы и код Python-пайплайна.
+            - `ZS-Music-Maker-*-portable.exe` — переносная версия оболочки.
+            - `ZS-Music-Maker-Windows-Portable.zip` — отдельная Python CLI-сборка с core-зависимостями.
+            - `ZS-Music-Maker-Source-*.zip` — исходники для разработчиков, НЕ обновление установленного Electron-приложения.
 
-            ### Что внутри
-            - `ZS-Music-Maker-Windows-Portable.zip` — Python EXE (PyInstaller onedir) со всеми `requirements.txt`, готова без `pip install`. Запуск: распаковать и `ZS Music Maker.exe --help` или `scripts/run.cmd`.
-            - `ZS-Music-Maker-Setup-*.exe` — Electron установщик (NSIS) с данными проекта (жанры, пресеты, сэмплы). Устанавливается в Program Files, пишет данные в `%LOCALAPPDATA%\ZS Music Maker`.
-            - `ZS-Music-Maker-Source-*.zip` — исходники для обновления в один клик (кнопка «Обновить» в приложении скачивает его и вызывает `updater.install_from_zip` с сохранением `voice_vault/lyric_vault/output`).
+            ### Обновления
+            В версии 42.0.27+: включите сеть в настройках → Справка → Проверить обновления → Скачать и установить.
+            Приложение проверяет SHA-256 установщика, запускает мастер Windows и закрывается. Завершите мастер установки.
+            Для перехода с более ранней версии скачайте Setup вручную: старый механизм обновления через ZIP был неисправен.
+            Пользовательские данные оболочки хранятся отдельно от файлов приложения.
 
-            ### Установка с нуля (Windows 11)
-            1. Скачай `Portable` или `Setup` из Assets ниже.
-            2. Запусти — Python и зависимости уже внутри, `hitmaker.py --count 5 --evolve` работает.
-            3. Обновление: в приложении `Справка → Обновления → Проверить` → `Скачать и установить` — не нужно переустанавливать вручную, бэкап и откат автоматические (`updater/backup`).
+            ### Ограничения
+            Нейродвижки и веса (torch, MusicGen, XTTS/Bark, Ollama/LLM) не предустановлены.
+            Для Python-задач оболочки нужен отдельный Python с зависимостями.
+            Сборка установщика не доказывает готовность генерации песни и не гарантирует коммерческий хит.
 
-            `version.json` — единый источник правды: `${{ steps.ver.outputs.version }}`
+            Версия: `${{ steps.ver.outputs.version }}`.
           files: |
             _artifacts/**/*.zip
             _artifacts/**/*.exe
