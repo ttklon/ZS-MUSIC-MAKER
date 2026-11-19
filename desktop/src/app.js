@@ -233,6 +233,7 @@ function focusViewHeading() {
 
 async function switchView(view, { force = false, user = false } = {}) {
   if (!LOADERS[view]) return;
+  if (view !== 'agent') W.releaseCreationAudio?.();
   state.view = view;
   // Выбор человека закрепляется до старта: `start()` проверит его и не станет
   // переключать раздел обратно.

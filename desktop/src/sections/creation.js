@@ -8,6 +8,35 @@ const session = { step: 0, answers: { mood: '', artist: '', refs: '', voice: '' 
 const labels = ['Замысел', 'Подготовка', 'Создание', 'Результат'];
 let root;
 let restored = false;
+let audioUrl = null;
+let audioRequest = 0;
+let player = null;
+function releaseAudio() {
+  audioRequest++;
+  if (player) { player.pause?.(); player.removeAttribute?.('src'); player.load?.(); player = null; }
+  if (audioUrl) { URL.revokeObjectURL(audioUrl); audioUrl = null; }
+}
+async function listen(report, container, trigger) {
+  releaseAudio();
+  const request = audioRequest;
+  trigger.disabled = true;
+  for (const child of [...container.children]) if (child !== trigger) child.remove?.();
+  const note = el('p', 'muted', 'Загрузка аудио…'); container.append(note);
+  try {
+    if (!window.zsmm?.agentAudio) throw new Error('Обновите приложение: аудиомост недоступен');
+    const r = await window.zsmm.agentAudio(report.master_path);
+    if (request !== audioRequest) return;
+    if (!r?.ok) throw new Error(r?.error || 'Не удалось прочитать WAV');
+    const binary = atob(r.data.base64);
+    const bytes = Uint8Array.from(binary, char => char.charCodeAt(0));
+    audioUrl = URL.createObjectURL(new Blob([bytes], { type: 'audio/wav' }));
+    player = el('audio'); player.controls = true; player.preload = 'metadata'; player.src = audioUrl;
+    player.setAttribute('aria-label', 'Прослушивание результата');
+    player.addEventListener('error', () => { note.textContent = 'Не удалось декодировать аудио. Можно открыть файл во внешнем плеере.'; });
+    container.append(player); note.textContent = 'Нажмите воспроизведение. Аудио остаётся на компьютере.';
+  } catch (err) { if (request === audioRequest) note.textContent = err.message; }
+  finally { if (request === audioRequest) trigger.disabled = false; }
+}
 
 function button(text, action, disabled = false) {
   const b = el('button', 'btn', text); b.disabled = disabled;
@@ -22,6 +51,7 @@ function field(key, label, hint) {
 }
 function render() {
   if (!root) return;
+  releaseAudio();
   root.replaceChildren();
   const intro = el('div', 'creation-intro');
   intro.append(el('p', 'eyebrow', 'ВАША МУЗЫКАЛЬНАЯ СТУДИЯ'), el('h2', null, 'Создание трека'),
@@ -100,7 +130,10 @@ function result(panel) {
     el('p', null, complete ? 'Это результат генерации, а не гарантия коммерческого хита.' : 'Законченная песня не подтверждена. Ниже — отсутствующие части.'));
   for (const block of report?.blocked || []) panel.append(el('p', 'creation-error', `${block.stage}: ${block.reason}`));
   if (report?.master_path) {
-    panel.append(el('p', 'muted', report.master_path), button('Прослушать файл', async () => {
+    const audio = el('div', 'creation-audio');
+    const play = button('Загрузить для прослушивания здесь', () => listen(report, audio, play));
+    panel.append(audio); audio.append(play);
+    panel.append(el('p', 'muted', report.master_path), button('Открыть во внешнем плеере', async () => {
       const r = await window.zsmm.agentOpen(report.master_path);
       if (!r?.ok) { session.error = r?.error || 'Не удалось открыть файл'; render(); }
     }));
@@ -167,5 +200,5 @@ async function loadCreation() {
     render();
   }
 }
-window.ZSMM_SECTIONS.initCreation = function () { W.loadCreation = loadCreation; };
+window.ZSMM_SECTIONS.initCreation = function () { W.loadCreation = loadCreation; W.releaseCreationAudio = releaseAudio; };
 })();

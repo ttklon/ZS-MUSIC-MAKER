@@ -48,6 +48,10 @@ async function agentOpen(masterPath) {
   return ipcRenderer.invoke('zsmm:agent-open', { masterPath });
 }
 
+function agentAudio(masterPath) {
+  return ipcRenderer.invoke('zsmm:agent-audio', { masterPath });
+}
+
 /** Подписка на поток вывода. Возвращает функцию отписки. */
 function onTaskEvent(callback) {
   if (typeof callback !== 'function') return () => {};
@@ -223,6 +227,7 @@ contextBridge.exposeInMainWorld('zsmm', {
   system: () => section('system'),
   agentHit,
   agentOpen,
+  agentAudio,
   listTasks,
   startTask,
   stopTask,

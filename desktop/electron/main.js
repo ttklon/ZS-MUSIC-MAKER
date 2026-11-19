@@ -200,6 +200,7 @@ function wireAgentIpc(taskIpc) {
   return agentService.registerAgentIpc({
     ipcMain,
     fsApi: fs,
+    audioRoots: ROOT ? [path.join(ROOT, 'output', 'hits')] : [],
     startAgent: (options) => taskIpc.start('agent-hit', options),
     openPath: shellOpen,
   });

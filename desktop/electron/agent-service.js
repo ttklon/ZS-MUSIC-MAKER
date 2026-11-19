@@ -68,7 +68,7 @@ function masterExists(masterPath, fsApi) {
  * @param {Function} [params.openPath]   открыть файл в системном плеере
  * @returns {{handlers: string[]}}
  */
-function registerAgentIpc({ ipcMain, startAgent, fsApi = require('node:fs'), openPath = null }) {
+function registerAgentIpc({ ipcMain, startAgent, fsApi = require('node:fs'), openPath = null, audioRoots = [] }) {
   // Запуск: ответ приходит сразу (задача идёт минутами), а результат окно
   // получает из общего потока `zsmm:task-done` и само разбирает лог.
   ipcMain.handle('zsmm:agent-hit', async (_event, options) => {
@@ -93,7 +93,13 @@ function registerAgentIpc({ ipcMain, startAgent, fsApi = require('node:fs'), ope
     return error ? { ok: false, error: `плеер не открылся: ${error}` } : { ok: true, data: { path: masterPath } };
   });
 
-  return { handlers: ['zsmm:agent-hit', 'zsmm:agent-open'] };
+  ipcMain.handle('zsmm:agent-audio', async (_event, payload = {}) => {
+    try {
+      const data = await require('./agent-audio').readMasterAudio(payload.masterPath, audioRoots);
+      return { ok: true, data };
+    } catch (err) { return { ok: false, error: err.message }; }
+  });
+  return { handlers: ['zsmm:agent-hit', 'zsmm:agent-open', 'zsmm:agent-audio'] };
 }
 
 module.exports = { registerAgentIpc, parseMasterPath, masterExists, REPORT_PREFIX };

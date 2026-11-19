@@ -1,6 +1,6 @@
 {
-  "version": "42.0.31",
-  "build": "v42.0.31-creation-wizard-2026-11-15",
-  "based_on": "42.0.30",
-  "changes": "Creation wizard is the home screen: idea, preparation with download consent, generation, honest result; technical navigation moved to collapsed tools."
+  "version": "42.0.32",
+  "build": "v42.0.32-inline-audio-2026-11-15",
+  "based_on": "42.0.31",
+  "changes": "Inline WAV playback in creation wizard with bounded result-only audio IPC and blob lifecycle cleanup."
 }

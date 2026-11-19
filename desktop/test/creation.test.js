@@ -23,12 +23,16 @@ function fixture() {
     $: id => document.getElementById(id),
     el: (tag, cls, text) => { const n = document.createElement(tag); n.textContent = text || ''; n.className = cls || ''; return n; },
   } };
-  vm.runInNewContext(source, { window }); window.ZSMM_SECTIONS.initCreation();
+  const urls = { created: 0, revoked: 0 };
+  vm.runInNewContext(source, { window, atob, Blob, Uint8Array, URL: {
+    createObjectURL: () => 'blob:test-' + (++urls.created),
+    revokeObjectURL: () => { urls.revoked++; },
+  } }); window.ZSMM_SECTIONS.initCreation();
   const click = async text => {
     const b = [...root.walk()].find(n => n.tagName === 'BUTTON' && n.textContent === text);
     assert.ok(b, 'button: ' + text); b.dispatch('click'); await flush();
   };
-  return { root, bridge, calls, click, document, load: () => window.ZSMM_UI.loadCreation(), event: e => event(e), done: r => done(r) };
+  return { root, bridge, calls, click, document, urls, load: () => window.ZSMM_UI.loadCreation(), event: e => event(e), done: r => done(r) };
 }
 
 test('one window connects idea, preparation, generation and partial result', async () => {
@@ -64,4 +68,19 @@ test('launch error is visible without changing to success', async () => {
   const f = fixture(); f.bridge.startTask = async () => ({ ok: false, error: 'Python missing' });
   await f.load(); await f.click('Далее — подготовить студию'); await f.click('Проверить и подготовить автоматически');
   assert.match(f.root.textContent, /Python missing/);
+});
+
+
+test('inline player releases its URL when result is left', async () => {
+  const f = fixture();
+  f.bridge.agentAudio = async () => ({ ok: true, data: { base64: 'UklGRg==' } });
+  await f.load(); await f.click('Далее — подготовить студию');
+  await f.click('Проверить и подготовить автоматически'); f.done({ ok: true });
+  await f.click('Создать трек');
+  f.event({ line: JSON.stringify({ master_path: '/music/master.wav', verdict: 'PARTIAL' }) }); f.done({ ok: true });
+  await f.click('Загрузить для прослушивания здесь');
+  assert.equal(f.urls.created, 1);
+  assert.ok([...f.root.walk()].some(n => n.tagName === 'AUDIO' && n.controls));
+  await f.click('Изменить пожелания и создать заново');
+  assert.equal(f.urls.revoked, 1);
 });
