@@ -1,6 +1,6 @@
 {
-  "version": "42.0.28",
-  "build": "v42.0.28-bootstrap-results-2026-11-15",
-  "based_on": "42.0.27",
-  "changes": "Explicit desktop preparation task; report failed downloads and imports; keep RVC dependencies isolated."
+  "version": "42.0.29",
+  "build": "v42.0.29-agent-preferences-2026-11-15",
+  "based_on": "42.0.28",
+  "changes": "Agent remembers explicitly saved topic and reference artist locally; reset and validation; no voice or reference file paths retained."
 }

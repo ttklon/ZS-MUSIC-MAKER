@@ -159,6 +159,13 @@ async function loadAgent() {
     + 'тяжёлые движки докачиваются один раз и дальше работают офлайн.',
   ));
   for (const question of QUESTIONS) root.append(questionPanel(question));
+  const memory = el('p', 'muted', 'Тема и артист сохраняются только по кнопке. Файлы голоса и референсов не сохраняются.');
+  const save = el('button', 'ghost', 'Запомнить тему и артиста');
+  const clear = el('button', 'ghost', 'Забыть сохранённые ответы');
+  save.id = 'agent-remember'; clear.id = 'agent-forget';
+  save.addEventListener('click', () => storeAnswers(false, memory));
+  clear.addEventListener('click', () => storeAnswers(true, memory));
+  root.append(save, clear, memory);
 
   const row = el('div', null);
   row.style.display = 'flex';
@@ -169,7 +176,7 @@ async function loadAgent() {
   btnHit.id = 'agent-go';
   const btnRefs = el('button', 'btn', 'Показать референсы по категориям');
   btnRefs.id = 'agent-refs-open';
-  row.prepend(btnHit, btnRefs);
+  row.append(btnHit, btnRefs);
 
   const preview = el('p', 'muted', '');
   refs.status = el('p', 'muted', '');
@@ -202,6 +209,38 @@ async function loadAgent() {
   btnHit.addEventListener('click', () => runHit(btnHit));
   wireOpenButton();
   root.append(row, preview, refs.status, openRow, refs.log);
+  await restoreAnswers(preview, memory);
+}
+
+/** Only explicit preferences survive restart; never stale media paths. */
+async function storeAnswers(clear, note) {
+  try {
+    if (typeof window.zsmm?.saveSettings !== 'function') throw new Error('хранилище недоступно');
+    const answers = readAnswers();
+    const patch = { agentMood: clear ? '' : answers.mood, agentArtist: clear ? '' : answers.artist };
+    const reply = await window.zsmm.saveSettings(patch);
+    if (!reply?.ok) throw new Error(reply?.error || 'нет ответа');
+    if (reply.data.agentMood !== patch.agentMood || reply.data.agentArtist !== patch.agentArtist) {
+      throw new Error('тема или артист не прошли проверку: тема до 300 символов, имя артиста 2–80 букв/цифр');
+    }
+    note.textContent = clear ? 'Сохранённые ответы удалены. Текущие поля оставлены без изменений.'
+      : 'Тема и артист сохранены локально. Новые ответы в форме имеют приоритет.';
+  } catch (err) { note.textContent = 'Не сохранено: ' + err.message; }
+}
+
+async function restoreAnswers(preview, note) {
+  try {
+    if (typeof window.zsmm?.loadSettings !== 'function') return;
+    const initial = readAnswers();
+    const reply = await window.zsmm.loadSettings();
+    if (!reply?.ok) throw new Error(reply?.error || 'нет ответа');
+    for (const [key, setting] of [['mood', 'agentMood'], ['artist', 'agentArtist']]) {
+      const field = $('agent-' + key);
+      if (field && !initial[key] && !field.value) field.value = reply.data[setting] || '';
+    }
+    preview.textContent = summary(readAnswers());
+    if (reply.data.error) note.textContent = 'Настройки: ' + reply.data.error;
+  } catch (err) { note.textContent = 'Не удалось прочитать сохранённые ответы: ' + err.message; }
 }
 
 /** Подписки снимаются по завершении: иначе второй запуск дал бы два отчёта. */

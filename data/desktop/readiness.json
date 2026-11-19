@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-11-19T12:57:26.953Z",
-  "percent": 65,
+  "generated_at": "2026-11-19T13:56:42.373Z",
+  "percent": 54,
   "module_inventory": {
     "tracked_modules": 347,
     "REAL_PASS": 309,
@@ -11,10 +11,10 @@
   "module_reachability_share": 0.8905,
   "block_scores": {
     "architecture": 100,
-    "core_modules": 85,
-    "audio_pipeline": 55.56,
-    "voice_recording": 62.5,
-    "release": 100,
+    "core_modules": 44.52,
+    "audio_pipeline": 22.22,
+    "voice_recording": 50,
+    "release": 80,
     "testing": 100
   },
   "weights": {
@@ -35,23 +35,23 @@
       "single_pipeline": "REAL_PASS"
     },
     "core_modules": {
-      "analyzer": "REAL_PASS",
-      "groove_extractor": "REAL_PASS",
-      "beat_constructor": "REAL_PASS",
+      "analyzer": "MISSING",
+      "groove_extractor": "MISSING",
+      "beat_constructor": "MISSING",
       "arrangement": "REAL_PASS",
       "lyrics": "REAL_PASS",
       "sidechain": "REAL_PASS",
       "anti_neuro": "REAL_PASS",
-      "hit_scorer": "REAL_PASS",
-      "mastering": "REAL_PASS",
+      "hit_scorer": "MISSING",
+      "mastering": "MISSING",
       "stem_splitter": "PARTIAL",
       "presets_library": "REAL_PASS"
     },
     "audio_pipeline": {
       "matchering_runtime": "BLOCKED",
-      "pedalboard_runtime": "REAL_PASS",
-      "pyloudnorm_runtime": "REAL_PASS",
-      "librosa_soundfile_runtime": "REAL_PASS",
+      "pedalboard_runtime": "BLOCKED",
+      "pyloudnorm_runtime": "BLOCKED",
+      "librosa_soundfile_runtime": "BLOCKED",
       "musicgen_runtime": "BLOCKED",
       "demucs_runtime": "BLOCKED",
       "lyrics_llm": "BLOCKED",
@@ -62,7 +62,7 @@
       "voice_recording": "REAL_PASS",
       "voice_vault": "REAL_PASS",
       "voice_onboarding": "REAL_PASS",
-      "voice_cleaner": "REAL_PASS",
+      "voice_cleaner": "MISSING",
       "vocal_fx": "REAL_PASS",
       "rvc_model": "MISSING",
       "rvc_env": "BLOCKED",
@@ -73,7 +73,7 @@
       "release_pack": "REAL_PASS",
       "distribution": "REAL_PASS",
       "cover_art": "REAL_PASS",
-      "mutagen_runtime": "REAL_PASS"
+      "mutagen_runtime": "BLOCKED"
     },
     "testing": {
       "pytest_suite": "REAL_PASS",
@@ -100,7 +100,7 @@
       "lyrics engine not ready: Ollama/модель не найдены (python main.py --ollama-setup)"
     ]
   ],
-  "weighted_sum": 77.64,
+  "weighted_sum": 54.69,
   "cap_min": 65,
-  "final_floor": 65
+  "final_floor": 54
 }
