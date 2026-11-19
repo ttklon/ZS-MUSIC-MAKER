@@ -58,7 +58,7 @@
 | app/core/logger.py | REAL_PASS | PASS | 5 | 48 |
 | app/core/lyric_context.py | REAL_PASS | PASS | 1 | 7 |
 | app/core/musicgen_texture.py | REAL_PASS | PASS | 2 | 18 |
-| app/core/net_policy.py | REAL_PASS | PASS | 15 | 48 |
+| app/core/net_policy.py | REAL_PASS | PASS | 16 | 48 |
 | app/core/numba_cache.py | REAL_PASS | PASS | 8 | 39 |
 | app/core/ollama_bootstrap.py | REAL_PASS | PASS | 1 | 0 |
 | app/core/orchestrator.py | REAL_PASS | PASS | 12 | 231 |
@@ -267,6 +267,7 @@
 | modules/rvc_trainer.py | REAL_PASS | PASS | 1 | 19 |
 | modules/self_diag.py | REAL_PASS | PASS | 1 | 55 |
 | modules/sidechain.py | DEPRECATED | PASS | 0 | 44 |
+| modules/silero_loader.py | REAL_PASS | PASS | 2 | 3 |
 | modules/stem_splitter.py | REAL_PASS | PASS | 1 | 43 |
 | modules/tempo.py | REAL_PASS | PASS | 3 | 50 |
 | modules/tiktok_edit.py | REAL_PASS | PASS | 1 | 9 |
