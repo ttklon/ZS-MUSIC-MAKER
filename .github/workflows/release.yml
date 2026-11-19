@@ -106,6 +106,16 @@ jobs:
           Set-Content -Path "node_modules/electron/path.txt" -Value "electron.exe" -NoNewline
           Remove-Item $zip -Force
 
+      - name: Set up bundled Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          architecture: 'x64'
+
+      - name: Bundle Python and core dependencies for clean Windows installs
+        shell: pwsh
+        run: ./desktop/scripts/bundle-python.ps1
+
       - name: Build NSIS + portable
         working-directory: desktop
         shell: pwsh
@@ -117,6 +127,15 @@ jobs:
             Start-Sleep -Seconds (10*$i)
           }
           if (-not $ok) { exit 1 }
+
+      - name: Smoke bundled Python inside packaged app
+        shell: pwsh
+        run: |
+          $root = Resolve-Path 'desktop/dist/win-unpacked/resources/project'
+          & "$root/.python/python.exe" -I -c "import numpy, scipy, soundfile, requests, pip; print('bundled core imports OK')"
+          if ($LASTEXITCODE -ne 0) { throw 'Packaged Python imports failed' }
+          & "$root/.python/python.exe" "$root/main.py" --version
+          if ($LASTEXITCODE -ne 0) { throw 'Packaged pipeline startup failed' }
 
       - name: List built installers
         working-directory: desktop
@@ -212,7 +231,7 @@ jobs:
 
             ### Ограничения
             Нейродвижки и веса (torch, MusicGen, XTTS/Bark, Ollama/LLM) не предустановлены.
-            Для Python-задач оболочки нужен отдельный Python с зависимостями.
+            Начиная с 42.0.30 оболочка включает CPython 3.11 и core-зависимости; нейродвижки требуют отдельной загрузки с разрешения пользователя.
             Сборка установщика не доказывает готовность генерации песни и не гарантирует коммерческий хит.
 
             Версия: `${{ steps.ver.outputs.version }}`.

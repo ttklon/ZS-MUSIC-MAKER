@@ -114,3 +114,6 @@ desktop/build-config.generated.json
 # Снимок чисел (data/desktop/readiness.json, inventory.md) версионируется:
 # именно его читает окно и именно по нему проверяется устаревание.
 
+
+# Relocatable Python assembled on Windows CI, never commit binaries.
+desktop/python-runtime/

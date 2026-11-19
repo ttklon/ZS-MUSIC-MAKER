@@ -176,3 +176,22 @@ test('галочка сети в окне доходит до Python как ZSMM
   // остальное окружение не теряется: python нужен PATH
   assert.equal(taskEnv(true, { PATH: '/usr/bin' }).PATH, '/usr/bin');
 });
+
+test('packaged Python is found without PATH or system installation', () => {
+  const root = path.resolve('resources/project');
+  const bundled = path.join(root, '.python', 'python.exe');
+  const result = resolvePython({ root, env: {}, platform: 'win32', exists: p => p === bundled });
+  assert.equal(result.python, bundled);
+});
+
+test('bundled Python installs optional packages into writable user data', () => {
+  const { taskEnv } = require('../electron/task-runner');
+  const bundled = path.join('resources', 'project', '.python', 'python.exe');
+  const env = taskEnv(false, { PIP_TARGET: 'readonly', PIP_PREFIX: 'readonly', PYTHONNOUSERSITE: '1' }, bundled, '/user/packages');
+  assert.equal(env.PYTHONUSERBASE, '/user/packages');
+  assert.equal(env.PIP_USER, '1');
+  assert.equal(env.PIP_TARGET, undefined);
+  assert.equal(env.PYTHONNOUSERSITE, undefined);
+  assert.equal(env.ZSMM_ONLINE, undefined);
+  assert.equal(taskEnv(true, {}, '/custom/python', '/user/packages').PIP_USER, undefined);
+});

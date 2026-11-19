@@ -273,6 +273,16 @@ jobs:
           }
           Write-Output "electron $version распакован в $dist"
 
+      - name: Set up bundled Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          architecture: 'x64'
+
+      - name: Bundle Python and core dependencies for clean Windows installs
+        shell: pwsh
+        run: ./desktop/scripts/bundle-python.ps1
+
       - name: Build NSIS installer and portable EXE
         working-directory: desktop
         shell: pwsh

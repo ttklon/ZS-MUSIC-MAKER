@@ -110,6 +110,7 @@ function resolvePython({ root = null, env = process.env, platform = process.plat
   // нет. Признак задаётся явно.
   const candidates = [
     { value: env.ZSMM_PYTHON, viaPath: false },
+    { value: root && platform === 'win32' ? path.join(root, '.python', 'python.exe') : null, viaPath: false },
     { value: root && platform === 'win32' ? path.join(root, '.venv', 'Scripts', 'python.exe') : null, viaPath: false },
     { value: root ? path.join(root, '.venv', 'bin', 'python3') : null, viaPath: false },
     { value: root ? path.join(root, '.venv', 'Scripts', 'python.exe') : null, viaPath: false },

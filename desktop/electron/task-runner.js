@@ -43,16 +43,24 @@ const { resolvePython, resolvePipelineRoot } = require('./runtime');
  * самый узкий мост: она действует ровно на запущенную задачу и не пишет
  * чужой конфиг за спиной у пользователя.
  */
-function taskEnv(networkOnline, base = process.env) {
+function taskEnv(networkOnline, base = process.env, python = null, userBase = null) {
   const env = { ...base };
   if (networkOnline === true) env.ZSMM_ONLINE = '1';
   else delete env.ZSMM_ONLINE;
+  if (python && userBase && path.basename(path.dirname(python)) === '.python') {
+    env.PYTHONUSERBASE = userBase;
+    env.PIP_USER = '1';
+    delete env.PIP_TARGET;
+    delete env.PIP_PREFIX;
+    delete env.PYTHONNOUSERSITE;
+  }
   return env;
 }
 
 function registerTaskIpc({
   ipcMain,
   root = null,
+  pythonUserBase = null,
   getProject,
   getWindows = () => null,
   getSettings = () => null,
@@ -116,7 +124,7 @@ function registerTaskIpc({
         options: options || {},
         python,
         root: pipeline.root,
-        env: taskEnv(settingsValue.networkOnline === true),
+        env: taskEnv(settingsValue.networkOnline === true, process.env, python, pythonUserBase),
         onEvent: (payload) => {
           if (windows) windows.showTaskProgress(payload);
           send('zsmm:task-event', payload);
