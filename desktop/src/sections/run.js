@@ -146,6 +146,7 @@ function updatePythonNote() {
 
 async function startTask() {
   const key = $('task-select').value;
+  if (key === 'bootstrap' && !window.confirm('Подготовка может скачать много гигабайт и занять часы. Скачивание возможно только при включённой сети в настройках. Python должен быть установлен. Продолжить?')) return;
   const genre = ($('task-genre').value || '').trim();
   const seed = ($('task-seed').value || '').trim();
   // Артист нужен задачам досье и не мешает остальным: tasks.js сам решает,

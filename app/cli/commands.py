@@ -212,7 +212,11 @@ def run_bootstrap(allow_online: bool = False) -> int:
         # если сеть запрещена — подсказка
         if res.get('heavy',{}).get('skipped') or res.get('models',{}).get('skipped'):
             safe_print("[bootstrap] сеть запрещена: включи network.online=true или --online и повтори")
-        return 0 if res.get('readiness_after',0) >= 65 else 1
+        for blocker in res.get("blockers", []):
+            safe_print(f"[bootstrap] BLOCKED {blocker}")
+        safe_print("[bootstrap] подготовка завершена" if res.get("ok") else
+                   "[bootstrap] подготовка НЕ завершена; причины указаны выше")
+        return 0 if res.get("ok") is True else 1
     except Exception as e:
         safe_print(f"[main --bootstrap] failed: {e}")
         import traceback; traceback.print_exc()

@@ -1,6 +1,6 @@
 {
-  "version": "42.0.27",
-  "build": "v42.0.27-desktop-updater-2026-11-15",
-  "based_on": "42.0.26",
-  "changes": "Windows updater downloads and verifies NSIS installer without Python; correct desktop release version; offline Silero packages."
+  "version": "42.0.28",
+  "build": "v42.0.28-bootstrap-results-2026-11-15",
+  "based_on": "42.0.27",
+  "changes": "Explicit desktop preparation task; report failed downloads and imports; keep RVC dependencies isolated."
 }

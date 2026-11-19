@@ -1,16 +1,8 @@
 # -*- coding: utf-8 -*-
-"""
-app/core/bootstrap.py — тихий авто-докач всего тяжёлого (all_heavy).
+"""Prepare optional local engines with explicit network consent.
 
-Вызывается молча: без вопросов, без UI, без показа железа.
-- detect_budget() → RAM/VRAM/CPU, выбор cuda/cpu
-- если BLOCKED musicgen/demucs/torch/faster-whisper — pip install при allow_online
-- если модели не скачаны — pull_ai_models --all + RVC base + ollama qwen
-- после — readiness должен уйти с 65% → 90-100% (heavy cap снимается)
-- genre/ai: full_agents — trend_scout + sample_hunter + sequential_runner везде
-
-Использует app/core/net_policy.network_allowed для проверки сети.
-Логи только в файл/logs, в консоль минимум.
+Installation attempts are not proof of working inference. RVC runs in its
+own environment to avoid conflicting NumPy requirements in the main runtime.
 """
 from __future__ import annotations
 
@@ -29,7 +21,6 @@ HEAVY_PIP = {
     "audiocraft": "audiocraft==1.3.0",
     "demucs": "demucs==4.0.1",
     "faster_whisper": "faster-whisper==1.1.1",
-    "rvc_python": "rvc-python==0.1.5",
 }
 
 # pip имена → import имена
@@ -38,7 +29,6 @@ PIP_TO_IMPORT = {
     "audiocraft": "audiocraft",
     "demucs": "demucs",
     "faster_whisper": "faster_whisper",
-    "rvc_python": "rvc_python",
 }
 
 def _module_exists(name: str) -> bool:
@@ -113,7 +103,7 @@ def ensure_heavy_engines(silent: bool = True, allow_download: bool | None = None
         if not spec:
             continue
         ok = _pip_install(spec, silent=silent)
-        if ok:
+        if ok and _module_exists(PIP_TO_IMPORT[name]):
             installed.append(name)
         else:
             failed.append(name)
@@ -157,8 +147,10 @@ def _pull_missing_roles() -> tuple[list[str], list[str]]:
                 _LOG.debug(f"[bootstrap] is_available skip {role}: {_e}")
             _LOG.info(f"[bootstrap] pull {role}...")
             try:
-                ok = pull_one(role)
-                pulled.append(role)
+                if pull_one(role):
+                    pulled.append(role)
+                else:
+                    failed.append(role)
             except Exception as e:
                 _LOG.warning(f"[bootstrap] pull {role} fail: {e}")
                 failed.append(role)
@@ -318,6 +310,13 @@ def ensure_rvc_trainer(silent: bool = True, allow_download: bool | None = None) 
     return {"present": ready, "downloaded": ["applio"] if ready else [], "forks": ["applio"] if ready else []}
 
 
+def _announce(message: str, silent: bool) -> None:
+    _LOG.info("[bootstrap] %s", message)
+    if not silent:
+        from app.cli.env import safe_print
+        safe_print(f"[bootstrap] {message}")
+
+
 def auto_bootstrap(silent: bool = True, allow_download: bool | None = None) -> dict:
     """
     Главный тихий авто-докач: железо → heavy pip → модели → RVC.
@@ -335,13 +334,19 @@ def auto_bootstrap(silent: bool = True, allow_download: bool | None = None) -> d
         _LOG.debug(f"[bootstrap] readiness before skip: {_e}")
 
     res["hardware"] = silent_hardware_budget()
+    auto_bootstrap_last.clear()
     res["ollama"] = {}
+    _announce("Проверка и установка Python-движков…", silent)
     res["heavy"] = ensure_heavy_engines(silent=silent, allow_download=allow_download)
+    _announce("Проверка и загрузка моделей; это может занять часы…", silent)
     res["models"] = ensure_models(silent=silent, allow_download=allow_download)
     res["ollama"] = dict(auto_bootstrap_last.get("ollama") or {})
+    _announce("Подготовка базовых ресурсов голоса…", silent)
     res["rvc"] = ensure_rvc_default_voice(silent=silent, allow_download=allow_download)
+    _announce("Подготовка тренера RVC…", silent)
     res["rvc_trainer"] = ensure_rvc_trainer(silent=silent, allow_download=allow_download)
     # 4) окружение RVC: сначала оно, потом базовые веса (пакет кладёт их внутрь себя)
+    _announce("Подготовка отдельного окружения RVC…", silent)
     res["rvc_env"] = ensure_rvc_environment(silent=silent, allow_download=allow_download)
     if res["rvc_env"].get("ok"):
         _ensure_rvc_base()
@@ -356,6 +361,8 @@ def auto_bootstrap(silent: bool = True, allow_download: bool | None = None) -> d
     except Exception as e:
         _LOG.debug(f"[bootstrap] readiness after fail: {e}")
 
+    from app.core.bootstrap_report import summarize_setup
+    res.update(summarize_setup(res))
     return res
 
 def wire_full_agents():

@@ -218,3 +218,10 @@ test('задача ollama-setup зовёт --ollama-setup и не просит �
   // Модель ~2.5 ГБ на медленном канале: таймаут не должен быть «на минуту».
   assert.ok(TASKS['ollama-setup'].timeoutMs >= 60 * 60_000);
 });
+
+
+test('bootstrap is explicit and does not force network access', () => {
+  assert.deepEqual(buildCommand('bootstrap'), ['--bootstrap']);
+  assert.equal(TASKS.bootstrap.timeoutMs, 12 * 60 * 60_000);
+  assert.deepEqual(TASKS.bootstrap.accepts, []);
+});
