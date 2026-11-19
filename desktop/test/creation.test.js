@@ -5,6 +5,7 @@ const vm = require('node:vm');
 const fs = require('node:fs');
 const path = require('node:path');
 const { FakeDocument } = require('./fake-dom');
+const { buildCommand } = require('../electron/tasks');
 const source = fs.readFileSync(path.join(__dirname, '../src/sections/creation.js'), 'utf8');
 const flush = () => new Promise(resolve => setImmediate(resolve));
 function fixture() {
@@ -15,7 +16,7 @@ function fixture() {
   const bridge = {
     saveSettings: async patch => { calls.push(['settings', patch]); return { ok: true }; },
     startTask: async key => { calls.push(['task', key]); return { ok: true }; },
-    agentHit: async answers => { calls.push(['create', answers]); return { ok: true }; },
+    agentHit: async answers => { calls.push(['argv', buildCommand('agent-hit', answers)]); calls.push(['create', answers]); return { ok: true }; },
     onTaskEvent: fn => { event = fn; return () => {}; }, onTaskDone: fn => { done = fn; return () => {}; },
     stopTask: async () => ({ ok: true }), agentOpen: async () => ({ ok: true }),
   };
@@ -46,6 +47,7 @@ test('one window connects idea, preparation, generation and partial result', asy
   f.done({ ok: true });
   await f.click('Создать трек');
   assert.equal(f.calls.find(c => c[0] === 'create')[1].mood, 'ночной город');
+  assert.deepEqual(f.calls.find(c => c[0] === 'argv')[1], ['--agent-hit', '--agent-mood', 'ночной город']);
   f.event({ line: JSON.stringify({ master_path: '/music/draft.wav', verdict: 'PARTIAL', blocked: [{ stage: 'voice', reason: 'нет вокала' }] }) });
   f.done({ ok: true });
   assert.match(f.root.textContent, /неполный результат/);

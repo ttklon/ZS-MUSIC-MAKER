@@ -121,7 +121,8 @@ function sanitizeOptions(options = {}) {
   const genre = options.genre === undefined || options.genre === null ? null : String(options.genre);
   const theme = options.theme === undefined || options.theme === null ? null : String(options.theme);
   const seed = options.seed === undefined || options.seed === null ? null : options.seed;
-  const artist = options.artist === undefined || options.artist === null ? null : String(options.artist);
+  const artist = options.artist === undefined || options.artist === null || String(options.artist).trim() === ''
+    ? null : String(options.artist).trim();
   // Ответы агентика: тема и референсы — свободный текст, но без переводов
   // строк и кавычек shell-уровня: они уходят одним аргументом (`spawn` без
   // оболочки), поэтому запрещаем только то, что ломает формат отчёта.
@@ -304,7 +305,7 @@ function runTask({ key, options = {}, python, root, env = process.env, onEvent =
       onEvent({ type: 'error', error: err.message });
       resolve({ ok: false, code: null, timedOut, error: err.message });
     });
-    child.on('exit', (code, signal) => {
+    child.on('close', (code, signal) => {
       if (settled) return;
       settled = true;
       clearTimeout(timer);

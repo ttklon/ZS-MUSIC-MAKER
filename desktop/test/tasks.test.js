@@ -225,3 +225,26 @@ test('bootstrap is explicit and does not force network access', () => {
   assert.equal(TASKS.bootstrap.timeoutMs, 12 * 60 * 60_000);
   assert.deepEqual(TASKS.bootstrap.accepts, []);
 });
+
+test('optional artist may be empty in the actual wizard payload', () => {
+  for (const artist of ['', '   ', null, undefined]) {
+    assert.deepEqual(buildCommand('agent-hit', { mood: '', artist, refs: '', voice: '' }), ['--agent-hit']);
+  }
+  assert.deepEqual(buildCommand('agent-hit', { artist: '  Артист  ' }), ['--agent-hit', '--agent-artist', 'Артист']);
+  assert.throws(() => buildCommand('dossier-build', { artist: '' }), /нужно имя/);
+  assert.throws(() => buildCommand('agent-hit', { artist: '../invalid' }), TaskError);
+});
+
+test('task completes after trailing stdout report has been delivered', async t => {
+  const os = require('node:os');
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'zsmm-task-report-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  fs.writeFileSync(path.join(root, 'main.py'),
+    'import sys\nsys.stdout.write("x" * 200000 + "\\n")\nsys.stdout.write(\'{"master_path":"/final.wav"}\')\nsys.stdout.flush()\n');
+  const lines = [];
+  const task = runTask({ key: 'health', python: python(), root,
+    onEvent: e => { if (e.type === 'stdout') lines.push(e.line); } });
+  const result = await task.done;
+  assert.equal(result.ok, true);
+  assert.equal(lines.at(-1), '{"master_path":"/final.wav"}');
+});
