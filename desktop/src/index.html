@@ -21,16 +21,19 @@
           </div>
         </div>
         <nav class="nav" id="nav" aria-label="Разделы">
-          <button class="nav-item is-active" data-view="overview">Обзор</button>
+          <button class="nav-item is-active" data-view="agent">Создание трека</button>
+          <details class="technical-nav">
+            <summary>Инструменты и диагностика</summary>
+          <button class="nav-item" data-view="overview">Обзор</button>
           <button class="nav-item" data-view="modules">Модули</button>
           <button class="nav-item" data-view="genres">Жанры</button>
           <button class="nav-item" data-view="beat">Бит</button>
           <button class="nav-item" data-view="dossiers">Досье</button>
           <button class="nav-item" data-view="tracks">Треки</button>
           <button class="nav-item" data-view="run">Запуск</button>
-          <button class="nav-item" data-view="agent">Агент</button>
           <button class="nav-item" data-view="health">Диагностика</button>
           <button class="nav-item" data-view="help">Справка</button>
+          </details>
         </nav>
         <div class="sidebar-footer">
           <span class="dot" id="backend-dot"></span>
@@ -40,14 +43,14 @@
 
       <main class="content">
         <header class="topbar">
-          <h1 id="view-title" tabindex="-1">Обзор</h1>
+          <h1 id="view-title" tabindex="-1">Создание трека</h1>
           <div class="topbar-actions">
             <button class="ghost" id="refresh">Обновить</button>
             <button class="ghost" id="reveal">Папка проекта</button>
           </div>
         </header>
 
-        <section class="view" id="view-overview">
+        <section class="view is-hidden" id="view-overview">
           <div class="cards" id="overview-cards"></div>
           <div class="panel">
             <h2>Честный статус</h2>
@@ -234,7 +237,7 @@
           </div>
         </section>
 
-        <section class="view is-hidden" id="view-agent">
+        <section class="view" id="view-agent">
           <div class="panel">
             <h2>ИИ-агентик — проводник</h2>
             <p class="muted">Один экран — 4 вопроса → хит. Досье/референсы по категориям — отдельно, но агент сам всё свяжет.</p>
@@ -314,5 +317,6 @@
     <script src="sections/health.js"></script>
     <script src="sections/agent.js"></script>
     <script src="sections/help.js"></script>
+    <script src="sections/creation.js"></script>
   </body>
 </html>

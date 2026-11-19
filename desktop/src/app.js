@@ -22,7 +22,7 @@ const W = (window.ZSMM_UI = window.ZSMM_UI || {});
 window.ZSMM_SECTIONS = {};
 
 const state = {
-  view: 'overview',
+  view: 'agent',
   genres: [],
   loaded: new Set(),
   tasks: [],
@@ -181,7 +181,7 @@ const LOADERS = {
   dossiers: () => W.loadDossiers(),
   tracks: () => W.loadTracks(),
   run: () => W.loadRun(),
-  agent: () => W.loadAgent(),
+  agent: () => W.loadCreation(),
   health: () => W.loadHealth(),
   help: () => W.loadHelp(),
 };
@@ -194,7 +194,7 @@ const TITLES = {
   dossiers: 'Досье',
   tracks: 'Треки',
   run: 'Запуск',
-  agent: 'Агент',
+  agent: 'Создание трека',
   health: 'Диагностика',
   help: 'Справка',
 };
@@ -300,7 +300,7 @@ function wire() {
 }
 
 /**
- * С какого раздела начать: сохранённый, иначе «Обзор».
+ * Начальный экран — мастер создания трека, а не техническая вкладка.
  *
  * Файл настроек читается один раз, поэтому при смене разделов в первые
  * секунды после старта запись не затирает ещё не прочитанное.
@@ -315,9 +315,9 @@ async function startView() {
         // Настройки недоступны — открываем «Обзор»: окно не должно не открыться.
       }
     }
-    if (state.settings && LOADERS[state.settings.view]) return state.settings.view;
+    // The creation guide is the home screen, never a saved technical tab.
   }
-  return 'overview';
+  return 'agent';
 }
 
 /**

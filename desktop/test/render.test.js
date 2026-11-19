@@ -82,6 +82,7 @@ test('окно рисует обзор из настоящих данных пр
   });
   await flush();
   await flush();
+  await window.ZSMM_UI.switchView('overview', { force: true });
 
   assert.equal(document.getElementById('version').textContent.startsWith('v'), true);
   const cards = document.getElementById('overview-cards').children;
@@ -123,6 +124,7 @@ test('ошибка моста показывается, а не прячется
   });
   await flush();
   await flush();
+  await window.ZSMM_UI.switchView('overview', { force: true });
 
   const banner = document.getElementById('error-text');
   assert.equal(banner.classList.contains('is-hidden'), false, 'баннер обязан быть виден');
@@ -141,6 +143,7 @@ test('без моста окно говорит об этом прямо', async
   });
   await flush();
   await flush();
+  await window.ZSMM_UI.switchView('overview', { force: true });
 
   const banner = document.getElementById('error-text');
   assert.match(banner.textContent, /window\.zsmm недоступен/);
@@ -333,6 +336,7 @@ test('сообщение об ошибке закрывается рукой, а
   });
   await flush();
   await flush();
+  await window.ZSMM_UI.switchView('overview', { force: true });
 
   const banner = document.getElementById('error-banner');
   assert.equal(banner.classList.contains('is-hidden'), false);

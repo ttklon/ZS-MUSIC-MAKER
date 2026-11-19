@@ -1,6 +1,6 @@
 {
-  "version": "42.0.30",
-  "build": "v42.0.30-bundled-python-2026-11-15",
-  "based_on": "42.0.29",
-  "changes": "Windows desktop bundles relocatable CPython 3.11 and core dependencies; optional packages use user-writable site."
+  "version": "42.0.31",
+  "build": "v42.0.31-creation-wizard-2026-11-15",
+  "based_on": "42.0.30",
+  "changes": "Creation wizard is the home screen: idea, preparation with download consent, generation, honest result; technical navigation moved to collapsed tools."
 }
