@@ -1,6 +1,6 @@
 {
-  "version": "42.0.36",
-  "build": "v42.0.36-workspace-fixture-2026-11-15",
-  "based_on": "42.0.35",
-  "changes": "Separate fake bundled-executable copy fixture from actual Windows Python process integration test."
+  "version": "42.0.37",
+  "build": "v42.0.37-startup-diagnostics-2026-11-15",
+  "based_on": "42.0.36",
+  "changes": "Persist and export local startup errors; validate real packaged Electron renderer startup before release."
 }

@@ -148,6 +148,15 @@ jobs:
           } finally { Pop-Location }
 
 
+      - name: Real packaged renderer startup check
+        shell: pwsh
+        run: |
+          $env:ZSMM_WINDOW_CHECK_OUT = Join-Path $env:RUNNER_TEMP 'zsmm-window-startup.json'
+          $process = Start-Process -FilePath 'desktop/dist/win-unpacked/ZS Music Maker.exe' -ArgumentList '--window-check' -PassThru
+          if (-not $process.WaitForExit(60000)) { $process.Kill(); throw 'Window startup hung' }
+          if (Test-Path $env:ZSMM_WINDOW_CHECK_OUT) { Get-Content $env:ZSMM_WINDOW_CHECK_OUT }
+          if ($process.ExitCode -ne 0 -or -not (Test-Path $env:ZSMM_WINDOW_CHECK_OUT)) { throw 'Packaged window startup failed' }
+
       - name: List built installers
         working-directory: desktop
         shell: pwsh

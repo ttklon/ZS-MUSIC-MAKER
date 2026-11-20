@@ -8,6 +8,9 @@
 
 const { contextBridge, ipcRenderer } = require('electron');
 
+function reportError(message) { return ipcRenderer.invoke('zsmm:report-error', message); }
+function exportErrors() { return ipcRenderer.invoke('zsmm:export-errors'); }
+
 async function section(name) {
   const reply = await ipcRenderer.invoke(`zsmm:${name}`);
   if (!reply || reply.error) {
@@ -215,6 +218,8 @@ function openExternal(url) {
 }
 
 contextBridge.exposeInMainWorld('zsmm', {
+  reportError,
+  exportErrors,
   updaterCheck: () => updaterCheck(),
   updaterDownload: (url, name) => updaterDownload(url, name),
   updaterInstall: (zipPath) => updaterInstall(zipPath),

@@ -13,6 +13,8 @@
 
 const { app, BrowserWindow, ipcMain, shell, dialog, Menu, nativeTheme, screen } = require('electron');
 const path = require('node:path');
+const { createDiagnostics, registerDiagnostics } = require('./startup-diagnostics');
+const diagnostics = createDiagnostics(path.join(app.getPath('userData'), 'logs'));
 const fs = require('node:fs');
 const fsp = require('node:fs/promises');
 
@@ -209,6 +211,7 @@ function wireAgentIpc(taskIpc) {
 
 /** IPC: один канал на раздел. Возвращаем данные либо {error} — без исключений. */
 function registerIpc(getProject) {
+  registerDiagnostics({ ipcMain, diagnostics, dialog });
   // Данные проекта — в ipc-project.js: шесть однотипных загрузчиков не должны
   // занимать место рядом с окном и задачами.
   registerProjectIpc({
@@ -352,7 +355,14 @@ app.whenReady().then(() => {
     return;
   }
   registerIpc(() => project);
-  windows.create(project);
+  const mainWindow = windows.create(project);
+  require('./window-startup-check').checkWindow(mainWindow, app);
+  mainWindow.webContents.on('preload-error', (_e, _file, error) => diagnostics.record('preload', error));
+  mainWindow.webContents.on('did-fail-load', (_e, code, description) => diagnostics.record('load', `${code}: ${description}`));
+}).catch(err => {
+  diagnostics.record('startup', err);
+  dialog.showErrorBox('Не удалось запустить приложение', String(err.message || err) + '\nЖурнал: ' + diagnostics.file);
+  app.quit();
 });
 
 app.on('window-all-closed', () => {

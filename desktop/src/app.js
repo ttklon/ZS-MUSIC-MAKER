@@ -45,6 +45,7 @@ const $ = (id) => document.getElementById(id);
 W.$ = $;
 
 function showError(message) {
+  window.zsmm?.reportError?.(String(message)).catch(() => {});
   const banner = $('error-banner');
   // Текст отдельным узлом: в баннере теперь ещё и кнопка закрытия, и
   // `textContent` на весь баннер стёр бы её.
@@ -62,6 +63,14 @@ function hideError() {
 
 W.hideError = hideError;
 W.showError = showError;
+// Register before section scripts execute, so their runtime failures are retained.
+for (const type of ['error', 'unhandledrejection']) {
+  window.addEventListener(type, event => {
+    const error = event.error || event.reason;
+    showError('Ошибка окна: ' + String(error?.stack || error?.message || error || event.message || 'неизвестно'));
+  });
+}
+
 
 function setStatus(ok, label) {
   const dot = $('backend-dot');
@@ -265,6 +274,13 @@ W.switchView = switchView;
 W.blobUrl = blobUrl;
 
 function wire() {
+  $('export-errors').addEventListener('click', async () => {
+    try {
+      if (!window.zsmm?.exportErrors) throw new Error('Мост диагностики недоступен');
+      const reply = await window.zsmm.exportErrors();
+      if (!reply?.ok) throw new Error(reply?.error || 'Не удалось сохранить журнал');
+    } catch (err) { showError(err.message); }
+  });
   for (const button of document.querySelectorAll('.nav-item')) {
     button.addEventListener('click', () => switchView(button.dataset.view, { user: true }));
   }
@@ -350,7 +366,7 @@ if (typeof document !== 'undefined') {
     // Настройки читаются ДО первого переключения, иначе `saveSettings` мог бы
     // записать «Обзор» поверх запомненного раздела. Пока диск отвечает, человек
     // уже может нажать раздел сам — тогда его выбор главнее запомненного.
-    start();
+    start().catch(err => showError('Ошибка запуска: ' + err.message));
   });
 }
 
