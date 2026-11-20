@@ -60,6 +60,6 @@ test('task runner executes in workspace, not the installed project', async t => 
   assert.equal(reply.ok, true, reply.error);
   const result = await state.activeTask.done;
   assert.equal(result.ok, true);
-  assert.equal(await fs.readFile(path.join(target, 'output/probe.txt'), 'utf8'), target);
+  assert.equal(await fs.realpath((await fs.readFile(path.join(target, 'output/probe.txt'), 'utf8')).trim()), await fs.realpath(target));
   await assert.rejects(fs.stat(path.join(source, 'output/probe.txt')), { code: 'ENOENT' });
 });

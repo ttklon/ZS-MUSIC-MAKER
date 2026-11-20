@@ -205,6 +205,12 @@ jobs:
             exit 1
           }
 
+      - name: Set up bundled Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          architecture: 'x64'
+
       - name: Shell tests on Windows (no GUI needed)
         working-directory: desktop
         shell: pwsh
@@ -272,12 +278,6 @@ jobs:
             exit 1
           }
           Write-Output "electron $version распакован в $dist"
-
-      - name: Set up bundled Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-          architecture: 'x64'
 
       - name: Bundle Python and core dependencies for clean Windows installs
         shell: pwsh
