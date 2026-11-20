@@ -1,6 +1,6 @@
 {
-  "version": "42.0.35",
-  "build": "v42.0.35-workspace-windows-ci-2026-11-15",
-  "based_on": "42.0.34",
-  "changes": "Validate writable workspace with Python available before Windows shell tests and canonical path comparison."
+  "version": "42.0.36",
+  "build": "v42.0.36-workspace-fixture-2026-11-15",
+  "based_on": "42.0.35",
+  "changes": "Separate fake bundled-executable copy fixture from actual Windows Python process integration test."
 }

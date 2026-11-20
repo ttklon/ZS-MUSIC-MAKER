@@ -51,6 +51,8 @@ test('rejects accidental nested workspace and retries cleanly after missing main
 
 test('task runner executes in workspace, not the installed project', async t => {
   const { source, target } = await fixture(t);
+  // This fixture's fake exe tests copying, not execution: Windows must not select it.
+  await fs.rm(path.join(source, '.python'), { recursive: true, force: true });
   await fs.writeFile(path.join(source, 'main.py'),
     'from pathlib import Path\nPath("output").mkdir(exist_ok=True)\nPath("output/probe.txt").write_text(str(Path.cwd()))\n');
   const { registerTaskIpc } = require('../electron/task-runner');
