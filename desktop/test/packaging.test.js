@@ -61,7 +61,9 @@ test('данные проекта попадают в resources/project', () => 
   const resources = new Map(pkg.build.extraResources.map((entry) => [entry.from, entry.to]));
 
   assert.equal(resources.get('../version.json'), 'project/version.json');
-  assert.equal(resources.get('../config/genres_100.json'), 'project/config/genres_100.json');
+  assert.equal(resources.get('../config'), 'project/config');
+  const config = pkg.build.extraResources.find(entry => entry.from === '../config');
+  assert.ok(config.filter.includes('**/*.py'), 'config.settings and config.__init__ must ship');
   assert.equal(resources.get('../data/samples'), 'project/data/samples');
   assert.equal(resources.get('../data/desktop'), 'project/data/desktop');
 

@@ -1,6 +1,6 @@
 {
   "name": "zs-music-maker-desktop",
-  "version": "42.0.33",
+  "version": "42.0.34",
   "private": true,
   "description": "ZS Music Maker на Electron: окно читает каталог жанров, снимок готовности и досье прямо из проекта, и собирает бит движком на JavaScript — без Python и без сети",
   "main": "electron/main.js",
@@ -43,8 +43,12 @@
         "to": "project/version.json"
       },
       {
-        "from": "../config/genres_100.json",
-        "to": "project/config/genres_100.json"
+        "from": "../config",
+        "to": "project/config",
+        "filter": [
+          "**/*.py",
+          "**/*.json"
+        ]
       },
       {
         "from": "../data/samples",
@@ -106,6 +110,21 @@
       {
         "from": "../requirements.txt",
         "to": "project/requirements.txt"
+      },
+      {
+        "from": "../requirements_ai.txt",
+        "to": "project/requirements_ai.txt"
+      },
+      {
+        "from": "../scripts",
+        "to": "project/scripts",
+        "filter": [
+          "**/*.py",
+          "**/*.json",
+          "**/*.cmd",
+          "**/*.ps1",
+          "**/*.sh"
+        ]
       }
     ],
     "win": {

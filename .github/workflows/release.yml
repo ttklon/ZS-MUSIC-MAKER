@@ -136,6 +136,17 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Packaged Python imports failed' }
           & "$root/.python/python.exe" "$root/main.py" --version
           if ($LASTEXITCODE -ne 0) { throw 'Packaged pipeline startup failed' }
+          $workspace = Join-Path $env:RUNNER_TEMP 'zsmm-user-workspace'
+          node -e "require('./desktop/electron/pipeline-workspace').prepareWorkspace(process.argv[1],process.argv[2]).catch(e=>{console.error(e);process.exit(1)})" "$root" "$workspace"
+          if ($LASTEXITCODE -ne 0) { throw 'Workspace preparation failed' }
+          Push-Location $workspace
+          try {
+            & "$root/.python/python.exe" -c "from pathlib import Path; import config.settings; Path('output').mkdir(exist_ok=True); Path('output/write-probe.txt').write_text('ok')"
+            if ($LASTEXITCODE -ne 0) { throw 'Workspace config import or write failed' }
+            & "$root/.python/python.exe" "$workspace/main.py" --version
+            if ($LASTEXITCODE -ne 0) { throw 'Workspace pipeline startup failed' }
+          } finally { Pop-Location }
+
 
       - name: List built installers
         working-directory: desktop

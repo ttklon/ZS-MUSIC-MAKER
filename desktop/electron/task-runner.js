@@ -61,15 +61,17 @@ function registerTaskIpc({
   ipcMain,
   root = null,
   pythonUserBase = null,
+  workspaceRoot = null,
   getProject,
   getWindows = () => null,
   getSettings = () => null,
   state = { activeTask: null },
 }) {
+  let preparing = false;
   ipcMain.handle('zsmm:tasks', () => ({ ok: true, data: tasks.taskList() }));
 
   const start = async (key, options = {}, sender = null) => {
-    if (state.activeTask) {
+    if (state.activeTask || preparing) {
       return { ok: false, error: 'уже выполняется другая задача: сначала остановите её' };
     }
     const windows = getWindows && getWindows();
@@ -118,12 +120,16 @@ function registerTaskIpc({
     if (!pipeline.root) return { ok: false, error: pipeline.error };
 
     try {
+      preparing = true;
+      const runRoot = workspaceRoot
+        ? await require('./pipeline-workspace').prepareWorkspace(pipeline.root, workspaceRoot)
+        : pipeline.root;
       const settingsValue = (getSettings && getSettings()) || {};
       state.activeTask = tasks.runTask({
         key,
         options: options || {},
         python,
-        root: pipeline.root,
+        root: runRoot,
         env: taskEnv(settingsValue.networkOnline === true, process.env, python, pythonUserBase),
         onEvent: (payload) => {
           if (windows) windows.showTaskProgress(payload);
@@ -141,7 +147,7 @@ function registerTaskIpc({
     } catch (err) {
       state.activeTask = null;
       return { ok: false, error: err.message };
-    }
+    } finally { preparing = false; }
   };
 
   ipcMain.handle('zsmm:task-start', (event, payload = {}) =>

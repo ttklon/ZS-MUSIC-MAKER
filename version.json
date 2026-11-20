@@ -1,6 +1,6 @@
 {
-  "version": "42.0.33",
-  "build": "v42.0.33-wizard-launch-2026-11-15",
-  "based_on": "42.0.32",
-  "changes": "Fix wizard launch with optional empty artist and wait for trailing process output before delivering task completion."
+  "version": "42.0.34",
+  "build": "v42.0.34-writable-workspace-2026-11-15",
+  "based_on": "42.0.33",
+  "changes": "Packaged Python tasks run in userData workspace; preserve model/output state across code refresh; ship full Python config and AI requirements."
 }

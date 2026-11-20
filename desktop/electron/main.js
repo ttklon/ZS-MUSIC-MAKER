@@ -200,7 +200,8 @@ function wireAgentIpc(taskIpc) {
   return agentService.registerAgentIpc({
     ipcMain,
     fsApi: fs,
-    audioRoots: ROOT ? [path.join(ROOT, 'output', 'hits')] : [],
+    audioRoots: [ROOT && path.join(ROOT, 'output', 'hits'),
+      app.isPackaged && path.join(app.getPath('userData'), 'workspace', 'output', 'hits')].filter(Boolean),
     startAgent: (options) => taskIpc.start('agent-hit', options),
     openPath: shellOpen,
   });
@@ -238,6 +239,7 @@ function registerIpc(getProject) {
   // (`zsmm:agent-hit` + открытие мастера) регистрируется сразу за задачами.
   wireAgentIpc(registerTaskIpc({
     pythonUserBase: path.join(app.getPath('userData'), 'python-packages'),
+    workspaceRoot: app.isPackaged ? path.join(app.getPath('userData'), 'workspace') : null,
     ipcMain,
     root: ROOT,
     getProject,
