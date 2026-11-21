@@ -1,6 +1,6 @@
 {
-  "version": "42.0.38",
-  "build": "v42.0.38-studio-redesign-2026-11-15",
-  "based_on": "42.0.37",
-  "changes": "New studio shell, visible settings and model storage inventory, live preparation log; packaged Windows navigation check."
+  "version": "42.0.39",
+  "build": "v42.0.39-workspace-model-paths-2026-11-15",
+  "based_on": "42.0.38",
+  "changes": "Include actual packaged userData/workspace models in model inventory and actual packaged flag in environment IPC."
 }

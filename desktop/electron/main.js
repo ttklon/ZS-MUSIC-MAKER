@@ -276,7 +276,7 @@ function registerIpc(getProject) {
     dossierPlan,
     resolvePython,
     resolvePipelineRoot,
-    versions: process.versions,
+    versions: process.versions, getUserData: () => app.getPath('userData'), isPackaged: app.isPackaged,
   });
 }
 

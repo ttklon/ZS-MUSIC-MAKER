@@ -30,7 +30,7 @@
  */
 function registerShellIpc({
   ipcMain, root, rootInfo, shell, policy, settings, safeMusicDir,
-  dossierPlan, resolvePython, resolvePipelineRoot, versions = {},
+  dossierPlan, resolvePython, resolvePipelineRoot, versions = {}, getUserData = () => null, isPackaged = false,
 }) {
   ipcMain.handle('zsmm:reveal-root', async () => {
     if (!root) return { ok: false, error: rootInfo.error };
@@ -60,7 +60,7 @@ function registerShellIpc({
   ipcMain.handle('zsmm:environment', () => ({
     ok: true,
     data: environmentReport({
-      root, rootInfo, safeMusicDir, dossierPlan, resolvePython, resolvePipelineRoot, versions,
+      root, rootInfo, safeMusicDir, dossierPlan, resolvePython, resolvePipelineRoot, versions, getUserData, isPackaged,
     }),
   }));
 

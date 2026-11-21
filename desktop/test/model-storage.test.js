@@ -21,3 +21,17 @@ test('model locations include workspace and explicit cache environment', () => {
     env: { HF_HUB_CACHE: '/no-such-zs-hf', TORCH_HOME: '/no-such-zs-torch' } });
   assert.deepEqual(locations.map(l => l.directory), ['/no-such-zs-hf', '/no-such-zs-torch']);
 });
+test('registered environment IPC includes packaged workspace models', () => {
+  const handlers = new Map();
+  require('../electron/shell-service').registerShellIpc({
+    ipcMain: { handle: (name, fn) => handlers.set(name, fn) },
+    root: null, rootInfo: { candidates: [], error: null }, shell: {}, policy: {},
+    settings: () => ({}), safeMusicDir: () => 'music', dossierPlan: () => ({ dir: 'dossiers' }),
+    resolvePython: () => ({ python: 'python', error: null }),
+    resolvePipelineRoot: () => ({ root: null, error: null }),
+    getUserData: () => path.join(os.tmpdir(), 'zs-workspace-inventory'), isPackaged: true,
+  });
+  const report = handlers.get('zsmm:environment')().data;
+  assert.equal(report.packaged, true);
+  assert.ok(report.model_storage.some(l => l.directory === path.join(report.user_data, 'workspace', 'models')));
+});
