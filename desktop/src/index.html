@@ -9,6 +9,7 @@
     />
     <title>ZS Music Maker</title>
     <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="studio.css" />
   </head>
   <body>
     <div class="shell">
@@ -22,6 +23,10 @@
         </div>
         <nav class="nav" id="nav" aria-label="Разделы">
           <button class="nav-item is-active" data-view="agent">Создание трека</button>
+          <button class="nav-item" data-view="models">Модели и загрузки</button>
+          <button class="nav-item" data-view="tracks">Мои треки</button>
+          <button class="nav-item" data-view="settings">Настройки</button>
+          <button class="nav-item" data-view="health">Проверка системы</button>
           <details class="technical-nav">
             <summary>Инструменты и диагностика</summary>
           <button class="nav-item" data-view="overview">Обзор</button>
@@ -29,9 +34,7 @@
           <button class="nav-item" data-view="genres">Жанры</button>
           <button class="nav-item" data-view="beat">Бит</button>
           <button class="nav-item" data-view="dossiers">Досье</button>
-          <button class="nav-item" data-view="tracks">Треки</button>
           <button class="nav-item" data-view="run">Запуск</button>
-          <button class="nav-item" data-view="health">Диагностика</button>
           <button class="nav-item" data-view="help">Справка</button>
           </details>
         </nav>
@@ -51,6 +54,8 @@
           </div>
         </header>
 
+        <section class="view is-hidden" id="view-models"><div id="models-body"></div></section>
+        <section class="view is-hidden" id="view-settings"><div id="settings-body"></div></section>
         <section class="view is-hidden" id="view-overview">
           <div class="cards" id="overview-cards"></div>
           <div class="panel">

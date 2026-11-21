@@ -28,6 +28,22 @@ function checkWindow(window, app) {
           } else setTimeout(check, 50);
         }; check();
       })`);
+      if (report.ok) {
+        report.navigation = await window.webContents.executeJavaScript(`(async () => {
+          const results = [];
+          for (const view of ['models', 'settings', 'agent']) {
+            document.querySelector('[data-view="' + view + '"]').click();
+            const deadline = Date.now() + 5000;
+            while (!window.ZSMM_UI.state.loaded.has(view) && Date.now() < deadline)
+              await new Promise(r => setTimeout(r, 50));
+            const section = document.getElementById('view-' + view);
+            results.push({ view, ok: !section.classList.contains('is-hidden') &&
+              window.ZSMM_UI.state.loaded.has(view) && section.textContent.trim().length > 20 });
+          }
+          return results;
+        })()`);
+        report.ok = report.navigation.every(r => r.ok);
+      }
       finish({ ...report, ok: report.ok && report.creationVisible && errors.length === 0 });
     } catch (error) { finish({ ok: false, error: String(error) }); }
   });

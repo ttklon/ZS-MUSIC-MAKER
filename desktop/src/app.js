@@ -191,6 +191,8 @@ const LOADERS = {
   tracks: () => W.loadTracks(),
   run: () => W.loadRun(),
   agent: () => W.loadCreation(),
+  models: () => W.loadModelsScreen(),
+  settings: () => W.loadStudioSettings(),
   health: () => W.loadHealth(),
   help: () => W.loadHelp(),
 };
@@ -204,6 +206,8 @@ const TITLES = {
   tracks: 'Треки',
   run: 'Запуск',
   agent: 'Создание трека',
+  models: 'Модели и загрузки',
+  settings: 'Настройки',
   health: 'Диагностика',
   help: 'Справка',
 };
@@ -258,7 +262,7 @@ async function switchView(view, { force = false, user = false } = {}) {
     $(`view-${name}`).classList.toggle('is-hidden', name !== view);
   }
   focusViewHeading();
-  if (force || !state.loaded.has(view)) {
+  if (force || ['agent', 'models', 'settings'].includes(view) || !state.loaded.has(view)) {
     try {
       await LOADERS[view]();
       state.loaded.add(view);

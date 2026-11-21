@@ -11,6 +11,7 @@ const flush = () => new Promise(resolve => setImmediate(resolve));
 function fixture() {
   const document = new FakeDocument();
   const root = document.createElement('div'); root.id = 'agent-body'; document.append(root);
+  for (const id of ['models-body', 'settings-body']) { const node = document.createElement('div'); node.id = id; document.append(node); }
   let event, done;
   const calls = [];
   const bridge = {
@@ -21,6 +22,7 @@ function fixture() {
     stopTask: async () => ({ ok: true }), agentOpen: async () => ({ ok: true }),
   };
   const window = { zsmm: bridge, ZSMM_SECTIONS: {}, ZSMM_UI: {
+    state: { view: 'agent' },
     $: id => document.getElementById(id),
     el: (tag, cls, text) => { const n = document.createElement(tag); n.textContent = text || ''; n.className = cls || ''; return n; },
   } };
@@ -33,7 +35,7 @@ function fixture() {
     const b = [...root.walk()].find(n => n.tagName === 'BUTTON' && n.textContent === text);
     assert.ok(b, 'button: ' + text); b.dispatch('click'); await flush();
   };
-  return { root, bridge, calls, click, document, urls, load: () => window.ZSMM_UI.loadCreation(), event: e => event(e), done: r => done(r) };
+  return { root, bridge, calls, click, document, urls, ui: window.ZSMM_UI, load: () => window.ZSMM_UI.loadCreation(), event: e => event(e), done: r => done(r) };
 }
 
 test('one window connects idea, preparation, generation and partial result', async () => {
@@ -85,4 +87,36 @@ test('inline player releases its URL when result is left', async () => {
   assert.ok([...f.root.walk()].some(n => n.tagName === 'AUDIO' && n.controls));
   await f.click('Изменить пожелания и создать заново');
   assert.equal(f.urls.revoked, 1);
+});
+
+
+test('models screen exposes live log, errors and retry without hidden details', async () => {
+  const f = fixture(); await f.load(); f.ui.state.view = 'models';
+  f.ui.loadModelsScreen();
+  const host = f.document.getElementById('models-body');
+  const start = [...host.walk()].find(n => n.textContent === 'Проверить и подготовить автоматически' && n.tagName === 'BUTTON');
+  start.dispatch('click'); await flush();
+  assert.match(host.textContent, /Подготовка выполняется/);
+  f.event({ line: 'Downloading weights: C:\\models\\voice.pt' });
+  assert.match(host.textContent, /voice.pt/);
+  f.done({ ok: false });
+  assert.match(host.textContent, /Операция не завершена/);
+  assert.ok([...host.walk()].some(n => n.tagName === 'BUTTON' && n.textContent === 'Проверить и подготовить автоматически' && !n.disabled));
+});
+
+test('settings persist network consent and show actual environment paths', async () => {
+  const f = fixture();
+  f.bridge.loadSettings = async () => ({ ok: true, data: { networkOnline: false } });
+  f.bridge.environment = async () => ({ ok: true, data: { pipeline_root: 'C:/Users/Test/workspace' } });
+  await f.ui.loadStudioSettings();
+  const host = f.document.getElementById('settings-body');
+  assert.match(host.textContent, /C:\/Users\/Test\/workspace/);
+  const box = [...host.walk()].find(n => n.tagName === 'INPUT');
+  box.checked = true; box.dispatch('change'); await flush();
+  assert.equal(f.calls.at(-1)[1].networkOnline, true);
+  assert.match(host.textContent, /Сохранено/);
+  f.bridge.saveSettings = async () => ({ ok: false, error: 'disk full' });
+  box.checked = false; box.dispatch('change'); await flush();
+  assert.equal(box.checked, true);
+  assert.match(host.textContent, /disk full/);
 });

@@ -72,7 +72,7 @@ const VOCAL_TEXT_MAX = 120;
  * Разделы окна. Список нужен, чтобы `settings.json` не открывал окно на
  * несуществующем разделе (тогда экран был бы пустым без объяснения).
  */
-const VIEWS = ['agent', 'overview', 'modules', 'genres', 'beat', 'dossiers', 'tracks', 'run', 'health', 'help'];
+const VIEWS = ['models', 'settings', 'agent', 'overview', 'modules', 'genres', 'beat', 'dossiers', 'tracks', 'run', 'health', 'help'];
 
 /** Привести произвольный объект к известным полям. */
 function sanitizeSettings(raw) {
