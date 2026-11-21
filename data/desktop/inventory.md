@@ -12,13 +12,13 @@
 | app/__init__.py | REAL_PASS | PASS | 0 | 1075 |
 | app/ai/__init__.py | REAL_PASS | PASS | 0 | 225 |
 | app/ai/acestep.py | REAL_PASS | PASS | 1 | 4 |
-| app/ai/hardware.py | REAL_PASS | PASS | 8 | 66 |
+| app/ai/hardware.py | REAL_PASS | PASS | 8 | 67 |
 | app/ai/llm_service.py | REAL_PASS | PASS | 5 | 23 |
 | app/ai/model_catalog.py | REAL_PASS | PASS | 2 | 6 |
 | app/ai/prompts.py | REAL_PASS | PASS | 5 | 35 |
 | app/ai/quality/__init__.py | REAL_PASS | PASS | 10 | 152 |
 | app/ai/quality/analysis.py | REAL_PASS | PASS | 1 | 55 |
-| app/ai/quality/audio.py | REAL_PASS | PASS | 2 | 691 |
+| app/ai/quality/audio.py | REAL_PASS | PASS | 2 | 694 |
 | app/ai/quality/lyrics.py | REAL_PASS | PASS | 3 | 548 |
 | app/ai/quality/metadata.py | REAL_PASS | PASS | 1 | 88 |
 | app/ai/registry.py | REAL_PASS | PASS | 16 | 280 |
@@ -29,7 +29,7 @@
 | app/cli/backup.py | REAL_PASS | PASS | 1 | 102 |
 | app/cli/commands.py | REAL_PASS | PASS | 1 | 52 |
 | app/cli/dossier.py | REAL_PASS | PASS | 1 | 212 |
-| app/cli/env.py | REAL_PASS | PASS | 11 | 491 |
+| app/cli/env.py | REAL_PASS | PASS | 11 | 492 |
 | app/cli/gui.py | REAL_PASS | PASS | 1 | 132 |
 | app/cli/hitfactory.py | REAL_PASS | PASS | 1 | 12 |
 | app/cli/parser.py | REAL_PASS | PASS | 1 | 15 |
@@ -46,7 +46,7 @@
 | app/core/ai/stages_music.py | REAL_PASS | PASS | 1 | 24 |
 | app/core/ai/stages_vocal.py | REAL_PASS | PASS | 1 | 27 |
 | app/core/auto_backup.py | REAL_PASS | PASS | 1 | 4 |
-| app/core/bootstrap.py | REAL_PASS | PASS | 4 | 46 |
+| app/core/bootstrap.py | REAL_PASS | PASS | 4 | 50 |
 | app/core/bootstrap_report.py | REAL_PASS | PASS | 1 | 2 |
 | app/core/font_utils.py | REAL_PASS | PASS | 2 | 2 |
 | app/core/hw_autodetect.py | REAL_PASS | PASS | 5 | 16 |
@@ -121,8 +121,8 @@
 | config/__init__.py | REAL_PASS | PASS | 0 | 179 |
 | config/settings.py | REAL_PASS | PASS | 2 | 120 |
 | hitmaker.py | DEPRECATED | PASS | 0 | 0 |
-| install.py | REAL_PASS | PASS | 0 | 232 |
-| main.py | REAL_PASS | PASS | 1 | 262 |
+| install.py | REAL_PASS | PASS | 0 | 238 |
+| main.py | REAL_PASS | PASS | 1 | 264 |
 | modules/__init__.py | REAL_PASS | PASS | 0 | 990 |
 | modules/agent_guide/__init__.py | REAL_PASS | PASS | 1 | 130 |
 | modules/agent_guide/narration.py | REAL_PASS | PASS | 1 | 0 |
@@ -200,7 +200,7 @@
 | modules/hit_factory/ui.py | DEPRECATED | PASS | 0 | 684 |
 | modules/hit_scorer/__init__.py | REAL_PASS | PASS | 5 | 150 |
 | modules/hit_scorer/__main__.py | DEPRECATED | PASS | 0 | 11 |
-| modules/hit_scorer/audio.py | REAL_PASS | PASS | 3 | 692 |
+| modules/hit_scorer/audio.py | REAL_PASS | PASS | 3 | 695 |
 | modules/hit_scorer/hook_metrics.py | REAL_PASS | PASS | 2 | 18 |
 | modules/hit_scorer/mix_metrics.py | REAL_PASS | PASS | 1 | 17 |
 | modules/hit_scorer/scoring.py | REAL_PASS | PASS | 1 | 17 |
@@ -224,7 +224,7 @@
 | modules/llm/secrets.py | REAL_PASS | PASS | 2 | 27 |
 | modules/lyric_vault.py | DEPRECATED | PASS | 0 | 5 |
 | modules/lyrics/__init__.py | REAL_PASS | PASS | 1 | 147 |
-| modules/lyrics/ai.py | REAL_PASS | PASS | 2 | 2261 |
+| modules/lyrics/ai.py | REAL_PASS | PASS | 2 | 2264 |
 | modules/lyrics/author.py | REAL_PASS | PASS | 1 | 151 |
 | modules/lyrics/generate.py | REAL_PASS | PASS | 3 | 111 |
 | modules/lyrics/memory.py | REAL_PASS | PASS | 3 | 50 |
@@ -276,7 +276,7 @@
 | modules/user_profile.py | REAL_PASS | PASS | 3 | 9 |
 | modules/video_edit/__init__.py | DEPRECATED | PASS | 0 | 135 |
 | modules/video_edit/__main__.py | DEPRECATED | PASS | 0 | 11 |
-| modules/video_edit/audio.py | DEPRECATED | PASS | 3 | 692 |
+| modules/video_edit/audio.py | DEPRECATED | PASS | 3 | 695 |
 | modules/video_edit/console.py | DEPRECATED | PASS | 3 | 11 |
 | modules/video_edit/edits.py | DEPRECATED | PASS | 2 | 20 |
 | modules/video_edit/lrc.py | DEPRECATED | PASS | 3 | 27 |
@@ -301,7 +301,7 @@
 | modules/voice_recording/recorder.py | REAL_PASS | PASS | 1 | 43 |
 | modules/voice_recording/state.py | REAL_PASS | PASS | 4 | 158 |
 | modules/voice_recording/takes.py | REAL_PASS | PASS | 2 | 31 |
-| modules/voice_synth.py | REAL_PASS | PASS | 2 | 108 |
+| modules/voice_synth.py | REAL_PASS | PASS | 3 | 108 |
 | modules/voice_synth_ai.py | REAL_PASS | PASS | 1 | 11 |
 | modules/voice_text.py | REAL_PASS | PASS | 1 | 2 |
 | modules/voice_vault.py | REAL_PASS | PASS | 1 | 43 |
@@ -336,6 +336,7 @@
 | tools/size_guard.py | REAL_PASS | PASS | 0 | 3 |
 | tools/smoke_audio.py | REAL_PASS | PASS | 0 | 16 |
 | tools/smoke_god.py | REAL_PASS | PASS | 0 | 14 |
+| tools/windows_neural_smoke.py | PLANNED | PASS | 0 | 0 |
 | ui/__init__.py | REAL_PASS | PASS | 0 | 810 |
 | ui/karaoke_recorder.py | REAL_PASS | PASS | 1 | 23 |
 | updater/__init__.py | REAL_PASS | PASS | 0 | 164 |
@@ -343,7 +344,7 @@
 | updater/archive.py | REAL_PASS | PASS | 3 | 73 |
 | updater/checks.py | REAL_PASS | PASS | 2 | 26 |
 | updater/cli.py | REAL_PASS | PASS | 2 | 220 |
-| updater/install.py | REAL_PASS | PASS | 2 | 116 |
+| updater/install.py | REAL_PASS | PASS | 2 | 119 |
 | updater/paths.py | REAL_PASS | PASS | 6 | 65 |
 | updater/updater.py | REAL_PASS | PASS | 1 | 43 |
 | updater/userdata.py | REAL_PASS | PASS | 3 | 19 |
