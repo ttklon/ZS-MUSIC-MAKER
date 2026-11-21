@@ -1,0 +1,57 @@
+name: Windows - real neural validation
+on:
+  push:
+    branches: ['arena/bbed83d1-zs-music-maker']
+    paths:
+      - '.github/workflows/windows-neural-validation.yml'
+      - 'tools/windows_neural_smoke.py'
+      - 'modules/silero_loader.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  real-silero:
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install actual CPU inference runtime
+        run: |
+          python -m pip install --upgrade pip
+          pip install torch==2.5.1 torchaudio==2.5.1 --index-url https://download.pytorch.org/whl/cpu
+          pip install numpy==1.26.4 soundfile omegaconf pyyaml requests
+      - name: Download real Silero weights and synthesize online and offline
+        run: python tools/windows_neural_smoke.py
+      - name: Preserve measured report and generated speech
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-real-silero
+          path: output/windows-neural-smoke/
+          retention-days: 3
+          if-no-files-found: warn
+  bootstrap-compatibility:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Check the bootstrap package combination without modifying the machine
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --dry-run torch==2.5.1 torchaudio==2.5.1 audiocraft==1.3.0 2>&1 | Tee-Object -FilePath bootstrap-resolver.log
+          $code = $LASTEXITCODE
+          Get-Content bootstrap-resolver.log -Tail 30 | ForEach-Object { Write-Output $_ }
+          if ($code -ne 0) { Write-Output '::error title=bootstrap dependency conflict::See pip resolver output; the currently configured engine combination did not resolve on Windows.'; exit $code }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: windows-bootstrap-resolver
+          path: bootstrap-resolver.log
+          retention-days: 3
