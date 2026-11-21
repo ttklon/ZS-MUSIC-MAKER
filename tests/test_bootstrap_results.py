@@ -71,3 +71,13 @@ def test_bootstrap_command_returns_failure_even_at_high_score(monkeypatch):
     monkeypatch.setattr(bootstrap, "auto_bootstrap", lambda **kw: {
         "ok": False, "readiness_after": 100, "blockers": ["torch import failed"]})
     assert run_bootstrap() == 1
+
+
+def test_audiocraft_cannot_downgrade_main_torch(monkeypatch, caplog):
+    monkeypatch.setattr(bootstrap, "missing_heavy", lambda: ["audiocraft"])
+    monkeypatch.setattr(bootstrap, "silent_hardware_budget", lambda: {})
+    monkeypatch.setattr(bootstrap, "_pip_install", lambda *a, **kw: pytest.fail("incompatible shared install"))
+    result = bootstrap.ensure_heavy_engines(allow_download=True)
+    assert result["failed"] == ["audiocraft"]
+    assert result["installed"] == []
+    assert "isolated environment" in caplog.text

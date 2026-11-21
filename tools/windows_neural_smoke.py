@@ -49,6 +49,8 @@ def main() -> int:
                 raise RuntimeError(f"Silero synthesis failed: {online=}; see workflow stderr")
             report["renders"].append({"online_allowed": online, **check_audio(target)})
         report["ok"] = True
+        metrics = "; ".join(f"{r['file']}: {r['seconds']:.2f}s, peak={r['peak']:.4f}" for r in report["renders"])
+        print("::notice title=Real neural speech passed::" + metrics)
     except Exception:
         report["error"] = traceback.format_exc()
     (OUT / "report.json").write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")

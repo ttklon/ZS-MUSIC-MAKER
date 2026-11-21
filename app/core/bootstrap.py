@@ -99,6 +99,13 @@ def ensure_heavy_engines(silent: bool = True, allow_download: bool | None = None
 
     installed, failed = [], []
     for name in miss:
+        if name == "audiocraft":
+            # AudioCraft 1.3 pins torch==2.1.0; the main runtime uses 2.5.1.
+            # Never let its resolver downgrade the working shared environment.
+            failed.append(name)
+            _LOG.warning("[bootstrap] audiocraft BLOCKED: requires an isolated environment "
+                         "(torch==2.1.0), incompatible with main torch==2.5.1")
+            continue
         spec = HEAVY_PIP.get(name)
         if not spec:
             continue
