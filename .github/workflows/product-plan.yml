@@ -111,9 +111,22 @@ jobs:
         with:
           node-version: '22'
       - name: Product contract and UI regression tests
+        shell: pwsh
         run: |
+          $PSNativeCommandUseErrorActionPreference = $false
           node desktop/scripts/product-spec.js --check
-          node --test desktop/test/product-contract.test.js desktop/test/render.test.js desktop/test/ui-contract.test.js desktop/test/updater.test.js desktop/test/creation.test.js desktop/test/task-stream.test.js desktop/test/task-runner.test.js desktop/test/tasks.test.js desktop/test/agent-bridge.test.js desktop/test/task-lifecycle.test.js desktop/test/pipeline-workspace.test.js desktop/test/startup-diagnostics.test.js
+          if ($LASTEXITCODE -ne 0) { throw 'Product specification mismatch' }
+          $output = & node --test desktop/test/product-contract.test.js desktop/test/render.test.js desktop/test/ui-contract.test.js desktop/test/updater.test.js desktop/test/creation.test.js desktop/test/task-stream.test.js desktop/test/task-runner.test.js desktop/test/tasks.test.js desktop/test/agent-bridge.test.js desktop/test/task-lifecycle.test.js desktop/test/pipeline-workspace.test.js desktop/test/startup-diagnostics.test.js 2>&1
+          $code = $LASTEXITCODE
+          $output | Write-Output
+          if ($code -ne 0) {
+            $failures = $output | Select-String -Pattern 'not ok' -Context 0,24
+            foreach ($failure in $failures) {
+              $message = ($failure | Out-String).Replace('%','%25').Replace("`r",'%0D').Replace("`n",'%0A')
+              Write-Output "::error title=Node regression failure::$message"
+            }
+            throw "Node regression exit $code"
+          }
       - name: Install build tools and Electron
         working-directory: desktop
         run: |
