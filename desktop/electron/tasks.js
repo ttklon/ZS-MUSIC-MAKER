@@ -14,6 +14,7 @@ const { spawn } = require('node:child_process');
 const path = require('node:path');
 const { randomUUID } = require('node:crypto');
 const { createTaskStream } = require('./task-stream');
+const { terminateTree, monitorActivity } = require('./process-control');
 
 const { nativeTaskList } = require('./native-tasks');
 
@@ -264,21 +265,29 @@ function runTask({ key, options = {}, python, root, env = process.env, onEvent =
   const task = TASKS[key];
   const script = path.join(root, 'main.py');
 
-  let timedOut = false;
+  let timedOut = false, canceled = false, termination = null, terminationFailed = false;
   let settled = false;
   const child = spawn(python, [script, ...argv], {
-    cwd: root,
+    cwd: root, detached: process.platform !== 'win32', windowsHide: true,
     env: { ...env, ZSMM_TASK_ID: taskId, PYTHONUNBUFFERED: '1', PYTHONIOENCODING: 'utf-8' },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
 
-  const timer = setTimeout(() => {
-    timedOut = true;
-    onEvent({ type: 'timeout', timeoutMs: task.timeoutMs });
-    child.kill('SIGKILL');
-  }, task.timeoutMs);
-
-  const stream = createTaskStream({ taskId, onEvent });
+  const requestStop = reason => {
+    if (settled || (termination && !terminationFailed)) return false;
+    canceled = reason === 'canceled'; timedOut = reason === 'timeout';
+    onEvent({ type: 'stopping', reason, message: 'Завершаю дерево процессов; ожидаю подтверждение.' });
+    terminationFailed = false;
+    termination = terminateTree(child.pid).then(result => {
+      terminationFailed = !result.confirmed;
+      if (terminationFailed) onEvent({ type: 'cleanup-failed', message: 'Завершение дерева не подтверждено. Сохраните диагностику и проверьте процессы; новая задача заблокирована.', error: result.error });
+      return result;
+    });
+    return true;
+  };
+  const monitor = monitorActivity({ onEvent, hardMs: task.timeoutMs,
+    onTimeout: () => { onEvent({ type: 'timeout', timeoutMs: task.timeoutMs }); requestStop('timeout'); } });
+  const stream = createTaskStream({ taskId, onEvent: event => { monitor.touch(); onEvent(event); } });
   stream.attach(child.stdout, 'stdout');
   stream.attach(child.stderr, 'stderr');
   onEvent({ type: 'start', command: ['main.py', ...argv], label: task.label });
@@ -287,20 +296,23 @@ function runTask({ key, options = {}, python, root, env = process.env, onEvent =
     child.on('error', (err) => {
       if (settled) return;
       settled = true;
-      clearTimeout(timer);
+      monitor.close();
       onEvent({ type: 'error', error: err.message });
       resolve({ ok: false, code: null, timedOut, error: err.message });
     });
-    child.on('close', (code, signal) => {
+    child.on('close', async (code, signal) => {
       if (settled) return;
       settled = true;
-      clearTimeout(timer);
+      monitor.close();
       onEvent({ type: 'exit', code, signal, timedOut });
+      const cleanup = termination ? await termination : null;
       const { terminal, invalid } = stream.result();
-      const protocolOk = key !== 'agent-hit' || (terminal?.ok === true && !invalid &&
+      const protocolOk = key === 'bootstrap'
+        ? terminal?.ok === true && terminal.report?.setup?.ok === true && !invalid
+        : key !== 'agent-hit' || (terminal?.ok === true && !invalid &&
         terminal.report?.result?.succeeded === true && terminal.report.result.status === 'success');
-      resolve({ ok: code === 0 && !timedOut && protocolOk, code, signal, timedOut,
-        taskId, report: terminal?.report || null, protocolError: invalid || (key === 'agent-hit' && !terminal) });
+      resolve({ ok: code === 0 && !timedOut && !canceled && protocolOk, code, signal, timedOut,
+        taskId, canceled, termination: cleanup, report: terminal?.report || null, protocolError: invalid || (key === 'agent-hit' && !terminal) });
     });
   });
 
@@ -308,11 +320,7 @@ function runTask({ key, options = {}, python, root, env = process.env, onEvent =
     done, taskId,
     pid: child.pid,
     command: ['main.py', ...argv],
-    stop() {
-      if (settled) return false;
-      child.kill('SIGTERM');
-      return true;
-    },
+    stop() { return requestStop('canceled'); },
   };
 }
 

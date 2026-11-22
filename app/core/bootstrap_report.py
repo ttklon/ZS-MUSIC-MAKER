@@ -7,6 +7,8 @@ def summarize_setup(result: dict) -> dict:
     blockers = []
     for stage in ("heavy", "models"):
         state = result.get(stage) or {}
+        if not state or any(key not in state for key in ("failed", "skipped")):
+            blockers.append(stage + ": incomplete setup evidence")
         for key in ("failed", "skipped"):
             for name in state.get(key) or []:
                 blockers.append(f"{stage}.{name}: {key}")
@@ -17,4 +19,4 @@ def summarize_setup(result: dict) -> dict:
         state = result.get(stage) or {}
         if state.get(flag) is not True:
             blockers.append(stage + ": " + str(state.get("reason") or "not verified"))
-    return {"ok": not blockers, "blockers": blockers, "inference_verified": False}
+    return {"schema": 1, "ok": not blockers, "blockers": blockers, "inference_verified": False}

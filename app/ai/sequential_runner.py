@@ -202,7 +202,8 @@ class SequentialAIRunner:
 
     @staticmethod
     def _invoke(stage: AIStage, handle: Any, context: Dict[str, Any], timeout_sec: float) -> Any:
-        with _stage_watchdog(timeout_sec, stage.name):
+        from app.ai.activity import stage_activity
+        with _stage_watchdog(timeout_sec, stage.name), stage_activity(stage.name):
             return stage.fn(handle, context)
 
     @staticmethod

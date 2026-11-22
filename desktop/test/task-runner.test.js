@@ -160,3 +160,21 @@ test('native task events and completion carry the same unique ID', async () => {
   assert.notEqual(first.data.taskId, second.data.taskId);
   assert.ok(f.sends.every(s => s.payload.taskId && s.payload.eventVersion === 1));
 });
+
+test('stop during workspace preparation aborts copying and never starts Python', async t => {
+  const workspace = require('../electron/pipeline-workspace'), tasks = require('../electron/tasks');
+  const original = workspace.prepareWorkspace, originalRun = tasks.runTask;
+  let signal, release, launched = false;
+  workspace.prepareWorkspace = (_source, target, options) => { signal = options.signal; return new Promise(resolve => { release = () => resolve(target); }); };
+  tasks.runTask = () => { launched = true; throw new Error('must not spawn'); };
+  t.after(() => { workspace.prepareWorkspace = original; tasks.runTask = originalRun; });
+  const handlers = new Map(), state = { activeTask: null };
+  const runner = registerTaskIpc({ ipcMain: { handle: (key, fn) => handlers.set(key, fn) }, root: ROOT,
+    workspaceRoot: 'unused-test-workspace', state });
+  const pending = runner.start('bootstrap');
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(handlers.get('zsmm:task-stop')().data.pending, true);
+  assert.equal(signal.aborted, true); assert.ok(state.taskSlot, 'slot stays held until preparation settles');
+  release(); assert.equal((await pending).ok, false);
+  assert.equal(launched, false); assert.equal(state.taskSlot, null);
+});

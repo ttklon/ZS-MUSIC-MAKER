@@ -12,16 +12,16 @@ function fixture() {
   const document = new FakeDocument();
   const root = document.createElement('div'); root.id = 'agent-body'; document.append(root);
   for (const id of ['models-body', 'settings-body']) { const node = document.createElement('div'); node.id = id; document.append(node); }
-  let event, done;
+  let event, done, activeKey;
   const calls = [];
   const bridge = {
     saveSettings: async patch => { calls.push(['settings', patch]); return { ok: true }; },
-    startTask: async key => { calls.push(['task', key]); return { ok: true, data: { taskId: 'fixture' } }; },
-    agentHit: async answers => { calls.push(['argv', buildCommand('agent-hit', answers)]); calls.push(['create', answers]); return { ok: true, data: { taskId: 'fixture' } }; },
+    startTask: async key => { activeKey = key; calls.push(['task', key]); return { ok: true, data: { taskId: 'fixture' } }; },
+    agentHit: async answers => { activeKey = 'agent-hit'; calls.push(['argv', buildCommand('agent-hit', answers)]); calls.push(['create', answers]); return { ok: true, data: { taskId: 'fixture' } }; },
     onTaskEvent: fn => { event = fn; return () => {}; }, onTaskDone: fn => { done = fn; return () => {}; },
     stopTask: async () => ({ ok: true }), agentOpen: async () => ({ ok: true }),
   };
-  const window = { zsmm: bridge, ZSMM_JOURNEY: require('../src/core/journey'), ZSMM_SECTIONS: {}, ZSMM_UI: {
+  const window = { ZSMM_CREATION_STATE: require('../src/core/creation-state'), zsmm: bridge, ZSMM_JOURNEY: require('../src/core/journey'), ZSMM_SECTIONS: {}, ZSMM_UI: {
     state: { view: 'agent' },
     $: id => document.getElementById(id),
     el: (tag, cls, text) => { const n = document.createElement(tag); n.textContent = text || ''; n.className = cls || ''; return n; },
@@ -35,7 +35,7 @@ function fixture() {
     const b = [...root.walk()].find(n => n.tagName === 'BUTTON' && n.textContent === text);
     assert.ok(b, 'button: ' + text); b.dispatch('click'); await flush();
   };
-  return { root, bridge, calls, click, document, urls, ui: window.ZSMM_UI, load: () => window.ZSMM_UI.loadCreation(), event: e => event({ taskId: 'fixture', ...e }), done: r => done({ taskId: 'fixture', ...r }) };
+  return { root, bridge, calls, click, document, urls, ui: window.ZSMM_UI, load: () => window.ZSMM_UI.loadCreation(), event: e => event({ taskId: 'fixture', ...e }), done: r => done({ taskId: 'fixture', ...(activeKey === 'bootstrap' ? { report: { setup: { schema: 1, ok: true, inference_verified: false } } } : {}), ...r }) };
 }
 
 test('one window connects idea, preparation, generation and partial result', async () => {
@@ -157,4 +157,12 @@ test('ordinary JSON and foreign task completion never overwrite the active creat
   assert.doesNotMatch(f.root.textContent, /4\. Получен/);
   f.done({ ok: false });
   assert.doesNotMatch(f.root.textContent, /Загрузить для прослушивания здесь/);
+});
+
+test('bootstrap exit zero with missing or incomplete report does not unlock generation', async () => {
+  const f = fixture(); await f.load(); await f.click('Далее — подготовить студию');
+  await f.click('Проверить и подготовить автоматически');
+  f.done({ ok: true, report: null });
+  assert.match(f.root.textContent, /Состояние: blocked/);
+  assert.doesNotMatch(f.root.textContent, /3\. Создадим трек/);
 });

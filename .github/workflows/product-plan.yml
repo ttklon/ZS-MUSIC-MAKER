@@ -4,6 +4,20 @@ on:
     branches: ['arena/bbed83d1-zs-music-maker']
     paths:
       - 'docs/plan/**'
+      - 'docs/TASK_LIFECYCLE.md'
+      - 'tests/test_runtime_lifecycle.py'
+      - 'app/core/logger.py'
+      - 'app/core/security_utils.py'
+      - 'app/core/bootstrap_report.py'
+      - 'app/cli/commands.py'
+      - 'app/ai/activity.py'
+      - 'app/ai/sequential_runner.py'
+      - 'desktop/electron/process-control.js'
+      - 'desktop/electron/startup-diagnostics.js'
+      - 'desktop/electron/diagnostic-redaction.js'
+      - 'desktop/electron/workspace-layout.js'
+      - 'desktop/electron/pipeline-workspace.js'
+      - 'desktop/src/core/creation-state.js'
       - 'docs/RECIPE_TRANSPORT.md'
       - 'app/core/recipe.py'
       - 'app/core/project_snapshot.py'
@@ -68,7 +82,7 @@ jobs:
       - name: Check 1000 tasks and dependency graph (not application readiness)
         run: python tools/build_product_plan.py --check
       - name: Install plan test dependency
-        run: python -m pip install pytest numpy soundfile
+        run: python -m pip install pytest numpy soundfile requests psutil
       - name: Observe closed publication gate without publishing
         env:
           PYTHONIOENCODING: utf-8
@@ -86,7 +100,7 @@ jobs:
           path: ${{ runner.temp }}/release-gate.json
           retention-days: 7
       - name: Plan and publication contract regression tests only
-        run: python -m pytest tests/test_product_plan.py tests/test_release_gate.py tests/test_recipe_transport.py -q
+        run: python -m pytest tests/test_product_plan.py tests/test_release_gate.py tests/test_recipe_transport.py tests/test_runtime_lifecycle.py tests/test_bootstrap_results.py tests/test_logger_and_crash.py -q
 
   packaged-product-specification:
     runs-on: windows-latest
@@ -99,7 +113,7 @@ jobs:
       - name: Product contract and UI regression tests
         run: |
           node desktop/scripts/product-spec.js --check
-          node --test desktop/test/product-contract.test.js desktop/test/render.test.js desktop/test/ui-contract.test.js desktop/test/updater.test.js desktop/test/creation.test.js desktop/test/task-stream.test.js desktop/test/task-runner.test.js desktop/test/tasks.test.js desktop/test/agent-bridge.test.js
+          node --test desktop/test/product-contract.test.js desktop/test/render.test.js desktop/test/ui-contract.test.js desktop/test/updater.test.js desktop/test/creation.test.js desktop/test/task-stream.test.js desktop/test/task-runner.test.js desktop/test/tasks.test.js desktop/test/agent-bridge.test.js desktop/test/task-lifecycle.test.js desktop/test/pipeline-workspace.test.js desktop/test/startup-diagnostics.test.js
       - name: Install build tools and Electron
         working-directory: desktop
         run: |

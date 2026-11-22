@@ -199,6 +199,9 @@ def run_ai_pull(target: str) -> int:
 
 
 def run_bootstrap(allow_online: bool = False) -> int:
+    from app.cli.task_events import TaskEvents
+    events = TaskEvents()
+    events.progress("Проверка и подготовка окружения")
     try:
         from app.core.bootstrap import auto_bootstrap, wire_full_agents
         safe_print("[bootstrap] тихий авто-докач all_heavy — железо определяется само, без вопросов...")
@@ -216,8 +219,13 @@ def run_bootstrap(allow_online: bool = False) -> int:
             safe_print(f"[bootstrap] BLOCKED {blocker}")
         safe_print("[bootstrap] подготовка завершена" if res.get("ok") else
                    "[bootstrap] подготовка НЕ завершена; причины указаны выше")
-        return 0 if res.get("ok") is True else 1
+        from app.core.bootstrap_report import summarize_setup
+        setup = summarize_setup(res)
+        events.emit("done", ok=setup["ok"], report={"setup": setup})
+        return 0 if setup["ok"] else 1
     except Exception as e:
+        events.emit("error", message=str(e))
+        events.emit("done", ok=False, report={"error": str(e)})
         safe_print(f"[main --bootstrap] failed: {e}")
         import traceback; traceback.print_exc()
         return 2

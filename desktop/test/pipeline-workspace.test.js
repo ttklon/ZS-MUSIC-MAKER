@@ -65,3 +65,25 @@ test('task runner executes in workspace, not the installed project', async t => 
   assert.equal(await fs.realpath((await fs.readFile(path.join(target, 'output/probe.txt'), 'utf8')).trim()), await fs.realpath(target));
   await assert.rejects(fs.stat(path.join(source, 'output/probe.txt')), { code: 'ENOENT' });
 });
+
+test('rejects workspace ancestors, pre-canceled copies and symlinked ancestors without touching originals', async t => {
+  const { source, target } = await fixture(t);
+  await assert.rejects(prepareWorkspace(source, path.dirname(source)), /ancestor/);
+  const controller = new AbortController(); controller.abort();
+  await assert.rejects(prepareWorkspace(source, target, { signal: controller.signal }));
+  await assert.rejects(fs.stat(target), { code: 'ENOENT' });
+  const alias = target + '-alias';
+  await fs.mkdir(target); await fs.symlink(target, alias, process.platform === 'win32' ? 'junction' : 'dir');
+  await assert.rejects(prepareWorkspace(source, path.join(alias, 'nested')), /link|junction/i);
+  assert.equal(await fs.readFile(path.join(source, 'main.py'), 'utf8'), 'print("v1")');
+});
+
+test('runtime cache, temp and logs stay in writable workspace independently of cwd', async t => {
+  const { source, target } = await fixture(t);
+  await prepareWorkspace(source, target);
+  const { runtimeEnvironment, layout } = require('../electron/workspace-layout');
+  const env = await runtimeEnvironment(target);
+  assert.equal(env.ZSMM_LOG_DIR, layout(target).logs);
+  for (const value of Object.values(env)) assert.ok(value.startsWith(target + path.sep) || value === target);
+  await assert.rejects(fs.stat(path.join(source, 'logs')), { code: 'ENOENT' });
+});

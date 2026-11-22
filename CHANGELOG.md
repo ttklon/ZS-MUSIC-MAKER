@@ -7,6 +7,22 @@
 
 
 
+## Development — T0131–T0180 (порция 50, не новый релиз)
+
+- Автомат idle/preparing/ready/running/blocked/done; bootstrap NDJSON с setup
+  необходим для ready. Exit 0 сам по себе не открывает генерацию.
+- Отмена и total timeout завершают дерево: отдельная POSIX группа / Windows
+  taskkill /T /F, результат ожидает close и отчёт команды. Подготовка отменяема
+  на границах копирования, после abort Python не стартует.
+- Heartbeat и предупреждение о тишине не выдаются за прогресс или зависание;
+  долгий CPU не убивается только из-за отсутствия stdout.
+- В packaged workspace выделены logs/cache/temp/output/models, runtime env
+  не направляет записи в install. Проверяются junction/symlink предков.
+- Диагностика связывает taskId и окно/Python без сырого stdout/settings/argv;
+  redaction перед записью/экспортом, Python traceback тоже фильтруется.
+- Реальные workers/pip, Windows stage isolation, clean NSIS ACL и независимая
+  проверка приватности не считаются доказанными этим набором тестов.
+
 ## Development — T0101–T0130 (не новый релиз)
 
 - Исправлена передача полного recipe агента в HitFactory, точного подготовленного

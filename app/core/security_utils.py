@@ -42,7 +42,10 @@ def safe_child_path(root: str | Path, identifier: str) -> Path:
 
 def redact_secrets(text: str) -> str:
     """Заменить распространённые access-token формы перед записью в log/UI."""
-    redacted = str(text)
+    redacted = re.sub(
+        r"\b(?:token|password|passwd|secret|api[_-]?key|authorization)\s*[:=]\s*(?:\"[^\"]*\"|'[^']*'|[^\s,;]+)",
+        "[REDACTED]", str(text), flags=re.IGNORECASE,
+    )
     for pattern in _SECRET_PATTERNS:
         redacted = pattern.sub("[REDACTED]", redacted)
     return redacted

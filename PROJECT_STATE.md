@@ -11,6 +11,13 @@
 
 
 
+## Development T0131–T0180 — проверка в работе (50 пунктов)
+
+Состояния подготовки и генерации, отмена дерева, heartbeat/deadline, layout
+workspace и коррелированная диагностика: [спецификация](docs/TASK_LIFECYCLE.md).
+Регрессия проверяет настоящий Python grandchild и повторный file lock, не
+нейромодель/пение. Windows stage watchdog пока не является process isolation.
+
 ## Рабочая порция T0101–T0130: 24 verified, 6 blocked
 
 Полный recipe агента доходит до HitFactory через существующий snapshot;

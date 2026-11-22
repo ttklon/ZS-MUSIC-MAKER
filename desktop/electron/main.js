@@ -241,7 +241,7 @@ function registerIpc(getProject) {
   // единственная кнопка, которая обязана вернуть файл, поэтому её канал
   // (`zsmm:agent-hit` + открытие мастера) регистрируется сразу за задачами.
   wireAgentIpc(registerTaskIpc({
-    pythonUserBase: path.join(app.getPath('userData'), 'python-packages'),
+    diagnostics, pythonUserBase: path.join(app.getPath('userData'), 'python-packages'),
     workspaceRoot: app.isPackaged ? path.join(app.getPath('userData'), 'workspace') : null,
     ipcMain,
     root: ROOT,

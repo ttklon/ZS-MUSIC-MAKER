@@ -67,12 +67,14 @@ function registerTaskIpc({
   getWindows = () => null,
   getSettings = () => null,
   state = { activeTask: null },
+  diagnostics = null,
 }) {
   ipcMain.handle('zsmm:tasks', () => ({ ok: true, data: tasks.taskList() }));
 
   const execute = async (key, options = {}, sender = null, taskId) => {
     const windows = getWindows && getWindows();
     const send = (channel, payload) => {
+      diagnostics?.task?.(taskId, key, payload);
       if (sender && !sender.isDestroyed()) sender.send(channel, { ...payload, taskId, eventVersion: 1 });
     };
 
@@ -118,15 +120,18 @@ function registerTaskIpc({
 
     try {
       const runRoot = workspaceRoot
-        ? await require('./pipeline-workspace').prepareWorkspace(pipeline.root, workspaceRoot)
+        ? await require('./pipeline-workspace').prepareWorkspace(pipeline.root, workspaceRoot, { signal: state.taskSlot?.controller.signal })
         : pipeline.root;
+      if (state.taskSlot?.controller.signal.aborted) throw new Error('Подготовка отменена; процесс не запускался');
+      const directoryEnv = workspaceRoot ? await require('./workspace-layout').runtimeEnvironment(runRoot) : {};
+      if (state.taskSlot?.controller.signal.aborted) throw new Error('Подготовка отменена');
       const settingsValue = (getSettings && getSettings()) || {};
       state.activeTask = tasks.runTask({
         key, taskId,
         options: options || {},
         python,
         root: runRoot,
-        env: taskEnv(settingsValue.networkOnline === true, process.env, python, pythonUserBase),
+        env: { ...taskEnv(settingsValue.networkOnline === true, process.env, python, pythonUserBase), ...directoryEnv },
         onEvent: (payload) => {
           if (windows) windows.showTaskProgress(payload);
           send('zsmm:task-event', payload);
@@ -134,7 +139,7 @@ function registerTaskIpc({
       });
       state.activeTask.done.then((result) => {
         state.activeTask = null;
-        if (state.taskSlot?.taskId === taskId) state.taskSlot = null;
+        if (state.taskSlot?.taskId === taskId && result.termination?.confirmed !== false) state.taskSlot = null;
         send('zsmm:task-done', result);
       });
       return {
@@ -143,6 +148,7 @@ function registerTaskIpc({
       };
     } catch (err) {
       state.activeTask = null;
+      send('zsmm:task-done', { ok: false, canceled: state.taskSlot?.controller.signal.aborted === true, error: err.message });
       return { ok: false, error: err.message };
     }
   };
@@ -155,7 +161,7 @@ function registerTaskIpc({
         taskId: state.taskSlot?.taskId || null };
     }
     const taskId = randomUUID();
-    state.taskSlot = { taskId, key };
+    state.taskSlot = { taskId, key, controller: new AbortController() };
     try {
       const result = await execute(key, options, sender, taskId);
       if (result.ok) result.data = { ...result.data, taskId };
@@ -169,6 +175,10 @@ function registerTaskIpc({
     start(payload.key, payload.options || {}, event.sender));
 
   ipcMain.handle('zsmm:task-stop', () => {
+    if (!state.activeTask && state.taskSlot) {
+      state.taskSlot.controller.abort(new Error('Подготовка отменена; процесс не запускался'));
+      return { ok: true, data: { stopped: true, pending: true, taskId: state.taskSlot.taskId } };
+    }
     if (!state.activeTask) return { ok: false, error: 'нет запущенной задачи' };
     return { ok: true, data: { stopped: state.activeTask.stop() } };
   });

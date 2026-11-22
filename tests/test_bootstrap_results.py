@@ -9,14 +9,14 @@ from app.core.bootstrap_report import summarize_setup
 
 
 def ready():
-    return {"heavy": {}, "models": {}, "ollama": {"ok": True},
+    return {"heavy": {"failed": [], "skipped": []}, "models": {"failed": [], "skipped": []}, "ollama": {"ok": True},
             "rvc": {"present": True}, "rvc_env": {"ok": True},
             "rvc_trainer": {"present": True}, "readiness_after": 65}
 
 
 def test_setup_success_is_not_inference_proof():
     report = summarize_setup(ready())
-    assert report == {"ok": True, "blockers": [], "inference_verified": False}
+    assert report == {"schema": 1, "ok": True, "blockers": [], "inference_verified": False}
 
 
 @pytest.mark.parametrize("stage,flag", [("rvc", "present"), ("rvc_trainer", "present"),

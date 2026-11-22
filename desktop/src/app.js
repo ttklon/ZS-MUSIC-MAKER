@@ -45,7 +45,7 @@ const $ = (id) => document.getElementById(id);
 W.$ = $;
 
 function showError(message) {
-  window.zsmm?.reportError?.(String(message)).catch(() => {});
+  window.zsmm?.reportError?.({ message: String(message), taskId: state.lastTaskId || null }).catch(() => {});
   const banner = $('error-banner');
   // Текст отдельным узлом: в баннере теперь ещё и кнопка закрытия, и
   // `textContent` на весь баннер стёр бы её.

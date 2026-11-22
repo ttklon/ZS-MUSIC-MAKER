@@ -27,3 +27,23 @@ test('exports only after save dialog and cancellation does not write a file', as
   assert.match(fs.readFileSync(path.join(dir, 'export.log'), 'utf8'), /visible error/);
   assert.equal(handlers['zsmm:report-error'](null, {}).ok, false);
 });
+
+test('task lifecycle and renderer errors correlate without raw prompts argv tokens or media', t => {
+  const { dir, diagnostics } = fixture(t);
+  diagnostics.task('task-id', 'agent-hit', { type: 'start', command: ['secret prompt'] });
+  diagnostics.task('task-id', 'agent-hit', { type: 'stdout', line: 'private lyrics and secret' });
+  diagnostics.task('task-id', 'agent-hit', { type: 'protocol', event: { type: 'error', message: 'token=abc password="multi word" Bearer xyz https://host/private?key=secret' } });
+  diagnostics.record('renderer', 'C:\\Users\\Private\\voice.wav failed api_key=abc', 'task-id');
+  const text = fs.readFileSync(diagnostics.file, 'utf8');
+  assert.match(text, /task-id/); assert.match(text, /python/); assert.match(text, /renderer/);
+  for (const privateValue of ['secret prompt', 'private lyrics', 'token=abc', 'multi word', 'Bearer xyz', 'Private', 'host/private', 'api_key=abc']) assert.ok(!text.includes(privateValue), privateValue);
+  assert.deepEqual(fs.readdirSync(dir), ['startup-errors.jsonl']);
+});
+
+test('canceling diagnostic export does not create a file', async t => {
+  const { dir, diagnostics } = fixture(t); const handlers = {};
+  registerDiagnostics({ ipcMain: { handle: (key, fn) => { handlers[key] = fn; } }, diagnostics,
+    dialog: { showSaveDialog: async () => ({ canceled: true, filePath: path.join(dir, 'must-not-exist') }) } });
+  assert.equal((await handlers['zsmm:export-errors']()).canceled, true);
+  assert.equal(fs.existsSync(path.join(dir, 'must-not-exist')), false);
+});

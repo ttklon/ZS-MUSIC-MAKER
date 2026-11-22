@@ -6,6 +6,8 @@ const { $, el } = W;
 const session = { step: 0, answers: { mood: '', artist: '', refs: '', voice: '' },
   online: false, busy: false, lines: [], error: '', report: null, taskOk: false, detach: [] };
 const labels = ['Замысел', 'Подготовка', 'Создание', 'Результат'];
+let machine = { phase: 'idle', setup: null };
+function move(event) { machine = window.ZSMM_CREATION_STATE.transition(machine, event); }
 let root;
 let restored = false;
 let audioUrl = null;
@@ -68,6 +70,7 @@ function render() {
   });
   const status = el('div', 'studio-session', session.busy ? '● Выполняется задача. Можно открыть «Модели и загрузки» — процесс продолжится.' : session.error ? '● Нужна помощь: причина остановки показана ниже.' : '● Задача не запущена. Выберите следующий шаг.');
   status.setAttribute('role', 'status'); root.append(intro, steps, status);
+  root.append(el('p', 'muted', `Состояние: ${machine.phase}. Подготовка не подтверждает генерацию или пение.`));
   const panel = el('div', 'panel creation-panel');
   nextAction(panel);
   if (session.step === 0) idea(panel);
@@ -129,7 +132,8 @@ function generation(panel) {
   panel.append(el('h3', null, '3. Создадим трек'),
     el('p', null, `Ваш замысел: ${session.answers.mood || 'свободная тема'}. Ориентир: ${session.answers.artist || 'свободный стиль'}.`),
     el('p', 'muted', 'Текст, музыка, голос, сведение и мастеринг проверяются по фактическому результату. Черновик без вокала не будет назван законченной песней.'),
-    button(session.busy ? 'Создание выполняется…' : 'Создать трек', () => launch('agent-hit'), session.busy));
+    button(session.busy ? 'Создание выполняется…' : 'Создать трек', () => launch('agent-hit'), session.busy || machine.setup?.ok !== true));
+  if (machine.setup?.ok !== true) panel.append(el('p', 'creation-error', 'Сначала завершите проверенную подготовку. Код выхода без отчёта недостаточен.'));
   if (!session.busy) panel.append(button('Изменить замысел', () => { session.step = 0; session.error = ''; render(); }));
   running(panel);
 }
@@ -171,6 +175,8 @@ function consume(line) {
 function unsubscribe() { session.detach.splice(0).forEach(off => off()); }
 async function launch(key) {
   if (session.busy) return;
+  if (key === 'agent-hit' && machine.setup?.ok !== true) { session.error = 'Подготовка не подтверждена'; render(); return; }
+  move({ type: key === 'bootstrap' ? 'prepare' : 'generate' });
   const bridge = window.zsmm;
   session.error = ''; session.lines = []; session.report = null; session.taskOk = false;
   if (!bridge?.onTaskEvent || !bridge?.onTaskDone) { session.error = 'Мост приложения недоступен. Откройте установленное приложение.'; render(); return; }
@@ -193,13 +199,15 @@ async function launch(key) {
         if (e.event?.message) consume(e.event.message);
       }
       if (e?.line) consume(e.line);
+      if (e?.type === 'heartbeat' || e?.type === 'stopping' || e?.type === 'cleanup-failed') consume(e.message);
       if (e?.type === 'timeout') consume('Превышено время выполнения.');
       render(); if (W.state?.view === 'models') loadModelsScreen();
     };
     const handleDone = r => {
       unsubscribe(); session.busy = false; session.taskOk = r?.ok === true;
-      if (r?.report) session.report = r.report;
-      if (key === 'bootstrap' && r?.ok) session.step = 2;
+      move({ type: key === 'bootstrap' ? 'prepared' : 'finished', result: r });
+      if (r?.report && key !== 'bootstrap') session.report = r.report;
+      if (key === 'bootstrap' && machine.phase === 'ready') session.step = 2;
       else if (key === 'agent-hit' && session.report) session.step = 3;
       else session.error = r?.timedOut ? 'Операция остановлена по таймауту. Можно повторить.'
         : 'Операция не завершена. ' + session.lines.slice(-4).join(' · ') + ' Можно повторить на этом же шаге.';
@@ -212,8 +220,9 @@ async function launch(key) {
     if (!reply?.ok) throw new Error(reply?.error || 'Запуск не удался');
     taskId = reply.data?.taskId;
     if (!taskId) throw new Error('Исполнитель не вернул идентификатор задачи');
+    if (W.state) W.state.lastTaskId = taskId;
     for (const [handler, value] of pending.splice(0)) route(handler, value);
-  } catch (err) { unsubscribe(); session.busy = false; session.error = err.message; render(); if (W.state?.view === 'models') loadModelsScreen(); }
+  } catch (err) { move({ type: 'failed' }); unsubscribe(); session.busy = false; session.error = err.message; render(); if (W.state?.view === 'models') loadModelsScreen(); }
 }
 async function loadCreation() {
   root = $('agent-body'); render();
