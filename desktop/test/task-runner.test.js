@@ -126,3 +126,37 @@ test('нативная задача ставит и снимает индика�
   assert.equal(reply.ok, true, reply.error);
   assert.deepEqual(progress, ['start', 'exit']);
 });
+
+test('shared single slot rejects a second registration while preparation is awaiting and releases on failure', async t => {
+  const workspace = require('../electron/pipeline-workspace');
+  const original = workspace.prepareWorkspace;
+  let fail;
+  workspace.prepareWorkspace = () => new Promise((_resolve, reject) => { fail = reject; });
+  t.after(() => { workspace.prepareWorkspace = original; });
+  const state = { activeTask: null };
+  const setup = () => registerTaskIpc({ ipcMain: { handle() {} }, root: ROOT,
+    workspaceRoot: 'unused-test-workspace', state, getProject: () => ({}) });
+  const first = setup(), second = setup();
+  const starting = first.start('bootstrap');
+  await new Promise(resolve => setImmediate(resolve));
+  assert.ok(state.taskSlot?.taskId);
+  const rejected = await second.start('bootstrap');
+  assert.equal(rejected.ok, false);
+  assert.equal(rejected.taskId, state.taskSlot.taskId);
+  fail(new Error('fixture preparation failed'));
+  assert.match((await starting).error, /fixture preparation failed/);
+  assert.equal(state.taskSlot, null);
+  const retry = second.start('bootstrap');
+  await new Promise(resolve => setImmediate(resolve));
+  fail(new Error('retry failure'));
+  assert.match((await retry).error, /retry failure/);
+  assert.equal(state.taskSlot, null);
+});
+
+test('native task events and completion carry the same unique ID', async () => {
+  const f = harness();
+  const first = await f.handlers.get('zsmm:task-start')({ sender: f.sender }, { key: 'native-files' });
+  const second = await f.handlers.get('zsmm:task-start')({ sender: f.sender }, { key: 'native-files' });
+  assert.notEqual(first.data.taskId, second.data.taskId);
+  assert.ok(f.sends.every(s => s.payload.taskId && s.payload.eventVersion === 1));
+});

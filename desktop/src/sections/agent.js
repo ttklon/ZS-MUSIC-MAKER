@@ -104,18 +104,13 @@ function parseLog(lines) {
   const result = { masterPath: null, verdict: null, blocked: [], steps: [] };
   for (const raw of lines) {
     const line = String(raw || '');
-    const jsonStart = line.indexOf('{');
-    if (jsonStart !== -1 && line.includes('master_path')) {
-      try {
-        const payload = JSON.parse(line.slice(jsonStart));
-        result.masterPath = payload.master_path || result.masterPath;
-        result.verdict = payload.verdict || result.verdict;
-        if (Array.isArray(payload.blocked)) result.blocked = payload.blocked;
-        continue;
-      } catch (err) {
-        // Строка лога, а не отчёт: покажем её как есть ниже.
-        void err;
-      }
+    const event = window.ZSMM_TASK_EVENTS?.parseEvent(line);
+    if (event?.type === 'done') {
+      const payload = event.report;
+      result.masterPath = payload.master_path || null;
+      result.verdict = payload.verdict || null;
+      result.blocked = Array.isArray(payload.blocked) ? payload.blocked : [];
+      continue;
     }
     if (line.includes(REPORT_MARK)) result.steps.push(line.split(REPORT_MARK)[1].trim());
     else if (line.trim()) result.steps.push(line.trim());
@@ -276,7 +271,10 @@ async function runHit(btnHit) {
 
   const onEvent = (event) => {
     if (!event) return;
-    if (event.type === 'stdout' || event.type === 'stderr') {
+    if (event.type === 'protocol') {
+      collected.push(JSON.stringify(event.event));
+      if (event.event?.message) refs.status.textContent = event.event.message;
+    } else if (event.type === 'stdout' || event.type === 'stderr') {
       collected.push(event.line);
       refs.log.textContent = collected.slice(-400).join('\n');
       refs.log.scrollTop = refs.log.scrollHeight;
@@ -288,6 +286,8 @@ async function runHit(btnHit) {
   const onDone = (done) => {
     btnHit.disabled = false;
     unsubscribe();
+    if (done?.report) collected.push(JSON.stringify({ schema: 'zsmm.task', version: 1,
+      task_id: done.taskId, seq: 1, type: 'done', ok: done.ok, report: done.report }));
     const result = parseLog(collected);
     refs.status.textContent = reportText(result);
     refs.open.disabled = !result.masterPath;

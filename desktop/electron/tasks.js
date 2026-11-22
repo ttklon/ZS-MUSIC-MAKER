@@ -12,6 +12,8 @@
 
 const { spawn } = require('node:child_process');
 const path = require('node:path');
+const { randomUUID } = require('node:crypto');
+const { createTaskStream } = require('./task-stream');
 
 const { nativeTaskList } = require('./native-tasks');
 
@@ -256,7 +258,7 @@ function buildCommand(key, options = {}) {
  * Запустить задачу. `onEvent` получает {type, ...}: start, stdout, stderr,
  * timeout, exit. Возвращает handle с `stop()` и `done` (Promise).
  */
-function runTask({ key, options = {}, python, root, env = process.env, onEvent = () => {} }) {
+function runTask({ key, options = {}, python, root, env = process.env, onEvent = () => {}, taskId = randomUUID() }) {
   if (!python) throw new TaskError('не указан интерпретатор Python');
   const argv = buildCommand(key, options);
   const task = TASKS[key];
@@ -266,7 +268,7 @@ function runTask({ key, options = {}, python, root, env = process.env, onEvent =
   let settled = false;
   const child = spawn(python, [script, ...argv], {
     cwd: root,
-    env: { ...env, PYTHONUNBUFFERED: '1', PYTHONIOENCODING: 'utf-8' },
+    env: { ...env, ZSMM_TASK_ID: taskId, PYTHONUNBUFFERED: '1', PYTHONIOENCODING: 'utf-8' },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
 
@@ -276,25 +278,9 @@ function runTask({ key, options = {}, python, root, env = process.env, onEvent =
     child.kill('SIGKILL');
   }, task.timeoutMs);
 
-  const emitLines = (stream, kind) => {
-    let buffer = '';
-    stream.on('data', (chunk) => {
-      buffer += chunk.toString();
-      let index = buffer.indexOf('\n');
-      while (index !== -1) {
-        const line = buffer.slice(0, index);
-        buffer = buffer.slice(index + 1);
-        onEvent({ type: kind, line });
-        index = buffer.indexOf('\n');
-      }
-    });
-    stream.on('end', () => {
-      if (buffer.length) onEvent({ type: kind, line: buffer });
-    });
-  };
-
-  emitLines(child.stdout, 'stdout');
-  emitLines(child.stderr, 'stderr');
+  const stream = createTaskStream({ taskId, onEvent });
+  stream.attach(child.stdout, 'stdout');
+  stream.attach(child.stderr, 'stderr');
   onEvent({ type: 'start', command: ['main.py', ...argv], label: task.label });
 
   const done = new Promise((resolve) => {
@@ -310,12 +296,16 @@ function runTask({ key, options = {}, python, root, env = process.env, onEvent =
       settled = true;
       clearTimeout(timer);
       onEvent({ type: 'exit', code, signal, timedOut });
-      resolve({ ok: code === 0 && !timedOut, code, signal, timedOut });
+      const { terminal, invalid } = stream.result();
+      const protocolOk = key !== 'agent-hit' || (terminal?.ok === true && !invalid &&
+        terminal.report?.result?.succeeded === true && terminal.report.result.status === 'success');
+      resolve({ ok: code === 0 && !timedOut && protocolOk, code, signal, timedOut,
+        taskId, report: terminal?.report || null, protocolError: invalid || (key === 'agent-hit' && !terminal) });
     });
   });
 
   return {
-    done,
+    done, taskId,
     pid: child.pid,
     command: ['main.py', ...argv],
     stop() {

@@ -6,10 +6,10 @@
       "id": "F01",
       "priority": "P0",
       "scenario": "Рецепт идея → генератор",
-      "reproduce": "modules/agent_guide/runner.py: _generate_hit передаёт make_one только genre/theme/duration_sec",
+      "reproduce": "pytest tests/test_recipe_transport.py; затем установленный мастер → полный рецепт → реальный backend → reopen/export",
       "expected": "voice/use_rvc/BPM/references/lyrics доходят до генератора",
-      "observed": "Подготовленные параметры теряются",
-      "regression": "Spy-контракт всех полей и реальный Windows song/export",
+      "observed": "Передача целого recipe и точного текста исправлена на контрактной границе T0101–T0130; установленный UI и все реальные стадии ещё не приняты",
+      "regression": "tests/test_recipe_transport.py: agent/factory/normalized recipe/snapshot/lyrics stage + реальный Windows UI song/export",
       "depends_on": [],
       "gates": [
         "G0",

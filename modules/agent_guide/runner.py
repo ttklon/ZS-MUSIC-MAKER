@@ -207,7 +207,7 @@ def _voice(plan: dict[str, Any], work_dir: Path) -> dict[str, Any]:
 
         result = prepare_voice(path, use_rvc=True)
         if result.get("ok") and result.get("source") == "rvc":
-            plan["use_rvc"] = True
+            plan["use_rvc"] = False  # already converted; do not run RVC twice
             plan["own_vocal_wav"] = result.get("path") or path
         return result
     except Exception as exc:  # noqa: BLE001
@@ -227,7 +227,7 @@ def _run_pipeline(plan: dict[str, Any], output_root: str,
     if progress:
         progress("HitFactory: бит → микс → мастер → релиз")
     hit = factory.make_one(
-        genre=plan["genre"], theme=plan["theme"], duration_sec=plan.get("duration_sec"),
+        recipe=plan, evolve=False,
     )
     return hit if isinstance(hit, dict) else {}
 
@@ -255,6 +255,7 @@ def run_conversation_hit(payload: dict[str, Any] | None = None,
     lyrics = _lyrics(plan, dossier)
     if lyrics.get("ok"):
         plan["reference_lyrics"] = lyrics["text"]
+        plan["user_lyrics_lines"] = str(lyrics["text"]).splitlines()
         plan["theme"] = plan["theme"] or str(lyrics["text"].splitlines()[0])[:60]
     voice = _voice(plan, Path(output_root))
     hit = _run_pipeline(plan, output_root, say)

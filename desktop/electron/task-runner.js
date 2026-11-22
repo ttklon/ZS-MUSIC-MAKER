@@ -16,6 +16,7 @@
  */
 
 const path = require('node:path');
+const { randomUUID } = require('node:crypto');
 
 const nativeTasks = require('./native-tasks');
 const tasks = require('./tasks');
@@ -67,16 +68,12 @@ function registerTaskIpc({
   getSettings = () => null,
   state = { activeTask: null },
 }) {
-  let preparing = false;
   ipcMain.handle('zsmm:tasks', () => ({ ok: true, data: tasks.taskList() }));
 
-  const start = async (key, options = {}, sender = null) => {
-    if (state.activeTask || preparing) {
-      return { ok: false, error: 'уже выполняется другая задача: сначала остановите её' };
-    }
+  const execute = async (key, options = {}, sender = null, taskId) => {
     const windows = getWindows && getWindows();
     const send = (channel, payload) => {
-      if (sender && !sender.isDestroyed()) sender.send(channel, payload);
+      if (sender && !sender.isDestroyed()) sender.send(channel, { ...payload, taskId, eventVersion: 1 });
     };
 
     // Задачи без Python считает сам главный процесс: это чтение файлов и
@@ -120,13 +117,12 @@ function registerTaskIpc({
     if (!pipeline.root) return { ok: false, error: pipeline.error };
 
     try {
-      preparing = true;
       const runRoot = workspaceRoot
         ? await require('./pipeline-workspace').prepareWorkspace(pipeline.root, workspaceRoot)
         : pipeline.root;
       const settingsValue = (getSettings && getSettings()) || {};
       state.activeTask = tasks.runTask({
-        key,
+        key, taskId,
         options: options || {},
         python,
         root: runRoot,
@@ -138,16 +134,35 @@ function registerTaskIpc({
       });
       state.activeTask.done.then((result) => {
         state.activeTask = null;
+        if (state.taskSlot?.taskId === taskId) state.taskSlot = null;
         send('zsmm:task-done', result);
       });
       return {
         ok: true,
-        data: { pid: state.activeTask.pid, command: state.activeTask.command },
+        data: { pid: state.activeTask.pid, command: state.activeTask.command, taskId },
       };
     } catch (err) {
       state.activeTask = null;
       return { ok: false, error: err.message };
-    } finally { preparing = false; }
+    }
+  };
+
+  // One shared capacity-one queue, including asynchronous workspace preparation.
+  // Conflicts are rejected explicitly; never silently enqueue another pip job.
+  const start = async (key, options = {}, sender = null) => {
+    if (state.activeTask || state.taskSlot) {
+      return { ok: false, error: 'уже выполняется другая задача: сначала остановите её',
+        taskId: state.taskSlot?.taskId || null };
+    }
+    const taskId = randomUUID();
+    state.taskSlot = { taskId, key };
+    try {
+      const result = await execute(key, options, sender, taskId);
+      if (result.ok) result.data = { ...result.data, taskId };
+      return result;
+    } finally {
+      if (!state.activeTask && state.taskSlot?.taskId === taskId) state.taskSlot = null;
+    }
   };
 
   ipcMain.handle('zsmm:task-start', (event, payload = {}) =>

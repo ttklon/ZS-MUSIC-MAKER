@@ -4,7 +4,7 @@
 const W = window.ZSMM_UI;
 const { $, el } = W;
 const session = { step: 0, answers: { mood: '', artist: '', refs: '', voice: '' },
-  online: false, busy: false, lines: [], error: '', report: null, detach: [] };
+  online: false, busy: false, lines: [], error: '', report: null, taskOk: false, detach: [] };
 const labels = ['Замысел', 'Подготовка', 'Создание', 'Результат'];
 let root;
 let restored = false;
@@ -145,7 +145,7 @@ function running(panel) {
 }
 function result(panel) {
   const report = session.report;
-  const complete = report?.result?.schema === 1 && report.result.succeeded === true && report.result.status === 'success' && !(report.blocked || []).length;
+  const complete = session.taskOk && report?.result?.schema === 1 && report.result.succeeded === true && report.result.status === 'success' && !(report.blocked || []).length;
   panel.append(el('h3', null, complete ? '4. Результат создан — послушайте и оцените' : '4. Получен неполный результат'),
     el('p', null, complete ? 'Это результат генерации, а не гарантия коммерческого хита.' : 'Законченная песня не подтверждена. Ниже — отсутствующие части.'));
   if (report?.result) {
@@ -167,16 +167,12 @@ function result(panel) {
 }
 function consume(line) {
   session.lines.push(String(line)); session.lines = session.lines.slice(-1000);
-  const start = String(line).indexOf('{');
-  if (start >= 0 && String(line).includes('master_path')) {
-    try { session.report = JSON.parse(String(line).slice(start)); } catch { /* ordinary log */ }
-  }
 }
 function unsubscribe() { session.detach.splice(0).forEach(off => off()); }
 async function launch(key) {
   if (session.busy) return;
   const bridge = window.zsmm;
-  session.error = ''; session.lines = []; session.report = null;
+  session.error = ''; session.lines = []; session.report = null; session.taskOk = false;
   if (!bridge?.onTaskEvent || !bridge?.onTaskDone) { session.error = 'Мост приложения недоступен. Откройте установленное приложение.'; render(); return; }
   session.busy = true; render(); if (W.state?.view === 'models') loadModelsScreen();
   try {
@@ -185,22 +181,38 @@ async function launch(key) {
       if (!saved?.ok) throw new Error(saved?.error || 'Не удалось сохранить разрешение сети');
     }
     unsubscribe();
-    const onEvent = bridge.onTaskEvent(e => {
+    let taskId = null;
+    const pending = [];
+    const route = (handler, value) => {
+      if (!taskId) { if (pending.length < 1000) pending.push([handler, value]); }
+      else if (value?.taskId === taskId) handler(value);
+    };
+    const handleEvent = e => {
+      if (e?.type === 'protocol') {
+        if (e.event?.type === 'done') session.report = e.event.report;
+        if (e.event?.message) consume(e.event.message);
+      }
       if (e?.line) consume(e.line);
       if (e?.type === 'timeout') consume('Превышено время выполнения.');
       render(); if (W.state?.view === 'models') loadModelsScreen();
-    });
-    const onDone = bridge.onTaskDone(r => {
-      unsubscribe(); session.busy = false;
+    };
+    const handleDone = r => {
+      unsubscribe(); session.busy = false; session.taskOk = r?.ok === true;
+      if (r?.report) session.report = r.report;
       if (key === 'bootstrap' && r?.ok) session.step = 2;
       else if (key === 'agent-hit' && session.report) session.step = 3;
       else session.error = r?.timedOut ? 'Операция остановлена по таймауту. Можно повторить.'
         : 'Операция не завершена. ' + session.lines.slice(-4).join(' · ') + ' Можно повторить на этом же шаге.';
       render(); if (W.state?.view === 'models') loadModelsScreen();
-    });
+    };
+    const onEvent = bridge.onTaskEvent(e => route(handleEvent, e));
+    const onDone = bridge.onTaskDone(r => route(handleDone, r));
     session.detach = [onEvent, onDone].filter(off => typeof off === 'function');
     const reply = key === 'bootstrap' ? await bridge.startTask('bootstrap', {}) : await bridge.agentHit({ ...session.answers });
     if (!reply?.ok) throw new Error(reply?.error || 'Запуск не удался');
+    taskId = reply.data?.taskId;
+    if (!taskId) throw new Error('Исполнитель не вернул идентификатор задачи');
+    for (const [handler, value] of pending.splice(0)) route(handler, value);
   } catch (err) { unsubscribe(); session.busy = false; session.error = err.message; render(); if (W.state?.view === 'models') loadModelsScreen(); }
 }
 async function loadCreation() {

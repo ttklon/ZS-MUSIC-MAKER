@@ -16,8 +16,8 @@ function fixture() {
   const calls = [];
   const bridge = {
     saveSettings: async patch => { calls.push(['settings', patch]); return { ok: true }; },
-    startTask: async key => { calls.push(['task', key]); return { ok: true }; },
-    agentHit: async answers => { calls.push(['argv', buildCommand('agent-hit', answers)]); calls.push(['create', answers]); return { ok: true }; },
+    startTask: async key => { calls.push(['task', key]); return { ok: true, data: { taskId: 'fixture' } }; },
+    agentHit: async answers => { calls.push(['argv', buildCommand('agent-hit', answers)]); calls.push(['create', answers]); return { ok: true, data: { taskId: 'fixture' } }; },
     onTaskEvent: fn => { event = fn; return () => {}; }, onTaskDone: fn => { done = fn; return () => {}; },
     stopTask: async () => ({ ok: true }), agentOpen: async () => ({ ok: true }),
   };
@@ -35,7 +35,7 @@ function fixture() {
     const b = [...root.walk()].find(n => n.tagName === 'BUTTON' && n.textContent === text);
     assert.ok(b, 'button: ' + text); b.dispatch('click'); await flush();
   };
-  return { root, bridge, calls, click, document, urls, ui: window.ZSMM_UI, load: () => window.ZSMM_UI.loadCreation(), event: e => event(e), done: r => done(r) };
+  return { root, bridge, calls, click, document, urls, ui: window.ZSMM_UI, load: () => window.ZSMM_UI.loadCreation(), event: e => event({ taskId: 'fixture', ...e }), done: r => done({ taskId: 'fixture', ...r }) };
 }
 
 test('one window connects idea, preparation, generation and partial result', async () => {
@@ -50,7 +50,7 @@ test('one window connects idea, preparation, generation and partial result', asy
   await f.click('Создать трек');
   assert.equal(f.calls.find(c => c[0] === 'create')[1].mood, 'ночной город');
   assert.deepEqual(f.calls.find(c => c[0] === 'argv')[1], ['--agent-hit', '--agent-mood', 'ночной город']);
-  f.event({ line: JSON.stringify({ master_path: '/music/draft.wav', verdict: 'PARTIAL', blocked: [{ stage: 'voice', reason: 'нет вокала' }] }) });
+  f.event({ type: 'protocol', event: { type: 'done', report: { master_path: '/music/draft.wav', verdict: 'PARTIAL', blocked: [{ stage: 'voice', reason: 'нет вокала' }] } } });
   f.done({ ok: true });
   assert.match(f.root.textContent, /неполный результат/);
   assert.match(f.root.textContent, /нет вокала/);
@@ -81,7 +81,7 @@ test('inline player releases its URL when result is left', async () => {
   await f.load(); await f.click('Далее — подготовить студию');
   await f.click('Проверить и подготовить автоматически'); f.done({ ok: true });
   await f.click('Создать трек');
-  f.event({ line: JSON.stringify({ master_path: '/music/master.wav', verdict: 'PARTIAL' }) }); f.done({ ok: true });
+  f.event({ type: 'protocol', event: { type: 'done', report: { master_path: '/music/master.wav', verdict: 'PARTIAL' } } }); f.done({ ok: true });
   await f.click('Загрузить для прослушивания здесь');
   assert.equal(f.urls.created, 1);
   assert.ok([...f.root.walk()].some(n => n.tagName === 'AUDIO' && n.controls));
@@ -125,8 +125,8 @@ test('legacy HIT flag cannot label a draft as a complete result', async () => {
   const f = fixture(); await f.load(); await f.click('Далее — подготовить студию');
   await f.click('Проверить и подготовить автоматически'); f.done({ ok: true });
   await f.click('Создать трек');
-  f.event({ line: JSON.stringify({ master_path: '/music/draft.wav', verdict: 'HIT', blocked: [],
-    result: { schema: 1, status: 'degraded', succeeded: false, label: 'Речевой черновик', reasons: ['Нет пения'] } }) });
+  f.event({ type: 'protocol', event: { type: 'done', report: { master_path: '/music/draft.wav', verdict: 'HIT', blocked: [],
+    result: { schema: 1, status: 'degraded', succeeded: false, label: 'Речевой черновик', reasons: ['Нет пения'] } } } });
   f.done({ ok: false });
   assert.match(f.root.textContent, /неполный результат/);
   assert.match(f.root.textContent, /Нет пения/);
@@ -145,4 +145,16 @@ test('guide explains actual action and incomplete recipe instead of a false work
   const map = require('../src/core/journey');
   assert.equal(map.length, 4);
   assert.match(map[3].output, /ещё не приняты/);
+});
+
+test('ordinary JSON and foreign task completion never overwrite the active creation result', async () => {
+  const f = fixture(); await f.load(); await f.click('Далее — подготовить студию');
+  await f.click('Проверить и подготовить автоматически'); f.done({ ok: true });
+  await f.click('Создать трек');
+  f.event({ line: '{"master_path":"fake.wav","verdict":"COMPLETE"}' });
+  f.event({ taskId: 'foreign', type: 'protocol', event: { type: 'done', report: { master_path: 'foreign.wav' } } });
+  f.done({ taskId: 'foreign', ok: true, report: { master_path: 'foreign.wav' } });
+  assert.doesNotMatch(f.root.textContent, /4\. Получен/);
+  f.done({ ok: false });
+  assert.doesNotMatch(f.root.textContent, /Загрузить для прослушивания здесь/);
 });

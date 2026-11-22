@@ -15,35 +15,18 @@
  */
 
 const path = require('node:path');
+const { parseEvent } = require('../src/core/task-events');
+const REPORT_PREFIX = '[agent-hit]'; // legacy display prefix, never a result marker
 
-/** Последняя строка отчёта агентика — JSON (его печатает `app/cli/agent_task.py`). */
-const REPORT_PREFIX = '[agent-hit]';
-
-/**
- * Найти путь к мастеру в выводе задачи.
- *
- * Python печатает `{"verdict": …, "master_path": …}` в конце. Разбираем любую
- * строку с `master_path`, а не только последнюю: между отчётом и итогом может
- * оказаться строка предупреждения, и терять из-за неё результат нельзя.
- */
+/** Extract only the typed terminal record. Legacy arbitrary JSON is a log. */
 function parseMasterPath(lines) {
   if (!Array.isArray(lines)) return { masterPath: null, verdict: null };
   for (let index = lines.length - 1; index >= 0; index -= 1) {
     const line = String(lines[index] || '');
-    const start = line.indexOf('{');
-    if (start === -1 || !line.includes('master_path')) continue;
-    try {
-      const payload = JSON.parse(line.slice(start));
-      if (payload && typeof payload.master_path === 'string' && payload.master_path) {
-        return { masterPath: payload.master_path, verdict: payload.verdict || null };
-      }
-      // Мастера нет, но отчёт есть: вердикт важнее пустого пути.
-      if (payload && payload.verdict) return { masterPath: null, verdict: payload.verdict };
-    } catch (err) {
-      // Строка лога, а не отчёт: идём дальше вверх. Ошибка разбора здесь
-      // ожидаема и не является ошибкой задачи.
-      void err;
-    }
+    const event = parseEvent(line);
+    if (event?.type !== 'done') continue;
+    const payload = event.report;
+    return { masterPath: payload.master_path || null, verdict: payload.verdict || null };
   }
   return { masterPath: null, verdict: null };
 }

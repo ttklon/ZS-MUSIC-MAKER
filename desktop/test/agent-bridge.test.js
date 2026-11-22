@@ -56,7 +56,7 @@ test('ошибка запуска отдаётся строкой, а не ис�
 test('мастер читается из отчёта Python, а не из последней строки', () => {
   const lines = [
     '[agent-hit] Агент понял: тема=ночь',
-    '{"verdict": "HIT", "master_path": "C:/hits/master.wav", "hit_score": 74.2}',
+    JSON.stringify({ schema: 'zsmm.task', version: 1, task_id: 'test', seq: 1, type: 'done', ok: false, report: { verdict: 'HIT', master_path: 'C:/hits/master.wav', hit_score: 74.2 } }),
     '[agent-hit] Готово за 91 с',
   ];
   const result = parseMasterPath(lines);
@@ -65,7 +65,7 @@ test('мастер читается из отчёта Python, а не из по�
 });
 
 test('отчёт с verdict=FAILED не выдаёт себя за готовый трек', () => {
-  const result = parseMasterPath(['{"verdict": "FAILED", "master_path": null}']);
+  const result = parseMasterPath([JSON.stringify({ schema: 'zsmm.task', version: 1, task_id: 'test', seq: 1, type: 'done', ok: false, report: { verdict: 'FAILED', master_path: null } })]);
   assert.equal(result.masterPath, null);
   assert.equal(result.verdict, 'FAILED');
 });

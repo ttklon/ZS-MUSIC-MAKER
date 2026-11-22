@@ -3,7 +3,7 @@
 app/cli/agent_task.py — «Сделать хит» из окна: тихая докачка, прогон, отчёт.
 
 Почему отдельная задача, а не `--hit-factory`: окну нужен не список треков,
-а один понятный результат и построчный лог. Плюс первый запуск обязан сам
+а один результат в версионированном NDJSON и отдельный обычный лог. Плюс первый запуск обязан сам
 себя подготовить: `--agent-hit` сначала молча проверяет тяжёлые движки и,
 если сеть разрешена, докачивает их — иначе человек нажимает кнопку и получает
 «heavy engines unavailable» вместо трека.
@@ -15,8 +15,6 @@ app/cli/agent_task.py — «Сделать хит» из окна: тихая д
 """
 
 from __future__ import annotations
-
-import json
 
 from app.cli.env import safe_print
 
@@ -42,16 +40,15 @@ def _prepare(allow_online: bool) -> dict:
         return {"error": f"{type(exc).__name__}: {exc}"}
 
 
-def _progress(message: str) -> None:
-    safe_print(f"[agent-hit] {message}")
-
-
 def run_agent_hit(args) -> int:
     """Код 0 — контракт результата принят, 1 — неполный/ошибочный результат, 2 — сбой."""
     from app.core.net_policy import network_allowed
 
+    from app.cli.task_events import TaskEvents
+
+    events = TaskEvents()
     allow_online = bool(getattr(args, "online", False)) or network_allowed()
-    _progress("проверяю окружение и движки (тихо, без вопросов)…")
+    events.progress("Проверяю окружение и движки…")
     _prepare(allow_online)
 
     try:
@@ -60,25 +57,24 @@ def run_agent_hit(args) -> int:
         report = run_conversation_hit(
             build_payload(args),
             output_root=getattr(args, "agent_output", "") or "output/hits",
-            progress=_progress,
+            progress=events.progress,
         )
     except Exception as exc:  # noqa: BLE001 — причина видна человеку, не трейсбек
-        safe_print(f"[agent-hit] прогон упал: {type(exc).__name__}: {exc}")
+        events.emit("error", message=f"{type(exc).__name__}: {exc}")
+        events.emit("done", ok=False, report={"error": str(exc)})
         return 2
 
     from app.pipeline.result import assess_result
     result = assess_result(report)
-    safe_print(json.dumps(
-        {
-            "verdict": "COMPLETE" if result["succeeded"] else ("FAILED" if result["status"] in ("failed", "canceled") else "PARTIAL"),
-            "result": result,
-            "master_path": report.get("master_path"),
-            "hit_score": report.get("hit_score"),
-            "blocked": report.get("blocked"),
-            "elapsed_sec": report.get("elapsed_sec"),
-        },
-        ensure_ascii=False,
-    ))
+    summary = {
+        "verdict": "COMPLETE" if result["succeeded"] else ("FAILED" if result["status"] in ("failed", "canceled") else "PARTIAL"),
+        "result": result, "master_path": report.get("master_path"),
+        "hit_score": report.get("hit_score"), "blocked": report.get("blocked"),
+        "elapsed_sec": report.get("elapsed_sec"),
+    }
+    if report.get("master_path"):
+        events.emit("artifact", role="master", path=str(report["master_path"]))
+    events.emit("done", ok=result["succeeded"], report=summary)
     for line in narrate(report).splitlines():
         safe_print(f"[agent-hit] {line}")
     return 0 if result["succeeded"] else 1

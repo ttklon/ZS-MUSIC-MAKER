@@ -90,7 +90,6 @@ def build_recipe(wizard_state: dict[str, Any] | None) -> dict[str, Any]:
     state = dict(wizard_state or {})
     preset_key = state.get("preset")
     preset_sv = _preset_style_vector(preset_key)
-
     theme = str(state.get("theme") or "лето, тачки, движ")
     extra_prompt = str(state.get("user_extra_prompt") or "").strip()
     if extra_prompt and extra_prompt not in theme:
@@ -134,6 +133,7 @@ def build_recipe(wizard_state: dict[str, Any] | None) -> dict[str, Any]:
         "artist": state.get("artist") or state.get("artist_name") or "ZS Producer",
         "preset": preset_key,
         "preset_style_vector": preset_sv,
+        "style_vector": dict(state.get("style_vector") or {}),
         "bpm_override": _as_int(state.get("bpm_override")),
         "aggression": aggression,
         "duration_sec": _as_int(state.get("duration_sec")),
@@ -200,6 +200,8 @@ def resolve_style_vector(recipe: dict[str, Any], analysis: Any) -> dict[str, Any
             style["target_mode"] = preset_sv["target_mode"]
         if preset_sv.get("prompt_hint"):
             style["prompt_hint"] = preset_sv["prompt_hint"]
+    if isinstance(recipe.get("style_vector"), dict):
+        style.update(recipe["style_vector"])
     if isinstance(analysis, dict):
         bpm = analysis.get("bpm") or analysis.get("target_bpm")
         mode = analysis.get("mode") or analysis.get("target_mode")

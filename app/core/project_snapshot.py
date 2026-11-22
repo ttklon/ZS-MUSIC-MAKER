@@ -28,7 +28,7 @@ RECIPE_KEYS = frozenset({
     "adaptive_level", "enhanced_dsp", "musicgen_model", "musicgen_device",
     # Почему референс не применился: проект обязан переоткрываться вместе с
     # этим объяснением, иначе причина отказа «схлопывается» при переоткрытии.
-    "reference_warnings",
+    "reference_warnings", "style_vector",
 })
 
 

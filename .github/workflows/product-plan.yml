@@ -4,6 +4,19 @@ on:
     branches: ['arena/bbed83d1-zs-music-maker']
     paths:
       - 'docs/plan/**'
+      - 'docs/RECIPE_TRANSPORT.md'
+      - 'app/core/recipe.py'
+      - 'app/core/project_snapshot.py'
+      - 'app/cli/task_events.py'
+      - 'app/cli/agent_task.py'
+      - 'modules/hit_factory/**'
+      - 'modules/agent_guide/runner.py'
+      - 'tests/test_recipe_transport.py'
+      - 'desktop/electron/task*.js'
+      - 'desktop/electron/agent-service.js'
+      - 'desktop/src/core/task-events.js'
+      - 'desktop/test/task*.test.js'
+      - 'desktop/test/creation.test.js'
       - 'docs/release/**'
       - 'tools/release_gate.py'
       - 'tests/test_release_gate.py'
@@ -55,7 +68,7 @@ jobs:
       - name: Check 1000 tasks and dependency graph (not application readiness)
         run: python tools/build_product_plan.py --check
       - name: Install plan test dependency
-        run: python -m pip install pytest
+        run: python -m pip install pytest numpy soundfile
       - name: Observe closed publication gate without publishing
         env:
           PYTHONIOENCODING: utf-8
@@ -73,7 +86,7 @@ jobs:
           path: ${{ runner.temp }}/release-gate.json
           retention-days: 7
       - name: Plan and publication contract regression tests only
-        run: python -m pytest tests/test_product_plan.py tests/test_release_gate.py -q
+        run: python -m pytest tests/test_product_plan.py tests/test_release_gate.py tests/test_recipe_transport.py -q
 
   packaged-product-specification:
     runs-on: windows-latest
@@ -86,7 +99,7 @@ jobs:
       - name: Product contract and UI regression tests
         run: |
           node desktop/scripts/product-spec.js --check
-          node --test desktop/test/product-contract.test.js desktop/test/render.test.js desktop/test/ui-contract.test.js desktop/test/updater.test.js
+          node --test desktop/test/product-contract.test.js desktop/test/render.test.js desktop/test/ui-contract.test.js desktop/test/updater.test.js desktop/test/creation.test.js desktop/test/task-stream.test.js desktop/test/task-runner.test.js desktop/test/tasks.test.js desktop/test/agent-bridge.test.js
       - name: Install build tools and Electron
         working-directory: desktop
         run: |

@@ -248,3 +248,32 @@ test('task completes after trailing stdout report has been delivered', async t =
   assert.equal(result.ok, true);
   assert.equal(lines.at(-1), '{"master_path":"/final.wav"}');
 });
+
+test('real subprocess protocol survives noise and UTF8 splits, exit alone never certifies agent success', async t => {
+  const os = require('node:os');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'zsmm-protocol-process-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const interpreter = python();
+  assert.ok(interpreter, 'Python required on Windows and Linux');
+  const script = `import json, os
+print('noise {"master_path":"fake.wav"}', flush=True)
+e = dict(schema='zsmm.task', version=1, task_id=os.environ['ZSMM_TASK_ID'], seq=1, type='progress', message='Ночь\\nстрока')
+for b in (json.dumps(e, ensure_ascii=False) + '\\n').encode('utf-8'):
+    os.write(1, bytes([b]))
+e.update(seq=2, type='done', ok=False, report=dict(master_path=None, verdict='PARTIAL'))
+print(json.dumps(e), flush=True)
+`;
+  fs.writeFileSync(path.join(dir, 'main.py'), script, 'utf8');
+  const events = [];
+  const handle = runTask({ key: 'agent-hit', root: dir, python: interpreter, onEvent: e => events.push(e) });
+  const result = await handle.done;
+  assert.equal(result.code, 0);
+  assert.equal(result.ok, false);
+  assert.equal(result.protocolError, false);
+  assert.equal(result.report.verdict, 'PARTIAL');
+  assert.equal(events.find(e => e.type === 'protocol').event.message, 'Ночь\nстрока');
+  fs.writeFileSync(path.join(dir, 'main.py'), 'print(\'{"master_path":"fake.wav"}\')');
+  const missing = await runTask({ key: 'agent-hit', root: dir, python: interpreter }).done;
+  assert.equal(missing.ok, false);
+  assert.equal(missing.protocolError, true);
+});

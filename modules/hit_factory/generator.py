@@ -216,6 +216,7 @@ class HitFactory:
         own_vocal_wav: str | None = None,
         use_rvc: bool | None = None,
         artist: str | None = None,
+        recipe: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Сгенерить один хит с эволюцией. Возвращает лучший attempt dict.
 
@@ -224,24 +225,22 @@ class HitFactory:
         анализировал референсы и выбрасывал их, а отчёт показывал
         `n_refs: 0`/`source: genre_default` без единого предупреждения.
         """
-        genre = _maybe_auto_genre(genre, theme)
-        rng = random.Random(int(seed) if seed is not None else random.randint(1, 1_000_000))
+        from modules.hit_factory.recipe_input import factory_recipe
+
+        if recipe is not None and any(value is not None for value in (
+            genre, theme, seed, bpm_override, aggression, duration_sec,
+            references, reference_warnings, own_vocal_wav, use_rvc, artist,
+        )):
+            raise ValueError("recipe cannot be mixed with legacy keyword overrides")
+        inputs = recipe if recipe is not None else {"genre": _maybe_auto_genre(genre, theme),
+            "theme": theme, "seed": seed, "bpm_override": bpm_override,
+            "aggression": aggression, "duration_sec": duration_sec}
+        rng = random.Random(inputs.get("seed"))
         do_evolve = self.evolve if evolve is None else bool(evolve)
-        base_state = self._build_wizard_state(
-            genre=genre or "",
-            theme=theme or "",
-            bpm_override=bpm_override,
-            aggression=aggression,
-            seed=seed,
-            duration_sec=duration_sec,
-            rng=rng,
-        )
-        # `_build_wizard_state` знает только базовые поля; референсы и причина
-        # их отказа добавляются здесь — через один вызов, без повторов.
-        _apply_overrides(
-            base_state, references=references, reference_warnings=reference_warnings,
-            own_vocal_wav=own_vocal_wav, use_rvc=use_rvc, artist=artist,
-        )
+        base_state = factory_recipe(inputs, self._build_wizard_state, rng, strict=recipe is not None)
+        if recipe is None:
+            _apply_overrides(base_state, references=references, reference_warnings=reference_warnings,
+                             own_vocal_wav=own_vocal_wav, use_rvc=use_rvc, artist=artist)
 
         attempts: list[dict[str, Any]] = []
         cur_state = dict(base_state)
