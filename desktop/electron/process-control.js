@@ -1,5 +1,6 @@
 'use strict';
 const { spawn } = require('node:child_process');
+const path = require('node:path');
 /** Isolated process groups on POSIX; Windows taskkill /T /F includes pip/workers.
  * Acknowledging a request is NOT completion. Caller waits for close and this result.
  */
@@ -10,7 +11,7 @@ function terminateTree(pid, platform = process.platform) {
     catch (e) { return Promise.resolve({ confirmed: e.code === 'ESRCH', error: e.code === 'ESRCH' ? null : e.message }); }
   }
   return new Promise(resolve => {
-    const killer = spawn('taskkill.exe', ['/PID', String(pid), '/T', '/F'], { windowsHide: true, stdio: 'ignore' });
+    const killer = spawn(path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'taskkill.exe'), ['/PID', String(pid), '/T', '/F'], { windowsHide: true, stdio: 'ignore' });
     let settled = false;
     const finish = result => { if (!settled) { settled = true; clearTimeout(timer); resolve(result); } };
     const timer = setTimeout(() => { killer.kill(); finish({ confirmed: false, error: 'taskkill timed out' }); }, 15000);
