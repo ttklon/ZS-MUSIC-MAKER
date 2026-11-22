@@ -31,6 +31,10 @@ function checkWindow(window, app) {
       if (report.ok) {
         report.navigation = await window.webContents.executeJavaScript(`(async () => {
           const results = [];
+          const guide = document.getElementById('creation-next-action');
+          const guideLink = guide?.querySelector('button');
+          guideLink?.click();
+          results.push({ view: 'journey-guide', ok: !!guideLink && window.ZSMM_UI.state.view === 'settings' });
           for (const view of ['models', 'settings', 'help', 'agent']) {
             document.querySelector('[data-view="' + view + '"]').click();
             const deadline = Date.now() + 5000;

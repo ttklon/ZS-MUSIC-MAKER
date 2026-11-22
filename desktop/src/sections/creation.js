@@ -69,6 +69,7 @@ function render() {
   const status = el('div', 'studio-session', session.busy ? '● Выполняется задача. Можно открыть «Модели и загрузки» — процесс продолжится.' : session.error ? '● Нужна помощь: причина остановки показана ниже.' : '● Задача не запущена. Выберите следующий шаг.');
   status.setAttribute('role', 'status'); root.append(intro, steps, status);
   const panel = el('div', 'panel creation-panel');
+  nextAction(panel);
   if (session.step === 0) idea(panel);
   if (session.step === 1) preparation(panel);
   if (session.step === 2) generation(panel);
@@ -79,6 +80,20 @@ function render() {
     const details = el('details', 'creation-log'); details.open = true; details.append(el('summary', null, 'Журнал — реальные сообщения движка'));
     details.append(el('pre', 'output', session.lines.slice(-300).join('\n'))); root.append(details);
   }
+}
+function nextAction(panel) {
+  const step = window.ZSMM_JOURNEY?.[session.step];
+  if (!step) {
+    panel.append(el('p', 'creation-error', 'Карта действий недоступна. Откройте справку или сохраните ошибки.'));
+    return;
+  }
+  const box = el('div', 'studio-session'); box.id = 'creation-next-action'; box.setAttribute('aria-label', 'Что делать сейчас');
+  box.append(el('h3', null, step.title), el('p', null, step.action), el('p', 'muted', step.output));
+  box.append(button(step.link, () => {
+    const nav = document.querySelector(`[data-view="${step.view}"]`);
+    if (nav) nav.click(); else { session.error = 'Раздел недоступен: ' + step.view; render(); }
+  }));
+  panel.append(box);
 }
 function idea(panel) {
   panel.append(el('h3', null, '1. Какую песню вы хотите?'),

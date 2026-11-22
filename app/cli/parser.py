@@ -13,6 +13,8 @@ import argparse
 
 def _add_core_flags(parser: argparse.ArgumentParser) -> None:
     """Основные входы: пайплайны, диагностика, окно."""
+    parser.add_argument("--entrypoints", action="store_true", help="Show primary, engineering and unsupported legacy entrypoints; no downloads")
+    parser.add_argument("--resource-policy", action="store_true", help="Read resource provenance; incomplete license review returns nonzero, no downloads")
     parser.add_argument("--god", action="store_true", help="Launch the ULTIMATE GOD MODE pipeline")
     parser.add_argument("--async-mode", action="store_true", help="Launch parallel async pipeline")
     parser.add_argument("--genre", type=str, default="drift_phonk", help="Target genre (100+ available)")
@@ -22,8 +24,8 @@ def _add_core_flags(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--self-diag", action="store_true", help="Run system self-diagnostics")
     parser.add_argument("--health", action="store_true", help="Check system health and GPU")
     parser.add_argument("--version", "-V", action="store_true", help="Show version info")
-    parser.add_argument("--gradio", action="store_true", help="Launch Web UI (Gradio)")
-    parser.add_argument("--desktop", action="store_true", help="Launch Desktop UI (PySide6)")
+    parser.add_argument("--gradio", action="store_true", help="LEGACY, not the supported studio: launch Gradio explicitly")
+    parser.add_argument("--desktop", action="store_true", help="LEGACY, not the supported studio: launch PySide6 explicitly")
     parser.add_argument("--run", action="store_true", help="Run the full classic pipeline without GUI")
     parser.add_argument("--dry-run", action="store_true", help="Run pipeline in dry-run (no heavy deps)")
     parser.add_argument("--seed", type=int, default=None, help="Deterministic seed (same seed => identical beat/artefacts)")
@@ -74,7 +76,7 @@ def _add_agent_flags(parser: argparse.ArgumentParser) -> None:
 def _add_engine_flags(parser: argparse.ArgumentParser) -> None:
     """Сеть, докачка движков и обучение голоса (RVC)."""
     parser.add_argument("--online", action="store_true", help="Разрешить сеть для докачки моделей/референсов (иначе offline)")
-    parser.add_argument("--bootstrap", action="store_true", help="Тихий авто-докач всего тяжёлого: torch/audiocraft/demucs/whisper/RVC base/ollama → готовность до 100 %% если сеть разрешена")
+    parser.add_argument("--bootstrap", action="store_true", help="Подготовить движки с разрешением сети; установка не подтверждает inference или готовность песни")
     parser.add_argument("--auto-bootstrap", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--rvc-fork", type=str, default="", metavar="FORK",
                         help="Подтянуть тренер RVC для клонирования голоса: applio | mangio | rvc-webui")

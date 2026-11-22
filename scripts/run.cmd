@@ -1,6 +1,8 @@
 @echo off
 REM ZS Music Maker - запуск мастера с консолью (видно прогресс и ошибки)
 setlocal
+echo LEGACY developer launcher - not the supported Electron studio.
+echo Open installed ZS Music Maker for the primary application.
 cd /d "%~dp0.."
 if not exist ".venv\Scripts\python.exe" (
     echo [run] окружение не найдено - запускаю setup ...

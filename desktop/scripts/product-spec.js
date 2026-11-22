@@ -10,7 +10,7 @@ function summary(c) {
     '<!-- product-contract:start -->',
     `**Основной продукт:** ${c.name} · ${c.platform}.`,
     `**Вход:** ${c.entry}. **Статус:** ${c.state}`,
-    '', c.delivery, '', c.network, '',
+    '', c.delivery, '', c.network, '', c.rights, '',
     ...c.scenarios.map(s => `- **${s.name} — ${s.accepted ? 'принят' : 'не принят'}.** ${s.result} ${s.blocker}`),
     '', ...c.notEquivalent.map(s => '- ' + s),
     '<!-- product-contract:end -->'

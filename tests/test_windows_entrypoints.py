@@ -92,5 +92,6 @@ def test_verify_runs_full_gate_set() -> None:
 
 def test_readme_documents_one_click_path() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
-    assert "scripts\\setup.cmd" in readme or "scripts/setup.cmd" in readme
-    assert "run_silent.cmd" in readme or "build_exe.cmd" in readme
+    assert "releases/latest" in readme
+    assert "ZS-Music-Maker-Setup-" in readme
+    assert "desktop/README.md" in readme

@@ -4,6 +4,17 @@ on:
     branches: ['arena/bbed83d1-zs-music-maker']
     paths:
       - 'docs/plan/**'
+      - 'main.py'
+      - 'app/core/entrypoints.py'
+      - 'app/core/resource_policy.py'
+      - 'app/cli/parser.py'
+      - 'app/cli/probes.py'
+      - 'agents/sample_hunter/license.py'
+      - 'desktop/src/core/journey.js'
+      - 'docs/ENTRYPOINTS.md'
+      - 'docs/USER_JOURNEY.md'
+      - 'docs/RESOURCE_POLICY.md'
+      - 'tests/test_product_maps.py'
       - 'app/pipeline/**'
       - 'app/ai/profiles.py'
       - 'app/cli/agent_task.py'
@@ -92,7 +103,15 @@ jobs:
       - name: Install lightweight contract test runtime (no models)
         run: python -m pip install pytest numpy soundfile psutil
       - name: Real WAV contract and canonical outcome regressions
-        run: python -m pytest tests/test_result_acceptance_contract.py tests/test_task_outcome_contract.py tests/test_hardware_profiles_contract.py -q
+        run: python -m pytest tests/test_result_acceptance_contract.py tests/test_task_outcome_contract.py tests/test_hardware_profiles_contract.py tests/test_product_maps.py -q
+      - name: Check read-only CLI entrypoint registry
+        run: python main.py --entrypoints
+      - name: Inspect resource provenance (incomplete rights are expected)
+        shell: pwsh
+        run: |
+          python main.py --resource-policy
+          if ($LASTEXITCODE -ne 1) { throw 'Expected an incomplete resource-rights review, not blanket permission' }
+          exit 0
       - name: Measure this runner without claiming inference or GPU support
         run: python tools/measure_hardware_profile.py --out output/contracts/hardware.json
       - uses: actions/upload-artifact@v4

@@ -21,7 +21,7 @@ function productPanels() {
   }
   const intro = section('Поддерживаемый продукт', [
     ['Приложение', c.name + ' · ' + c.platform], ['Основное окно', c.entry],
-    ['Статус', c.state], ['Поставка', c.delivery], ['Сеть', c.network], ['Оборудование', c.hardware]
+    ['Статус', c.state], ['Поставка', c.delivery], ['Сеть', c.network], ['Оборудование', c.hardware], ['Права ресурсов', c.rights]
   ]);
   intro.id = 'product-contract'; intro.setAttribute('data-product-id', c.id);
   return [intro,

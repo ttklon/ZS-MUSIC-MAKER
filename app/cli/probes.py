@@ -27,3 +27,18 @@ def health_snapshot() -> dict:
     except Exception as e:
         safe_print(f"[main] health not available: {e}")
         return {"verdict": "UNKNOWN", "percent": 0}
+
+
+def entrypoint_snapshot() -> int:
+    import json
+    from app.core.entrypoints import ENTRYPOINTS
+    safe_print(json.dumps({"schema": 1, "entrypoints": ENTRYPOINTS}, ensure_ascii=False, indent=2))
+    return 0
+
+
+def resource_policy_snapshot() -> int:
+    import json
+    from app.core.resource_policy import resource_inventory
+    report = resource_inventory()
+    safe_print(json.dumps(report, ensure_ascii=False, indent=2))
+    return 0 if report["coverage_complete"] else 1

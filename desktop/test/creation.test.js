@@ -21,7 +21,7 @@ function fixture() {
     onTaskEvent: fn => { event = fn; return () => {}; }, onTaskDone: fn => { done = fn; return () => {}; },
     stopTask: async () => ({ ok: true }), agentOpen: async () => ({ ok: true }),
   };
-  const window = { zsmm: bridge, ZSMM_SECTIONS: {}, ZSMM_UI: {
+  const window = { zsmm: bridge, ZSMM_JOURNEY: require('../src/core/journey'), ZSMM_SECTIONS: {}, ZSMM_UI: {
     state: { view: 'agent' },
     $: id => document.getElementById(id),
     el: (tag, cls, text) => { const n = document.createElement(tag); n.textContent = text || ''; n.className = cls || ''; return n; },
@@ -131,4 +131,18 @@ test('legacy HIT flag cannot label a draft as a complete result', async () => {
   assert.match(f.root.textContent, /неполный результат/);
   assert.match(f.root.textContent, /Нет пения/);
   assert.match(f.root.textContent, /Речевой черновик/);
+});
+
+
+test('guide explains actual action and incomplete recipe instead of a false workflow promise', async () => {
+  const f = fixture(); await f.load();
+  assert.match(f.root.textContent, /Сначала — замысел/);
+  assert.match(f.root.textContent, /Полный рецепт/);
+  assert.match(f.root.textContent, /Открыть настройки/);
+  await f.click('Далее — подготовить студию');
+  assert.match(f.root.textContent, /Затем — подготовка/);
+  assert.match(f.root.textContent, /не доказывает готовность модели/);
+  const map = require('../src/core/journey');
+  assert.equal(map.length, 4);
+  assert.match(map[3].output, /ещё не приняты/);
 });

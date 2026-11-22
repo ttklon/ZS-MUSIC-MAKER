@@ -12,6 +12,10 @@ from __future__ import annotations
 
 def _license_gate(items: list[dict], allow_user_override: bool = False) -> list[dict]:
     """Пропустить только CC0 / PD / CC-BY / RF. NC/SA/unknown — блокируются."""
+    # This legacy search filter is not legal acceptance of a commercial release.
+    for item in items:
+        item["commercial_use_verified"] = False
+        item["rights_status"] = "requires_resource_review"
     try:
         from app.core.license_manager import is_free_commercial
     except Exception:  # менеджер недоступен — не выдаём непроверенное
