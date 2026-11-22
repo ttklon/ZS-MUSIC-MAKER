@@ -87,3 +87,12 @@ test('runtime cache, temp and logs stay in writable workspace independently of c
   for (const value of Object.values(env)) assert.ok(value.startsWith(target + path.sep) || value === target);
   await assert.rejects(fs.stat(path.join(source, 'logs')), { code: 'ENOENT' });
 });
+
+test('a nested model-cache junction is rejected before cache writes', async t => {
+  const { source, target } = await fixture(t);
+  await prepareWorkspace(source, target);
+  await fs.mkdir(path.join(target, 'cache'));
+  await fs.symlink(source, path.join(target, 'cache', 'huggingface'), process.platform === 'win32' ? 'junction' : 'dir');
+  await assert.rejects(require('../electron/workspace-layout').runtimeEnvironment(target), /link|junction/i);
+  await assert.rejects(fs.stat(path.join(source, 'logs')), { code: 'ENOENT' });
+});
