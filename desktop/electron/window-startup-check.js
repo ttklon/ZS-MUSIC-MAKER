@@ -31,14 +31,15 @@ function checkWindow(window, app) {
       if (report.ok) {
         report.navigation = await window.webContents.executeJavaScript(`(async () => {
           const results = [];
-          for (const view of ['models', 'settings', 'agent']) {
+          for (const view of ['models', 'settings', 'help', 'agent']) {
             document.querySelector('[data-view="' + view + '"]').click();
             const deadline = Date.now() + 5000;
             while (!window.ZSMM_UI.state.loaded.has(view) && Date.now() < deadline)
               await new Promise(r => setTimeout(r, 50));
             const section = document.getElementById('view-' + view);
             results.push({ view, ok: !section.classList.contains('is-hidden') &&
-              window.ZSMM_UI.state.loaded.has(view) && section.textContent.trim().length > 20 });
+              window.ZSMM_UI.state.loaded.has(view) && section.textContent.trim().length > 20 &&
+              (view !== 'help' || document.getElementById('product-contract')?.getAttribute('data-product-id') === 'zsmm-windows-studio') });
           }
           return results;
         })()`);

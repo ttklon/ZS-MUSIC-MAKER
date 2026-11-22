@@ -4,6 +4,14 @@ on:
     branches: ['arena/bbed83d1-zs-music-maker']
     paths:
       - 'docs/plan/**'
+      - 'docs/PRODUCT.md'
+      - 'README.md'
+      - 'desktop/src/core/product-contract.js'
+      - 'desktop/src/sections/help.js'
+      - 'desktop/src/index.html'
+      - 'desktop/scripts/product-spec.js'
+      - 'desktop/test/product-contract.test.js'
+      - 'desktop/electron/window-startup-check.js'
       - 'tools/build_product_plan.py'
       - 'tests/test_product_plan.py'
       - '.github/workflows/product-plan.yml'
@@ -25,3 +33,41 @@ jobs:
         run: python -m pip install pytest
       - name: Plan regression tests only
         run: python -m pytest tests/test_product_plan.py -q
+
+  packaged-product-specification:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Product contract and UI regression tests
+        run: |
+          node desktop/scripts/product-spec.js --check
+          node --test desktop/test/product-contract.test.js desktop/test/render.test.js desktop/test/ui-contract.test.js
+      - name: Install build tools and Electron
+        working-directory: desktop
+        run: |
+          npm install --ignore-scripts --no-audit --no-fund
+          node node_modules/electron/install.js
+      - name: Package development application (no release publication)
+        working-directory: desktop
+        run: npm run dist:dir
+      - name: Real packaged help matches product specification
+        shell: pwsh
+        run: |
+          $env:ZSMM_WINDOW_CHECK_OUT = Join-Path $env:RUNNER_TEMP 'product-spec-window.json'
+          $p = Start-Process -FilePath 'desktop/dist/win-unpacked/ZS Music Maker.exe' -ArgumentList '--window-check' -PassThru
+          if (-not $p.WaitForExit(60000)) { $p.Kill(); throw 'Packaged window hung' }
+          if (-not (Test-Path $env:ZSMM_WINDOW_CHECK_OUT)) { throw 'Missing window report' }
+          Get-Content $env:ZSMM_WINDOW_CHECK_OUT
+          $r = Get-Content $env:ZSMM_WINDOW_CHECK_OUT -Raw | ConvertFrom-Json
+          if ($p.ExitCode -ne 0 -or -not $r.ok) { throw 'Packaged specification check failed' }
+          Write-Output '::notice title=Product specification verified::Real packaged Electron: models, settings, help contract and creation. NOT song generation or clean NSIS installation.'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: product-spec-window
+          path: ${{ runner.temp }}/product-spec-window.json
+          retention-days: 7

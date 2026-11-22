@@ -5,7 +5,7 @@
 | agents/sample_hunter/config.py | REAL_PASS | PASS | 3 | 53 |
 | agents/sample_hunter/hunter.py | REAL_PASS | PASS | 1 | 99 |
 | agents/sample_hunter/license.py | REAL_PASS | PASS | 2 | 87 |
-| agents/sample_hunter/local.py | REAL_PASS | PASS | 2 | 176 |
+| agents/sample_hunter/local.py | REAL_PASS | PASS | 2 | 177 |
 | agents/sample_hunter/planner.py | REAL_PASS | PASS | 2 | 15 |
 | agents/sample_hunter/web.py | REAL_PASS | PASS | 1 | 66 |
 | agents/trend_scout.py | REAL_PASS | PASS | 8 | 60 |
@@ -152,7 +152,7 @@
 | modules/beat/harmony.py | REAL_PASS | PASS | 1 | 27 |
 | modules/beat/humanize.py | REAL_PASS | PASS | 2 | 13 |
 | modules/beat/microtime.py | REAL_PASS | PASS | 1 | 7 |
-| modules/beat/paths.py | REAL_PASS | PASS | 2 | 68 |
+| modules/beat/paths.py | REAL_PASS | PASS | 2 | 70 |
 | modules/beat/patterns.py | REAL_PASS | PASS | 3 | 34 |
 | modules/beat/samples.py | REAL_PASS | PASS | 1 | 279 |
 | modules/beat/spectrum.py | REAL_PASS | PASS | 1 | 37 |
@@ -254,7 +254,7 @@
 | modules/release/channels.py | REAL_PASS | PASS | 2 | 66 |
 | modules/release/export.py | REAL_PASS | PASS | 4 | 98 |
 | modules/release/note.py | REAL_PASS | PASS | 1 | 69 |
-| modules/release/pack.py | REAL_PASS | PASS | 1 | 183 |
+| modules/release/pack.py | REAL_PASS | PASS | 1 | 186 |
 | modules/remix.py | DEPRECATED | PASS | 0 | 8 |
 | modules/render_queue.py | REAL_PASS | PASS | 1 | 11 |
 | modules/rvc_manager/__init__.py | REAL_PASS | PASS | 4 | 151 |
@@ -329,7 +329,7 @@
 | tools/readiness/__main__.py | REAL_PASS | PASS | 0 | 11 |
 | tools/readiness/cli.py | REAL_PASS | PASS | 2 | 220 |
 | tools/readiness/inventory.py | REAL_PASS | PASS | 3 | 61 |
-| tools/readiness/paths.py | REAL_PASS | PASS | 5 | 68 |
+| tools/readiness/paths.py | REAL_PASS | PASS | 5 | 70 |
 | tools/readiness/probes.py | REAL_PASS | PASS | 2 | 9 |
 | tools/readiness/reachability.py | REAL_PASS | PASS | 1 | 1 |
 | tools/readiness/scoring.py | REAL_PASS | PASS | 4 | 15 |
@@ -346,6 +346,6 @@
 | updater/checks.py | REAL_PASS | PASS | 2 | 26 |
 | updater/cli.py | REAL_PASS | PASS | 2 | 220 |
 | updater/install.py | REAL_PASS | PASS | 2 | 119 |
-| updater/paths.py | REAL_PASS | PASS | 6 | 67 |
+| updater/paths.py | REAL_PASS | PASS | 6 | 69 |
 | updater/updater.py | REAL_PASS | PASS | 1 | 43 |
 | updater/userdata.py | REAL_PASS | PASS | 3 | 19 |
