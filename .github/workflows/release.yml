@@ -173,9 +173,13 @@ jobs:
 
   publish-release:
     needs: [build-python-exe, build-desktop-installer]
+    concurrency: product-release-publication
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Require product acceptance for this exact source commit
+        run: python3 tools/release_gate.py --commit "$GITHUB_SHA"
 
       - name: Download all artifacts
         uses: actions/download-artifact@v4
@@ -212,27 +216,21 @@ jobs:
           du -h "_artifacts/ZS-Music-Maker-Source-$V.zip"
           ls -lh _artifacts/** 2>&1 | head -n 50
 
-      - name: Drop assets of an existing release for this tag
-        # Повторная публикация того же тега (например, после force-push тега)
-        # раньше падала на `action-gh-release`: он пытается удалить ассет,
-        # которого уже нет → «Not Found ... delete-a-release-asset». Ассеты
-        # удаляются заранее и молча; отсутствие релиза — не ошибка.
+      - name: Refuse replacement of an existing release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ steps.ver.outputs.tag }}
         run: |
-          TAG="${{ steps.ver.outputs.tag }}"
-          if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release view "$TAG" --json assets -q '.assets[].name' | while read -r name; do
-              [ -n "$name" ] && gh release delete-asset "$TAG" "$name" --yes || true
-            done
-            echo "ассеты релиза $TAG очищены перед перезаписью"
-          else
-            echo "релиза $TAG нет — создаётся с нуля"
+          gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" --jq '.[].tag_name' > /tmp/release-tags
+          if grep -Fx -- "$RELEASE_TAG" /tmp/release-tags; then
+            echo "Existing release is immutable; use a new version. No assets changed."
+            exit 1
           fi
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
+          overwrite_files: false
           make_latest: true
           tag_name: ${{ steps.ver.outputs.tag }}
           name: ZS Music Maker ${{ steps.ver.outputs.version }}

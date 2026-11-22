@@ -256,7 +256,17 @@ function registerIpc(getProject) {
 
   // Обновления в один клик: кнопка в приложении скачивает релиз с GitHub и ставит поверх
   try {
-    registerUpdaterIpc({ ipcMain, root: ROOT, settingsStore: settings(), app, shell });
+    registerUpdaterIpc({ ipcMain, root: ROOT, settingsStore: settings(), app, shell,
+      confirmInstall: async installerPath => {
+        const { response } = await dialog.showMessageBox({
+          type: 'warning', buttons: ['Отмена', 'Установить'], defaultId: 0, cancelId: 0,
+          title: 'Установка обновления',
+          message: 'Запустить установщик и закрыть приложение?',
+          detail: `Сохраните работу. Файлы приложения будут заменены.\n${installerPath}`,
+        });
+        return response === 1;
+      },
+    });
   } catch (e) {
     console.error('updater ipc failed', e);
   }

@@ -1,0 +1,192 @@
+{
+  "schema_version": 1,
+  "baseline": "v42.0.39; development T0011–T0070",
+  "blockers": [
+    {
+      "id": "F01",
+      "priority": "P0",
+      "scenario": "Рецепт идея → генератор",
+      "reproduce": "modules/agent_guide/runner.py: _generate_hit передаёт make_one только genre/theme/duration_sec",
+      "expected": "voice/use_rvc/BPM/references/lyrics доходят до генератора",
+      "observed": "Подготовленные параметры теряются",
+      "regression": "Spy-контракт всех полей и реальный Windows song/export",
+      "depends_on": [],
+      "gates": [
+        "G0",
+        "G3",
+        "G4"
+      ],
+      "mandatory": true,
+      "status": "open",
+      "owner": "product-maintainer",
+      "resolution_evidence": []
+    },
+    {
+      "id": "F02",
+      "priority": "P0",
+      "scenario": "Первый запуск → модели → трек",
+      "reproduce": "Windows: мастер создания, подготовка моделей, генерация и экспорт",
+      "expected": "Без терминала, наблюдаемые загрузки/ошибки, воспроизводимый экспорт",
+      "observed": "T0049/T0050 blocked; полного принятого пути нет",
+      "regression": "Чистый NSIS без внешнего runtime, пользовательский протокол",
+      "depends_on": [
+        "F01"
+      ],
+      "gates": [
+        "G1",
+        "G2",
+        "G3"
+      ],
+      "mandatory": true,
+      "status": "open",
+      "owner": "product-maintainer",
+      "resolution_evidence": []
+    },
+    {
+      "id": "F03",
+      "priority": "P0",
+      "scenario": "Пение своим и автоматически созданным голосом",
+      "reproduce": "Выбрать каждый из двух режимов, проверить фактический вокал",
+      "expected": "Настоящее пение; разрешение голоса и ресурсные права",
+      "observed": "Речь Silero доказана отдельно; пение не принято",
+      "regression": "Две отдельные Windows генерации + прослушивание",
+      "depends_on": [
+        "F01",
+        "F06"
+      ],
+      "gates": [
+        "G4",
+        "G6"
+      ],
+      "mandatory": true,
+      "status": "open",
+      "owner": "product-maintainer",
+      "resolution_evidence": []
+    },
+    {
+      "id": "F04",
+      "priority": "P0",
+      "scenario": "Честный итог результата",
+      "reproduce": "Проверить потребителей legacy WAV без producer evidence",
+      "expected": "Обязательная пропущенная стадия запрещает success",
+      "observed": "T0039/T0040 blocked: миграция потребителей неполная",
+      "regression": "tests/test_result_acceptance_contract.py и end-to-end без ложного success",
+      "depends_on": [],
+      "gates": [
+        "G3",
+        "G6"
+      ],
+      "mandatory": true,
+      "status": "open",
+      "owner": "product-maintainer",
+      "resolution_evidence": []
+    },
+    {
+      "id": "F05",
+      "priority": "P1",
+      "scenario": "Воспроизводимость на оборудовании",
+      "reproduce": "tools/measure_hardware_profile.py; затем реальный inference на заявленных профилях",
+      "expected": "Измерения времени/памяти/выхода на CPU и заявленных GPU",
+      "observed": "Есть inventory Windows CPU/RAM, не inference; GPU not_measured",
+      "regression": "T0029/T0030: реальные backend замеры, не mocks",
+      "depends_on": [],
+      "gates": [
+        "G2",
+        "G7"
+      ],
+      "mandatory": true,
+      "status": "open",
+      "owner": "product-maintainer",
+      "resolution_evidence": []
+    },
+    {
+      "id": "F06",
+      "priority": "P0",
+      "scenario": "Права использованных ресурсов и экспорт",
+      "reproduce": "python main.py --resource-policy",
+      "expected": "Проверенные условия моделей/весов/сэмплов/голоса + export gate",
+      "observed": "exit 1 coverage incomplete; T0069/T0070 blocked",
+      "regression": "tests/test_product_maps.py + отрицательный export с unknown/NC",
+      "depends_on": [],
+      "gates": [
+        "G4",
+        "G6"
+      ],
+      "mandatory": true,
+      "status": "open",
+      "owner": "product-maintainer",
+      "resolution_evidence": []
+    },
+    {
+      "id": "F07",
+      "priority": "P1",
+      "scenario": "Правка проекта без потери исходника",
+      "reproduce": "Создать, перезапустить, изменить рецепт, пересобрать, сравнить версии",
+      "expected": "История и независимые артефакты предыдущей версии",
+      "observed": "Полный путь revision/history не принят",
+      "regression": "Windows create/reopen/edit/export + хэши старых артефактов",
+      "depends_on": [
+        "F01",
+        "F02"
+      ],
+      "gates": [
+        "G5"
+      ],
+      "mandatory": true,
+      "status": "open",
+      "owner": "product-maintainer",
+      "resolution_evidence": []
+    },
+    {
+      "id": "F08",
+      "priority": "P1",
+      "scenario": "Безопасные действия на основном ПК",
+      "reproduce": "Аудит IPC/CLI: удаление, сброс, установка, обновление",
+      "expected": "Явное согласие перед каждой разрушительной операцией",
+      "observed": "Общего доказанного покрытия всех IPC/legacy CLI нет",
+      "regression": "Отказ согласия не запускает операцию; аудит всех публичных входов",
+      "depends_on": [],
+      "gates": [
+        "G8"
+      ],
+      "mandatory": true,
+      "status": "open",
+      "owner": "product-maintainer",
+      "resolution_evidence": []
+    },
+    {
+      "id": "F09",
+      "priority": "P0",
+      "scenario": "Приёмка релиза вместо числа тестов",
+      "reproduce": "python tools/release_gate.py",
+      "expected": "G0–G9 с измерениями, прослушиванием, update и failure matrix",
+      "observed": "acceptance.json не содержит принятых ворот",
+      "regression": "tests/test_release_gate.py; реальный Windows протокол",
+      "depends_on": [
+        "F02",
+        "F03",
+        "F04",
+        "F05",
+        "F06",
+        "F07",
+        "F08"
+      ],
+      "gates": [
+        "G0",
+        "G1",
+        "G2",
+        "G3",
+        "G4",
+        "G5",
+        "G6",
+        "G7",
+        "G8",
+        "G9"
+      ],
+      "mandatory": true,
+      "status": "open",
+      "owner": "product-maintainer",
+      "resolution_evidence": []
+    }
+  ]
+}

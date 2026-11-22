@@ -80,9 +80,9 @@ function selectInstaller(release) {
   return { name: asset.name, url: asset.browser_download_url, size: asset.size, digest: asset.digest };
 }
 
-function registerUpdaterIpc({ ipcMain, root, settingsStore, app, shell,
+function registerUpdaterIpc({ ipcMain, root, settingsStore, app, shell, confirmInstall,
   platform = process.platform, fetchRelease = getRelease, downloadFile = download }) {
-  let offered = null, downloaded = null, busy = false;
+  let offered = null, downloaded = null, busy = false, installing = false;
   function online() {
     let s = {};
     try { s = settingsStore?.load().value || {}; } catch {}
@@ -128,16 +128,24 @@ function registerUpdaterIpc({ ipcMain, root, settingsStore, app, shell,
     } finally { busy = false; }
   });
   ipcMain.handle('zsmm:updater-install', async (_event, args = {}) => {
+    if (installing) return { ok: false, error: 'Подтверждение установки уже открыто' };
+    installing = true;
     try {
       if (!downloaded || args.zipPath !== downloaded.path) throw new Error('Нет проверенного скачанного установщика');
       if (await sha256(downloaded.path) !== downloaded.digest) throw new Error('Установщик изменён после скачивания');
       if (!shell || !app || platform !== 'win32') throw new Error('Установка доступна в Windows-приложении');
+      if (typeof confirmInstall !== 'function' || await confirmInstall(downloaded.path) !== true) {
+        return { ok: false, canceled: true, error: 'Установка не подтверждена пользователем' };
+      }
+      // Recheck after the asynchronous consent dialog (the file may have changed).
+      if (await sha256(downloaded.path) !== downloaded.digest) throw new Error('Установщик изменён после подтверждения');
       const error = await shell.openPath(downloaded.path);
       if (error) throw new Error(error);
       downloaded = null;
       app.quit();
       return { ok: true, installerLaunched: true };
     } catch (e) { return { ok: false, error: e.message }; }
+    finally { installing = false; }
   });
   ipcMain.handle('zsmm:updater-info', async () => ({ ok: true, ...readVersion(root) }));
 }

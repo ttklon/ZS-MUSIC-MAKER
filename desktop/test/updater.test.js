@@ -21,6 +21,10 @@ async function fixture(t, options = {}) {
   registerUpdaterIpc({ root, platform: 'win32',
     ipcMain: { handle: (name, fn) => { handlers[name] = fn; } },
     settingsStore: { load: () => ({ value: { networkOnline: state.online } }) },
+    confirmInstall: options.noConsentHandler ? undefined : async file => {
+      if (options.tamperAtConsent) await fs.writeFile(file, 'changed during dialog');
+      return options.consent !== false;
+    },
     app: { quit: () => state.quit++ },
     shell: { openPath: async file => { state.opened.push(file); return options.openError || ''; } },
     fetchRelease: async () => { state.fetched++; return release; },
@@ -116,3 +120,15 @@ test('installer launch failure leaves app open', async t => {
   assert.equal((await f.call('install', { zipPath: dl.path })).ok, false);
   assert.equal(f.state.quit, 0);
 });
+
+for (const options of [{ consent: false }, { noConsentHandler: true }, { tamperAtConsent: true }]) {
+  test('consent refusal/missing handler/tampering never launches installer ' + JSON.stringify(options), async t => {
+    const f = await fixture(t, options);
+    await f.call('check');
+    const dl = await f.call('download', { url: f.asset.browser_download_url, name: f.asset.name });
+    t.after(() => fs.rm(path.dirname(dl.path), { recursive: true, force: true }));
+    assert.equal((await f.call('install', { zipPath: dl.path })).ok, false);
+    assert.equal(f.state.opened.length, 0);
+    assert.equal(f.state.quit, 0);
+  });
+}
