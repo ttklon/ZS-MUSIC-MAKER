@@ -8,6 +8,25 @@
 
 
 
+## Рабочая порция T0011–T0040: 26 verified, 4 blocked
+
+Реализованы типизированный content result с проверкой настоящего аудиофайла,
+привязка producer evidence к SHA-256, запрет HIT по score/RVC/пути, строгий
+agent CLI exit code и отображение причин в окне. Канонический outcome стадий
+различает success/degraded/blocked/failed/canceled, required/optional, missing
+required_names, QA failure и dry/partial. Legacy поля пока оставлены для миграции.
+
+Добавлен read-only inventory CPU/RAM/диска и проверка явных ресурсных бюджетов;
+health показывает inventory-only без утверждения поддержки GPU или inference.
+Windows run 45034836350: 3 jobs success, включая реальный packaged Electron.
+Локально 548 JS + 108 целевых Python + 15 plan/version/ZIP tests passed.
+Протокол: docs/plan/evidence/T0011-T0040.md.
+
+T0029/T0030 blocked: реальные профили inference/полного рендера ещё не приняты.
+T0039/T0040 blocked: не завершена миграция всех legacy потребителей outcome.
+Всего 36 verified, 4 blocked, 960 planned. Это счёт задач, не процент готовности.
+Изменения development; публичный release остаётся 42.0.39.
+
 ## Выполнение плана — T0001–T0010 verified
 
 Единый контракт продукта desktop/src/core/product-contract.js связывает README,
