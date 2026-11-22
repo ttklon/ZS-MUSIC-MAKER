@@ -2,7 +2,7 @@
 
 > **Версия:** `42.0.39` (источник правды — [`version.json`](version.json))
 > **Платформа:** Windows 11; локальные модели устанавливаются отдельно
-> **Состояние:** идёт рефакторинг v41 — см. [`docs/ROADMAP.md`](docs/ROADMAP.md)
+> **Состояние:** продукт не прошёл полную сквозную приёмку. Актуальные [аудит](docs/plan/AUDIT.md), [план 1000 шагов](docs/plan/PLAN_1000.md) и [ворота готовности](docs/plan/EXECUTION.md).
 
 Прототип локальной музыкальной студии: из жанра, темы и референсов собирает
 бит, может обработать готовую запись вокала, сделать микс и мастеринг. Не все
@@ -20,7 +20,7 @@ scripts\verify.cmd           :: полная проверка: тесты, см�
 python main.py --console     :: консольный режим
 ```
 
-Мастер — пять шагов: **жанр и тема → материал → голос → тонкая настройка → запуск**.
+**Legacy PySide-мастер (не основное окно Electron)** — пять шагов: **жанр и тема → материал → голос → тонкая настройка → запуск**.
 Своя запись голоса — основной путь; RVC включается отдельно и требует своей
 модели. В мастере можно выбрать экспериментальный инструментал ACE-Step 1.5
 через локальный сервер; настройка и ограничения AMD — в [INSTALL.md](INSTALL.md).
@@ -56,9 +56,9 @@ python main.py --smoke               :: smoke-набор (God Mode + аудио-
 ## Приложение на Electron
 
 **Скачать установщик под Windows 11:**
-[`ZS-Music-Maker-Setup-1.0.0.exe`](https://github.com/ttklon/ZS-MUSIC-MAKER/releases/latest/download/ZS-Music-Maker-Setup-1.0.0.exe)
-(или [portable-EXE](https://github.com/ttklon/ZS-MUSIC-MAKER/releases/latest/download/ZS-Music-Maker-1.0.0-portable.exe),
-все сборки — в [релизах](https://github.com/ttklon/ZS-MUSIC-MAKER/releases)).
+[Открыть последний релиз и выбрать `ZS-Music-Maker-Setup-<версия>.exe`](https://github.com/ttklon/ZS-MUSIC-MAKER/releases/latest).
+Portable и исходники находятся на той же странице. Сборка установщика не означает
+подтверждённую готовность всех нейросценариев.
 Сборка не подписана: Windows 11 покажет SmartScreen при первом запуске.
 Подпись кода настроена «на один секрет» — [политика подписи](CODE_SIGNING_POLICY.md),
 варианты (SignPath Foundation для OSS, Azure Trusted Signing, свой сертификат)
