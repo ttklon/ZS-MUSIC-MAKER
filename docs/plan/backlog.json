@@ -17,7 +17,7 @@
       "failure": "разные интерфейсы и устаревшие инструкции",
       "depends_on_packages": [],
       "priority": "P0",
-      "status": "planned"
+      "status": "verified"
     },
     {
       "number": 2,
@@ -2047,7 +2047,7 @@
       "package": 1,
       "phase": "Входной контракт",
       "title": "Поддерживаемая версия продукта: входной контракт",
-      "status": "planned",
+      "status": "verified",
       "priority": "P0",
       "depends_on": [],
       "paths": [
@@ -2059,7 +2059,15 @@
       "artifact": "Спецификация с примерами валидного запроса и ожидаемого результата",
       "acceptance": "установщик, интерфейс и документация описывают одинаковый продукт",
       "risk": "разные интерфейсы и устаревшие инструкции",
-      "evidence": [],
+      "evidence": [
+        {
+          "kind": "specification_acceptance",
+          "commit": "33c7cefeafc0e5936c45182c3a63d90e861e4a9e",
+          "run_url": "https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45032696177",
+          "artifact": "docs/plan/evidence/T0001-T0010.md",
+          "observed": "Канонический schema-1 контракт и четыре обязательных непринятых сценария с входами и результатами."
+        }
+      ],
       "completion_rule": "Изменение + проверка + сохранённое доказательство; наличие файла или зелёный import недостаточны."
     },
     {
@@ -2067,7 +2075,7 @@
       "package": 1,
       "phase": "Воспроизведение текущего разрыва",
       "title": "Поддерживаемая версия продукта: воспроизведение текущего разрыва",
-      "status": "planned",
+      "status": "verified",
       "priority": "P0",
       "depends_on": [
         "T0001"
@@ -2081,7 +2089,15 @@
       "artifact": "Воспроизводимый сценарий с версиями, входами и наблюдаемым исходом",
       "acceptance": "установщик, интерфейс и документация описывают одинаковый продукт",
       "risk": "разные интерфейсы и устаревшие инструкции",
-      "evidence": [],
+      "evidence": [
+        {
+          "kind": "specification_acceptance",
+          "commit": "33c7cefeafc0e5936c45182c3a63d90e861e4a9e",
+          "run_url": "https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45032696177",
+          "artifact": "docs/plan/evidence/T0001-T0010.md",
+          "observed": "Baseline 39f8a85: справка противоречила составу поставки и сетевой подготовке; сохранены исторические README."
+        }
+      ],
       "completion_rule": "Изменение + проверка + сохранённое доказательство; наличие файла или зелёный import недостаточны."
     },
     {
@@ -2089,7 +2105,7 @@
       "package": 1,
       "phase": "Проектирование решения",
       "title": "Поддерживаемая версия продукта: проектирование решения",
-      "status": "planned",
+      "status": "verified",
       "priority": "P0",
       "depends_on": [
         "T0002"
@@ -2103,7 +2119,15 @@
       "artifact": "Техническое решение с обоснованием и закрытыми вопросами совместимости",
       "acceptance": "установщик, интерфейс и документация описывают одинаковый продукт",
       "risk": "разные интерфейсы и устаревшие инструкции",
-      "evidence": [],
+      "evidence": [
+        {
+          "kind": "specification_acceptance",
+          "commit": "33c7cefeafc0e5936c45182c3a63d90e861e4a9e",
+          "run_url": "https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45032696177",
+          "artifact": "docs/plan/evidence/T0001-T0010.md",
+          "observed": "Выбран общий browser/Node источник без новых IPC и сети; описаны альтернативы и откат."
+        }
+      ],
       "completion_rule": "Изменение + проверка + сохранённое доказательство; наличие файла или зелёный import недостаточны."
     },
     {
@@ -2111,7 +2135,7 @@
       "package": 1,
       "phase": "Основная реализация",
       "title": "Поддерживаемая версия продукта: основная реализация",
-      "status": "planned",
+      "status": "verified",
       "priority": "P0",
       "depends_on": [
         "T0003"
@@ -2125,7 +2149,15 @@
       "artifact": "Изменение кода или нормативного документа с прослеживаемыми входами и выходами",
       "acceptance": "установщик, интерфейс и документация описывают одинаковый продукт",
       "risk": "разные интерфейсы и устаревшие инструкции",
-      "evidence": [],
+      "evidence": [
+        {
+          "kind": "specification_acceptance",
+          "commit": "33c7cefeafc0e5936c45182c3a63d90e861e4a9e",
+          "run_url": "https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45032696177",
+          "artifact": "docs/plan/evidence/T0001-T0010.md",
+          "observed": "Проверяются имя, версия, x64 NSIS per-user и имя installer; документы генерируются из контракта."
+        }
+      ],
       "completion_rule": "Изменение + проверка + сохранённое доказательство; наличие файла или зелёный import недостаточны."
     },
     {
@@ -2133,7 +2165,7 @@
       "package": 1,
       "phase": "Интеграция в продукт",
       "title": "Поддерживаемая версия продукта: интеграция в продукт",
-      "status": "planned",
+      "status": "verified",
       "priority": "P0",
       "depends_on": [
         "T0004"
@@ -2147,7 +2179,15 @@
       "artifact": "Проверяемый пользовательский путь до результата через поддерживаемую точку входа",
       "acceptance": "установщик, интерфейс и документация описывают одинаковый продукт",
       "risk": "разные интерфейсы и устаревшие инструкции",
-      "evidence": [],
+      "evidence": [
+        {
+          "kind": "specification_acceptance",
+          "commit": "33c7cefeafc0e5936c45182c3a63d90e861e4a9e",
+          "run_url": "https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45032696177",
+          "artifact": "docs/plan/evidence/T0001-T0010.md",
+          "observed": "Контракт загружается в справку реального packaged Electron; README соответствует тем же сценариям."
+        }
+      ],
       "completion_rule": "Изменение + проверка + сохранённое доказательство; наличие файла или зелёный import недостаточны."
     },
     {
@@ -2155,7 +2195,7 @@
       "package": 1,
       "phase": "Отказы и восстановление",
       "title": "Поддерживаемая версия продукта: отказы и восстановление",
-      "status": "planned",
+      "status": "verified",
       "priority": "P0",
       "depends_on": [
         "T0005"
@@ -2169,7 +2209,15 @@
       "artifact": "Негативные сценарии с наблюдаемой причиной отказа и проверенным восстановлением",
       "acceptance": "установщик, интерфейс и документация описывают одинаковый продукт",
       "risk": "разные интерфейсы и устаревшие инструкции",
-      "evidence": [],
+      "evidence": [
+        {
+          "kind": "specification_acceptance",
+          "commit": "33c7cefeafc0e5936c45182c3a63d90e861e4a9e",
+          "run_url": "https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45032696177",
+          "artifact": "docs/plan/evidence/T0001-T0010.md",
+          "observed": "Отсутствующий/неподдержанный контракт даёт явную ошибку; mismatch metadata отвергается без изменения входов."
+        }
+      ],
       "completion_rule": "Изменение + проверка + сохранённое доказательство; наличие файла или зелёный import недостаточны."
     },
     {
@@ -2177,7 +2225,7 @@
       "package": 1,
       "phase": "Автоматическая регрессия",
       "title": "Поддерживаемая версия продукта: автоматическая регрессия",
-      "status": "planned",
+      "status": "verified",
       "priority": "P0",
       "depends_on": [
         "T0006"
@@ -2191,7 +2239,15 @@
       "artifact": "Исполняемые тесты с проверкой содержимого результата, а не только отсутствия исключения",
       "acceptance": "установщик, интерфейс и документация описывают одинаковый продукт",
       "risk": "разные интерфейсы и устаревшие инструкции",
-      "evidence": [],
+      "evidence": [
+        {
+          "kind": "specification_acceptance",
+          "commit": "33c7cefeafc0e5936c45182c3a63d90e861e4a9e",
+          "run_url": "https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45032696177",
+          "artifact": "docs/plan/evidence/T0001-T0010.md",
+          "observed": "547 JS tests passed locally; 12 Python plan/budget/source ZIP tests passed; Windows contract/UI tests passed."
+        }
+      ],
       "completion_rule": "Изменение + проверка + сохранённое доказательство; наличие файла или зелёный import недостаточны."
     },
     {
@@ -2199,7 +2255,7 @@
       "package": 1,
       "phase": "Проверка на целевой платформе",
       "title": "Поддерживаемая версия продукта: проверка на целевой платформе",
-      "status": "planned",
+      "status": "verified",
       "priority": "P0",
       "depends_on": [
         "T0007"
@@ -2213,7 +2269,15 @@
       "artifact": "Ссылка на job и отчёт; для недоступного железа отдельная незакрытая проверка",
       "acceptance": "установщик, интерфейс и документация описывают одинаковый продукт",
       "risk": "разные интерфейсы и устаревшие инструкции",
-      "evidence": [],
+      "evidence": [
+        {
+          "kind": "specification_acceptance",
+          "commit": "33c7cefeafc0e5936c45182c3a63d90e861e4a9e",
+          "run_url": "https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45032696177",
+          "artifact": "docs/plan/evidence/T0001-T0010.md",
+          "observed": "Windows packaged-product-specification success: упаковка dir и реальный EXE с help contract. Не clean NSIS installation."
+        }
+      ],
       "completion_rule": "Изменение + проверка + сохранённое доказательство; наличие файла или зелёный import недостаточны."
     },
     {
@@ -2221,7 +2285,7 @@
       "package": 1,
       "phase": "Приёмка по наблюдаемому результату",
       "title": "Поддерживаемая версия продукта: приёмка по наблюдаемому результату",
-      "status": "planned",
+      "status": "verified",
       "priority": "P0",
       "depends_on": [
         "T0008"
@@ -2235,7 +2299,15 @@
       "artifact": "Протокол приёмки с входами, версиями, фактическим результатом и ограничениями",
       "acceptance": "установщик, интерфейс и документация описывают одинаковый продукт",
       "risk": "разные интерфейсы и устаревшие инструкции",
-      "evidence": [],
+      "evidence": [
+        {
+          "kind": "specification_acceptance",
+          "commit": "33c7cefeafc0e5936c45182c3a63d90e861e4a9e",
+          "run_url": "https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45032696177",
+          "artifact": "docs/plan/evidence/T0001-T0010.md",
+          "observed": "Контракт, метаданные поставки, сгенерированные документы и packaged help согласованы. song_generation_verified=false."
+        }
+      ],
       "completion_rule": "Изменение + проверка + сохранённое доказательство; наличие файла или зелёный import недостаточны."
     },
     {
@@ -2243,7 +2315,7 @@
       "package": 1,
       "phase": "Закрытие и сопровождение",
       "title": "Поддерживаемая версия продукта: закрытие и сопровождение",
-      "status": "planned",
+      "status": "verified",
       "priority": "P0",
       "depends_on": [
         "T0009"
@@ -2257,7 +2329,15 @@
       "artifact": "Связанные изменения, тесты и отчёты; согласованный статус поддержки без открытого блокера",
       "acceptance": "установщик, интерфейс и документация описывают одинаковый продукт",
       "risk": "разные интерфейсы и устаревшие инструкции",
-      "evidence": [],
+      "evidence": [
+        {
+          "kind": "specification_acceptance",
+          "commit": "33c7cefeafc0e5936c45182c3a63d90e861e4a9e",
+          "run_url": "https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45032696177",
+          "artifact": "docs/plan/evidence/T0001-T0010.md",
+          "observed": "Обновлены инструкции генерации/проверки, история, план и протокол; схема изменения не трогает данные пользователя."
+        }
+      ],
       "completion_rule": "Изменение + проверка + сохранённое доказательство; наличие файла или зелёный import недостаточны."
     },
     {
