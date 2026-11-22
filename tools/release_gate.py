@@ -99,7 +99,7 @@ def main() -> int:
                           args.root, commit)
     except (OSError, ValueError, KeyError, TypeError, AttributeError, AssertionError) as exc:
         result = {'publication_allowed': False, 'reasons': [f'Invalid gate inputs: {exc}']}
-    print(json.dumps(result, ensure_ascii=False, indent=2))
+    print(json.dumps(result, ensure_ascii=True, indent=2))
     return 0 if result['publication_allowed'] else 1
 
 

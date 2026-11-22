@@ -27,7 +27,7 @@ const { createSettingsStore, DEFAULTS } = require('./settings');
 const { registerTaskIpc } = require('./task-runner');
 const agentService = require('./agent-service');
 const shellService = require('./shell-service');
-const { registerUpdaterIpc } = require('./updater-service');
+const { registerUpdaterIpc, createConfirmInstall } = require('./updater-service');
 const policy = require('./window-policy');
 const appMenu = require('./app-menu');
 const appPaths = require('./app-paths');
@@ -257,15 +257,7 @@ function registerIpc(getProject) {
   // Обновления в один клик: кнопка в приложении скачивает релиз с GitHub и ставит поверх
   try {
     registerUpdaterIpc({ ipcMain, root: ROOT, settingsStore: settings(), app, shell,
-      confirmInstall: async installerPath => {
-        const { response } = await dialog.showMessageBox({
-          type: 'warning', buttons: ['Отмена', 'Установить'], defaultId: 0, cancelId: 0,
-          title: 'Установка обновления',
-          message: 'Запустить установщик и закрыть приложение?',
-          detail: `Сохраните работу. Файлы приложения будут заменены.\n${installerPath}`,
-        });
-        return response === 1;
-      },
+      confirmInstall: createConfirmInstall(dialog),
     });
   } catch (e) {
     console.error('updater ipc failed', e);

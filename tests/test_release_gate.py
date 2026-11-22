@@ -131,3 +131,12 @@ def test_malformed_input_cli_fails_closed(tmp_path, content):
                             capture_output=True, text=True)
     assert result.returncode == 1
     assert json.loads(result.stdout)['publication_allowed'] is False
+
+
+def test_windows_legacy_stdout_encoding_still_reports_denial():
+    import os
+    env = dict(os.environ, PYTHONIOENCODING='cp1252')
+    result = subprocess.run([sys.executable, 'tools/release_gate.py'], cwd=ROOT,
+                            capture_output=True, env=env)
+    assert result.returncode == 1
+    assert json.loads(result.stdout)['publication_allowed'] is False

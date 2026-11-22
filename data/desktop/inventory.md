@@ -30,7 +30,7 @@
 | app/cli/backup.py | REAL_PASS | PASS | 1 | 102 |
 | app/cli/commands.py | REAL_PASS | PASS | 1 | 52 |
 | app/cli/dossier.py | REAL_PASS | PASS | 1 | 212 |
-| app/cli/env.py | REAL_PASS | PASS | 11 | 493 |
+| app/cli/env.py | REAL_PASS | PASS | 11 | 497 |
 | app/cli/gui.py | REAL_PASS | PASS | 1 | 141 |
 | app/cli/hitfactory.py | REAL_PASS | PASS | 1 | 12 |
 | app/cli/parser.py | REAL_PASS | PASS | 1 | 15 |
@@ -91,7 +91,7 @@
 | app/core/stages/master.py | REAL_PASS | PASS | 4 | 677 |
 | app/core/stages/mix.py | REAL_PASS | PASS | 1 | 424 |
 | app/core/stages/prep.py | REAL_PASS | PASS | 2 | 90 |
-| app/core/stages/release.py | REAL_PASS | PASS | 1 | 229 |
+| app/core/stages/release.py | REAL_PASS | PASS | 1 | 230 |
 | app/core/stages/texture.py | REAL_PASS | PASS | 2 | 82 |
 | app/core/stages/vocal.py | REAL_PASS | PASS | 1 | 735 |
 | app/core/stages/vocal_chain.py | REAL_PASS | PASS | 1 | 82 |
@@ -113,12 +113,12 @@
 | app/gui/wizard/steps_tuning.py | REAL_PASS | PASS | 1 | 2 |
 | app/gui/wizard/steps_voice.py | REAL_PASS | PASS | 1 | 3 |
 | app/gui/wizard/ui.py | REAL_PASS | PASS | 9 | 707 |
-| app/gui/wizard/window.py | REAL_PASS | PASS | 1 | 60 |
+| app/gui/wizard/window.py | REAL_PASS | PASS | 1 | 61 |
 | app/hw_probe.py | REAL_PASS | PASS | 1 | 25 |
 | app/pipeline/__init__.py | REAL_PASS | PASS | 8 | 140 |
 | app/pipeline/artifact.py | REAL_PASS | PASS | 1 | 90 |
 | app/pipeline/outcome.py | REAL_PASS | PASS | 2 | 22 |
-| app/pipeline/result.py | REAL_PASS | PASS | 2 | 1695 |
+| app/pipeline/result.py | REAL_PASS | PASS | 2 | 1698 |
 | app/pipeline/stage.py | REAL_PASS | PASS | 1 | 1084 |
 | app/plugins/advanced.py | DEPRECATED | PASS | 0 | 6 |
 | app/plugins/base.py | DEPRECATED | PASS | 1 | 116 |
@@ -200,7 +200,7 @@
 | modules/hit_factory/humanizer.py | REAL_PASS | PASS | 1 | 3 |
 | modules/hit_factory/kpi.py | REAL_PASS | PASS | 4 | 55 |
 | modules/hit_factory/readiness.py | REAL_PASS | PASS | 4 | 95 |
-| modules/hit_factory/release.py | DEPRECATED | PASS | 0 | 229 |
+| modules/hit_factory/release.py | DEPRECATED | PASS | 0 | 230 |
 | modules/hit_factory/retry.py | REAL_PASS | PASS | 1 | 22 |
 | modules/hit_factory/themes.py | REAL_PASS | PASS | 2 | 22 |
 | modules/hit_factory/ui.py | DEPRECATED | PASS | 0 | 703 |
@@ -217,7 +217,7 @@
 | modules/kpi_dashboard/checklist.py | REAL_PASS | PASS | 2 | 2 |
 | modules/kpi_dashboard/config.py | REAL_PASS | PASS | 4 | 53 |
 | modules/kpi_dashboard/models.py | REAL_PASS | PASS | 3 | 82 |
-| modules/kpi_dashboard/report.py | REAL_PASS | PASS | 2 | 985 |
+| modules/kpi_dashboard/report.py | REAL_PASS | PASS | 2 | 986 |
 | modules/kpi_dashboard/sources.py | REAL_PASS | PASS | 3 | 39 |
 | modules/kpi_monitor.py | DEPRECATED | PASS | 0 | 10 |
 | modules/llm/__init__.py | REAL_PASS | PASS | 2 | 147 |
@@ -311,7 +311,7 @@
 | modules/voice_synth_ai.py | REAL_PASS | PASS | 1 | 11 |
 | modules/voice_text.py | REAL_PASS | PASS | 1 | 2 |
 | modules/voice_vault.py | REAL_PASS | PASS | 1 | 43 |
-| tools/__init__.py | REAL_PASS | PASS | 0 | 200 |
+| tools/__init__.py | REAL_PASS | PASS | 0 | 201 |
 | tools/ast_dead_imports.py | REAL_PASS | PASS | 0 | 4 |
 | tools/ast_undefined_names.py | REAL_PASS | PASS | 0 | 5 |
 | tools/audio_golden_metrics.py | REAL_PASS | PASS | 0 | 7 |
@@ -340,6 +340,7 @@
 | tools/readiness/probes.py | REAL_PASS | PASS | 2 | 9 |
 | tools/readiness/reachability.py | REAL_PASS | PASS | 1 | 1 |
 | tools/readiness/scoring.py | REAL_PASS | PASS | 3 | 15 |
+| tools/release_gate.py | REAL_PASS | PASS | 0 | 6 |
 | tools/samples_audit.py | REAL_PASS | PASS | 0 | 12 |
 | tools/size_guard.py | REAL_PASS | PASS | 0 | 3 |
 | tools/smoke_audio.py | REAL_PASS | PASS | 0 | 16 |

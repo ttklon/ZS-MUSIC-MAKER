@@ -132,3 +132,14 @@ for (const options of [{ consent: false }, { noConsentHandler: true }, { tamperA
     assert.equal(f.state.quit, 0);
   });
 }
+
+test('native consent defaults to cancel and names the affected installer', async () => {
+  const { createConfirmInstall } = require('../electron/updater-service');
+  let shown;
+  const confirm = createConfirmInstall({ showMessageBox: async options => { shown = options; return { response: 0 }; } });
+  assert.equal(await confirm('C:\\Setup.exe'), false);
+  assert.equal(shown.defaultId, 0);
+  assert.equal(shown.cancelId, 0);
+  assert.match(shown.detail, /Setup.exe/);
+  assert.equal(await createConfirmInstall({ showMessageBox: async () => ({ response: 1 }) })('Setup.exe'), true);
+});

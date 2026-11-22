@@ -80,6 +80,17 @@ function selectInstaller(release) {
   return { name: asset.name, url: asset.browser_download_url, size: asset.size, digest: asset.digest };
 }
 
+function createConfirmInstall(dialog) {
+  return async installerPath => {
+    const { response } = await dialog.showMessageBox({
+      type: 'warning', buttons: ['Отмена', 'Установить'], defaultId: 0, cancelId: 0,
+      title: 'Установка обновления', message: 'Запустить установщик и закрыть приложение?',
+      detail: `Сохраните работу. Файлы приложения будут заменены.\n${installerPath}`,
+    });
+    return response === 1;
+  };
+}
+
 function registerUpdaterIpc({ ipcMain, root, settingsStore, app, shell, confirmInstall,
   platform = process.platform, fetchRelease = getRelease, downloadFile = download }) {
   let offered = null, downloaded = null, busy = false, installing = false;
@@ -150,4 +161,4 @@ function registerUpdaterIpc({ ipcMain, root, settingsStore, app, shell, confirmI
   ipcMain.handle('zsmm:updater-info', async () => ({ ok: true, ...readVersion(root) }));
 }
 
-module.exports = { registerUpdaterIpc, readVersion, compareVersions, selectInstaller, sha256 };
+module.exports = { createConfirmInstall, registerUpdaterIpc, readVersion, compareVersions, selectInstaller, sha256 };
