@@ -59,3 +59,12 @@ def test_inventory_describes_original_baseline_not_runtime_certification():
     assert len({f['path'] for f in inventory['files']}) == inventory['totals']['files']
     assert all(len(f['sha256']) == 64 for f in inventory['files'])
     assert 'Not semantic review or runtime proof' in inventory['scope']
+
+
+def test_all_responsibility_paths_are_tracked_not_local_runtime_folders():
+    import subprocess
+
+    tracked = subprocess.check_output(['git', 'ls-files', '-z'], cwd=ROOT).decode('utf-8').split('\0')
+    for package in load_plan()['packages']:
+        for path in package['paths']:
+            assert any(f == path or f.startswith(path + '/') for f in tracked), path
