@@ -11,13 +11,25 @@
 
 
 
-## Development T0101–T0130 — проверка в работе
+## Рабочая порция T0101–T0130: 24 verified, 6 blocked
 
-Рецепт агента передаётся целиком в HitFactory через существующий snapshot;
-подготовленные строки не перегенерируются. Общий taskSlot/taskId включает
-подготовку workspace; task-stream/NDJSON заменяют поиск master_path в логе.
-Дорогой аудио executor в контрактных тестах заменён явно; реальное пение этим
-не доказано. [Границы и совместимость](docs/RECIPE_TRANSPORT.md).
+Полный recipe агента доходит до HitFactory через существующий snapshot;
+подготовленные строки идут в реальную lyrics stage без нового LLM. Явные
+параметры не меняются эволюцией, готовый RVC-дубль не конвертируется дважды.
+Общий taskSlot/taskId включает prepareWorkspace, запрещает второй запуск до
+конца подготовки. Typed NDJSON v1 заменяет поиск master_path в обычном stdout;
+UTF8/переносы/шум/ID/seq/terminal и несогласованный exit обрабатываются явно.
+
+Windows [45041330349](https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45041330349):
+все три jobs success, source 98f8cb9. Локально 564 JS + 178 targeted Python PASS.
+Но весь recipe ещё не задан в основном UI, отдельные IPC не все используют слот,
+а installed-app маршрут реального backend не принят. Поэтому T0109/T0110,
+T0119/T0120 и T0129/T0130 blocked; F01 остаётся open после частичного исправления.
+[Спецификация](docs/RECIPE_TRANSPORT.md), [протокол](docs/plan/evidence/T0101-T0130.md).
+Итого 112 verified, 18 blocked, 870 planned — не процент готовности продукта.
+Опубликованным runtime остаётся v42.0.39, новый installer не выпускался.
+Следующая порция T0131–T0160: состояния подготовки/генерации, отмена процессов,
+таймауты и heartbeat; незакрытые UI/backend проверки сохраняются в реестре.
 
 ## Рабочая порция T0071–T0100: 26 verified, 4 blocked
 
