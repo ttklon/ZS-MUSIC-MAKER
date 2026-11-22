@@ -1,0 +1,6 @@
+.venv/bin/python -m pytest tests/test_runtime_lifecycle.py tests/test_bootstrap_results.py tests/test_logger_and_crash.py tests/test_function_length_budget.py tests/test_recipe_transport.py tests/test_agent_guide.py tests/test_snapshot_covers_wizard_state.py tests/test_recipe_contract.py tests/test_product_plan.py tests/test_release_gate.py tests/test_product_maps.py tests/test_windows_entrypoints.py tests/test_release_source_zip.py tests/test_security_utils.py tests/test_security_and_sample_hunter.py -q
+
+........................................................................ [ 34%]
+........................................................................ [ 69%]
+...............................................................          [100%]
+207 passed in 16.41s

@@ -1,0 +1,13 @@
+cd desktop && npm run verify
+Full Linux suite started at dadd0fa; Windows-only System32 path follow-up independently passed run 45046425369 / 353281d.
+
+  ...
+1..575
+# tests 575
+# suites 0
+# pass 575
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 404696.189025

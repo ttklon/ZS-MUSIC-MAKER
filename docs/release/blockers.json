@@ -143,7 +143,7 @@
       "scenario": "Безопасные действия на основном ПК",
       "reproduce": "Аудит IPC/CLI: удаление, сброс, установка, обновление",
       "expected": "Явное согласие перед каждой разрушительной операцией",
-      "observed": "Общего доказанного покрытия всех IPC/legacy CLI нет",
+      "observed": "Добавлены native update consent, остановка дерева и отмена подготовки, workspace guards и redacted taskId диагностика; полный аудит IPC/CLI, detached workers и независимая проверка экспорта не приняты; Windows 45046284737 Node regression failure не локализован, повтор с тем же runtime 45046425369 PASS, стабильность cleanup остаётся открытой",
       "regression": "Отказ согласия не запускает операцию; аудит всех публичных входов",
       "depends_on": [],
       "gates": [

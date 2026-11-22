@@ -11,12 +11,32 @@
 
 
 
-## Development T0131–T0180 — проверка в работе (50 пунктов)
+## Рабочая порция T0131–T0180: 40 verified, 10 blocked (50 пунктов)
 
-Состояния подготовки и генерации, отмена дерева, heartbeat/deadline, layout
-workspace и коррелированная диагностика: [спецификация](docs/TASK_LIFECYCLE.md).
-Регрессия проверяет настоящий Python grandchild и повторный file lock, не
-нейромодель/пение. Windows stage watchdog пока не является process isolation.
+По указанию пользователя рабочая порция теперь 50, пакеты по 10 и IDs сохранены.
+Автомат подготовки требует typed setup report, не exit 0/readiness percentage.
+Отмена/timeout завершают process group / Windows System32 taskkill /T /F и
+ожидают close+результат команды. Подготовку можно отменить без последующего spawn.
+Heartbeat показывает liveness, не прогресс модели; тишина сама не убивает CPU.
+Workspace layout отделяет cache/temp/logs от install, проверяет ancestor/nested
+junctions. Диагностика связывает taskId и renderer/Python, не собирает сырой вывод,
+скрывает известные секреты; перед экспортом свободного текста нужен human review.
+
+Windows [45046425369](https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45046425369):
+все три jobs success, source 353281d. Реальный Python grandchild/file lock проверен.
+Локально полный Linux JS 575 PASS, targeted JS 76 PASS, targeted Python 207 PASS.
+Windows 45046284737 имел Node failure с недоступными полными логами; причина
+не подтверждена, последующий тот же runtime PASS не выдаётся за объяснение сбоя.
+Новая failure-context диагностика облегчает его следующее воспроизведение.
+
+T0139/T0140, T0149/T0150, T0159/T0160, T0169/T0170, T0179/T0180 blocked:
+реальные установки/восстановление, все worker/pip/detached деревья и стабильность,
+Windows stage isolation, clean NSIS/ACL и полный независимый privacy audit не приняты.
+[Спецификация](docs/TASK_LIFECYCLE.md), [протокол](docs/plan/evidence/T0131-T0180.md).
+Итого 152 verified, 28 blocked, 820 planned — не процент готовности продукта.
+Runtime остаётся v42.0.39; новый installer/tag не выпускался.
+Следующая порция T0181–T0230: зависимости, контракт worker-процесса, каталог моделей,
+сетевое согласие и проверка объёма загрузки. Незакрытые проверки сохраняются.
 
 ## Рабочая порция T0101–T0130: 24 verified, 6 blocked
 
