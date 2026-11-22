@@ -1,19 +1,19 @@
 {
-  "generated_at": "2026-11-22T14:24:45.852Z",
-  "percent": 54,
+  "generated_at": "2026-11-22T14:48:16.398Z",
+  "percent": 65,
   "module_inventory": {
-    "tracked_modules": 349,
-    "REAL_PASS": 310,
+    "tracked_modules": 354,
+    "REAL_PASS": 314,
     "REAL_FAIL": 0,
-    "PLANNED": 2,
+    "PLANNED": 3,
     "DEPRECATED": 37
   },
-  "module_reachability_share": 0.8883,
+  "module_reachability_share": 0.887,
   "block_scores": {
     "architecture": 100,
-    "core_modules": 44.41,
+    "core_modules": 84.66,
     "audio_pipeline": 22.22,
-    "voice_recording": 50,
+    "voice_recording": 62.5,
     "release": 80,
     "testing": 100
   },
@@ -35,15 +35,15 @@
       "single_pipeline": "REAL_PASS"
     },
     "core_modules": {
-      "analyzer": "MISSING",
-      "groove_extractor": "MISSING",
-      "beat_constructor": "MISSING",
+      "analyzer": "REAL_PASS",
+      "groove_extractor": "REAL_PASS",
+      "beat_constructor": "REAL_PASS",
       "arrangement": "REAL_PASS",
       "lyrics": "REAL_PASS",
       "sidechain": "REAL_PASS",
       "anti_neuro": "REAL_PASS",
-      "hit_scorer": "MISSING",
-      "mastering": "MISSING",
+      "hit_scorer": "REAL_PASS",
+      "mastering": "REAL_PASS",
       "stem_splitter": "PARTIAL",
       "presets_library": "REAL_PASS"
     },
@@ -62,7 +62,7 @@
       "voice_recording": "REAL_PASS",
       "voice_vault": "REAL_PASS",
       "voice_onboarding": "REAL_PASS",
-      "voice_cleaner": "MISSING",
+      "voice_cleaner": "REAL_PASS",
       "vocal_fx": "REAL_PASS",
       "rvc_model": "MISSING",
       "rvc_env": "BLOCKED",
@@ -100,7 +100,7 @@
       "lyrics engine not ready: Ollama/модель не найдены (python main.py --ollama-setup)"
     ]
   ],
-  "weighted_sum": 54.66,
+  "weighted_sum": 67.22,
   "cap_min": 65,
-  "final_floor": 54
+  "final_floor": 65
 }

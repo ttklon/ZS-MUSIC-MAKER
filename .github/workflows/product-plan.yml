@@ -4,6 +4,15 @@ on:
     branches: ['arena/bbed83d1-zs-music-maker']
     paths:
       - 'docs/plan/**'
+      - 'app/pipeline/**'
+      - 'app/ai/profiles.py'
+      - 'app/cli/agent_task.py'
+      - 'modules/agent_guide/narration.py'
+      - 'desktop/src/sections/creation.js'
+      - 'tools/measure_hardware_profile.py'
+      - 'tests/test_result_acceptance_contract.py'
+      - 'tests/test_task_outcome_contract.py'
+      - 'tests/test_hardware_profiles_contract.py'
       - 'docs/PRODUCT.md'
       - 'README.md'
       - 'desktop/src/core/product-contract.js'
@@ -70,4 +79,25 @@ jobs:
         with:
           name: product-spec-window
           path: ${{ runner.temp }}/product-spec-window.json
+          retention-days: 7
+
+  result-outcome-hardware-contracts:
+    runs-on: windows-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install lightweight contract test runtime (no models)
+        run: python -m pip install pytest numpy soundfile psutil
+      - name: Real WAV contract and canonical outcome regressions
+        run: python -m pytest tests/test_result_acceptance_contract.py tests/test_task_outcome_contract.py tests/test_hardware_profiles_contract.py -q
+      - name: Measure this runner without claiming inference or GPU support
+        run: python tools/measure_hardware_profile.py --out output/contracts/hardware.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: measured-hardware-inventory-not-inference
+          path: output/contracts/hardware.json
           retention-days: 7

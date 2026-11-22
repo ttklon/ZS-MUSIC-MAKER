@@ -130,9 +130,13 @@ function running(panel) {
 }
 function result(panel) {
   const report = session.report;
-  const complete = report?.verdict === 'HIT' && !(report.blocked || []).length;
+  const complete = report?.result?.schema === 1 && report.result.succeeded === true && report.result.status === 'success' && !(report.blocked || []).length;
   panel.append(el('h3', null, complete ? '4. Результат создан — послушайте и оцените' : '4. Получен неполный результат'),
     el('p', null, complete ? 'Это результат генерации, а не гарантия коммерческого хита.' : 'Законченная песня не подтверждена. Ниже — отсутствующие части.'));
+  if (report?.result) {
+    panel.append(el('p', 'creation-status', report.result.label + ' · ' + report.result.status));
+    for (const reason of report.result.reasons || []) panel.append(el('p', 'creation-error', reason));
+  }
   for (const block of report?.blocked || []) panel.append(el('p', 'creation-error', `${block.stage}: ${block.reason}`));
   if (report?.master_path) {
     const audio = el('div', 'creation-audio');

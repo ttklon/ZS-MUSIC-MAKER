@@ -47,7 +47,7 @@ def _progress(message: str) -> None:
 
 
 def run_agent_hit(args) -> int:
-    """Выполнить прогон и вернуть код: 0 — трек есть, 1 — нет, 2 — сбой."""
+    """Код 0 — контракт результата принят, 1 — неполный/ошибочный результат, 2 — сбой."""
     from app.core.net_policy import network_allowed
 
     allow_online = bool(getattr(args, "online", False)) or network_allowed()
@@ -55,7 +55,7 @@ def run_agent_hit(args) -> int:
     _prepare(allow_online)
 
     try:
-        from modules.agent_guide import narrate, run_conversation_hit, verdict
+        from modules.agent_guide import narrate, run_conversation_hit
 
         report = run_conversation_hit(
             build_payload(args),
@@ -66,9 +66,12 @@ def run_agent_hit(args) -> int:
         safe_print(f"[agent-hit] прогон упал: {type(exc).__name__}: {exc}")
         return 2
 
+    from app.pipeline.result import assess_result
+    result = assess_result(report)
     safe_print(json.dumps(
         {
-            "verdict": verdict(report),
+            "verdict": "COMPLETE" if result["succeeded"] else ("FAILED" if result["status"] in ("failed", "canceled") else "PARTIAL"),
+            "result": result,
             "master_path": report.get("master_path"),
             "hit_score": report.get("hit_score"),
             "blocked": report.get("blocked"),
@@ -78,4 +81,4 @@ def run_agent_hit(args) -> int:
     ))
     for line in narrate(report).splitlines():
         safe_print(f"[agent-hit] {line}")
-    return 0 if report.get("master_path") else 1
+    return 0 if result["succeeded"] else 1

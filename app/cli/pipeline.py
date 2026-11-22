@@ -61,6 +61,7 @@ def run_pipeline(args) -> int:
         json.dumps(
             {
                 "verdict": out.get("verdict"),
+                "outcome": out.get("outcome"),
                 "percent": out.get("percent"),
                 "master": out.get("master_path"),
                 "seed": out.get("seed"),
@@ -74,6 +75,8 @@ def run_pipeline(args) -> int:
             indent=2,
         )
     )
+    if isinstance(out.get("outcome"), dict):
+        return 0 if out["outcome"].get("succeeded") is True else 1
     return 0 if str(out.get("verdict", "")).endswith("PASS") else 1
 
 

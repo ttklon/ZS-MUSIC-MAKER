@@ -116,7 +116,7 @@ def test_run_reports_blocked_lyrics_and_voice_without_engines(monkeypatch, tmp_p
     assert report["ok"] is True
     blocked = {item["stage"] for item in report["blocked"]}
     assert {"lyrics", "voice", "references", "samples"} <= blocked
-    assert verdict(report) == "PARTIAL", "без текста и голоса это демо, а не HIT"
+    assert verdict(report) == "FAILED", "несуществующий файл мастера не является результатом"
     text = narrate(report)
     assert "Ollama" in text and "RVC" in text
 
@@ -149,7 +149,7 @@ def test_verdict_hit_requires_master_lyrics_and_voice(monkeypatch, tmp_path) -> 
     report = run_conversation_hit({"voice": "C:/take.wav"}, output_root=str(tmp_path))
 
     assert report["blocked"] == []
-    assert verdict(report) == "HIT"
+    assert verdict(report) == "FAILED", "одних флагов текста/RVC и пути недостаточно"
     assert report["plan"]["reference_lyrics"] == "текст"
 
 

@@ -92,6 +92,11 @@ class TestRunPipeline:
         assert payload["master"] == "out/m.wav"
         assert payload["seed"] == 42  # печатается то, что вернул пайплайн
 
+    def test_canonical_outcome_overrides_legacy_pass(self, monkeypatch, printed) -> None:
+        self._patch_run(monkeypatch, {"verdict": "PASS", "outcome": {"status": "blocked", "succeeded": False}})
+        assert pipeline_cmds.run_pipeline(make_args()) == 1
+        assert json.loads("\n".join(printed))["outcome"]["status"] == "blocked"
+
     def test_blocked_verdict_returns_one(self, monkeypatch, printed) -> None:
         self._patch_run(monkeypatch, {"verdict": "PASS_BLOCKED", "percent": 83})
         assert pipeline_cmds.run_pipeline(make_args(seed=42)) == 1
@@ -452,7 +457,9 @@ class TestProbes:
         rep = types.SimpleNamespace(verdict="OK", percent_ready=72, core_ok=True)
         monkeypatch.setattr(health, "collect", lambda: rep)
         out = probe_cmds.health_snapshot()
-        assert out == {"verdict": "OK", "percent": 72}
+        assert out["verdict"] == "OK" and out["percent"] == 72
+        assert out["hardware"]["kind"] == "inventory_only"
+        assert not out["hardware"]["product_profile_accepted"]
         text = "\n".join(printed)
         assert "ready=72%" in text
         assert "not verified" in text  # оговорка про непроверенное остаётся

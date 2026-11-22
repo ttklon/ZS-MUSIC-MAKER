@@ -26,17 +26,18 @@ def narrate(report: dict[str, Any]) -> str:
     """Короткий рассказ о прогоне: что сделано и что честно не вышло."""
     lines: list[str] = []
     master = report.get("master_path")
+    from app.pipeline.result import assess_result
+    result = assess_result(report)
     if master:
-        lines.append(
-            f"Трек готов: {master} · hit_score={report.get('hit_score')} · {report.get('verdict')}"
-        )
+        lines.append(f"{result['label']}: {master} · статус {result['status']}")
+        lines.extend(result['reasons'])
     else:
         lines.append(f"Трек не собрался: {report.get('agent_failed') or 'нет мастера'}")
     lyrics = (report.get("lyrics") or {}).get("ok")
     voice = (report.get("voice") or {}).get("ok")
     lines.append(
         f"Текст: {'локальная LLM (Ollama)' if lyrics else 'нет — BLOCKED'}; "
-        f"голос: {'клон RVC' if voice else 'без вокала'}"
+        f"голос: {str((report.get('voice') or {}).get('source') or 'источник не указан') if voice else 'без вокала'}"
     )
     for item in report.get("blocked") or []:
         stage = item.get("stage", "")
@@ -46,12 +47,10 @@ def narrate(report: dict[str, Any]) -> str:
 
 
 def verdict(report: dict[str, Any]) -> str:
-    """Машинный вердикт для окна: `HIT` / `PARTIAL` / `FAILED`."""
-    if not report.get("master_path"):
+    """Совместимая проекция контракта: COMPLETE / PARTIAL / FAILED, не HIT."""
+    from app.pipeline.result import assess_result
+
+    result = assess_result(report)
+    if result["status"] in ("failed", "canceled"):
         return "FAILED"
-    blocked = [item.get("stage") for item in report.get("blocked") or []]
-    # «PARTIAL» — не придирка: без своего голоса и без LLM-текста это демо,
-    # а не трек, за который обещали «как будто спел сам».
-    if "lyrics" in blocked or "voice" in blocked:
-        return "PARTIAL"
-    return "HIT"
+    return "COMPLETE" if result["succeeded"] else "PARTIAL"

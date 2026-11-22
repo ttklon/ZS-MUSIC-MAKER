@@ -120,3 +120,15 @@ test('settings persist network consent and show actual environment paths', async
   assert.equal(box.checked, true);
   assert.match(host.textContent, /disk full/);
 });
+
+test('legacy HIT flag cannot label a draft as a complete result', async () => {
+  const f = fixture(); await f.load(); await f.click('Далее — подготовить студию');
+  await f.click('Проверить и подготовить автоматически'); f.done({ ok: true });
+  await f.click('Создать трек');
+  f.event({ line: JSON.stringify({ master_path: '/music/draft.wav', verdict: 'HIT', blocked: [],
+    result: { schema: 1, status: 'degraded', succeeded: false, label: 'Речевой черновик', reasons: ['Нет пения'] } }) });
+  f.done({ ok: false });
+  assert.match(f.root.textContent, /неполный результат/);
+  assert.match(f.root.textContent, /Нет пения/);
+  assert.match(f.root.textContent, /Речевой черновик/);
+});

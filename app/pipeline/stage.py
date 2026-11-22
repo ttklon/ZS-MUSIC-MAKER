@@ -4,7 +4,7 @@ app/pipeline/stage.py — модель результата стадии и св
 
 Проектные правила:
 
-  • статус стадии всегда один из четырёх (`StageStatus`), без «почти ок»;
+  • статус стадии всегда один из пяти (`StageStatus`), без «почти ок»;
   • `FALLBACK` и `BLOCKED` не маскируются под `OK` — причина/движок
     обязаны быть видны в отчёте;
   • `summarize()` — единственное место, где считается `verdict` и `percent`,
@@ -25,6 +25,7 @@ class StageStatus(str, Enum):
     FALLBACK = "FALLBACK"
     BLOCKED = "BLOCKED"
     FAILED = "FAILED"
+    CANCELED = "CANCELED"
 
 
 @dataclass
@@ -42,12 +43,13 @@ class StageResult:
     duration_sec: float = 0.0
     reason: str | None = None
     attempts: list[str] = field(default_factory=list)
+    required: bool = True
 
     # --- производные флаги (единая семантика для всех отчётов) ------------
     @property
     def ok(self) -> bool:
         """Стадия не сломалась (BLOCKED тоже «не сломалась»)."""
-        return self.status is not StageStatus.FAILED
+        return self.status not in (StageStatus.FAILED, StageStatus.CANCELED)
 
     @property
     def succeeded(self) -> bool:
@@ -81,6 +83,7 @@ class StageResult:
         """JSON-совместимое представление (с legacy-ключами отчётов)."""
         return {
             "name": self.name,
+            "required": self.required,
             "status": self.status.value,
             "ok": self.ok,
             "succeeded": self.succeeded,
@@ -105,14 +108,16 @@ def classify(
 ) -> StageResult:
     """Построить `StageResult` из «сырого» результата стадии.
 
-    Приоритет статусов: FAILED → BLOCKED → FALLBACK → OK. Порядок важен:
+    Приоритет статусов: CANCELED → FAILED → BLOCKED → FALLBACK → OK. Порядок важен:
     честный BLOCKED (нет тяжёлой зависимости) не должен считаться сбоем,
     а synthetic-заглушка без blocked — это FALLBACK, а не успех.
     """
     data = output if isinstance(output, dict) else {}
     flag_ok = output is not None if not isinstance(output, dict) else bool(data.get("ok", True))
 
-    if failed or not flag_ok:
+    if data.get("canceled"):
+        status = StageStatus.CANCELED
+    elif failed or not flag_ok:
         status = StageStatus.FAILED
     elif data.get("blocked"):
         status = StageStatus.BLOCKED
@@ -197,7 +202,10 @@ def summarize(stages: Iterable[dict[str, Any] | StageResult], *, dry_run: bool =
     if any_sim and not dry_run:
         percent = min(percent, 60)
 
+    from app.pipeline.outcome import stage_outcome
     return {
+        "outcome": stage_outcome(rows),
+        "percent_kind": "legacy_stage_accounting_not_product_readiness",
         "verdict": verdict,
         "percent": percent,
         "warnings": warnings,
