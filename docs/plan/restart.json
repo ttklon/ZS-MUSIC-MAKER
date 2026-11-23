@@ -1424,10 +1424,11 @@
         "docs/plan/evidence/restart-hardware-packaged-windows-45160086121.json",
         "docs/plan/evidence/restart-hardware-gui-windows-45161164359.json",
         "docs/plan/evidence/restart-hardware-gui-memory-windows-45163408228.json",
-        "docs/plan/evidence/restart-hardware-gui-input-windows-45166373798.json"
+        "docs/plan/evidence/restart-hardware-gui-input-windows-45166373798.json",
+        "docs/plan/evidence/restart-hardware-closeout-audit.md"
       ],
       "remaining": [
-        "Windows regression/inference SUCCESS; повторная приёмка всего пакета требует протоколов полных заявляемых CPU/CUDA/AMD профилей."
+        "Свести заявляемые конфигурации с реальными протоколами и точными границами; полный CPU/GPU критерий не принят."
       ]
     },
     {
@@ -1449,10 +1450,11 @@
         "docs/plan/evidence/restart-hardware-packaged-windows-45160086121.json",
         "docs/plan/evidence/restart-hardware-gui-windows-45161164359.json",
         "docs/plan/evidence/restart-hardware-gui-memory-windows-45163408228.json",
-        "docs/plan/evidence/restart-hardware-gui-input-windows-45166373798.json"
+        "docs/plan/evidence/restart-hardware-gui-input-windows-45166373798.json",
+        "docs/plan/evidence/restart-hardware-closeout-audit.md"
       ],
       "remaining": [
-        "Windows regression/inference SUCCESS; повторная приёмка всего пакета требует протоколов полных заявляемых CPU/CUDA/AMD профилей."
+        "Baseline и негативное воспроизведение есть; новый GUI input тест не требуется. Общая hardware приёмка пакета не выполнена."
       ]
     },
     {
@@ -1474,10 +1476,11 @@
         "docs/plan/evidence/restart-hardware-packaged-windows-45160086121.json",
         "docs/plan/evidence/restart-hardware-gui-windows-45161164359.json",
         "docs/plan/evidence/restart-hardware-gui-memory-windows-45163408228.json",
-        "docs/plan/evidence/restart-hardware-gui-input-windows-45166373798.json"
+        "docs/plan/evidence/restart-hardware-gui-input-windows-45166373798.json",
+        "docs/plan/evidence/restart-hardware-closeout-audit.md"
       ],
       "remaining": [
-        "Windows regression/inference SUCCESS; повторная приёмка всего пакета требует протоколов полных заявляемых CPU/CUDA/AMD профилей."
+        "Зафиксировать альтернативы/rollback канонической installed recipe hardware-интеграции; не отдельного JS beat."
       ]
     },
     {
@@ -1499,10 +1502,11 @@
         "docs/plan/evidence/restart-hardware-packaged-windows-45160086121.json",
         "docs/plan/evidence/restart-hardware-gui-windows-45161164359.json",
         "docs/plan/evidence/restart-hardware-gui-memory-windows-45163408228.json",
-        "docs/plan/evidence/restart-hardware-gui-input-windows-45166373798.json"
+        "docs/plan/evidence/restart-hardware-gui-input-windows-45166373798.json",
+        "docs/plan/evidence/restart-hardware-closeout-audit.md"
       ],
       "remaining": [
-        "Windows regression/inference SUCCESS; повторная приёмка всего пакета требует протоколов полных заявляемых CPU/CUDA/AMD профилей."
+        "Измеренная матрица всех заявляемых CPU/GPU конфигураций ещё неполна; guards и оценки не заменяют inference."
       ]
     },
     {
@@ -1524,10 +1528,11 @@
         "docs/plan/evidence/restart-hardware-packaged-windows-45160086121.json",
         "docs/plan/evidence/restart-hardware-gui-windows-45161164359.json",
         "docs/plan/evidence/restart-hardware-gui-memory-windows-45163408228.json",
-        "docs/plan/evidence/restart-hardware-gui-input-windows-45166373798.json"
+        "docs/plan/evidence/restart-hardware-gui-input-windows-45166373798.json",
+        "docs/plan/evidence/restart-hardware-closeout-audit.md"
       ],
       "remaining": [
-        "Windows regression/inference SUCCESS; повторная приёмка всего пакета требует протоколов полных заявляемых CPU/CUDA/AMD профилей."
+        "Установленное приложение → общий рецепт → hardware preflight → Python pipeline: реальный наблюдаемый результат/отказ."
       ]
     },
     {
@@ -1549,10 +1554,11 @@
         "docs/plan/evidence/restart-hardware-packaged-windows-45160086121.json",
         "docs/plan/evidence/restart-hardware-gui-windows-45161164359.json",
         "docs/plan/evidence/restart-hardware-gui-memory-windows-45163408228.json",
-        "docs/plan/evidence/restart-hardware-gui-input-windows-45166373798.json"
+        "docs/plan/evidence/restart-hardware-gui-input-windows-45166373798.json",
+        "docs/plan/evidence/restart-hardware-closeout-audit.md"
       ],
       "remaining": [
-        "Windows regression/inference SUCCESS; повторная приёмка всего пакета требует протоколов полных заявляемых CPU/CUDA/AMD профилей."
+        "Hardware deny/retry через installed/shared-recipe путь T0025; JS GUI cancel не заменяет model-worker cancellation."
       ]
     },
     {
@@ -1574,10 +1580,11 @@
         "docs/plan/evidence/restart-hardware-packaged-windows-45160086121.json",
         "docs/plan/evidence/restart-hardware-gui-windows-45161164359.json",
         "docs/plan/evidence/restart-hardware-gui-memory-windows-45163408228.json",
-        "docs/plan/evidence/restart-hardware-gui-input-windows-45166373798.json"
+        "docs/plan/evidence/restart-hardware-gui-input-windows-45166373798.json",
+        "docs/plan/evidence/restart-hardware-closeout-audit.md"
       ],
       "remaining": [
-        "Windows regression/inference SUCCESS; повторная приёмка всего пакета требует протоколов полных заявляемых CPU/CUDA/AMD профилей."
+        "Регрессия недостающей installed hardware-интеграции после T0025/T0026; CPU contract/probe suite уже есть."
       ]
     },
     {
@@ -1599,10 +1606,11 @@
         "docs/plan/evidence/restart-hardware-packaged-windows-45160086121.json",
         "docs/plan/evidence/restart-hardware-gui-windows-45161164359.json",
         "docs/plan/evidence/restart-hardware-gui-memory-windows-45163408228.json",
-        "docs/plan/evidence/restart-hardware-gui-input-windows-45166373798.json"
+        "docs/plan/evidence/restart-hardware-gui-input-windows-45166373798.json",
+        "docs/plan/evidence/restart-hardware-closeout-audit.md"
       ],
       "remaining": [
-        "Windows regression/inference SUCCESS; повторная приёмка всего пакета требует протоколов полных заявляемых CPU/CUDA/AMD профилей."
+        "Windows installed/shared-recipe протокол; CUDA/AMD trials отдельно остаются непроведёнными."
       ]
     },
     {
@@ -1624,10 +1632,11 @@
         "docs/plan/evidence/restart-hardware-packaged-windows-45160086121.json",
         "docs/plan/evidence/restart-hardware-gui-windows-45161164359.json",
         "docs/plan/evidence/restart-hardware-gui-memory-windows-45163408228.json",
-        "docs/plan/evidence/restart-hardware-gui-input-windows-45166373798.json"
+        "docs/plan/evidence/restart-hardware-gui-input-windows-45166373798.json",
+        "docs/plan/evidence/restart-hardware-closeout-audit.md"
       ],
       "remaining": [
-        "Scoped CPU typed instrumental и packaged JS GUI click/cancel/retry измерены; full song/quality/NSIS install и реальные CUDA/AMD GPU не приняты."
+        "Реальные полные заявляемые CPU/CUDA/AMD профили с backend/временем/RAM/VRAM; наличие доступного GPU runner не установлено."
       ]
     },
     {
@@ -1649,10 +1658,11 @@
         "docs/plan/evidence/restart-hardware-packaged-windows-45160086121.json",
         "docs/plan/evidence/restart-hardware-gui-windows-45161164359.json",
         "docs/plan/evidence/restart-hardware-gui-memory-windows-45163408228.json",
-        "docs/plan/evidence/restart-hardware-gui-input-windows-45166373798.json"
+        "docs/plan/evidence/restart-hardware-gui-input-windows-45166373798.json",
+        "docs/plan/evidence/restart-hardware-closeout-audit.md"
       ],
       "remaining": [
-        "Scoped CPU typed instrumental и packaged JS GUI click/cancel/retry измерены; full song/quality/NSIS install и реальные CUDA/AMD GPU не приняты."
+        "Закрытие после T0029, согласованная матрица поддержки без открытого остатка."
       ]
     },
     {
