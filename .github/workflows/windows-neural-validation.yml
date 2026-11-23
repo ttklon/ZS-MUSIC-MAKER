@@ -7,6 +7,8 @@ on:
       - 'tools/windows_neural_smoke.py'
       - 'tools/neural_benchmark.py'
       - 'tools/local_model_benchmark.py'
+      - 'tools/pipeline_hardware_probe.py'
+      - 'tests/test_pipeline_hardware_probe.py'
       - 'tests/test_local_model_benchmark.py'
       - 'tools/desktop_render_benchmark.js'
       - 'desktop/test/hardware-benchmark.test.js'
@@ -111,5 +113,37 @@ jobs:
         with:
           name: windows-desktop-dsp-${{ matrix.seconds }}
           path: output/desktop-dsp-${{ matrix.seconds }}/
+          retention-days: 7
+          if-no-files-found: error
+
+  classic-pipeline-diagnostic:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install CPU diagnostic runtime (no neural engines or GUI)
+        run: pip install numpy==1.26.4 scipy==1.14.1 librosa==0.10.2.post1 soundfile==0.13.1 pyloudnorm==0.1.1 pyyaml requests psutil mutagen pydub mido pytest
+      - name: Verify probe cannot promote a partial master to success
+        run: python -m pytest tests/test_pipeline_hardware_probe.py -q
+      - name: Measure real orchestration and verify expected incomplete outcome (NOT profile acceptance)
+        shell: pwsh
+        run: |
+          python tools/pipeline_hardware_probe.py --duration 20 --out output/classic-hardware-probe 2>&1 | Tee-Object -FilePath classic-probe.log
+          $code = $LASTEXITCODE
+          if ($code -ne 1) { Write-Output '::error::Expected incomplete pipeline diagnostic exit 1'; exit 1 }
+          python -c "import json; r=json.load(open('output/classic-hardware-probe/probe_report.json',encoding='utf-8')); assert r['ok'] is False and r['product_profile_accepted'] is False; assert r['pipeline']['outcome']['status']=='blocked'; assert r.get('diagnostic_audio'); stages={s['name']:s['status'] for s in r['pipeline']['stages']}; assert all(stages.get(n)=='OK' for n in ['_stage_mix_and_sidechain','_stage_mastering','_stage_auto_qa','_stage_release_pack']), stages"
+          $checked = $LASTEXITCODE
+          if ($checked -ne 0) { $detail = ((Get-Content classic-probe.log | Select-Object -Last 30) -join ' | ') -replace '%','%25'; Write-Output "::error title=Classic pipeline diagnostic regression::$detail" }
+          exit $checked
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: windows-classic-pipeline-diagnostic
+          path: |
+            output/classic-hardware-probe/
+            classic-probe.log
           retention-days: 7
           if-no-files-found: error
