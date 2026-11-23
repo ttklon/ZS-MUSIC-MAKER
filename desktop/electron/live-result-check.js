@@ -11,8 +11,9 @@ function readInstrumentalProbe(filename, expectedSource) {
     throw new Error('Probe source does not match packaged checkout');
   }
   const result = probe.typed_result, pipeline = probe.pipeline;
-  if (probe.ok !== true || pipeline?.outcome?.succeeded !== true || probe.adapter_outcome?.succeeded !== true ||
-      result?.status !== 'success' || result.kind !== 'instrumental' || result.requested_kind !== 'instrumental' ||
+  if (probe.ok !== true || pipeline?.outcome?.status !== 'success' || pipeline.outcome.succeeded !== true ||
+      probe.adapter_outcome?.status !== 'success' || probe.adapter_outcome.succeeded !== true ||
+      result?.status !== 'success' || result.succeeded !== true || result.kind !== 'instrumental' || result.requested_kind !== 'instrumental' ||
       result.quality_accepted !== false || result.artifact?.valid !== true) throw new Error('Not a verified instrumental probe');
   const artifact = result.artifact, evidence = pipeline.render_evidence;
   if (!artifact.path || artifact.path !== pipeline.master_path || evidence?.kind !== 'instrumental' ||

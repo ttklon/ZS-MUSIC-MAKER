@@ -49,7 +49,10 @@ test('unbound, failed or mislabelled producer cannot feed the packaged check', (
     const { filename, probe, source } = fixture(dir);
     for (const mutate of [r => { r.ok = false; }, r => { r.typed_result.kind = 'generated_singing'; },
       r => { r.pipeline.render_evidence.master_sha256 = 'b'.repeat(64); },
-      r => { r.typed_result.artifact.bytes += 1; }]) {
+      r => { r.typed_result.artifact.bytes += 1; },
+      r => { r.pipeline.outcome.status = 'failed'; },
+      r => { r.adapter_outcome.status = 'failed'; },
+      r => { r.typed_result.succeeded = false; }]) {
       const row = JSON.parse(JSON.stringify(probe)); mutate(row); fs.writeFileSync(filename, JSON.stringify(row));
       assert.throws(() => readInstrumentalProbe(filename, source));
     }
