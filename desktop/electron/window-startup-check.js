@@ -3,6 +3,7 @@
 const fs = require('node:fs');
 const { verifyProductHelp } = require('./product-help-check');
 const { checkResultContract } = require('./result-contract-check');
+const { checkLiveInstrumental } = require('./live-result-check');
 function checkWindow(window, app) {
   if (!process.argv.includes('--window-check')) return;
   let finished = false;
@@ -57,6 +58,10 @@ function checkWindow(window, app) {
       if (report.ok) {
         report.resultContract = await checkResultContract(window);
         report.resultContractVerified = report.resultContract?.ok === true;
+      }
+      if (report.ok && report.resultContractVerified && process.env.ZSMM_LIVE_PROBE) {
+        report.liveInstrumental = await checkLiveInstrumental(window, process.env.ZSMM_LIVE_PROBE, process.env.GITHUB_SHA);
+        report.ok = report.liveInstrumental.ok === true;
       }
       finish({ ...report, ok: report.ok && report.resultContractVerified && report.creationVisible && errors.length === 0 });
     } catch (error) { finish({ ok: false, error: String(error) }); }

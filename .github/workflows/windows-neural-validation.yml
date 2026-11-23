@@ -13,6 +13,9 @@ on:
       - 'app/core/stages/mix_trace.py'
       - 'app/core/stages/mix.py'
       - 'tests/test_instrumental_evidence.py'
+      - 'desktop/electron/live-result-check.js'
+      - 'desktop/electron/window-startup-check.js'
+      - 'desktop/test/live-result-check.test.js'
       - 'app/pipeline/result.py'
       - 'app/core/orchestrator_async.py'
       - 'app/core/orchestrator_god.py'
@@ -129,12 +132,15 @@ jobs:
 
   classic-pipeline-diagnostic:
     runs-on: windows-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
       - name: Install CPU diagnostic runtime (no neural engines or GUI)
         run: pip install numpy==1.26.4 scipy==1.14.1 librosa==0.10.2.post1 soundfile==0.13.1 pyloudnorm==0.1.1 pyyaml requests psutil mutagen pydub mido pytest
       - name: Verify probe cannot promote a partial master to success
@@ -154,6 +160,27 @@ jobs:
       - name: Verify real instrumental provenance through typed result boundary
         run: >-
           python -c "import json; r=json.load(open('output/classic-requested-instrumental/probe_report.json',encoding='utf-8')); t=r['typed_result']; e=r['pipeline']['render_evidence']; assert t['status']=='success' and t['kind']=='instrumental' and t['quality_accepted'] is False; assert e['master_sha256']==t['artifact']['sha256']; assert e['checks']=={'music_present': True} and 'vocal_method' not in e"
+      - name: Validate native-to-renderer result checker (fixtures, not generation)
+        run: node --test desktop/test/live-result-check.test.js desktop/test/creation.test.js
+      - name: Install development packaging tools
+        working-directory: desktop
+        run: |
+          npm install --ignore-scripts --no-audit --no-fund
+          node node_modules/electron/install.js
+      - name: Package Electron for actual-artifact boundary test, no publishing
+        working-directory: desktop
+        run: npm run dist:dir
+      - name: Verify actual CPU instrumental in real packaged renderer (not GUI generation)
+        shell: pwsh
+        run: |
+          $env:ZSMM_LIVE_PROBE = Join-Path (Get-Location) 'output/classic-requested-instrumental/probe_report.json'
+          $env:ZSMM_WINDOW_CHECK_OUT = Join-Path (Get-Location) 'output/classic-live-window.json'
+          $p = Start-Process -FilePath 'desktop/dist/win-unpacked/ZS Music Maker.exe' -ArgumentList '--window-check' -WorkingDirectory (Get-Location).Path -PassThru
+          if (-not $p.WaitForExit(90000)) { $p.Kill(); throw 'Actual-artifact window check timed out' }
+          $report = Get-Content $env:ZSMM_WINDOW_CHECK_OUT -Raw | ConvertFrom-Json
+          if ($p.ExitCode -ne 0 -or -not $report.ok -or -not $report.liveInstrumental.ok) { throw "Actual-artifact renderer check failed: $($report | ConvertTo-Json -Depth 12 -Compress)" }
+          $summary = $report.liveInstrumental | ConvertTo-Json -Depth 12 -Compress
+          Write-Output "::notice title=Packaged actual instrumental boundary::$summary"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -162,5 +189,6 @@ jobs:
             output/classic-hardware-probe/
             output/classic-requested-instrumental/
             classic-probe.log
+            output/classic-live-window.json
           retention-days: 7
           if-no-files-found: error
