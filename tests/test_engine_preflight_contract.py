@@ -155,3 +155,13 @@ def test_real_volume_preflight_does_not_create_destination(tmp_path):
     assert result['volumes']
     assert not target.exists()
     assert result['reservation'] is False
+
+
+def test_core_fingerprint_is_identical_for_windows_and_posix_checkout(tmp_path, monkeypatch):
+    import app.ai.engine_profiles as profiles
+    monkeypatch.setattr(profiles, 'ROOT', tmp_path)
+    requirements = tmp_path / 'requirements.txt'
+    requirements.write_bytes(b'cloudpickle==3.1.2\nnumpy>=1.26\n')
+    posix = profiles.profile('core')
+    requirements.write_bytes(b'cloudpickle==3.1.2\r\nnumpy>=1.26\r\n')
+    assert profiles.profile('core') == posix

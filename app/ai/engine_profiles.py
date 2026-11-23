@@ -25,7 +25,7 @@ def profile(name: str) -> dict:
     if name not in PROFILES:
         raise ValueError('Unknown engine profile')
     inputs = list(PROFILES[name])
-    core_hash = hashlib.sha256((ROOT / 'requirements.txt').read_bytes()).hexdigest() if name == 'core' else None
+    core_hash = hashlib.sha256((ROOT / 'requirements.txt').read_bytes().replace(b'\r\n', b'\n')).hexdigest() if name == 'core' else None
     digest = hashlib.sha256(json.dumps([inputs, core_hash]).encode()).hexdigest()
     return dict(schema=1, id=name, python='3.11', direct_inputs=inputs, input_sha256=digest, core_requirements_sha256=core_hash,
                 lock_verified=False, windows_install_verified=False, inference_verified=False)

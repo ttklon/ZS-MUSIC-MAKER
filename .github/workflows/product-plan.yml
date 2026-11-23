@@ -36,6 +36,7 @@ on:
       - 'app/ai/sequential_runner.py'
       - 'app/ai/stage_process.py'
       - 'tests/test_stage_process.py'
+      - 'tests/test_diagnostic_export_audit.py'
       - 'desktop/scripts/check-nsis-install.ps1'
       - 'desktop/electron/process-control.js'
       - 'desktop/electron/startup-diagnostics.js'
@@ -132,7 +133,7 @@ jobs:
         shell: pwsh
         run: |
           $PSNativeCommandUseErrorActionPreference = $false
-          $output = & python -m pytest tests/test_stage_process.py tests/test_windows_job_host.py tests/test_product_plan.py tests/test_release_gate.py tests/test_recipe_transport.py tests/test_runtime_lifecycle.py tests/test_bootstrap_results.py tests/test_logger_and_crash.py tests/test_engine_preflight_contract.py tests/test_ai_model_pull.py tests/test_model_loading_offline.py tests/test_net_online_bridge.py -q 2>&1
+          $output = & python -m pytest tests/test_diagnostic_export_audit.py tests/test_stage_process.py tests/test_windows_job_host.py tests/test_product_plan.py tests/test_release_gate.py tests/test_recipe_transport.py tests/test_runtime_lifecycle.py tests/test_bootstrap_results.py tests/test_logger_and_crash.py tests/test_engine_preflight_contract.py tests/test_ai_model_pull.py tests/test_model_loading_offline.py tests/test_net_online_bridge.py -q --tb=short 2>&1
           $code = $LASTEXITCODE
           $output | Write-Output
           if ($code -ne 0) {

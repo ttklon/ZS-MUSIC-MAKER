@@ -226,7 +226,7 @@ class SequentialAIRunner:
         output = None
         if stage.model is None:
             logger.info("-> stage '%s' (pure DSP, timeout=%.1fs, VRAM=%.3f GB)",
-                        stage.name, timeout_sec, vram_before)
+                        stage.name, timeout_sec, self._read_vram())
             output = self._invoke(stage, None, context, timeout_sec)
         elif stage.model not in MODEL_REGISTRY:
             raise KeyError(f"Model role '{stage.model}' not in registry")
@@ -239,7 +239,6 @@ class SequentialAIRunner:
             elif stage.optional:
                 skipped_reason = reason
             else:
-                ok = False
                 error = reason
         else:
             logger.info("-> stage '%s' loading '%s' (timeout=%.1fs)",
