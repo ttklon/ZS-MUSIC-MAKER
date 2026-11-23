@@ -9,6 +9,11 @@ on:
       - 'tools/local_model_benchmark.py'
       - 'tools/pipeline_hardware_probe.py'
       - 'app/core/stage_request.py'
+      - 'app/pipeline/result.py'
+      - 'app/core/orchestrator_async.py'
+      - 'app/core/orchestrator_god.py'
+      - 'tests/test_classic_request_scope.py'
+      - 'tests/test_orchestrator_adapters.py'
       - 'app/pipeline/outcome.py'
       - 'tests/test_pipeline_hardware_probe.py'
       - 'tests/test_local_model_benchmark.py'
@@ -129,7 +134,7 @@ jobs:
       - name: Install CPU diagnostic runtime (no neural engines or GUI)
         run: pip install numpy==1.26.4 scipy==1.14.1 librosa==0.10.2.post1 soundfile==0.13.1 pyloudnorm==0.1.1 pyyaml requests psutil mutagen pydub mido pytest
       - name: Verify probe cannot promote a partial master to success
-        run: python -m pytest tests/test_pipeline_hardware_probe.py tests/test_classic_request_scope.py tests/test_task_outcome_contract.py -q
+        run: python -m pytest tests/test_pipeline_hardware_probe.py tests/test_classic_request_scope.py tests/test_task_outcome_contract.py tests/test_orchestrator_adapters.py tests/test_result_acceptance_contract.py -q
       - name: Measure real orchestration and verify expected incomplete outcome (NOT profile acceptance)
         shell: pwsh
         run: |

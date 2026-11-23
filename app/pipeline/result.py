@@ -19,12 +19,12 @@ CHECKS = {
 }
 
 
-def assess_result(report: dict, *, requested_kind=None) -> dict:
+def assess_result(report: dict, *, requested_kind=None, required_names=(), not_requested_names=()) -> dict:
     """Validate audio, bind content evidence to its hash, enforce requested kind."""
     malformed = not isinstance(report, dict)
     report = report if not malformed else {}
     requested = requested_kind if requested_kind is not None else report.get("requested_kind", "generated_singing")
-    issue = _execution_issue(report, requested)
+    issue = _execution_issue(report, requested, required_names, not_requested_names)
     artifact = inspect_audio(None if issue and issue[0] == "canceled" else report.get("master_path"))
     result = {"schema": 1, "status": "failed", "kind": "unverified_audio", "succeeded": False,
               "label": LABELS["unverified_audio"], "artifact": artifact, "reasons": [],
@@ -77,7 +77,7 @@ def _missing_evidence(evidence, kind, artifact: dict) -> list[str]:
     return reasons
 
 
-def _execution_issue(report, requested):
+def _execution_issue(report, requested, required_names=(), not_requested_names=()):
     """Content evidence must never override failed, partial or simulated execution."""
     from app.pipeline.outcome import outcome_from_report
     issues = []
@@ -101,7 +101,7 @@ def _execution_issue(report, requested):
         if (any(key in data for key in ('outcome', 'stages')) or data.get('quality_gate_failures')
                 or ('quality_gate_failures' in data and not isinstance(data['quality_gate_failures'], list))):
             try:
-                outcome = outcome_from_report(data)
+                outcome = outcome_from_report(data, required_names=required_names, not_requested_names=not_requested_names)
                 if not outcome['succeeded']:
                     status = outcome['status'] if outcome['status'] in ('failed', 'canceled') else 'degraded'
                     issues.append((status, ['Прогон не принят: ' + '; '.join(outcome['reasons'])]))

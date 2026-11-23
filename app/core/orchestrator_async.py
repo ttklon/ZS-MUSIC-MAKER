@@ -73,6 +73,8 @@ class AsyncOrchestrator:
         state: dict[str, Any] = dict(wizard_state or {})
         state.setdefault("genre", "drift_phonk")
 
+        from app.core.stage_request import classic_execution_contract
+        contract = classic_execution_contract(state)
         stage = await run_stage_async(
             "pipeline",
             lambda: run_full_pipeline(
@@ -91,7 +93,7 @@ class AsyncOrchestrator:
 
         report = stage.output if isinstance(stage.output, dict) else ({} if stage.ok else {"stages": [asdict(stage)]})
         from app.pipeline.outcome import outcome_from_report
-        outcome = outcome_from_report(report)
+        outcome = outcome_from_report(report, **contract)
         verdict = report.get("verdict")
         result = {
             "project_id": self.project_id,

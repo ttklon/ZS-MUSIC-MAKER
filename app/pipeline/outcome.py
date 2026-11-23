@@ -67,11 +67,12 @@ def report_outcome(stages, *, quality_failures=(), dry_run=False, only=None, req
     return outcome
 
 
-def outcome_from_report(report) -> dict:
+def outcome_from_report(report, *, required_names=(), not_requested_names=()) -> dict:
     """Adapters cannot promote a legacy PASS or override a stricter producer outcome."""
     outcome = report_outcome(report.get('stages', []),
         quality_failures=report.get('quality_gate_failures') or (),
-        dry_run=bool(report.get('dry_run')), only=report.get('only'))
+        dry_run=bool(report.get('dry_run')), only=report.get('only'),
+        required_names=required_names, not_requested_names=not_requested_names)
     declared = report.get('outcome')
     if declared is not None:
         order = ('failed', 'canceled', 'blocked', 'degraded', 'success')

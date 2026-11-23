@@ -119,7 +119,9 @@ def test_async_orchestrator_runs_shared_pipeline(monkeypatch: pytest.MonkeyPatch
     orch = orchestrator_async.AsyncOrchestrator("probe", tmp_path)
     result = asyncio.run(orch.run_pipeline({"genre": "phonk"}))
 
-    assert result["status"] == "completed"
+    # A two-stage producer fixture cannot satisfy the full caller contract.
+    assert result["status"] == "partial"
+    assert result["outcome"]["status"] == "blocked"
     assert [stage["name"] for stage in result["stages"]] == ["_stage_beat", "_stage_mastering"]
     assert result["master_path"] == str(tmp_path / "master.wav")
     assert (tmp_path / "async_meta.json").exists()
@@ -163,3 +165,39 @@ def test_async_exception_has_failed_canonical_outcome(tmp_path, monkeypatch):
     result = asyncio.run(orchestrator_async.AsyncOrchestrator('probe', tmp_path).run_pipeline({}))
     assert result['outcome']['status'] == 'failed'
     assert 'failed engine' in result['outcome']['reasons'][0]
+
+
+@pytest.mark.parametrize('mode', ['god', 'async'])
+def test_adapter_scope_is_bound_before_executor_can_mutate_state(mode, tmp_path, monkeypatch):
+    """Execution doubles only: producer cannot retroactively disable caller stages."""
+    from app.core import orchestrator, orchestrator_god, orchestrator_async
+    from app.core.pipeline_runtime import STAGE_RECORDS
+    def fake_pipeline(project_id, state, **kwargs):
+        state.update(voice_mode='off', use_texture=False, export_stems=False)
+        return {'stages': [{'name': n, 'status': 'BLOCKED' if n == '_stage_voice_synth' else 'OK'}
+                           for n in STAGE_RECORDS],
+                'outcome': {'status': 'success', 'succeeded': True}}
+    monkeypatch.setattr(orchestrator, 'run_full_pipeline', fake_pipeline)
+    state = {'voice_mode': 'pro'}
+    result = (orchestrator_god.run_god_pipeline('scope', state, out_root=tmp_path) if mode == 'god' else
+              asyncio.run(orchestrator_async.AsyncOrchestrator('scope', tmp_path).run_pipeline(state)))
+    assert result['status'] == 'partial'
+    assert result['outcome']['status'] == 'blocked'
+
+
+@pytest.mark.parametrize('mode', ['god', 'async'])
+def test_adapter_preserves_explicit_instrumental_execution_scope(mode, tmp_path, monkeypatch):
+    """All stages are doubles; proves adapter behavior, NOT a successful audio render."""
+    from app.core import orchestrator, orchestrator_god, orchestrator_async
+    from app.core.pipeline_runtime import STAGE_RECORDS
+    from app.core.stage_request import disabled_stages
+    state = {'voice_mode': 'off', 'use_texture': False, 'export_stems': False}
+    disabled = disabled_stages(state)
+    def fake_pipeline(*args, **kwargs):
+        return {'stages': [{'name': n, 'status': 'BLOCKED' if n in disabled else 'OK'} for n in STAGE_RECORDS],
+                'outcome': {'status': 'success', 'succeeded': True}}
+    monkeypatch.setattr(orchestrator, 'run_full_pipeline', fake_pipeline)
+    result = (orchestrator_god.run_god_pipeline('scope', state, out_root=tmp_path) if mode == 'god' else
+              asyncio.run(orchestrator_async.AsyncOrchestrator('scope', tmp_path).run_pipeline(state)))
+    assert result['status'] == 'completed'
+    assert result['outcome']['succeeded'] is True

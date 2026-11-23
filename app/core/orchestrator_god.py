@@ -51,6 +51,8 @@ def run_god_pipeline(
     )
     root.mkdir(parents=True, exist_ok=True)
 
+    from app.core.stage_request import classic_execution_contract
+    contract = classic_execution_contract(state)
     report = run_full_pipeline(project_id, state, dry_run=dry_run, out_root=root)
 
     stages = [
@@ -66,7 +68,7 @@ def run_god_pipeline(
     ]
     vocal_status, vocal_reason = _vocal_report(stages)
     from app.pipeline.outcome import outcome_from_report
-    outcome = outcome_from_report(report)
+    outcome = outcome_from_report(report, **contract)
     status = "completed" if outcome["succeeded"] else "partial"
     result = {
         "project_id": project_id,

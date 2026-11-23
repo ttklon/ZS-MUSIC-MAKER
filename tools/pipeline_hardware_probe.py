@@ -69,6 +69,11 @@ def probe(seconds, directory, *, without_texture=False):
             with measure_render(report['measurements']):
                 result = run_full_pipeline('hardware_cpu', state, dry_run=False, out_root=directory / 'pipeline')
             report['pipeline'] = result
+            from app.core.stage_request import classic_outcome, classic_result
+            report['adapter_outcome'] = classic_outcome(result, state)
+            report['typed_result'] = classic_result(result, state, requested_kind='instrumental')
+            if report['adapter_outcome']['status'] != result['outcome']['status']:
+                raise ValueError('Caller-scoped adapter disagrees with producer outcome')
             try:
                 report['diagnostic_audio'] = inspect_master(result, seconds)
             except Exception as exc:
@@ -99,6 +104,8 @@ def main():
     print(json.dumps(summary_for(report), ensure_ascii=True, indent=2))
     summary = {key: report.get(key) for key in ('ok', 'kind', 'source', 'measurements', 'diagnostic_audio')}
     summary['product_profile_accepted'] = False
+    summary['adapter_status'] = (report.get('adapter_outcome') or {}).get('status')
+    summary['typed_result_status'] = (report.get('typed_result') or {}).get('status')
     summary['outcome_status'] = (report.get('pipeline', {}).get('outcome') or {}).get('status')
     print('::notice title=Classic pipeline diagnostic::' + json.dumps(summary, ensure_ascii=True))
     return 0 if report['ok'] else 1
