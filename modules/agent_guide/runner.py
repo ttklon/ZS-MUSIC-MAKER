@@ -262,7 +262,7 @@ def run_conversation_hit(payload: dict[str, Any] | None = None,
 
     blocked = _blocked_stages(lyrics, voice, samples, style, trend)
     report = {
-        "ok": bool(hit.get("master_path")),
+        "artifact_available": bool(hit.get("master_path")),
         "answers": answers,
         "plan": plan,
         "trend": trend,
@@ -280,9 +280,12 @@ def run_conversation_hit(payload: dict[str, Any] | None = None,
         "output_root": str(Path(hit.get("out_root") or output_root)),
         "agent_failed": "" if hit.get("master_path") else "пайплайн не отдал мастер — смотри hit.error",
     }
-    if not report["ok"]:
+    from app.pipeline.result import assess_result
+    report["result"] = assess_result(report, requested_kind="generated_singing")
+    report["ok"] = report["result"]["succeeded"]
+    if not report["artifact_available"]:
         _LOG.warning("conversation hit failed: %s", report["agent_failed"])
-    say(f"Готово за {report['elapsed_sec']} с: {report['master_path'] or report['agent_failed']}")
+    say(f"Прогон завершён за {report['elapsed_sec']} с: {report['master_path'] or report['agent_failed']}; статус {report['result']['status']}")
     return report
 
 

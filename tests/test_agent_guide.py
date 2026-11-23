@@ -113,7 +113,9 @@ def test_run_reports_blocked_lyrics_and_voice_without_engines(monkeypatch, tmp_p
 
     report = run_conversation_hit({"mood": "ночь"}, output_root=str(tmp_path))
 
-    assert report["ok"] is True
+    assert report["ok"] is False
+    assert report["artifact_available"] is True
+    assert not report["result"]["succeeded"]
     blocked = {item["stage"] for item in report["blocked"]}
     assert {"lyrics", "voice", "references", "samples"} <= blocked
     assert verdict(report) == "FAILED", "несуществующий файл мастера не является результатом"
@@ -146,9 +148,12 @@ def test_verdict_hit_requires_master_lyrics_and_voice(monkeypatch, tmp_path) -> 
         "master_path": str(tmp_path / "m.wav"), "hit_score": 80.0, "out_root": str(tmp_path),
     })
 
-    report = run_conversation_hit({"voice": "C:/take.wav"}, output_root=str(tmp_path))
+    progress = []
+    report = run_conversation_hit({"voice": "C:/take.wav"}, output_root=str(tmp_path), progress=progress.append)
 
     assert report["blocked"] == []
+    assert report["ok"] is False
+    assert not any(line.startswith("Готово") for line in progress)
     assert verdict(report) == "FAILED", "одних флагов текста/RVC и пути недостаточно"
     assert report["plan"]["reference_lyrics"] == "текст"
 
