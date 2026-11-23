@@ -18,7 +18,9 @@ def load():
 def test_restart_covers_all_1000_and_starts_at_first_ten():
     data, backlog = load()
     result = validate_restart(data, backlog)
-    assert (result['active_first'], result['active_last']) == ('T0001', 'T0010')
+    assert (data['batches'][0][0], data['batches'][0][-1]) == ('T0001', 'T0010')
+    active = data['batches'][data['current_batch']]
+    assert (result['active_first'], result['active_last']) == (active[0], active[-1])
     assert not result['product_acceptance_verified_by_this_tool']
 
 

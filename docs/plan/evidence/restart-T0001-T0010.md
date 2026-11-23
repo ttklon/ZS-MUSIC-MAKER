@@ -31,3 +31,19 @@ python tools/check_plan_restart.py
 без публикации, тега, изменения runtime версии и удаления release assets.
 Откат: revert соответствующих исходников и документов; данные пользователя не
 удаляются. Генератор плана поверх статусов не запускался.
+
+## Результат предметной приёмки
+
+**T0001–T0010 complete в повторном проходе (только спецификация продукта).**
+
+- Код: `d7ab429866d070e1cda9239796ab5e4ef4acd60d`.
+- Windows run **45106897753** — SUCCESS, оба jobs SUCCESS.
+- `specification-first-ten`: реальный упакованный EXE, полный видимый текст
+  контракта и все четыре сценария; обязательный productHelpVerified=true.
+- Локально 46 product/render/UI PASS; дополнительно 58 product/packaging/window
+  tests PASS; 16 plan/restart/function-budget PASS.
+- Протокол Windows: [машинный снимок](restart-ten-windows-45106897753.json).
+- https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45106897753
+
+Исходные статусы и история сохранены. В новом проходе закрыты ровно эти 10 ID.
+Далее T0011–T0020; прежние проверки следующих пунктов не скопированы в complete.

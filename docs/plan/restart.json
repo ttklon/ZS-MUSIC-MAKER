@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "batch_size": 10,
-  "current_batch": 0,
+  "current_batch": 1,
   "batches": [
     [
       "T0001",
@@ -1207,113 +1207,103 @@
   "reviews": [
     {
       "id": "T0001",
-      "state": "in_progress",
-      "acceptance_met": false,
+      "state": "complete",
+      "acceptance_met": true,
       "evidence": [
-        "docs/plan/evidence/restart-T0001-T0050.md"
+        "docs/plan/evidence/restart-T0001-T0010.md",
+        "docs/plan/evidence/restart-ten-windows-45106897753.json"
       ],
-      "remaining": [
-        "Повторная предметная приёмка этого ID не завершена; не переносить как выполненный."
-      ]
+      "remaining": []
     },
     {
       "id": "T0002",
-      "state": "in_progress",
-      "acceptance_met": false,
+      "state": "complete",
+      "acceptance_met": true,
       "evidence": [
-        "docs/plan/evidence/restart-T0001-T0050.md"
+        "docs/plan/evidence/restart-T0001-T0010.md",
+        "docs/plan/evidence/restart-ten-windows-45106897753.json"
       ],
-      "remaining": [
-        "Повторная предметная приёмка этого ID не завершена; не переносить как выполненный."
-      ]
+      "remaining": []
     },
     {
       "id": "T0003",
-      "state": "in_progress",
-      "acceptance_met": false,
+      "state": "complete",
+      "acceptance_met": true,
       "evidence": [
-        "docs/plan/evidence/restart-T0001-T0050.md"
+        "docs/plan/evidence/restart-T0001-T0010.md",
+        "docs/plan/evidence/restart-ten-windows-45106897753.json"
       ],
-      "remaining": [
-        "Повторная предметная приёмка этого ID не завершена; не переносить как выполненный."
-      ]
+      "remaining": []
     },
     {
       "id": "T0004",
-      "state": "in_progress",
-      "acceptance_met": false,
+      "state": "complete",
+      "acceptance_met": true,
       "evidence": [
-        "docs/plan/evidence/restart-T0001-T0050.md"
+        "docs/plan/evidence/restart-T0001-T0010.md",
+        "docs/plan/evidence/restart-ten-windows-45106897753.json"
       ],
-      "remaining": [
-        "Повторная предметная приёмка этого ID не завершена; не переносить как выполненный."
-      ]
+      "remaining": []
     },
     {
       "id": "T0005",
-      "state": "in_progress",
-      "acceptance_met": false,
+      "state": "complete",
+      "acceptance_met": true,
       "evidence": [
-        "docs/plan/evidence/restart-T0001-T0050.md"
+        "docs/plan/evidence/restart-T0001-T0010.md",
+        "docs/plan/evidence/restart-ten-windows-45106897753.json"
       ],
-      "remaining": [
-        "Повторная предметная приёмка этого ID не завершена; не переносить как выполненный."
-      ]
+      "remaining": []
     },
     {
       "id": "T0006",
-      "state": "in_progress",
-      "acceptance_met": false,
+      "state": "complete",
+      "acceptance_met": true,
       "evidence": [
-        "docs/plan/evidence/restart-T0001-T0050.md"
+        "docs/plan/evidence/restart-T0001-T0010.md",
+        "docs/plan/evidence/restart-ten-windows-45106897753.json"
       ],
-      "remaining": [
-        "Повторная предметная приёмка этого ID не завершена; не переносить как выполненный."
-      ]
+      "remaining": []
     },
     {
       "id": "T0007",
-      "state": "in_progress",
-      "acceptance_met": false,
+      "state": "complete",
+      "acceptance_met": true,
       "evidence": [
-        "docs/plan/evidence/restart-T0001-T0050.md"
+        "docs/plan/evidence/restart-T0001-T0010.md",
+        "docs/plan/evidence/restart-ten-windows-45106897753.json"
       ],
-      "remaining": [
-        "Повторная предметная приёмка этого ID не завершена; не переносить как выполненный."
-      ]
+      "remaining": []
     },
     {
       "id": "T0008",
-      "state": "in_progress",
-      "acceptance_met": false,
+      "state": "complete",
+      "acceptance_met": true,
       "evidence": [
-        "docs/plan/evidence/restart-T0001-T0050.md"
+        "docs/plan/evidence/restart-T0001-T0010.md",
+        "docs/plan/evidence/restart-ten-windows-45106897753.json"
       ],
-      "remaining": [
-        "Повторная предметная приёмка этого ID не завершена; не переносить как выполненный."
-      ]
+      "remaining": []
     },
     {
       "id": "T0009",
-      "state": "in_progress",
-      "acceptance_met": false,
+      "state": "complete",
+      "acceptance_met": true,
       "evidence": [
-        "docs/plan/evidence/restart-T0001-T0050.md"
+        "docs/plan/evidence/restart-T0001-T0010.md",
+        "docs/plan/evidence/restart-ten-windows-45106897753.json"
       ],
-      "remaining": [
-        "Повторная предметная приёмка этого ID не завершена; не переносить как выполненный."
-      ]
+      "remaining": []
     },
     {
       "id": "T0010",
-      "state": "in_progress",
-      "acceptance_met": false,
+      "state": "complete",
+      "acceptance_met": true,
       "evidence": [
-        "docs/plan/evidence/restart-T0001-T0050.md"
+        "docs/plan/evidence/restart-T0001-T0010.md",
+        "docs/plan/evidence/restart-ten-windows-45106897753.json"
       ],
-      "remaining": [
-        "Повторная предметная приёмка этого ID не завершена; не переносить как выполненный."
-      ]
+      "remaining": []
     },
     {
       "id": "T0011",
@@ -1757,11 +1747,11 @@
     }
   ],
   "latest_regression": {
-    "code_revision": "3b9bd10972ac7d04d1425aeb4c282e3a46f5ae5a",
-    "windows_run": "https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45106323822",
+    "code_revision": "d7ab429866d070e1cda9239796ab5e4ef4acd60d",
+    "windows_run": "https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45106897753",
     "conclusion": "success",
-    "evidence": "docs/plan/evidence/restart-windows-45106323822.json",
-    "scope": "Contracts and regression only; no model/hardware/user-journey acceptance"
+    "evidence": "docs/plan/evidence/restart-ten-windows-45106897753.json",
+    "scope": "T0001-T0010 specification, real packaged visible help and scenario boundaries; not generation acceptance"
   },
   "reviewed_through_batch": 4
 }
