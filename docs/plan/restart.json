@@ -1595,5 +1595,12 @@
         "Сквозной сценарий генерации, экспорта и правки пользователем ещё не пройден."
       ]
     }
-  ]
+  ],
+  "latest_regression": {
+    "code_revision": "3b9bd10972ac7d04d1425aeb4c282e3a46f5ae5a",
+    "windows_run": "https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45106323822",
+    "conclusion": "success",
+    "evidence": "docs/plan/evidence/restart-windows-45106323822.json",
+    "scope": "Contracts and regression only; no model/hardware/user-journey acceptance"
+  }
 }
