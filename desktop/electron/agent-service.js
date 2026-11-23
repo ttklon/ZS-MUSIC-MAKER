@@ -46,7 +46,7 @@ function masterExists(masterPath, fsApi) {
 /**
  * @param {object} params
  * @param {object} params.ipcMain        electron ipcMain (или двойник)
- * @param {Function} params.startAgent   `(options) => {ok, error?}` — запуск задачи
+ * @param {Function} params.startAgent   `(options, sender) => {ok, error?}` — запуск задачи
  * @param {object} [params.fsApi]        файловое API (`existsSync`)
  * @param {Function} [params.openPath]   открыть файл в системном плеере
  * @returns {{handlers: string[]}}
@@ -54,10 +54,10 @@ function masterExists(masterPath, fsApi) {
 function registerAgentIpc({ ipcMain, startAgent, fsApi = require('node:fs'), openPath = null, audioRoots = [] }) {
   // Запуск: ответ приходит сразу (задача идёт минутами), а результат окно
   // получает из общего потока `zsmm:task-done` и само разбирает лог.
-  ipcMain.handle('zsmm:agent-hit', async (_event, options) => {
+  ipcMain.handle('zsmm:agent-hit', async (event, options) => {
     if (typeof startAgent !== 'function') return { ok: false, error: 'запуск задач недоступен' };
     try {
-      return await startAgent(options || {});
+      return await startAgent(options || {}, event?.sender || null);
     } catch (err) {
       return { ok: false, error: err && err.message ? err.message : String(err) };
     }

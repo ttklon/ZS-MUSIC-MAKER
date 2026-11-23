@@ -47,6 +47,20 @@ test('каналы агентика зарегистрированы и запу
   assert.deepEqual(calls[0], { mood: 'ночь', voice: 'record' });
 });
 
+test('agent-hit привязывает поток событий к вызывающему окну', async () => {
+  const sender = { id: 'window-sender' };
+  let forwarded = null;
+  const { handlers } = harness({ startAgent: (options, actualSender) => {
+    forwarded = { options, actualSender };
+    return { ok: true, data: { pid: 42, command: ['main.py', '--agent-hit'] } };
+  } });
+
+  const reply = await handlers.get('zsmm:agent-hit')({ sender }, { mood: 'ночь' });
+
+  assert.equal(reply.ok, true);
+  assert.deepEqual(forwarded, { options: { mood: 'ночь' }, actualSender: sender });
+});
+
 test('ошибка запуска отдаётся строкой, а не исключением', async () => {
   const { handlers } = harness({
     startAgent: () => { throw new Error('Python не найден'); },
