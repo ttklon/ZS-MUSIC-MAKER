@@ -65,7 +65,11 @@ def run_agent_hit(args) -> int:
         return 2
 
     from app.pipeline.result import assess_result
-    result = assess_result(report)
+    if not isinstance(report, dict):
+        events.emit("error", message="Исполнитель не вернул объект отчёта")
+        events.emit("done", ok=False, report={"error": "malformed producer report"})
+        return 2
+    result = assess_result(report, requested_kind="generated_singing")
     summary = {
         "verdict": "COMPLETE" if result["succeeded"] else ("FAILED" if result["status"] in ("failed", "canceled") else "PARTIAL"),
         "result": result, "master_path": report.get("master_path"),
@@ -75,6 +79,6 @@ def run_agent_hit(args) -> int:
     if report.get("master_path"):
         events.emit("artifact", role="master", path=str(report["master_path"]))
     events.emit("done", ok=result["succeeded"], report=summary)
-    for line in narrate(report).splitlines():
+    for line in narrate(dict(report, requested_kind="generated_singing")).splitlines():
         safe_print(f"[agent-hit] {line}")
     return 0 if result["succeeded"] else 1

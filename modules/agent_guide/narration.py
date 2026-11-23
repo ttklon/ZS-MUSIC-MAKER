@@ -33,14 +33,18 @@ def narrate(report: dict[str, Any]) -> str:
         lines.extend(result['reasons'])
     else:
         lines.append(f"Трек не собрался: {report.get('agent_failed') or 'нет мастера'}")
-    lyrics = (report.get("lyrics") or {}).get("ok")
-    voice = (report.get("voice") or {}).get("ok")
+    lyrics_data = report.get("lyrics") if isinstance(report.get("lyrics"), dict) else {}
+    voice_data = report.get("voice") if isinstance(report.get("voice"), dict) else {}
+    lyrics, voice = lyrics_data.get("ok"), voice_data.get("ok")
     lines.append(
         f"Текст: {'локальная LLM (Ollama)' if lyrics else 'нет — BLOCKED'}; "
-        f"голос: {str((report.get('voice') or {}).get('source') or 'источник не указан') if voice else 'без вокала'}"
+        f"голос: {str(voice_data.get('source') or 'источник не указан') if voice else 'без вокала'}"
     )
-    for item in report.get("blocked") or []:
-        stage = item.get("stage", "")
+    blocked = report.get("blocked") if isinstance(report.get("blocked"), list) else []
+    for item in blocked:
+        if not isinstance(item, dict):
+            continue
+        stage = str(item.get("stage") or "неизвестная стадия")
         action = ACTIONS.get(stage, "")
         lines.append(f"· {stage}: {item.get('reason')}" + (f" → {action}" if action else ""))
     return "\n".join(lines)

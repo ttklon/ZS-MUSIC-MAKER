@@ -107,3 +107,93 @@ def test_nonfinite_and_out_of_range_audio_is_rejected(tmp_path):
     for value in (np.nan, np.inf, 2.0):
         sf.write(target, np.full(2000, value, dtype='float32'), 8000, subtype='FLOAT')
         assert not inspect_audio(str(target))['valid']
+
+
+@pytest.mark.parametrize('extra', [
+    {'outcome': {'status': 'failed', 'succeeded': False}},
+    {'outcome': {'status': 'canceled', 'succeeded': False}},
+    {'outcome': {'status': 'blocked', 'succeeded': False}},
+    {'outcome': {'status': 'success', 'succeeded': False}},
+    {'stages': [{'name': 'voice', 'status': 'FAILED', 'ok': True}]},
+    {'stages': []}, {'quality_gate_failures': ['bad peak']}, {'dry_run': True},
+    {'only': ['master']}, {'synthetic': True}, {'placeholder': True},
+    {'agent_failed': 'engine failed'}, {'error': 'engine failed'}, {'blocked': {}},
+    {'hit': {'error': 'nested engine failed'}},
+    {'hit': {'outcome': {'status': 'blocked', 'succeeded': False}}},
+])
+def test_valid_content_evidence_cannot_override_failed_or_partial_execution(audio, extra):
+    result = assess_result({'master_path': audio, 'render_evidence': evidence(audio, 'generated_singing'), **extra})
+    assert not result['succeeded']
+    assert result['reasons']
+
+
+@pytest.mark.parametrize('key,value', [('engine', True), ('revision', 12), ('engine', ' '),
+    ('schema', True), ('synthetic', True), ('dry_run', True), ('placeholder', True)])
+def test_provenance_rejects_wrong_types_or_simulation(audio, key, value):
+    proof = evidence(audio, 'generated_singing'); proof[key] = value
+    assert not assess_result({'master_path': audio, 'render_evidence': proof})['succeeded']
+
+
+def test_explicit_invalid_provenance_does_not_fall_back_to_nested_good_evidence(audio):
+    assert not assess_result({'master_path': audio, 'render_evidence': None,
+                             'hit': {'render_evidence': evidence(audio, 'generated_singing')}})['succeeded']
+
+
+@pytest.mark.parametrize('bad', [None, [], 'HIT', 100])
+def test_malformed_report_is_failed_not_an_exception(bad):
+    assert assess_result(bad)['status'] == 'failed'
+
+
+def test_caller_request_cannot_be_downgraded_by_producer(audio):
+    report = {'master_path': audio, 'render_evidence': evidence(audio, 'instrumental'), 'requested_kind': 'instrumental'}
+    assert assess_result(report)['succeeded']  # explicit instrumental contract
+    assert not assess_result(report, requested_kind='generated_singing')['succeeded']
+
+
+def test_agent_cli_rejects_producer_request_downgrade(audio, monkeypatch):
+    from types import SimpleNamespace
+    from app.cli import agent_task
+    import modules.agent_guide as guide
+    monkeypatch.setattr(agent_task, '_prepare', lambda *_: {})
+    monkeypatch.setattr(guide, 'run_conversation_hit', lambda *a, **kw: {
+        'master_path': audio, 'render_evidence': evidence(audio, 'instrumental'), 'requested_kind': 'instrumental'})
+    assert agent_task.run_agent_hit(SimpleNamespace(online=False)) == 1
+
+
+def test_agent_cli_handles_malformed_producer_report(monkeypatch, capsys):
+    import json
+    from types import SimpleNamespace
+    from app.cli import agent_task
+    import modules.agent_guide as guide
+    monkeypatch.setattr(agent_task, '_prepare', lambda *_: {})
+    monkeypatch.setattr(guide, 'run_conversation_hit', lambda *a, **kw: None)
+    assert agent_task.run_agent_hit(SimpleNamespace(online=False)) == 2
+    rows = [json.loads(line) for line in capsys.readouterr().out.splitlines() if line.startswith('{')]
+    assert rows[-1]['type'] == 'done' and rows[-1]['ok'] is False
+
+
+@pytest.mark.parametrize('contradiction', [{'voice': {'ok': False}}, {'voice': {'ok': True, 'empty': True}},
+    {'voice': {'ok': True, 'silent': True}}, {'voice': {'ok': True, 'source': 'tts'}},
+    {'voice': {'ok': True, 'source': 'silero'}}, {'voice': {'ok': True, 'source': 'xtts'}},
+    {'voice': []}, {'lyrics': {'ok': False}}])
+def test_manifest_cannot_hide_explicit_empty_speech_or_missing_lyrics(audio, contradiction):
+    assert not assess_result({'master_path': audio, 'render_evidence': evidence(audio, 'generated_singing'),
+                              **contradiction})['succeeded']
+
+
+def test_intentionally_instrumental_result_does_not_require_vocals(audio):
+    assert assess_result({'master_path': audio, 'requested_kind': 'instrumental', 'voice': {'ok': False},
+                          'render_evidence': evidence(audio, 'instrumental')})['succeeded']
+
+
+def test_empty_qa_failures_do_not_block_a_valid_content_contract(audio):
+    assert assess_result({'master_path': audio, 'render_evidence': evidence(audio, 'generated_singing'),
+                          'quality_gate_failures': []})['succeeded']
+
+
+def test_cancellation_never_opens_stale_audio(monkeypatch):
+    import app.pipeline.result as results
+    seen = []
+    monkeypatch.setattr(results, 'inspect_audio', lambda filename: seen.append(filename) or {'valid': False})
+    assert results.assess_result({'master_path': 'stale.wav', 'canceled': True})['status'] == 'canceled'
+    assert seen == [None]

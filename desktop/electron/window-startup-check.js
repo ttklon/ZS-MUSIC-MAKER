@@ -2,6 +2,7 @@
 /** Real packaged renderer probe, distinct from the headless data smoke check. */
 const fs = require('node:fs');
 const { verifyProductHelp } = require('./product-help-check');
+const { checkResultContract } = require('./result-contract-check');
 function checkWindow(window, app) {
   if (!process.argv.includes('--window-check')) return;
   let finished = false;
@@ -53,7 +54,11 @@ function checkWindow(window, app) {
         report.productHelpVerified = verifyProductHelp(report.navigation.find(r => r.view === 'help')?.product);
         report.ok = report.productHelpVerified && report.navigation.every(r => r.ok);
       }
-      finish({ ...report, ok: report.ok && report.creationVisible && errors.length === 0 });
+      if (report.ok) {
+        report.resultContract = await checkResultContract(window);
+        report.resultContractVerified = report.resultContract?.ok === true;
+      }
+      finish({ ...report, ok: report.ok && report.resultContractVerified && report.creationVisible && errors.length === 0 });
     } catch (error) { finish({ ok: false, error: String(error) }); }
   });
 }

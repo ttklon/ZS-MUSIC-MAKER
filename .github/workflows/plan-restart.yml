@@ -8,6 +8,7 @@ on:
       - 'desktop/src/core/product-contract.js'
       - 'desktop/src/sections/help.js'
       - 'desktop/electron/product-help-check.js'
+      - 'desktop/electron/result-contract-check.js'
       - 'desktop/electron/window-startup-check.js'
       - 'desktop/test/product-contract.test.js'
       - 'desktop/scripts/product-spec.js'
@@ -17,6 +18,11 @@ on:
       - 'app/core/orchestrator*.py'
       - 'app/core/report_finalize.py'
       - 'app/cli/pipeline.py'
+      - 'app/cli/agent_task.py'
+      - 'modules/agent_guide/**'
+      - 'desktop/src/core/creation-state.js'
+      - 'desktop/src/sections/creation.js'
+      - 'desktop/test/creation.test.js'
       - 'tests/**'
       - '.github/workflows/plan-restart.yml'
   workflow_dispatch:
@@ -45,7 +51,7 @@ jobs:
         shell: pwsh
         run: |
           $PSNativeCommandUseErrorActionPreference = $false
-          $output = & python -m pytest tests/test_plan_restart.py tests/test_product_plan.py tests/test_result_acceptance_contract.py tests/test_task_outcome_contract.py tests/test_pipeline_stage_contract.py tests/test_hardware_profiles_contract.py tests/test_product_maps.py tests/test_runtime_orchestrator_result_summary.py tests/test_orchestrator_adapters.py tests/test_cli_pipeline_handlers.py tests/test_stage_process.py tests/test_function_length_budget.py -q --tb=short --junitxml=restart-tests.xml 2>&1
+          $output = & python -m pytest tests/test_plan_restart.py tests/test_product_plan.py tests/test_result_acceptance_contract.py tests/test_agent_guide.py tests/test_recipe_transport.py tests/test_task_outcome_contract.py tests/test_pipeline_stage_contract.py tests/test_hardware_profiles_contract.py tests/test_product_maps.py tests/test_runtime_orchestrator_result_summary.py tests/test_orchestrator_adapters.py tests/test_cli_pipeline_handlers.py tests/test_stage_process.py tests/test_function_length_budget.py -q --tb=short --junitxml=restart-tests.xml 2>&1
           $code = $LASTEXITCODE
           $output | Write-Output
           if ($code -ne 0) {
@@ -86,14 +92,14 @@ jobs:
       - name: Package real Electron, no publishing
         working-directory: desktop
         run: npm run dist:dir
-      - name: Verify actual packaged help text and all four scenarios
+      - name: Verify packaged specification and typed result boundary (not generation)
         shell: pwsh
         run: |
           $env:ZSMM_WINDOW_CHECK_OUT = Join-Path $env:RUNNER_TEMP 'first-ten-window.json'
           $p = Start-Process -FilePath 'desktop/dist/win-unpacked/ZS Music Maker.exe' -ArgumentList '--window-check' -PassThru
           if (-not $p.WaitForExit(60000)) { $p.Kill(); throw 'Specification window timed out' }
           $report = Get-Content $env:ZSMM_WINDOW_CHECK_OUT -Raw | ConvertFrom-Json
-          if ($p.ExitCode -ne 0 -or -not $report.ok -or -not $report.productHelpVerified) {
+          if ($p.ExitCode -ne 0 -or -not $report.ok -or -not $report.productHelpVerified -or -not $report.resultContractVerified) {
             throw 'Packaged help does not match the full canonical product contract'
           }
           Write-Output '::notice title=T0001-T0010 specification::Real packaged help text and all four scenario boundaries match canonical contract. Not model generation acceptance.'

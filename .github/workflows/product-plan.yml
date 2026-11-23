@@ -91,6 +91,7 @@ on:
       - 'desktop/test/product-contract.test.js'
       - 'desktop/electron/window-startup-check.js'
       - 'desktop/electron/product-help-check.js'
+      - 'desktop/electron/result-contract-check.js'
       - 'tools/build_product_plan.py'
       - 'tests/test_product_plan.py'
       - '.github/workflows/product-plan.yml'

@@ -166,3 +166,51 @@ test('bootstrap exit zero with missing or incomplete report does not unlock gene
   assert.match(f.root.textContent, /Состояние: blocked/);
   assert.doesNotMatch(f.root.textContent, /3\. Создадим трек/);
 });
+
+function acceptedContentFixture() {
+  return { master_path: '/music/singing.wav', blocked: [], result: {
+    schema: 1, kind: 'generated_singing', requested_kind: 'generated_singing', status: 'success', succeeded: true,
+    label: 'Автоматическое пение', reasons: [], quality_accepted: false,
+    artifact: { valid: true, path: '/music/singing.wav', sha256: 'a'.repeat(64) }
+  } };
+}
+test('result boundary accepts only matching requested content and a validated current artifact', () => {
+  const { isCompleteResult } = require('../src/core/creation-state');
+  assert.equal(isCompleteResult(acceptedContentFixture(), true), true);
+  for (const mutate of [r => { r.result.kind = 'speech_draft'; }, r => { r.result.kind = 'instrumental'; },
+    r => { r.result.requested_kind = 'instrumental'; }, r => { r.result.artifact.valid = false; },
+    r => { r.result.artifact.path = '/old.wav'; }, r => { r.result.artifact.sha256 = ''; },
+    r => { r.result.reasons = ['missing singing']; }, r => { r.blocked = {}; },
+    r => { r.outcome = { status: 'failed', succeeded: false }; }, r => { r.canceled = true; },
+    r => { r.dry_run = true; }, r => { r.only = ['master']; }]) {
+    const report = acceptedContentFixture(); mutate(report);
+    assert.equal(isCompleteResult(report, true), false);
+  }
+  assert.equal(isCompleteResult(acceptedContentFixture(), false), false);
+});
+
+test('UI does not promote forged success on speech or invalid audio; positive typed singing renders result', async () => {
+  for (const mode of ['speech', 'invalid', 'singing']) {
+    const f = fixture(); await f.load(); await f.click('Далее — подготовить студию');
+    await f.click('Проверить и подготовить автоматически'); f.done({ ok: true });
+    await f.click('Создать трек');
+    const report = acceptedContentFixture();
+    if (mode === 'speech') report.result.kind = 'speech_draft';
+    if (mode === 'invalid') report.result.artifact.valid = false;
+    f.done({ ok: true, report });
+    if (mode === 'singing') assert.match(f.root.textContent, /Результат создан/);
+    else { assert.match(f.root.textContent, /неполный результат/); assert.doesNotMatch(f.root.textContent, /Результат создан/); }
+  }
+});
+
+test('packaged result-boundary script runs typed positive/negative fixtures without a backend', async () => {
+  const { checkResultContract } = require('../electron/result-contract-check');
+  const run = state => checkResultContract({ webContents: {
+    executeJavaScript: source => vm.runInNewContext(source, { window: { ZSMM_CREATION_STATE: state } })
+  } });
+  const report = await run(require('../src/core/creation-state'));
+  assert.equal(report.ok, true);
+  assert.equal(report.checks.length, 7);
+  assert.equal(report.kind, 'typed-fixtures-not-generation');
+  assert.equal((await run({})).ok, false);
+});
