@@ -2,7 +2,9 @@ param([Parameter(Mandatory=$true)][string]$Installer, [Parameter(Mandatory=$true
 $ErrorActionPreference = 'Stop'
 $target = Join-Path $env:LOCALAPPDATA ('ZSMM-install-check-' + [guid]::NewGuid().ToString('N'))
 $workspace = Join-Path $env:RUNNER_TEMP ('ZSMM-user-data-' + [guid]::NewGuid().ToString('N'))
-$result = @{ ok=$false; scope='clean-current-user-NSIS-bundled-core-no-models'; install=$target; installerSha256=(Get-FileHash -Algorithm SHA256 $Installer).Hash; acl=@(); checks=@() }
+$result = @{ ok=$false; scope='clean-current-user-NSIS-installed-agent-preflight-no-models'; install=$target; installerSha256=(Get-FileHash -Algorithm SHA256 $Installer).Hash; acl=@(); checks=@() }
+$windowReportFile = $null
+$originalWindowReport = $env:ZSMM_WINDOW_CHECK_OUT
 $originalAppData = $env:APPDATA
 $runtimeOverrideNames = @('ZSMM_WORKSPACE', 'ZSMM_PYTHON', 'ZSMM_PIPELINE_ROOT', 'ZSMM_ROOT')
 $originalRuntimeOverrides = @{}
@@ -40,13 +42,17 @@ try {
     New-Item -ItemType Directory -Path $isolatedAppData -Force | Out-Null
     $env:APPDATA = $isolatedAppData
     foreach ($name in $runtimeOverrideNames) { Remove-Item "Env:$name" -ErrorAction SilentlyContinue }
-    $env:ZSMM_WINDOW_CHECK_OUT = Join-Path $workspace 'installed-window.json'
+    $windowReportFile = Join-Path $workspace 'installed-window.json'
+    $env:ZSMM_WINDOW_CHECK_OUT = $windowReportFile
     $env:ZSMM_AGENT_PREFLIGHT_CHECK = '1'
     $env:ZSMM_ONLINE = '0'
     $env:ZSMM_PROBE_LOCAL_SERVICES = '0'
     $p = Start-Process -FilePath $exe -ArgumentList '--window-check' -PassThru
-    Wait-Checked $p 'installed window with agent preflight/retry' 720000
+    if (-not $p.WaitForExit(720000)) { $p.Kill(); throw 'Installed window with agent preflight/retry timed out' }
+    if (-not (Test-Path $env:ZSMM_WINDOW_CHECK_OUT)) { throw "Installed window report missing (exit $($p.ExitCode))" }
     $window = Get-Content $env:ZSMM_WINDOW_CHECK_OUT -Raw | ConvertFrom-Json
+    $result.windowCheck = $window
+    if ($p.ExitCode -ne 0) { throw "Installed window with agent preflight/retry exit $($p.ExitCode)" }
     if (-not $window.ok) { throw 'Installed window/agent preflight check failed' }
     if (-not $window.agentPreflight.ok) { throw 'Installed agent preflight denial or recovery failed' }
     $result.agentPreflight = $window.agentPreflight
@@ -99,12 +105,22 @@ print('Installed bundled Python isolated stage PASS; no model inference claimed'
     $result.ok = $true
 } catch {
     $result.error = $_.Exception.Message
+    if ($windowReportFile -and (Test-Path $windowReportFile)) {
+        try {
+            $result.windowCheck = Get-Content $windowReportFile -Raw | ConvertFrom-Json
+            if ($result.windowCheck.agentPreflight) { $result.agentPreflight = $result.windowCheck.agentPreflight }
+        } catch { $result.windowReportReadError = $_.Exception.Message }
+    }
     $detail = $result.error.Replace('%','%25').Replace("`r",'%0D').Replace("`n",'%0A')
     Write-Output "::error title=Clean NSIS failure::$detail"
     throw
 } finally {
-    $result | ConvertTo-Json -Depth 12 | Set-Content -Encoding utf8 $Report
-    Remove-Item Env:ZSMM_AGENT_PREFLIGHT_CHECK, Env:ZSMM_ONLINE, Env:ZSMM_PROBE_LOCAL_SERVICES -ErrorAction SilentlyContinue
+    $json = $result | ConvertTo-Json -Depth 14 -Compress
+    $json | Set-Content -Encoding utf8 $Report
+    $annotation = $json.Replace('%','%25').Replace("`r",'%0D').Replace("`n",'%0A')
+    Write-Output "::notice title=NSIS installed-check report::$annotation"
+    Remove-Item Env:ZSMM_AGENT_PREFLIGHT_CHECK, Env:ZSMM_ONLINE, Env:ZSMM_PROBE_LOCAL_SERVICES, Env:ZSMM_WINDOW_CHECK_OUT -ErrorAction SilentlyContinue
+    if ($null -ne $originalWindowReport) { [Environment]::SetEnvironmentVariable('ZSMM_WINDOW_CHECK_OUT', $originalWindowReport, 'Process') }
     foreach ($name in $runtimeOverrideNames) {
         if ($null -eq $originalRuntimeOverrides[$name]) { Remove-Item "Env:$name" -ErrorAction SilentlyContinue }
         else { [Environment]::SetEnvironmentVariable($name, $originalRuntimeOverrides[$name], 'Process') }
