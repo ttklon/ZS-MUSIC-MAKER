@@ -18,7 +18,7 @@
 | T0023 | Канонические hardware/registry guards; измерения отдельно от оценок | Явно зафиксировать альтернативы/rollback для hardware-интеграции установленного продукта, не для JS beat |
 | T0024 | HardwareBudget/checked_gib/RAM/VRAM reserve, реальный CPU producer trace | Полная матрица измеренных заявляемых CPU/GPU конфигураций отсутствует; оценки не заменяют её |
 | T0025 | Python adapter/result и packaged renderer, отдельно JS GUI click | Настоящий путь установленное приложение → общий рецепт → hardware preflight → Python pipeline, с результатом или обоснованным отказом |
-| T0026 | RAM deny/retry, source/hash/outcome negatives; JS GUI cancel/retry | Отказ hardware preflight и повтор через тот же installed/shared-recipe путь; JS cancel не выдавать за отмену всех model workers |
+| T0026 | Installed RAM/disk/VRAM deny + retry/file preservation; UI Stop kills the real SequentialAIRunner stage-worker process and releases its lock (test-only model=None) | Отказ hardware preflight и recovery проходят установленный shared-runner путь; lifecycle test не является model loading/inference или GPU acceptance |
 | T0027 | Windows contract suite + реальные CPU probes; doubles обозначены | Регрессия недостающей installed hardware-интеграции после реализации T0025/T0026 |
 | T0028 | Windows jobs и durable CPU/GUI reports | Installed/shared-recipe протокол; реальные CUDA/AMD trials отдельно остаются непроведёнными |
 | T0029 | CPU speech, procedural music, hashes/time/RAM; GPU не сертифицирован | Реальные модельные/полные заявляемые CPU/CUDA/AMD профили: версии, входы, backend, время/RAM/VRAM и исход; не JS GUI тест вместо них |
@@ -46,18 +46,33 @@ source `405cd6bd52ea070b4a51decf09d5f39f3891ed98`: все три jobs прошл
 - A0003/A0004 получили technical pass в отчёте CI, но формальная приёмка ожидает
   независимого owner; G0–G9 не менялись.
 
+## T0026 follow-up — installed stage-worker cancellation, 2026-11-23
+
+[Run 45217099122](https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45217099122),
+source `089d819053fe7552d5477d815345f1594b87334c`: clean installed Windows check
+прошёл. Текущий creation UI остановил agent-hit, пока тот исполнял test-only stage
+в реальном изолированном `SequentialAIRunner` worker; проверены подтверждённое
+termination, исчезновение worker/task процессов и повторное получение файлового
+lock. Гейт запуска считает `modelWorkerCancellation` обязательным для
+`agentPreflight.ok`, поэтому зелёный NSIS step означает, что все эти assertions
+прошли. Подробный payload артефакта не скачан (artifact ID `14838169314`, redirect
+на недоступный sandbox egress host); точные ephemeral PIDs не архивированы.
+
+T0026 в строгой restart-переоценке закрыт; backlog status остаётся `verified` и
+не изменён. Cancellation fixture задаёт `model=None`: это доказывает lifecycle
+реального stage-worker процесса, не model loading/inference, GPU или качество.
+Независимый owner для формальной A0003/A0004 приёмки по-прежнему не назначен.
+
 ## Следующий фокус, без расширения побочных тестов
 
-1. Закрыть оставшееся у T0026: наблюдаемая отмена дерева model workers, не только
-   UI-задачи; сохранить доказательство на Windows.
-2. Довести T0021/T0024/T0029: реальные полные измерения именно заявляемых
+1. Довести T0021/T0024/T0029: реальные полные измерения именно заявляемых
    CPU/CUDA/AMD профилей — версия, вход, выбранный backend, время, RAM/VRAM и
-   исход; не считать процедурный DSP или оценку памяти модельным inference.
-3. Наличие доступного GPU runner всё ещё **не установлено**: предыдущий запрос
+   исход; не считать procedural DSP или оценку памяти модельным inference.
+2. Наличие доступного GPU runner всё ещё **не установлено**: предыдущий запрос
    GitHub runners API вернул HTTP 403 `Resource not accessible by integration`.
    Это ограничение API, не доказательство отсутствия GPU; hosted CPU runner его
    не подменяет.
-4. T0030 закрывать только после измеренной матрицы и согласованного списка
+3. T0030 закрывать только после измеренной матрицы и согласованного списка
    поддерживаемых профилей. Не понижать критерии и не переводить счётчик ради
    видимого прогресса.
 

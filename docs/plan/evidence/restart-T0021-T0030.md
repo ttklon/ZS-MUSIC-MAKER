@@ -469,3 +469,31 @@ artifact `nsis-install-check` находятся в
   повторно с каноническими backlog status.
 - Остаток T0021/T0024/T0029 — реальная измеренная матрица заявляемых CPU/CUDA/AMD
   профилей; этот Windows CPU/DSP run не сертифицирует GPU inference или полную песню.
+
+## Follow-up — установленная отмена stage worker, 2026-11-23
+
+[Run 45217099122](https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45217099122),
+source `089d819053fe7552d5477d815345f1594b87334c`: все jobs прошли, включая
+clean x64 NSIS install / installed window / ACL / uninstall. Новый evidence-файл:
+`restart-hardware-installed-cancel-windows-45217099122.json`.
+
+- В установленном приложении запущен agent-hit через текущий creation UI и общий
+  task runner. Тест дождался реального изолированного `SequentialAIRunner`
+  stage-worker, нажал видимую кнопку «Остановить», получил подтверждённый
+  cancellation/exit и проверил отсутствие worker/task process и повторное
+  получение удерживаемого файлового lock bundled Python.
+- Это process-lifecycle fixture: stage function тестовая (`model=None`); не было
+  model loading/inference. Значит подтверждено завершение фактического
+  stage-worker пути, но не CUDA/AMD, качество песни или продуктовый профиль.
+- Установленный check успешен только если `modelWorkerCancellation.ok` и все
+  прочие `agentPreflight` checks истинны. Артефакт `nsis-install-check` доступен
+  по метаданным (ID `14838169314`, 19,906 bytes), но payload не удалось скачать:
+  GitHub перенаправляет на artifact storage host, вне доступного sandbox egress.
+  Поэтому ephemeral PIDs не скопированы; факт pass следует из зелёного gated
+  installed-check, а не из предположительных значений отчёта.
+- Restart-переоценка: **24 / 50 complete**; T0025–T0028 закрыты в этом проходе.
+  Официальный backlog остаётся **152 verified / 1000 T-задач**; статусы не
+  менялись. A-задачи: **0 / 30 приняты**, G0–G9 остаются false.
+- Открытый остаток hardware-матрицы — T0021/T0024/T0029 и зависящий T0030:
+  реальные измерения заявляемых CPU/CUDA/AMD профилей, затем согласование списка
+  поддержки. Hosted Windows runner здесь — CPU/procedural DSP, не GPU acceptance.

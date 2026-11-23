@@ -1,0 +1,64 @@
+{
+  "schema": 1,
+  "run": 45217099122,
+  "source": "089d819053fe7552d5477d815345f1594b87334c",
+  "workflow": "Product plan integrity - Windows",
+  "display_title": "Exercise installed model-stage worker cancellation",
+  "conclusion": "success",
+  "url": "https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45217099122",
+  "installed_check": {
+    "job": "packaged-product-specification",
+    "job_id": 137841094206,
+    "job_url": "https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45217099122/job/137841094206",
+    "started_at": "2026-11-23T16:29:34Z",
+    "completed_at": "2026-11-23T16:40:14Z",
+    "step": "Clean NSIS install, actual installed window, ACL and uninstall",
+    "step_conclusion": "success",
+    "nsis_report_artifact": {
+      "name": "nsis-install-check",
+      "id": 14838169314,
+      "expired": false,
+      "size_bytes": 19906,
+      "created_at": "2026-11-23T16:40:09Z"
+    }
+  },
+  "cancellation_scenario": {
+    "route": "clean installed NSIS creation UI Stop button → agent-hit IPC → shared task runner → bundled Python → SequentialAIRunner isolated stage worker",
+    "worker_fixture": "Actual isolated stage-process path; test-only blocking stage function with model=None and an OS file lock. No model load or inference is run.",
+    "acceptance_gate": "Passed. checkAgentPreflight sets report.ok only when every report.checks entry has ok=true; the installed check requires window.ok and window.agentPreflight.ok. The modelWorkerCancellation.ok gate requires a visible Stop-button click, active worker/task PIDs before stop, canceled task completion, confirmed tree termination, stopping/exit events, both processes absent afterward, successful bundled-Python lock reacquisition, and an agent-hit command.",
+    "runtime_values": "The report artifact payload was not readable in this sandbox, so ephemeral PIDs and per-field JSON values are not copied here. The successful installed-check gate is the observed result."
+  },
+  "measured_retry_from_check_annotation": {
+    "task_done": true,
+    "task_ok": false,
+    "result_status": "degraded",
+    "preflight_status": "inventory_only",
+    "preflight_decision": "continue_unverified",
+    "backend": "procedural_dsp",
+    "previous_files_preserved": true,
+    "master_sha256": "88125766eaadfe7962743f570e5d65032aeb19e4cf8adbbbda2a062370a6dd39",
+    "interpretation": "Measured Windows inventory/procedural DSP retry only; not model inference, a product profile, or song-quality acceptance."
+  },
+  "other_jobs": [
+    {
+      "name": "result-outcome-hardware-contracts",
+      "id": 137841094446,
+      "conclusion": "success"
+    },
+    {
+      "name": "validate-plan-not-product",
+      "id": 137841094594,
+      "conclusion": "success"
+    }
+  ],
+  "artifact_access": {
+    "metadata_api": "success",
+    "payload_download": "failed with EOF after redirect to productionresultssa7.blob.core.windows.net; that artifact host is outside the sandbox outbound allowlist",
+    "payload_saved_locally": false
+  },
+  "limitations": [
+    "Cancellation proves termination of the real SequentialAIRunner isolated stage worker path and lock release, not model loading, model inference, or musical quality.",
+    "The stage workload is test-only (model=None); this does not claim an installed model or a tested CUDA/AMD backend.",
+    "Existing synthetic deny/setup fixtures remain synthetic; the measured retry remains Windows inventory/procedural DSP only."
+  ]
+}

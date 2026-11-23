@@ -2950,6 +2950,13 @@
           "run_url": "https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45207868772",
           "artifact": "docs/plan/evidence/restart-hardware-installed-path-windows-45207868772.json",
           "observed": "Clean Windows NSIS installed check passed through the active creation UI, agent IPC/shared runner and bundled Python. Unknown/insufficient RAM, disk and VRAM plus unbudgeted MusicGen denial; file preservation and measured inventory-only DSP retry asserted. Synthetic denial values and setup-unlock fixture are not physical-resource or setup acceptance; no CUDA/AMD inference or quality acceptance."
+        },
+        {
+          "kind": "installed_nsis_model_worker_cancellation",
+          "commit": "089d819053fe7552d5477d815345f1594b87334c",
+          "run_url": "https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45217099122",
+          "artifact": "docs/plan/evidence/restart-hardware-installed-cancel-windows-45217099122.json",
+          "observed": "The clean installed UI/shared-runner/bundled-Python check passed its gated cancellation scenario: visible Stop action, confirmed termination, exited worker/task and lock reacquisition. The stage function was test-only with model=None, so no model loading/inference or product acceptance is claimed; report payload is unavailable from sandbox artifact storage."
         }
       ],
       "completion_rule": "Изменение + проверка + сохранённое доказательство; наличие файла или зелёный import недостаточны."

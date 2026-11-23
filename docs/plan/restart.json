@@ -1536,8 +1536,8 @@
     },
     {
       "id": "T0026",
-      "state": "in_progress",
-      "acceptance_met": false,
+      "state": "complete",
+      "acceptance_met": true,
       "evidence": [
         "docs/plan/evidence/restart-T0021-T0030.md",
         "docs/plan/evidence/restart-hardware-silero-45142874352.json",
@@ -1555,11 +1555,10 @@
         "docs/plan/evidence/restart-hardware-gui-memory-windows-45163408228.json",
         "docs/plan/evidence/restart-hardware-gui-input-windows-45166373798.json",
         "docs/plan/evidence/restart-hardware-closeout-audit.md",
-        "docs/plan/evidence/restart-hardware-installed-path-windows-45207868772.json"
+        "docs/plan/evidence/restart-hardware-installed-path-windows-45207868772.json",
+        "docs/plan/evidence/restart-hardware-installed-cancel-windows-45217099122.json"
       ],
-      "remaining": [
-        "Windows installed-path hardware denial/retry and file preservation now pass; a model-worker cancellation scenario is still not demonstrated, and GUI cancellation must not be treated as proof of worker-tree termination."
-      ]
+      "remaining": []
     },
     {
       "id": "T0027",
@@ -1885,11 +1884,11 @@
     }
   ],
   "latest_regression": {
-    "code_revision": "405cd6bd52ea070b4a51decf09d5f39f3891ed98",
-    "windows_run": "https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45207868772",
+    "code_revision": "089d819053fe7552d5477d815345f1594b87334c",
+    "windows_run": "https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45217099122",
     "conclusion": "success",
-    "evidence": "docs/plan/evidence/restart-hardware-installed-path-windows-45207868772.json",
-    "scope": "Clean installed NSIS active creation UI → agent-hit IPC/shared runner/bundled Python; synthetic hardware denials, measured Windows retry; no model inference or song-quality acceptance."
+    "evidence": "docs/plan/evidence/restart-hardware-installed-cancel-windows-45217099122.json",
+    "scope": "Clean NSIS installed creation UI → agent-hit IPC/shared runner/bundled Python; hardware denial/retry and test-only SequentialAIRunner stage-worker cancellation with lock release; no model loading/inference or song-quality acceptance."
   },
   "reviewed_through_batch": 4
 }
