@@ -45,7 +45,8 @@ def inspect_master(report, expected_seconds):
 def evaluate(report, expected_seconds):
     if report.get('dry_run') is True or report.get('only'):
         raise ValueError('Partial/dry execution is not full orchestration evidence')
-    if (report.get('outcome') or {}).get('succeeded') is not True:
+    outcome = report.get('outcome') or {}
+    if outcome.get('succeeded') is not True or outcome.get('status') != 'success':
         raise ValueError('Pipeline outcome did not succeed; existing audio is diagnostic only')
     return inspect_master(report, expected_seconds)
 
@@ -59,6 +60,7 @@ def probe(seconds, directory):
                   network_guard='python_socket_only_not_os_firewall')
     try:
         with patch.dict(os.environ, {'ZSMM_ONLINE': '0', 'CUDA_VISIBLE_DEVICES': ''}), block_python_network() as attempts:
+            report['network_attempts'] = attempts
             from app.core.orchestrator import run_full_pipeline
             from app.ai.profiles import measure_profile
             report['hardware'] = measure_profile(directory)

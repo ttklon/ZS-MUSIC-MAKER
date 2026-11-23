@@ -23,7 +23,10 @@ def test_master_file_does_not_promote_blocked_pipeline(tmp_path):
     assert inspect_master(report, 1)['sha256']
     with pytest.raises(ValueError, match='did not succeed'):
         evaluate(report, 1)
-    report['outcome'] = {'succeeded': True}
+    report['outcome'] = {'succeeded': True, 'status': 'failed'}
+    with pytest.raises(ValueError, match='did not succeed'):
+        evaluate(report, 1)
+    report['outcome'] = {'succeeded': True, 'status': 'success'}
     assert evaluate(report, 1)['seconds'] == 1
     for key, value in [('dry_run', True), ('only', ['master'])]:
         with pytest.raises(ValueError, match='Partial/dry'):
