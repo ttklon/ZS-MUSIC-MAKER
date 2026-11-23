@@ -15,12 +15,70 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const vm = require('node:vm');
 
 const { registerAgentIpc, parseMasterPath, masterExists } = require('../electron/agent-service');
 const { buildCommand, sanitizeOptions, TaskError } = require('../electron/tasks');
 const { parseLog, reportText } = require('../src/core/agent-report');
 const { parseEvent } = require('../src/core/task-events');
 const { refusalOutcome, preservesSnapshot, unchangedSnapshot } = require('../electron/agent-preflight-check');
+const { prepareCreationUi, runAgentFromInstalledUi } = require('../electron/agent-preflight-ui');
+
+function installedUiFixture(initialStage, task) {
+  let stage = initialStage === 'prepare' ? 'idea' : 'generation';
+  let status = 'Создание трека';
+  let generatedScript = '';
+  const eventListeners = new Set();
+  const doneListeners = new Set();
+  const fields = new Map();
+  const sendTask = () => {
+    const taskId = `acceptance-${initialStage}`;
+    for (const callback of eventListeners) callback({ type: 'start', taskId, command: task.command });
+    stage = initialStage === 'prepare' ? 'generation' : 'result';
+    status = task.status;
+    for (const callback of doneListeners) callback({ taskId, ...task.done });
+  };
+  const makeButton = (text, onClick = () => {}) => ({
+    textContent: text, disabled: false,
+    click() { onClick(); },
+  });
+  const next = makeButton('Далее — подготовить студию', () => { stage = 'preparation'; });
+  const prepare = makeButton('Проверить и подготовить автоматически', () => setTimeout(sendTask, 0));
+  const generate = makeButton('Создать трек', () => setTimeout(sendTask, 0));
+  const root = {
+    get textContent() { return status; },
+    querySelectorAll(selector) {
+      if (selector === '.creation-steps button') return [
+        makeButton('Замысел'), makeButton('Подготовка'), makeButton('Создание'),
+      ];
+      if (selector !== 'button') return [];
+      if (stage === 'idea') return [next];
+      if (stage === 'preparation') return [prepare];
+      if (stage === 'generation') return [generate];
+      return [];
+    },
+  };
+  const document = {
+    getElementById(id) {
+      if (id === 'agent-body') return root;
+      if (!id.startsWith('creation-')) return null;
+      if (!fields.has(id)) fields.set(id, { value: '', dispatchEvent() {} });
+      return fields.get(id);
+    },
+  };
+  const window = { zsmm: {
+    onTaskEvent(callback) { eventListeners.add(callback); return () => eventListeners.delete(callback); },
+    onTaskDone(callback) { doneListeners.add(callback); return () => doneListeners.delete(callback); },
+    stopTask: async () => ({ ok: true }),
+  } };
+  const webContents = { executeJavaScript(script) {
+    generatedScript = script;
+    return vm.runInNewContext(script, { window, document,
+      Event: class Event { constructor(type, options) { this.type = type; Object.assign(this, options); } },
+      setTimeout, clearTimeout });
+  } };
+  return { window: { webContents }, fields, get script() { return generatedScript; } };
+}
 
 function harness({ startAgent = null, exists = () => true, openPath = async () => null } = {}) {
   const handlers = new Map();
@@ -68,6 +126,46 @@ test('ошибка запуска отдаётся строкой, а не ис�
   const reply = await handlers.get('zsmm:agent-hit')({}, {});
   assert.equal(reply.ok, false);
   assert.match(reply.error, /Python не найден/);
+});
+
+test('installed preflight drives creation preparation and agent-hit through current UI controls', async () => {
+  const setup = installedUiFixture('prepare', {
+    command: ['main.py', '--bootstrap'], status: 'Подготовка завершена',
+    done: { ok: true, report: { setup: { schema: 1, ok: true, blockers: [], inference_verified: false,
+      acceptance_fixture: 'setup gate only; no engine or model is installed' } } },
+  });
+  const prepared = await prepareCreationUi(setup.window);
+  assert.equal(prepared.taskId, 'acceptance-prepare');
+  assert.equal(prepared.done.ok, true);
+  assert.equal(prepared.setupReady, true);
+  assert.equal(prepared.generationButtonEnabled, true);
+  assert.deepEqual(prepared.startCommand, ['main.py', '--bootstrap']);
+  assert.equal(setup.fields.get('creation-mood').value, 'installed acceptance probe');
+  assert.equal(setup.fields.get('creation-artist').value, 'Acceptance Test');
+  assert.match(setup.script, /creation-mood/);
+  assert.match(setup.script, /Проверить и подготовить автоматически/);
+  assert.doesNotMatch(setup.script, /getElementById\('agent-(?:mood|artist|refs|voice|go|status)'\)/);
+
+  const voicePath = 'C:\\Users\\Test\\rvc-input.wav';
+  const generation = installedUiFixture('generate', {
+    command: ['main.py', '--agent-hit', '--agent-mood', 'installed acceptance probe', '--agent-voice', voicePath],
+    status: 'Inference не подтверждён; профиль продукта не принят. ram_available_gib unknown',
+    done: { ok: false, report: {
+      result: { succeeded: false, status: 'failed' },
+      hardware_preflight: { status: 'blocked', decision: 'refuse', inference_verified: false,
+        product_profile_accepted: false, reasons: ['ram_available_gib unknown'] },
+    } },
+  });
+  const denied = await runAgentFromInstalledUi(generation.window, voicePath);
+  assert.equal(denied.taskId, 'acceptance-generate');
+  assert.equal(denied.done.ok, false);
+  assert.deepEqual(denied.startCommand, [
+    'main.py', '--agent-hit', '--agent-mood', 'installed acceptance probe', '--agent-voice', voicePath,
+  ]);
+  assert.equal(generation.fields.get('creation-voice').value, voicePath);
+  assert.match(denied.status, /Inference не подтверждён; профиль продукта не принят/);
+  assert.match(generation.script, /creation-voice/);
+  assert.doesNotMatch(generation.script, /getElementById\('agent-(?:mood|artist|refs|voice|go|status)'\)/);
 });
 
 test('installed preflight harness accepts an explicit refusal, not a successful render', () => {

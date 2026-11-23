@@ -82,6 +82,10 @@ try {
     if (-not $window.ok) { throw 'Installed window/agent preflight check failed' }
     if (-not $window.agentPreflight.ok) { throw 'Installed agent preflight denial or recovery failed' }
     $result.agentPreflight = $window.agentPreflight
+    foreach ($acceptanceId in @('A0003', 'A0004')) {
+        $record = $result.agentPreflight.acceptanceRecords.$acceptanceId
+        if ($record -and $record.artifactHashes) { $record.artifactHashes.installerSha256 = $result.installerSha256 }
+    }
     $result.checks += 'installed-window'
     $result.checks += 'installed-agent-ui-unknown-and-unbudgeted-denial-plus-measured-retry'
     $code = @'
@@ -128,7 +132,13 @@ print('Installed bundled Python isolated stage PASS; no model inference claimed'
     if ($windowReportFile -and (Test-Path $windowReportFile)) {
         try {
             $result.windowCheck = Get-Content $windowReportFile -Raw | ConvertFrom-Json
-            if ($result.windowCheck.agentPreflight) { $result.agentPreflight = $result.windowCheck.agentPreflight }
+            if ($result.windowCheck.agentPreflight) {
+                $result.agentPreflight = $result.windowCheck.agentPreflight
+                foreach ($acceptanceId in @('A0003', 'A0004')) {
+                    $record = $result.agentPreflight.acceptanceRecords.$acceptanceId
+                    if ($record -and $record.artifactHashes) { $record.artifactHashes.installerSha256 = $result.installerSha256 }
+                }
+            }
         } catch { $result.windowReportReadError = $_.Exception.Message }
     }
     $detail = $result.error.Replace('%','%25').Replace("`r",'%0D').Replace("`n",'%0A')
@@ -144,7 +154,7 @@ print('Installed bundled Python isolated stage PASS; no model inference claimed'
     $retry = $null
     if ($agent -and $agent.checks) {
         $runtime = $agent.checks.canonicalRuntimePath
-        foreach ($name in @('unknownRamDenial','insufficientRamDenial','unknownDiskDenial','insufficientDiskDenial','unknownVramDenial','insufficientVramDenial','unbudgetedHeavyEngineDenial','measuredRetry')) {
+        foreach ($name in @('creationPreparationGate','unknownRamDenial','insufficientRamDenial','unknownDiskDenial','insufficientDiskDenial','unknownVramDenial','insufficientVramDenial','unbudgetedHeavyEngineDenial','measuredRetry')) {
             $check = $agent.checks.$name
             if ($check -and $check.ok -ne $true) {
                 $status = [string]$check.uiStatus
@@ -155,7 +165,7 @@ print('Installed bundled Python isolated stage PASS; no model inference claimed'
                     if ($value.Length -gt 300) { $value = $value.Substring(0, 300) }
                     if ($value) { $errors[$field] = $value }
                 }
-                $agentFailures += @{ name=$name; reasons=@($check.reasons | Select-Object -First 2); errors=$errors; reportKeys=$check.reportKeys; taskDone=$check.taskDone; taskOk=$check.taskOk; uiStatus=$status; backend=$check.selectedBackend; filesUnchanged=$check.filesUnchanged; noHeavyStages=$check.noHeavyStages }
+                $agentFailures += @{ name=$name; reasons=@($check.reasons | Select-Object -First 2); errors=$errors; reportKeys=$check.reportKeys; taskDone=$check.taskDone; taskOk=$check.taskOk; syntheticSetupOnly=$check.syntheticSetupOnly; realSetupAcceptance=$check.realSetupAcceptance; uiStatus=$status; backend=$check.selectedBackend; filesUnchanged=$check.filesUnchanged; noHeavyStages=$check.noHeavyStages }
             }
         }
         $retry = $agent.checks.measuredRetry

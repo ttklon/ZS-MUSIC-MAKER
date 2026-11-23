@@ -50,7 +50,8 @@ function button(text, action, disabled = false) {
 function field(key, label, hint) {
   const box = el('label', 'creation-field', label);
   const input = el(key === 'mood' ? 'textarea' : 'input'); if (key === 'mood') input.rows = 4; input.id = 'creation-' + key;
-  input.value = session.answers[key]; input.placeholder = hint; input.maxLength = key === 'artist' ? 80 : 300;
+  input.value = session.answers[key]; input.placeholder = hint;
+  input.maxLength = key === 'artist' ? 80 : key === 'voice' ? 260 : key === 'refs' ? 1200 : 300;
   input.addEventListener('input', () => { session.answers[key] = input.value; });
   box.append(input); return box;
 }
@@ -103,7 +104,9 @@ function idea(panel) {
   panel.append(el('h3', null, '1. Какую песню вы хотите?'),
     field('mood', 'Тема и настроение', 'О чём песня, какие эмоции, что важно сохранить'),
     field('artist', 'Ориентир по звучанию — необязательно', 'Имя артиста, без копирования его голоса'),
-    el('p', 'muted', 'Начинаем без вашего записанного голоса. Это не обещание пения или клонирования: наличие вокала будет указано в результате.'),
+    field('refs', 'Референс-треки — необязательно', 'Пути к WAV/MP3 через запятую'),
+    field('voice', 'Своя вокальная запись — необязательно', 'Путь к WAV; пусто — без своей записи'),
+    el('p', 'muted', 'Наличие файла не подтверждает готовый вокал или RVC inference. Полный результат будет показан по фактическому отчёту.'),
     button('Далее — подготовить студию', rememberIdea));
 }
 async function rememberIdea() {
@@ -132,6 +135,7 @@ function preparation(panel) {
 function generation(panel) {
   panel.append(el('h3', null, '3. Создадим трек'),
     el('p', null, `Ваш замысел: ${session.answers.mood || 'свободная тема'}. Ориентир: ${session.answers.artist || 'свободный стиль'}.`),
+    field('voice', 'Своя вокальная запись — необязательно', 'Путь к WAV; запись и RVC будут отдельно проверены перед запуском'),
     el('p', 'muted', 'Текст, музыка, голос, сведение и мастеринг проверяются по фактическому результату. Черновик без вокала не будет назван законченной песней.'),
     button(session.busy ? 'Создание выполняется…' : 'Создать трек', () => launch('agent-hit'), session.busy || machine.setup?.ok !== true));
   if (machine.setup?.ok !== true) panel.append(el('p', 'creation-error', 'Сначала завершите проверенную подготовку. Код выхода без отчёта недостаточен.'));
@@ -156,6 +160,14 @@ function result(panel) {
   if (report?.result) {
     panel.append(el('p', 'creation-status', report.result.label + ' · ' + report.result.status));
     for (const reason of Array.isArray(report.result.reasons) ? report.result.reasons : []) panel.append(el('p', 'creation-error', reason));
+  }
+  const preflight = report?.hardware_preflight;
+  if (preflight && typeof preflight === 'object') {
+    panel.append(el('p', 'creation-status', `Аппаратный preflight: ${preflight.status || 'unknown'} · ${preflight.decision || 'unknown'} · backend ${preflight.selected_backend || 'not selected'}`));
+    if (preflight.inference_verified !== true || preflight.product_profile_accepted !== true)
+      panel.append(el('p', 'muted', 'Inference не подтверждён; профиль продукта не принят.'));
+    for (const reason of Array.isArray(preflight.reasons) ? preflight.reasons : [])
+      panel.append(el('p', 'creation-error', String(reason)));
   }
   for (const block of Array.isArray(report?.blocked) ? report.blocked.filter(b => b && typeof b === 'object') : []) panel.append(el('p', 'creation-error', `${block.stage}: ${block.reason}`));
   if (report?.master_path) {
