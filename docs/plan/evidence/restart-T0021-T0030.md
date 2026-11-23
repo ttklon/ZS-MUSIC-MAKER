@@ -316,3 +316,43 @@ outcome/adapter/typed **success**, `quality_accepted=false`.
 Полный report/WAV — artifact windows-classic-pipeline-diagnostic.
 Полный runtime profile, singing, установленный GUI, CUDA/AMD GPU всё ещё не
 приняты. Новое техническое instrumental content evidence не закрывает весь пакет.
+
+## Настоящий CPU-артефакт в упакованном Electron renderer
+
+Source `870b45a801c0c62d3e90334854ff5208b9673327`:
+`desktop/electron/live-result-check.js` + optional live check в
+`window-startup-check.js`. Работает только в диагностическом --window-check
+при заданном ZSMM_LIVE_PROBE. Не добавляет обходов обычной генерации/IPC.
+
+Native сторона проверяет revision/source текущего checkout, согласованность
+producer/adapter/typed success, instrumental requested kind, quality=false,
+привязку master hash к provenance, regular WAV/размер и **заново вычисленный
+SHA-256 настоящего файла**. Изменённый WAV, другой source, противоречивые
+status/succeeded и невалидная привязка не поступают как успешная envelope.
+
+Затем реальный packaged renderer вызывает свой production isCompleteResult
+на настоящей envelope. 6 проверок: instrumental request accepted; singing
+request rejected; failed task, failed outcome, cancellation, invalid artifact
+rejected. Негативные варианты — мутации реально полученного отчёта, не новые
+музыкальные inference. Unit VM-тесты отдельно обозначены как fixtures.
+
+[Windows 45160086121](https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45160086121):
+**SUCCESS все пять job**. [Durable reports](restart-hardware-packaged-windows-45160086121.json).
+Classic actual CPU: 20.0 s / 22.2324 s wall / sampled RSS 350617600 bytes;
+4 threads / 2 cores / RAM 15.99 GiB, default backend CPU. Typed instrumental
+success. Master 7056056 bytes, SHA
+`ef1018be785fee33aadca425ae2adb47908ac643d9a8c55118f2ec3887ed45cf`.
+**Packaged liveInstrumental.ok=true, все 6 checks true**, тот же hash/bytes,
+quality_accepted=false. Сгенерирован новый unpacked Electron, без публикации.
+Полный window report — artifact output/classic-live-window.json.
+
+Дополнительно plan restart regression 45160035885 на source 91f0382:
+оба job SUCCESS, включая прежние packaged help/7 typed fixtures. Не выдаём
+этот отдельный source за финальную live probe ревизию 870b45a.
+Локально: **41 JS passed**, 17 Python budget/product/plan checks passed;
+сам Python render/provenance код не менялся относительно 318-test pass.
+
+Границы: это **win-unpacked packaged renderer**, не установка NSIS/ACL, не
+нажатие «сгенерировать» от UI до результата и не запуск рендера bundled Python.
+Нет singing, human quality acceptance или CUDA/AMD GPU inference. Нет подписи
+и сертификации release binary. Полный T0021–T0030 не закрыт; счётчик 20.

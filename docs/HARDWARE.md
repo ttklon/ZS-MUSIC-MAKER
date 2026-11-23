@@ -186,3 +186,18 @@ texture тот же WAV по-прежнему даёт blocked/exit 1. Это н
 не создаёт отсутствующее подтверждение состава аудио. Это не singing/song/GPU
 приёмка и не доказательство установленного GUI.
 [Протокол](plan/evidence/restart-hardware-adapters-windows-45153740505.json).
+
+### CPU-результат через packaged renderer
+
+[Windows 45160086121](https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45160086121),
+все пять job SUCCESS, source `870b45a801c0c62d3e90334854ff5208b9673327`:
+настоящий 20 s CPU master (22.2324 s wall, 350617600 bytes sampled RSS)
+заново проверен native Electron по SHA-256 и передан в production
+`isCompleteResult` реального упакованного renderer. **Все 6 live boundary
+checks пройдены**: instrumental accepted, singing/failed/canceled/invalid
+rejected. `quality_accepted=false`.
+
+Это проверка `win-unpacked` и interchange результата, **не** NSIS installation,
+не GUI click-through generation и не bundled-Python rendering. Весь
+универсальный CPU/CUDA/AMD профиль этим не принимается.
+[Протокол](plan/evidence/restart-hardware-packaged-windows-45160086121.json).
