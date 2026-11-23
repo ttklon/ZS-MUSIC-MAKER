@@ -27,7 +27,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from app.ai.registry import MODEL_REGISTRY  # noqa: E402
 
-AI_MODELS_DIR = ROOT / "data" / "ai_models"
+AI_MODELS_DIR = Path(os.environ.get("ZSMM_WORKSPACE") or ROOT) / "data" / "ai_models"
 MANIFEST_NAME = "manifest.json"
 
 

@@ -54,9 +54,23 @@ assert report.stages[0].ok, report.to_dict()
 assert runner.sink()['installed']['ok']
 print('Installed bundled Python isolated stage PASS; no model inference claimed')
 '@
-    & $python -I -c $code $project
-    if ($LASTEXITCODE -ne 0) { throw 'Installed bundled runtime or isolated stage failed' }
-    $result.checks += 'installed-relocated-python-and-isolated-stage'
+    $originalAcl = Get-Acl $project
+    $lockedAcl = Get-Acl $project
+    $sid = [System.Security.Principal.WindowsIdentity]::GetCurrent().User
+    $rule = [System.Security.AccessControl.FileSystemAccessRule]::new($sid, 'Write', 'ContainerInherit,ObjectInherit', 'None', 'Deny')
+    $lockedAcl.AddAccessRule($rule)
+    try {
+        Set-Acl -Path $project -AclObject $lockedAcl
+        $writeDenied = $false
+        try { [System.IO.File]::WriteAllText((Join-Path $project 'forbidden-write-probe'), 'must fail') }
+        catch { $writeDenied = ($_.Exception.InnerException -is [System.UnauthorizedAccessException]) -or ($_.Exception -is [System.UnauthorizedAccessException]) }
+        if (-not $writeDenied) { throw 'Read-only install ACL was not enforced' }
+        & $python -I -B -c $code $project
+        if ($LASTEXITCODE -ne 0) { throw 'Installed bundled runtime or isolated stage failed under read-only install ACL' }
+        $result.checks += 'installed-relocated-python-isolated-stage-read-only-install'
+    } finally {
+        Set-Acl -Path $project -AclObject $originalAcl
+    }
     $uninstaller = Get-ChildItem $target -Filter '*Uninstall*.exe' | Select-Object -First 1
     if (-not $uninstaller) { throw 'Uninstaller missing' }
     $p = Start-Process -FilePath $uninstaller.FullName -ArgumentList @('/S', "_?=$target") -PassThru

@@ -62,3 +62,11 @@ test('independent export consumer: unknown private text and task identifiers can
   assert.ok(out.entries.every(e => e.task === 1));
   for (const entry of out.entries) assert.ok(Object.keys(entry).every(k => ['source', 'task', 'event', 'code', 'ok', 'canceled', 'timedOut', 'cleanupConfirmed'].includes(k)));
 });
+
+test('structured export tolerates malformed task messages without exporting their content', () => {
+  const { safeExport } = require('../electron/diagnostic-export');
+  for (const message of ['null', 'false', '[]', '42', '"private text"', 'invalid json']) {
+    const result = safeExport(JSON.stringify({ source: 'task', message }));
+    assert.deepEqual(result.entries, [{ source: 'task', task: null, event: 'error' }]);
+  }
+});

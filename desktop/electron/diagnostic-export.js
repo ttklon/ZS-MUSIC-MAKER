@@ -18,6 +18,7 @@ function safeExport(text) {
     if (record.source === 'task') {
       let value;
       try { value = JSON.parse(record.message); } catch { value = {}; }
+      if (!value || typeof value !== 'object' || Array.isArray(value)) value = {};
       row.event = EVENTS.has(value.type) ? value.type : 'error';
       for (const key of ['ok', 'canceled', 'timedOut', 'cleanupConfirmed']) if (typeof value[key] === 'boolean') row[key] = value[key];
       if (Number.isSafeInteger(value.code) && Math.abs(value.code) <= 4294967295) row.code = value.code;

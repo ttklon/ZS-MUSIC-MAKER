@@ -15,8 +15,8 @@ from app.ai.model_catalog import MODEL_REGISTRY  # noqa: F401 - existing public 
 ROOT = Path(__file__).resolve().parents[2]
 from app.ai.weights import ensure_local_weights
 
-MODELS_DIR = ROOT / "data" / "ai_models"
-MODELS_DIR.mkdir(parents=True, exist_ok=True)
+MODELS_DIR = Path(os.environ.get("ZSMM_WORKSPACE") or ROOT) / "data" / "ai_models"
+# Inventory/import must be read-only, especially inside an installed application.
 
 
 @dataclass

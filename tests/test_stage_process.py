@@ -64,3 +64,20 @@ def test_empty_caller_context_receives_successful_changes():
     assert runner.run(context).stages[0].ok
     assert context['committed'] is True
     assert context['sink']['change'] == 'ok'
+
+
+def test_registry_import_does_not_create_model_dirs_in_install_or_workspace(tmp_path):
+    import json
+    import subprocess
+    import sys
+    root = Path(__file__).resolve().parents[1]
+    workspace = tmp_path / 'workspace'
+    env = dict(os.environ, ZSMM_WORKSPACE=str(workspace))
+    code = ('import json; from app.ai.registry import MODELS_DIR; '
+            'print(json.dumps({"directory":str(MODELS_DIR),"exists":MODELS_DIR.exists()}))')
+    result = subprocess.run([sys.executable, '-B', '-c', code], cwd=root, env=env,
+                            text=True, capture_output=True, timeout=30, check=True)
+    data = json.loads(result.stdout)
+    assert Path(data['directory']) == workspace / 'data' / 'ai_models'
+    assert not data['exists']
+    assert not workspace.exists()

@@ -31,3 +31,24 @@ Local evidence before first push:
 Windows results must be recorded after CI, not inferred from these local checks.
 Remaining broader acceptance includes clean standard-user/full-runtime installation,
 actual model/hardware scenarios, licenses and a genuinely independent privacy audit.
+
+## Windows evidence follow-up
+
+- Run 45101430463 (5976512): packaged NSIS install/ACL/window/uninstall job
+  succeeded, Python selection failed on catalogue fingerprint mismatch.
+- The mismatch was reproduced as LF versus CRLF requirements bytes; fingerprint
+  inputs now normalize line endings and have a specific regression test.
+- Run 45101969547 (3c7abb5): all three Windows jobs succeeded, including the
+  stage-process, kill-on-close descendant and cross-language export audit tests.
+  https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45101969547
+- Full local Node suite completed after the command collection timeout:
+  578 passed, zero failed, 232215.920022 ms. The original process continued;
+  the suite was not launched a second time.
+- Follow-up adds actual bundled core Python to NSIS, tests relocated imports and
+  an isolated stage inside the installed product, and adds detached grandchildren
+  to the kill-on-close integration test. Results require the later workflow run.
+- Read-only install hardening removes model-directory creation at registry import,
+  uses ZSMM_WORKSPACE for registry/puller model storage, and disables bytecode writes
+  in isolated stages. Installer checks now apply an explicit current-user write
+  deny to installed project resources, prove a write probe fails, and require the
+  installed isolated stage to work anyway. This is not a standard-token test.
