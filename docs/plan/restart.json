@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "batch_size": 10,
-  "current_batch": 1,
+  "current_batch": 2,
   "batches": [
     [
       "T0001",
@@ -1307,113 +1307,103 @@
     },
     {
       "id": "T0011",
-      "state": "in_progress",
-      "acceptance_met": false,
+      "state": "complete",
+      "acceptance_met": true,
       "evidence": [
-        "docs/plan/evidence/restart-T0001-T0050.md"
+        "docs/plan/evidence/restart-T0011-T0020.md",
+        "docs/plan/evidence/restart-result-windows-45138708988.json"
       ],
-      "remaining": [
-        "Повторная предметная приёмка этого ID не завершена; не переносить как выполненный."
-      ]
+      "remaining": []
     },
     {
       "id": "T0012",
-      "state": "in_progress",
-      "acceptance_met": false,
+      "state": "complete",
+      "acceptance_met": true,
       "evidence": [
-        "docs/plan/evidence/restart-T0001-T0050.md"
+        "docs/plan/evidence/restart-T0011-T0020.md",
+        "docs/plan/evidence/restart-result-windows-45138708988.json"
       ],
-      "remaining": [
-        "Повторная предметная приёмка этого ID не завершена; не переносить как выполненный."
-      ]
+      "remaining": []
     },
     {
       "id": "T0013",
-      "state": "in_progress",
-      "acceptance_met": false,
+      "state": "complete",
+      "acceptance_met": true,
       "evidence": [
-        "docs/plan/evidence/restart-T0001-T0050.md"
+        "docs/plan/evidence/restart-T0011-T0020.md",
+        "docs/plan/evidence/restart-result-windows-45138708988.json"
       ],
-      "remaining": [
-        "Повторная предметная приёмка этого ID не завершена; не переносить как выполненный."
-      ]
+      "remaining": []
     },
     {
       "id": "T0014",
-      "state": "in_progress",
-      "acceptance_met": false,
+      "state": "complete",
+      "acceptance_met": true,
       "evidence": [
-        "docs/plan/evidence/restart-T0001-T0050.md"
+        "docs/plan/evidence/restart-T0011-T0020.md",
+        "docs/plan/evidence/restart-result-windows-45138708988.json"
       ],
-      "remaining": [
-        "Повторная предметная приёмка этого ID не завершена; не переносить как выполненный."
-      ]
+      "remaining": []
     },
     {
       "id": "T0015",
-      "state": "in_progress",
-      "acceptance_met": false,
+      "state": "complete",
+      "acceptance_met": true,
       "evidence": [
-        "docs/plan/evidence/restart-T0001-T0050.md"
+        "docs/plan/evidence/restart-T0011-T0020.md",
+        "docs/plan/evidence/restart-result-windows-45138708988.json"
       ],
-      "remaining": [
-        "Повторная предметная приёмка этого ID не завершена; не переносить как выполненный."
-      ]
+      "remaining": []
     },
     {
       "id": "T0016",
-      "state": "in_progress",
-      "acceptance_met": false,
+      "state": "complete",
+      "acceptance_met": true,
       "evidence": [
-        "docs/plan/evidence/restart-T0001-T0050.md"
+        "docs/plan/evidence/restart-T0011-T0020.md",
+        "docs/plan/evidence/restart-result-windows-45138708988.json"
       ],
-      "remaining": [
-        "Повторная предметная приёмка этого ID не завершена; не переносить как выполненный."
-      ]
+      "remaining": []
     },
     {
       "id": "T0017",
-      "state": "in_progress",
-      "acceptance_met": false,
+      "state": "complete",
+      "acceptance_met": true,
       "evidence": [
-        "docs/plan/evidence/restart-T0001-T0050.md"
+        "docs/plan/evidence/restart-T0011-T0020.md",
+        "docs/plan/evidence/restart-result-windows-45138708988.json"
       ],
-      "remaining": [
-        "Повторная предметная приёмка этого ID не завершена; не переносить как выполненный."
-      ]
+      "remaining": []
     },
     {
       "id": "T0018",
-      "state": "in_progress",
-      "acceptance_met": false,
+      "state": "complete",
+      "acceptance_met": true,
       "evidence": [
-        "docs/plan/evidence/restart-T0001-T0050.md"
+        "docs/plan/evidence/restart-T0011-T0020.md",
+        "docs/plan/evidence/restart-result-windows-45138708988.json"
       ],
-      "remaining": [
-        "Повторная предметная приёмка этого ID не завершена; не переносить как выполненный."
-      ]
+      "remaining": []
     },
     {
       "id": "T0019",
-      "state": "in_progress",
-      "acceptance_met": false,
+      "state": "complete",
+      "acceptance_met": true,
       "evidence": [
-        "docs/plan/evidence/restart-T0001-T0050.md"
+        "docs/plan/evidence/restart-T0011-T0020.md",
+        "docs/plan/evidence/restart-result-windows-45138708988.json"
       ],
-      "remaining": [
-        "Повторная предметная приёмка этого ID не завершена; не переносить как выполненный."
-      ]
+      "remaining": []
     },
     {
       "id": "T0020",
-      "state": "in_progress",
-      "acceptance_met": false,
+      "state": "complete",
+      "acceptance_met": true,
       "evidence": [
-        "docs/plan/evidence/restart-T0001-T0050.md"
+        "docs/plan/evidence/restart-T0011-T0020.md",
+        "docs/plan/evidence/restart-result-windows-45138708988.json"
       ],
-      "remaining": [
-        "Повторная предметная приёмка этого ID не завершена; не переносить как выполненный."
-      ]
+      "remaining": []
     },
     {
       "id": "T0021",
@@ -1747,11 +1737,11 @@
     }
   ],
   "latest_regression": {
-    "code_revision": "d7ab429866d070e1cda9239796ab5e4ef4acd60d",
-    "windows_run": "https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45106897753",
+    "code_revision": "9982c3c5da5cb73410182ce5d93f4d9cb55910ac",
+    "windows_run": "https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45138708988",
     "conclusion": "success",
-    "evidence": "docs/plan/evidence/restart-ten-windows-45106897753.json",
-    "scope": "T0001-T0010 specification, real packaged visible help and scenario boundaries; not generation acceptance"
+    "evidence": "docs/plan/evidence/restart-result-windows-45138708988.json",
+    "scope": "T0011-T0020 typed content contract, real PCM fixtures, CLI/UI boundaries; no model inference or listening acceptance"
   },
   "reviewed_through_batch": 4
 }

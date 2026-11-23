@@ -12,7 +12,7 @@
 | T0014 | assess_result отвергает отказы, отмену, QA, partial/only, synthetic/placeholder, явный пустой/речевой вокал; типы schema/engine/revision и явный invalid manifest проверяются строго. |
 | T0015 | Agent CLI явно требует generated_singing и возвращает nonzero на downgrade; malformed producer завершает NDJSON done ok=false. UI сверяет request/kind, valid artifact/path/hash, reasons/blocked и task outcome. |
 | T0016 | Отрицательные случаи включают тишину, битый/NaN/Inf WAV, stale hash, TTS/RVC без подтверждения singing, явные empty/silent и lyrics failure, неверные типы и противоречивый outcome. Намеренный instrumental не требует вокал. |
-| T0017 | Локально 99 Python tests (result/agent/transport/budgets) и 38 JS creation/UI прошли. Проверяются и положительные все четыре типа с fixture provenance, и отрицательные случаи. Это не модельные renders. |
+| T0017 | Локально 106 Python tests (result/agent/transport/budgets) и 39 JS creation/UI прошли. Проверяются и положительные все четыре типа с fixture provenance, и отрицательные случаи. Это не модельные renders. |
 | T0018 | Windows workflow выполняет реальные PCM проверки и Node/UI regression; --window-check дополнительно исполняет typed result fixtures в настоящем renderer, без запуска backend/загрузок. Результат ниже после job. |
 | T0019 | Критерий: старые три ложных успеха устранены; речь, invalid artifact и чужой requested kind не проходят UI, CLI отдаёт nonzero. Положительный технический контракт остаётся возможным, quality_accepted=false. |
 | T0020 | RESULT_CONTRACT, workflow path filters и регрессии обновлены; ограничения producer trust и отсутствие независимого прослушивания сохранены. Приёмка требует Windows evidence, а не наличия файлов. |
@@ -32,3 +32,23 @@ succeeded=true, observed after succeeded=false; master — stdlib WAV-файл �
 Все изменения остаются в текущей ветке; версия приложения не повышается,
 установщик не публикуется. Данные пользователя не удаляются. Прежние результаты
 проверок других пакетов не копируются автоматически в complete.
+
+## Результат приёмки
+
+**T0011–T0020 complete в повторном проходе — контракт, не нейрогенерация.**
+
+- Source **9982c3c5da5cb73410182ce5d93f4d9cb55910ac**.
+- Windows **45138708988**: SUCCESS, оба jobs SUCCESS.
+- Реальные PCM-WAV и отрицательные контракты/CLI пройдены на Windows.
+- Упакованный EXE прошёл resultContractVerified=true: семь typed-envelope
+  проверок в настоящем renderer, без backend и без файла настоящего пения.
+- Локально полная выбранная регрессия: **240 Python PASS**, **59 JS PASS**.
+- Дополнительно устранено legacy report.ok по master_path: master_reported,
+  artifact_available и ok теперь имеют разные значения. Путь не доказывает файл.
+- Для своей спетой записи требуется vocal_method=recorded_singing; просто
+  факт собственного микрофона/own_recording не доказывает пение.
+- https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45138708988
+- Машинный снимок: [restart-result-windows-45138708988.json](restart-result-windows-45138708988.json).
+
+Следующая порция — T0021–T0030. Всего в новом проходе завершены 20 из 1000
+пунктов; это не процент продуктовой готовности. Runtime и release assets не менялись.

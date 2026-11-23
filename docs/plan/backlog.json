@@ -2433,6 +2433,13 @@
           "run_url": "https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45034836350",
           "artifact": "docs/plan/evidence/T0011-T0040.md",
           "observed": "Проверены изменения соответствующего раздела протокола; result/outcome/hardware contracts и packaged Windows job прошли. Это не генерация песни."
+        },
+        {
+          "kind": "result_contract_reacceptance",
+          "commit": "9982c3c5da5cb73410182ce5d93f4d9cb55910ac",
+          "run_url": "https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45138708988",
+          "artifact": "docs/plan/evidence/restart-T0011-T0020.md",
+          "observed": "T0011: технический контракт результата повторно принят; PCM, caller request, failure/QA/simulation, CLI nonzero и UI/реальный renderer. Не генерация модели и не прослушивание."
         }
       ],
       "completion_rule": "Изменение + проверка + сохранённое доказательство; наличие файла или зелёный import недостаточны."
@@ -2462,6 +2469,13 @@
           "run_url": "https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45034836350",
           "artifact": "docs/plan/evidence/T0011-T0040.md",
           "observed": "Проверены изменения соответствующего раздела протокола; result/outcome/hardware contracts и packaged Windows job прошли. Это не генерация песни."
+        },
+        {
+          "kind": "result_contract_reacceptance",
+          "commit": "9982c3c5da5cb73410182ce5d93f4d9cb55910ac",
+          "run_url": "https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45138708988",
+          "artifact": "docs/plan/evidence/restart-T0011-T0020.md",
+          "observed": "T0012: технический контракт результата повторно принят; PCM, caller request, failure/QA/simulation, CLI nonzero и UI/реальный renderer. Не генерация модели и не прослушивание."
         }
       ],
       "completion_rule": "Изменение + проверка + сохранённое доказательство; наличие файла или зелёный import недостаточны."
@@ -2491,6 +2505,13 @@
           "run_url": "https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45034836350",
           "artifact": "docs/plan/evidence/T0011-T0040.md",
           "observed": "Проверены изменения соответствующего раздела протокола; result/outcome/hardware contracts и packaged Windows job прошли. Это не генерация песни."
+        },
+        {
+          "kind": "result_contract_reacceptance",
+          "commit": "9982c3c5da5cb73410182ce5d93f4d9cb55910ac",
+          "run_url": "https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45138708988",
+          "artifact": "docs/plan/evidence/restart-T0011-T0020.md",
+          "observed": "T0013: технический контракт результата повторно принят; PCM, caller request, failure/QA/simulation, CLI nonzero и UI/реальный renderer. Не генерация модели и не прослушивание."
         }
       ],
       "completion_rule": "Изменение + проверка + сохранённое доказательство; наличие файла или зелёный import недостаточны."
@@ -2520,6 +2541,13 @@
           "run_url": "https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45034836350",
           "artifact": "docs/plan/evidence/T0011-T0040.md",
           "observed": "Проверены изменения соответствующего раздела протокола; result/outcome/hardware contracts и packaged Windows job прошли. Это не генерация песни."
+        },
+        {
+          "kind": "result_contract_reacceptance",
+          "commit": "9982c3c5da5cb73410182ce5d93f4d9cb55910ac",
+          "run_url": "https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45138708988",
+          "artifact": "docs/plan/evidence/restart-T0011-T0020.md",
+          "observed": "T0014: технический контракт результата повторно принят; PCM, caller request, failure/QA/simulation, CLI nonzero и UI/реальный renderer. Не генерация модели и не прослушивание."
         }
       ],
       "completion_rule": "Изменение + проверка + сохранённое доказательство; наличие файла или зелёный import недостаточны."
@@ -2549,6 +2577,13 @@
           "run_url": "https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45034836350",
           "artifact": "docs/plan/evidence/T0011-T0040.md",
           "observed": "Проверены изменения соответствующего раздела протокола; result/outcome/hardware contracts и packaged Windows job прошли. Это не генерация песни."
+        },
+        {
+          "kind": "result_contract_reacceptance",
+          "commit": "9982c3c5da5cb73410182ce5d93f4d9cb55910ac",
+          "run_url": "https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45138708988",
+          "artifact": "docs/plan/evidence/restart-T0011-T0020.md",
+          "observed": "T0015: технический контракт результата повторно принят; PCM, caller request, failure/QA/simulation, CLI nonzero и UI/реальный renderer. Не генерация модели и не прослушивание."
         }
       ],
       "completion_rule": "Изменение + проверка + сохранённое доказательство; наличие файла или зелёный import недостаточны."
@@ -2578,6 +2613,13 @@
           "run_url": "https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45034836350",
           "artifact": "docs/plan/evidence/T0011-T0040.md",
           "observed": "Проверены изменения соответствующего раздела протокола; result/outcome/hardware contracts и packaged Windows job прошли. Это не генерация песни."
+        },
+        {
+          "kind": "result_contract_reacceptance",
+          "commit": "9982c3c5da5cb73410182ce5d93f4d9cb55910ac",
+          "run_url": "https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45138708988",
+          "artifact": "docs/plan/evidence/restart-T0011-T0020.md",
+          "observed": "T0016: технический контракт результата повторно принят; PCM, caller request, failure/QA/simulation, CLI nonzero и UI/реальный renderer. Не генерация модели и не прослушивание."
         }
       ],
       "completion_rule": "Изменение + проверка + сохранённое доказательство; наличие файла или зелёный import недостаточны."
@@ -2607,6 +2649,13 @@
           "run_url": "https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45034836350",
           "artifact": "docs/plan/evidence/T0011-T0040.md",
           "observed": "Проверены изменения соответствующего раздела протокола; result/outcome/hardware contracts и packaged Windows job прошли. Это не генерация песни."
+        },
+        {
+          "kind": "result_contract_reacceptance",
+          "commit": "9982c3c5da5cb73410182ce5d93f4d9cb55910ac",
+          "run_url": "https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45138708988",
+          "artifact": "docs/plan/evidence/restart-T0011-T0020.md",
+          "observed": "T0017: технический контракт результата повторно принят; PCM, caller request, failure/QA/simulation, CLI nonzero и UI/реальный renderer. Не генерация модели и не прослушивание."
         }
       ],
       "completion_rule": "Изменение + проверка + сохранённое доказательство; наличие файла или зелёный import недостаточны."
@@ -2636,6 +2685,13 @@
           "run_url": "https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45034836350",
           "artifact": "docs/plan/evidence/T0011-T0040.md",
           "observed": "Проверены изменения соответствующего раздела протокола; result/outcome/hardware contracts и packaged Windows job прошли. Это не генерация песни."
+        },
+        {
+          "kind": "result_contract_reacceptance",
+          "commit": "9982c3c5da5cb73410182ce5d93f4d9cb55910ac",
+          "run_url": "https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45138708988",
+          "artifact": "docs/plan/evidence/restart-T0011-T0020.md",
+          "observed": "T0018: технический контракт результата повторно принят; PCM, caller request, failure/QA/simulation, CLI nonzero и UI/реальный renderer. Не генерация модели и не прослушивание."
         }
       ],
       "completion_rule": "Изменение + проверка + сохранённое доказательство; наличие файла или зелёный import недостаточны."
@@ -2665,6 +2721,13 @@
           "run_url": "https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45034836350",
           "artifact": "docs/plan/evidence/T0011-T0040.md",
           "observed": "Проверены изменения соответствующего раздела протокола; result/outcome/hardware contracts и packaged Windows job прошли. Это не генерация песни."
+        },
+        {
+          "kind": "result_contract_reacceptance",
+          "commit": "9982c3c5da5cb73410182ce5d93f4d9cb55910ac",
+          "run_url": "https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45138708988",
+          "artifact": "docs/plan/evidence/restart-T0011-T0020.md",
+          "observed": "T0019: технический контракт результата повторно принят; PCM, caller request, failure/QA/simulation, CLI nonzero и UI/реальный renderer. Не генерация модели и не прослушивание."
         }
       ],
       "completion_rule": "Изменение + проверка + сохранённое доказательство; наличие файла или зелёный import недостаточны."
@@ -2694,6 +2757,13 @@
           "run_url": "https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45034836350",
           "artifact": "docs/plan/evidence/T0011-T0040.md",
           "observed": "Проверены изменения соответствующего раздела протокола; result/outcome/hardware contracts и packaged Windows job прошли. Это не генерация песни."
+        },
+        {
+          "kind": "result_contract_reacceptance",
+          "commit": "9982c3c5da5cb73410182ce5d93f4d9cb55910ac",
+          "run_url": "https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45138708988",
+          "artifact": "docs/plan/evidence/restart-T0011-T0020.md",
+          "observed": "T0020: технический контракт результата повторно принят; PCM, caller request, failure/QA/simulation, CLI nonzero и UI/реальный renderer. Не генерация модели и не прослушивание."
         }
       ],
       "completion_rule": "Изменение + проверка + сохранённое доказательство; наличие файла или зелёный import недостаточны."
