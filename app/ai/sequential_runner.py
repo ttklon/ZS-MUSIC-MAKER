@@ -206,6 +206,8 @@ class SequentialAIRunner:
 
             if output is not None:
                 self._sink[stage.name] = output
+            if isinstance(output, dict) and output.get("ok") is False:
+                ok, error = False, str(output.get("reason") or output.get("error") or "Stage reported failure")
             duration_sec = time.time() - started_at
             logger.info(
                 "<- stage '%s' ok=%s duration=%.2fs VRAM %.3f->%.3f GB",

@@ -27,15 +27,10 @@ def _vocal_report(stages: list[dict[str, Any]]) -> tuple[str, str | None]:
              ("_stage_voice_synth", "_stage_rvc", "_stage_vocal_fx")]
     if not vocal:
         return "SKIPPED", None
-    for stage in vocal:
-        if stage.get("status") == "FAILED":
-            return "FAILED", stage.get("reason")
-    fallback = [s for s in vocal if s.get("status") == "FALLBACK"]
-    if fallback:
-        return "FALLBACK", fallback[0].get("reason")
-    blocked = [s for s in vocal if s.get("status") == "BLOCKED"]
-    if len(blocked) == len(vocal):
-        return "BLOCKED", blocked[0].get("reason")
+    for status in ("FAILED", "CANCELED", "BLOCKED", "FALLBACK"):
+        matching = [stage for stage in vocal if stage.get("status") == status]
+        if matching:
+            return status, matching[0].get("reason")
     return "OK", None
 
 

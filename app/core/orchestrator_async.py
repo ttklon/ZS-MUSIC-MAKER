@@ -89,7 +89,7 @@ class AsyncOrchestrator:
         else:
             self.stages = [stage]
 
-        report = stage.output if isinstance(stage.output, dict) else {}
+        report = stage.output if isinstance(stage.output, dict) else ({} if stage.ok else {"stages": [asdict(stage)]})
         from app.pipeline.outcome import outcome_from_report
         outcome = outcome_from_report(report)
         verdict = report.get("verdict")

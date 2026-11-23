@@ -146,3 +146,20 @@ def test_legacy_adapters_cannot_promote_verdict_without_stage_results(verdict, t
     for result in (god, async_result):
         assert result['status'] == 'partial'
         assert not result['outcome']['succeeded']
+
+
+@pytest.mark.parametrize('status', ['CANCELED', 'BLOCKED', 'FAILED'])
+def test_vocal_summary_cannot_hide_one_unavailable_required_part(status):
+    from app.core.orchestrator_god import _vocal_report
+    assert _vocal_report([{'name': '_stage_voice_synth', 'status': 'FALLBACK'},
+        {'name': '_stage_rvc', 'status': status, 'reason': 'unavailable'}]) == (status, 'unavailable')
+
+
+def test_async_exception_has_failed_canonical_outcome(tmp_path, monkeypatch):
+    from app.core import orchestrator, orchestrator_async
+    def broken(*a, **kw):
+        raise RuntimeError('failed engine')
+    monkeypatch.setattr(orchestrator, 'run_full_pipeline', broken)
+    result = asyncio.run(orchestrator_async.AsyncOrchestrator('probe', tmp_path).run_pipeline({}))
+    assert result['outcome']['status'] == 'failed'
+    assert 'failed engine' in result['outcome']['reasons'][0]

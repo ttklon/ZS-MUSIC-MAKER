@@ -98,3 +98,21 @@
   `song_generation_verified=false` сохранено.
 - `check_plan_restart.py`: 1000 ID покрыты ровно 20 порциями по 50;
   активна T0001–T0050; автоматических завершений **0**.
+
+## Свежий Windows прогон нового прохода
+
+- Run **45106157102**, source **406c6255a01fc287ad8505f581cc0554b4096f1d**:
+  `Plan restart - first fifty Windows regression` — **SUCCESS**.
+- Проверены очередь всех ID, outcome/CLI/адаптеры, реальные WAV-фикстуры, workers,
+  аппаратный read-only inventory и product/creation/UI contracts.
+- Ссылка: https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45106157102
+- Машинный снимок: `restart-windows-45106157102.json` рядом с этим протоколом.
+- После этого уточнены failed outcome при async exception, приоритет canceled /
+  blocked в вокальной сводке и ok=false в отчёте AI при отказе payload.
+- Итоговая локальная selection после этих уточнений: **159 passed**, 11.33 s.
+  Для окончательного SHA запускается повторный Windows regression.
+
+Пройденная регрессия не закрывает автоматически T0029–T0030 и T0049–T0050:
+материального протокола моделей на CPU/CUDA/AMD и полного пользовательского
+сценария генерации/экспорта/правки в этой job нет. Эти ID не пропущены — они
+остаются в первой порции. T0051 не начинается ради увеличения счётчика.
