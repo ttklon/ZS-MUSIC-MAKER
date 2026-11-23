@@ -20,7 +20,7 @@ def execute(stage, context, timeout, budget):
         request = Path(directory) / 'request.bin'
         response = Path(directory) / 'response.bin'
         request.write_bytes(cloudpickle.dumps((stage, context, budget)))
-        command = [sys.executable, '-B', str(root / 'app/cli/managed_task_host.py'),
+        command = [sys.executable, '-I', '-B', str(root / 'app/cli/managed_task_host.py'),
                    str(Path(__file__).resolve()), str(request), str(response)]
         process = subprocess.Popen(command, start_new_session=os.name != 'nt')
         try:

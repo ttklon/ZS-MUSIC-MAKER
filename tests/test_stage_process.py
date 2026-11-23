@@ -81,3 +81,22 @@ def test_registry_import_does_not_create_model_dirs_in_install_or_workspace(tmp_
     assert Path(data['directory']) == workspace / 'data' / 'ai_models'
     assert not data['exists']
     assert not workspace.exists()
+
+
+def test_real_dossier_local_closures_survive_process_boundary(tmp_path, monkeypatch):
+    import json
+    from modules.artist_dossier.manager import DossierManager
+    monkeypatch.setenv('ZSMM_ONLINE', '0')
+    monkeypatch.setenv('ZSMM_ALLOW_MODEL_DOWNLOAD', '0')
+    manager = DossierManager(tmp_path / 'dossiers')
+    track = manager.add_track('Worker Test Artist', 'Closure Song', lyrics='User supplied test lyrics')
+    manager.build_full_dossier('Worker Test Artist')
+    files = list((tmp_path / 'dossiers').glob(f'*/tracks/{track.track_id}.json'))
+    assert len(files) == 1
+    stored = json.loads(files[0].read_text(encoding='utf-8'))
+    assert stored['lyrics'] == 'User supplied test lyrics'
+    assert stored['status'] == 'partial'  # no analysis model installed in test runtime
+    stages = stored['dossier']['report']['stages']
+    assert len(stages) == 5
+    assert all(s['ok'] for s in stages), stages
+    assert all(not s['error'] for s in stages)

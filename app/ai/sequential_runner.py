@@ -2,15 +2,10 @@
 """Последовательный AI runner: одна тяжёлая модель в VRAM и явные stage limits."""
 from __future__ import annotations
 
-import gc
 import logging
-import os
-import signal
-import threading
 import time
-from contextlib import contextmanager
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, Iterator, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 from app.ai.registry import MODEL_REGISTRY, registry
 from app.pipeline import StageStatus
@@ -112,58 +107,9 @@ def _default_vram_probe() -> float:
         return 0.0
 
 
-@contextmanager
-def _stage_watchdog(timeout_sec: float, stage_name: str) -> Iterator[None]:
-    """Остановить зависшую stage на POSIX и явно отметить timeout везде.
-
-    Handle моделей остаётся в текущем process и не сериализуется в дочерний
-    process. Поэтому на Linux применяется SIGALRM, который прерывает Python
-    вызов; daemon watchdog-thread служит fallback-маркером там, где сигнал
-    недоступен. Небезопасное принудительное убийство потока намеренно не
-    используется: оно могло бы оставить CUDA/файловое состояние повреждённым.
-    """
-    if timeout_sec <= 0:
-        raise ValueError("stage timeout_sec must be positive")
-    fired = threading.Event()
-    watchdog = threading.Timer(timeout_sec, fired.set)
-    watchdog.daemon = True
-    watchdog.start()
-
-    can_interrupt = (
-        os.name != "nt"
-        and threading.current_thread() is threading.main_thread()
-        and hasattr(signal, "SIGALRM")
-        and hasattr(signal, "setitimer")
-    )
-    old_handler = None
-    old_timer: tuple[float, float] | None = None
-
-    def _timeout_handler(_signum: int, _frame: Any) -> None:
-        fired.set()
-        raise StageTimeoutError(f"stage '{stage_name}' timed out after {timeout_sec:.1f}s")
-
-    try:
-        if can_interrupt:
-            old_handler = signal.getsignal(signal.SIGALRM)
-            signal.signal(signal.SIGALRM, _timeout_handler)
-            old_timer = signal.setitimer(signal.ITIMER_REAL, timeout_sec)
-        yield
-        if fired.is_set():
-            raise StageTimeoutError(f"stage '{stage_name}' timed out after {timeout_sec:.1f}s")
-    finally:
-        watchdog.cancel()
-        if can_interrupt:
-            signal.setitimer(signal.ITIMER_REAL, 0.0)
-            signal.signal(signal.SIGALRM, old_handler)
-            if old_timer and old_timer[0] > 0:
-                signal.setitimer(signal.ITIMER_REAL, old_timer[0], old_timer[1])
-
-
 class SequentialAIRunner:
     def __init__(self, *, vram_budget_gb: Optional[float] = None,
-                 vram_probe: Optional[Callable[[], float]] = None,
-                 isolate_stages: bool = True):
-        self.isolate_stages = isolate_stages
+                 vram_probe: Optional[Callable[[], float]] = None):
         self.stages: List[AIStage] = []
         self._sink: Dict[str, Any] = {}
         self.vram_budget_gb = float(
@@ -203,12 +149,6 @@ class SequentialAIRunner:
         return used_gb
 
     @staticmethod
-    def _invoke(stage: AIStage, handle: Any, context: Dict[str, Any], timeout_sec: float) -> Any:
-        from app.ai.activity import stage_activity
-        with _stage_watchdog(timeout_sec, stage.name), stage_activity(stage.name):
-            return stage.fn(handle, context)
-
-    @staticmethod
     def _notify_progress(progress: Any, method: str, *args: Any) -> None:
         """Display is optional; a terminal write must never break a render."""
         if progress is None:
@@ -219,37 +159,6 @@ class SequentialAIRunner:
                 callback(*args)
         except Exception as exc:
             logger.warning("terminal progress callback failed: %s", exc)
-
-    def _execute_inline(self, stage, context, timeout_sec):
-        """Compatibility mode for explicitly opted-in in-process embedders."""
-        device, skipped_reason, error = None, None, None
-        output = None
-        if stage.model is None:
-            logger.info("-> stage '%s' (pure DSP, timeout=%.1fs, VRAM=%.3f GB)",
-                        stage.name, timeout_sec, self._read_vram())
-            output = self._invoke(stage, None, context, timeout_sec)
-        elif stage.model not in MODEL_REGISTRY:
-            raise KeyError(f"Model role '{stage.model}' not in registry")
-        elif not registry.is_available(stage.model):
-            reason = f"{stage.model} unavailable (deps/weights missing)"
-            if stage.optional and stage.fallback_fn:
-                logger.warning("-> stage '%s' FALLBACK (%s)", stage.name, reason)
-                skipped_reason = reason + " -> fallback_fn ran"
-                output = self._invoke(stage, None, context, timeout_sec)
-            elif stage.optional:
-                skipped_reason = reason
-            else:
-                error = reason
-        else:
-            logger.info("-> stage '%s' loading '%s' (timeout=%.1fs)",
-                        stage.name, stage.model, timeout_sec)
-            loaded = registry.load(stage.model)
-            device = loaded.device
-            self._check_vram(stage.name, "after model load")
-            output = self._invoke(stage, loaded.handle, context, timeout_sec)
-        if error:
-            raise RuntimeError(error)
-        return output, device, skipped_reason
 
     def run(self, context: Optional[Dict[str, Any]] = None, progress: Any = None) -> RunReport:
         if context is None:
@@ -270,14 +179,11 @@ class SequentialAIRunner:
             self._notify_progress(progress, "stage_start", index, stage.name, vram_before)
             try:
                 self._check_vram(stage.name, "before stage")
-                if self.isolate_stages:
-                    from app.ai.stage_process import execute
-                    result = execute(stage, context, timeout_sec, self.vram_budget_gb)
-                    self._sink = context['sink']
-                    output, device = result['output'], result['device']
-                    skipped_reason = result['skipped']
-                else:
-                    output, device, skipped_reason = self._execute_inline(stage, context, timeout_sec)
+                from app.ai.stage_process import execute
+                result = execute(stage, context, timeout_sec, self.vram_budget_gb)
+                self._sink = context['sink']
+                output, device = result['output'], result['device']
+                skipped_reason = result['skipped']
             except TimeoutError as exc:
                 ok = False
                 error = str(exc)
@@ -291,9 +197,6 @@ class SequentialAIRunner:
                 error = str(exc)
                 logger.exception("x stage '%s' crashed: %s", stage.name, exc)
             finally:
-                if stage.unload_after:
-                    registry.unload()
-                    gc.collect()
                 vram_after = self._read_vram()
 
             if output is not None:

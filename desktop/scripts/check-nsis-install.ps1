@@ -65,8 +65,10 @@ print('Installed bundled Python isolated stage PASS; no model inference claimed'
         try { [System.IO.File]::WriteAllText((Join-Path $project 'forbidden-write-probe'), 'must fail') }
         catch { $writeDenied = ($_.Exception.InnerException -is [System.UnauthorizedAccessException]) -or ($_.Exception -is [System.UnauthorizedAccessException]) }
         if (-not $writeDenied) { throw 'Read-only install ACL was not enforced' }
-        & $python -I -B -c $code $project
-        if ($LASTEXITCODE -ne 0) { throw 'Installed bundled runtime or isolated stage failed under read-only install ACL' }
+        $pythonOutput = & $python -I -B -c $code $project 2>&1
+        $pythonCode = $LASTEXITCODE
+        $pythonOutput | Write-Output
+        if ($pythonCode -ne 0) { throw ("Installed isolated stage failed under read-only install ACL: " + (($pythonOutput | Select-Object -Last 25) -join "`n")) }
         $result.checks += 'installed-relocated-python-isolated-stage-read-only-install'
     } finally {
         Set-Acl -Path $project -AclObject $originalAcl
