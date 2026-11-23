@@ -7,7 +7,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional
 
-from app.ai.registry import MODEL_REGISTRY, registry
+from app.ai.registry import registry
 from app.pipeline import StageStatus, classify
 
 logger = logging.getLogger("SequentialAIRunner")
