@@ -9,6 +9,9 @@ on:
       - 'app/ai/hardware.py'
       - 'app/ai/profiles.py'
       - 'app/ai/registry.py'
+      - 'tests/test_ai_registry.py'
+      - 'tests/test_ai_hardware_detection.py'
+      - 'tests/test_hardware_profiles_contract.py'
       - 'modules/silero_loader.py'
   workflow_dispatch:
 permissions:

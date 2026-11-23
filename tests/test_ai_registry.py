@@ -54,9 +54,12 @@ class TestStatus:
 
         assert registry.is_available("fake_role") is False
 
-    def test_essentia_role_follows_librosa(self, registry) -> None:
-        # `essentia_or_librosa` доступна, если есть librosa (она есть в окружении)
+    def test_essentia_role_follows_librosa(self, registry, monkeypatch) -> None:
+        # Import availability contract only; do not require a preinstalled DSP stack.
+        monkeypatch.setitem(sys.modules, "librosa", types.ModuleType("librosa"))
         assert registry.is_available("essentia") is True
+        monkeypatch.setitem(sys.modules, "librosa", None)
+        assert registry.is_available("essentia") is False
 
     def test_missing_dependency_means_unavailable(self, registry, monkeypatch) -> None:
         monkeypatch.setitem(MODEL_REGISTRY, "fake_demucs", {"engine": "demucs", "file": ""})
