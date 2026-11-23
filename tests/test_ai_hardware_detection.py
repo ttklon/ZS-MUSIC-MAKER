@@ -94,3 +94,24 @@ def test_unknown_free_ram_cannot_bypass_memory_guards(monkeypatch):
         monkeypatch.setattr(hardware, 'available_memory_gib', lambda: bad)
         with pytest.raises(ValueError): hardware.assert_llama_memory('llm', {'ram_est_gb': 8}, 0)
         with pytest.raises(ValueError): hardware.assert_whisper_memory({'ram_est_gb': 8}, 'cpu')
+
+
+def test_thread_only_override_clamps_detected_core_count(monkeypatch):
+    monkeypatch.setattr('app.ai.hardware.detect_budget', lambda: {
+        'ram_gb': 16, 'vram_gb': 0, 'cpu_threads': 16, 'cpu_cores': 8})
+    monkeypatch.setenv('ZSMM_CPU_THREADS', '2')
+    monkeypatch.delenv('ZSMM_CPU_CORES', raising=False)
+    assert HardwareBudget.from_env().cpu_cores == 2
+
+
+def test_resource_rejection_can_be_retried_without_losing_previous_output(tmp_path, monkeypatch):
+    import pytest
+    from app.ai import hardware
+    previous = tmp_path / 'previous.wav'
+    previous.write_bytes(b'existing result must remain unchanged')
+    monkeypatch.setattr(hardware, 'available_memory_gib', lambda: 1)
+    with pytest.raises(RuntimeError, match='Insufficient'):
+        hardware.assert_whisper_memory({'ram_est_gb': 8}, 'cpu')
+    monkeypatch.setattr(hardware, 'available_memory_gib', lambda: 16)
+    hardware.assert_whisper_memory({'ram_est_gb': 8}, 'cpu')
+    assert previous.read_bytes() == b'existing result must remain unchanged'

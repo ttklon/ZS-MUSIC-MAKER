@@ -41,11 +41,12 @@ class HardwareBudget:
         from app.ai.hardware import detect_budget
 
         detected = detect_budget()
+        threads = int(os.environ.get("ZSMM_CPU_THREADS", detected["cpu_threads"]))
         return cls(
             vram_gb=float(os.environ.get("ZSMM_VRAM_GB", detected["vram_gb"])),
             ram_gb=float(os.environ.get("ZSMM_RAM_GB", detected["ram_gb"])),
-            cpu_threads=int(os.environ.get("ZSMM_CPU_THREADS", detected["cpu_threads"])),
-            cpu_cores=int(os.environ.get("ZSMM_CPU_CORES", detected["cpu_cores"])),
+            cpu_threads=threads,
+            cpu_cores=int(os.environ.get("ZSMM_CPU_CORES", min(threads, detected["cpu_cores"]))),
             prefer_gpu=os.environ.get("ZSMM_PREFER_GPU", "1") == "1",
         )
 
