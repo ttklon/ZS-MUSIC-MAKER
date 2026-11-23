@@ -48,7 +48,9 @@ def load_silero(model_id: str = "v3_1_ru"):
     elif network_allowed():
         model, _ = torch.hub.load(
             repo_or_dir=f"snakers4/silero-models:{UPSTREAM_REVISION}", model="silero_tts",
-            language="ru", speaker=model_id, trust_repo=True,
+            # A reviewed immutable SHA is already pinned above. Torch's branch/fork
+            # discovery otherwise exhausts anonymous GitHub API limits on CI.
+            language="ru", speaker=model_id, trust_repo=True, skip_validation=True,
         )
     else:
         raise FileNotFoundError(

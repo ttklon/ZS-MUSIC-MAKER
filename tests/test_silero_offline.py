@@ -119,3 +119,4 @@ def test_online_loader_pins_upstream_code_revision(environment, monkeypatch):
     loader.load_silero()
     assert next(kw for kind, kw in calls if kind == 'hub')['repo_or_dir'] == 'snakers4/silero-models:' + loader.UPSTREAM_REVISION
     assert len(loader.UPSTREAM_REVISION) == 40
+    assert next(kw for kind, kw in calls if kind == 'hub')['skip_validation'] is True
