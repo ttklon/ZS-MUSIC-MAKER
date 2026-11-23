@@ -123,3 +123,38 @@ Windows hardware contracts: 76 passed; DSP validation/cancel/retry: 2 passed
 `Resource not accessible by integration`. Это ограничение видимости, а не
 доказательство отсутствия GPU runners. Доступного NVIDIA/AMD inference
 этими прогонами не получено; статусы GPU не повышались.
+
+## Строгий offline runner для конкретного backend
+
+Код `bb528dad5e6f9e08c1993fb3c058a760623df568`:
+`tools/local_model_benchmark.py`. Обязательны локальный доверенный пакет,
+SHA-256 и явный backend cpu/cuda/rocm. Отказ при несовпадении хеша происходит
+до исполняемой загрузки; недоступный backend не подменяется CPU. ROCm/HIP
+не выдаётся за NVIDIA CUDA; DirectML не поддерживается этой пробой.
+Выходной tensor должен находиться на запрошенном устройстве/index; для GPU
+обязательна положительная peak allocated VRAM. Замер включает synchronize,
+загрузку/transfer, inference, CPU conversion и запись WAV.
+Это узкий backend probe речи, не полный музыкальный профиль и не трассировка
+всех внутренних kernel модели. Никаких скачиваний модельных весов.
+
+Негативная регрессия (doubles, не inference): CUDA unavailable, ROCm/CUDA
+mismatch, DirectML rejection, неверный digest/отсутствующий пакет, неверный
+output device/index, отсутствие вызова model loader при недоступном backend,
+сохранение предыдущего WAV при отказе и report.ok=false.
+Финальный локальный набор **124 passed**.
+
+[Windows 45148490225](https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45148490225):
+**SUCCESS все четыре job**; 85 hardware/offline/backend contract tests,
+настоящие DSP 20/120 s и новая строгая offline Silero CPU-проба.
+[Сохранённые отчёты](restart-hardware-strict-windows-45148490225.json).
+Strict CPU: 5.775 s речи, wall 9.2548 s, sampled RSS 909131776 bytes,
+RTF 1.6026, Python network attempts 0; модельный SHA
+`cf60b47ec8a9c31046021d2d14b962ea56b8a5bf7061c98accaaaca428522f85`.
+`inference_verified=true` относится только к этому реальному CPU-синтезу;
+`product_profile_accepted=false` сохранён. Полный hardware inventory в artifact;
+в сохранённой compact summary он исключён ради лимита GitHub annotation.
+
+CUDA/ROCm ветки имеют только контрактные тесты с doubles; реальных GPU
+измерений в этом изменении нет. Windows AMD GPU/DirectML не приравниваются
+к ROCm или AMD CPU hosted runner. Полный путь песни не принят.
+Пакет остаётся активным без увеличения счётчика выполненных пунктов.

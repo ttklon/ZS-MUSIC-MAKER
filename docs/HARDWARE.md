@@ -76,3 +76,46 @@ Runner CPU различаются (EPYC 7763 и EPYC 9V45, по 4 logical CPUs/1
 поэтому это не тест линейного масштабирования. Реальная Silero CPU-речь также
 прошла в отдельном job; AMD **CPU** не является проверкой AMD **GPU**.
 [Полный протокол с источником и хешами](plan/evidence/restart-hardware-windows-45146340788.json).
+
+## Локальная проверка конкретного backend без CPU-подмены
+
+```
+python tools/local_model_benchmark.py --backend cuda --trusted-model models/silero/v3_1_ru.pt --sha256 <проверенный_SHA256> --out output/hardware-cuda
+```
+
+`--backend` принимает только `cpu`, `cuda`, `rocm`. ROCm использует PyTorch
+cuda API, но определяется по `torch.version.hip`: AMD ROCm не выдаётся за
+NVIDIA CUDA. DirectML этим инструментом не поддерживается и не сертифицируется.
+Для CPU/ROCm меняется только значение `--backend`; нельзя подставлять CPU
+после отказа GPU и сохранять прежний GPU-статус.
+
+Порядок проверки:
+
+1. Локальный исполняемый пакет должен существовать; SHA-256 сверяется до
+   `PackageImporter`. Хеш не устанавливает доверие: источник весов необходимо
+   проверить независимо. Загрузка pickle/package может исполнять код.
+2. Проверяется доступность **запрошенного** backend; при несовпадении — отказ
+   до вызова модели. Нет скачивания или автоматического CPU fallback.
+3. Загружается настоящая Silero, задаётся устройство, синтезируется фиксированная
+   русская речь. Проверяются устройство выходного tensor (включая GPU index),
+   конечное непустое аудио и WAV. Для GPU обязательны положительные PyTorch
+   peak allocated bytes; также сохраняются peak reserved bytes и synchronize.
+4. В отчёте есть wall time (загрузка/transfer/inference/CPU conversion/запись WAV),
+   sampled RSS, RTF, хеш WAV и пакета, версии и инвентарь. Python socket guard
+   действует во время загрузки/синтеза, но не является OS firewall. Он не
+   запрещает native networking и не изолирует недоверенный исполняемый пакет.
+
+`inference_verified=true` относится только к этому конкретному синтезу речи;
+`product_profile_accepted` всегда false. Устройство выхода и GPU allocations
+не являются профилированием каждого kernel и не доказывают, что все внутренние
+операции модели были выполнены на GPU. Нет проверки singing, MusicGen, RVC,
+полной песни, всего установленного приложения или лицензионной готовности.
+`report.json` записывается и при отказе; exit code 1 нельзя превращать в PASS.
+Ранее созданный WAV не удаляется при отказе, поэтому его наличие без
+`report.ok=true` и совпадающего хеша не является результатом текущего запуска.
+
+Проверка новой утилиты: [Windows 45148490225](https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45148490225)
+(source `bb528dad5e6f9e08c1993fb3c058a760623df568`), все четыре job SUCCESS.
+Strict CPU: 5.775 s речи за 9.2548 s wall, sampled RSS 909131776 bytes,
+RTF 1.6026, Python network attempts 0. GPU-ветки этим прогоном **не испытаны**.
+[Сохранённая compact summary](plan/evidence/restart-hardware-strict-windows-45148490225.json).
