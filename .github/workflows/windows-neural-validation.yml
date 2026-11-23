@@ -14,6 +14,8 @@ on:
       - 'app/core/stages/mix.py'
       - 'tests/test_instrumental_evidence.py'
       - 'desktop/electron/live-result-check.js'
+      - 'desktop/electron/gui-beat-check.js'
+      - 'desktop/test/gui-beat-check.test.js'
       - 'desktop/electron/window-startup-check.js'
       - 'desktop/test/live-result-check.test.js'
       - 'app/pipeline/result.py'
@@ -161,7 +163,7 @@ jobs:
         run: >-
           python -c "import json; r=json.load(open('output/classic-requested-instrumental/probe_report.json',encoding='utf-8')); t=r['typed_result']; e=r['pipeline']['render_evidence']; assert t['status']=='success' and t['kind']=='instrumental' and t['quality_accepted'] is False; assert e['master_sha256']==t['artifact']['sha256']; assert e['checks']=={'music_present': True} and 'vocal_method' not in e"
       - name: Validate native-to-renderer result checker (fixtures, not generation)
-        run: node --test desktop/test/live-result-check.test.js desktop/test/creation.test.js
+        run: node --test desktop/test/gui-beat-check.test.js desktop/test/live-result-check.test.js desktop/test/creation.test.js
       - name: Install development packaging tools
         working-directory: desktop
         run: |
@@ -170,17 +172,20 @@ jobs:
       - name: Package Electron for actual-artifact boundary test, no publishing
         working-directory: desktop
         run: npm run dist:dir
-      - name: Verify actual CPU instrumental in real packaged renderer (not GUI generation)
+      - name: Verify real artifact boundary and actual DOM-to-worker instrumental generation
         shell: pwsh
         run: |
+          $env:ZSMM_GUI_BEAT_CHECK = '1'
           $env:ZSMM_LIVE_PROBE = Join-Path (Get-Location) 'output/classic-requested-instrumental/probe_report.json'
           $env:ZSMM_WINDOW_CHECK_OUT = Join-Path (Get-Location) 'output/classic-live-window.json'
           $p = Start-Process -FilePath 'desktop/dist/win-unpacked/ZS Music Maker.exe' -ArgumentList '--window-check' -WorkingDirectory (Get-Location).Path -PassThru
-          if (-not $p.WaitForExit(90000)) { $p.Kill(); throw 'Actual-artifact window check timed out' }
+          if (-not $p.WaitForExit(200000)) { $p.Kill(); throw 'Actual-artifact window check timed out' }
           $report = Get-Content $env:ZSMM_WINDOW_CHECK_OUT -Raw | ConvertFrom-Json
-          if ($p.ExitCode -ne 0 -or -not $report.ok -or -not $report.liveInstrumental.ok) { throw "Actual-artifact renderer check failed: $($report | ConvertTo-Json -Depth 12 -Compress)" }
+          if ($p.ExitCode -ne 0 -or -not $report.ok -or -not $report.liveInstrumental.ok -or -not $report.guiBeat.ok) { throw "Actual-artifact renderer check failed: $($report | ConvertTo-Json -Depth 12 -Compress)" }
           $summary = $report.liveInstrumental | ConvertTo-Json -Depth 12 -Compress
           Write-Output "::notice title=Packaged actual instrumental boundary::$summary"
+          $gui = $report.guiBeat | ConvertTo-Json -Depth 12 -Compress
+          Write-Output "::notice title=Packaged GUI instrumental click journey::$gui"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -190,5 +195,6 @@ jobs:
             output/classic-requested-instrumental/
             classic-probe.log
             output/classic-live-window.json
+            output/gui-click-instrumental.wav
           retention-days: 7
           if-no-files-found: error
