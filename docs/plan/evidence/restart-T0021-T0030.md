@@ -445,5 +445,27 @@ Cancel выключен, видна конкретная ошибка диапа
 в локальный reportError log как часть обычного production showError.
 
 Локально 48 JS + 24 Python tests passed. Positive/cancel/retry и measurement
-по-прежнему проходят на той же ревизии. Нет singing/quality/NSIS/GPU приёмки;
-счётчик полного плана остаётся 20, активны T0021–T0030.
+по-прежнему проходят на той же ревизии. На тот момент не было NSIS/GPU приёмки.
+
+## Последняя проверка — Windows installed path, 2026-11-23
+
+[Run 45207868772](https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45207868772),
+source `405cd6bd52ea070b4a51decf09d5f39f3891ed98`: workflow и чистая x64 NSIS
+installed-check завершились успешно. Машиночитаемая сводка и ссылка на workflow
+artifact `nsis-install-check` находятся в
+`restart-hardware-installed-path-windows-45207868772.json`.
+
+- Повторная приёмка: T0025, T0027, T0028 complete; T0026 остаётся in_progress
+  только из-за отсутствующей наблюдаемой model-worker cancellation проверки.
+- Deny/retry на установленном UI/shared runner/bundled Python прошёл: RAM,
+  свободный диск, VRAM и unbudgeted MusicGen; прежний файл сохранён; measured
+  retry остался inventory-only/procedural DSP, без inference/profile/quality claims.
+  Denial measurements синтетические, setup-unlock ответ синтетический.
+- A0003/A0004 технически прошли в CI report, но не приняты: независимый reviewer
+  не назначен. G0–G9 остаются false.
+- Официальный backlog: **152 verified / 1000 T-задач** (820 planned, 28 blocked).
+  В дополнении **0 / 30 A-задач приняты**; строгий суммарный счёт — **152 / 1030
+  (14.8%)**. Restart-переоценка: **23 / 50 complete**; она не складывается
+  повторно с каноническими backlog status.
+- Остаток T0021/T0024/T0029 — реальная измеренная матрица заявляемых CPU/CUDA/AMD
+  профилей; этот Windows CPU/DSP run не сертифицирует GPU inference или полную песню.

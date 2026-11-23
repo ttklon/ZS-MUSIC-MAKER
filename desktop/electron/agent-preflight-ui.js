@@ -54,6 +54,40 @@ elif scenario == "acceptance_setup_ready":
             "acceptance_fixture": "setup gate only; no engine or model is installed"}})
         return 0
     commands.run_bootstrap = acceptance_setup
+elif scenario == "cancel_model_worker":
+    from modules.agent_guide import runner as agent_runner
+    def cancellation_probe(answers, preflight, adaptive_config, output_root, started, say):
+        import json
+        import os
+        import time
+        from pathlib import Path
+        from app.ai.sequential_runner import AIStage, SequentialAIRunner
+        marker = Path(os.environ["ZSMM_CANCEL_TEST_MARKER"])
+        lock_path = Path(os.environ["ZSMM_CANCEL_TEST_LOCK"])
+        def hold_stage_worker(_handle, _context):
+            lock_path.parent.mkdir(parents=True, exist_ok=True)
+            with lock_path.open("w+b") as lock:
+                lock.write(b"x")
+                lock.flush()
+                lock.seek(0)
+                if os.name == "nt":
+                    import msvcrt
+                    msvcrt.locking(lock.fileno(), msvcrt.LK_NBLCK, 1)
+                else:
+                    import fcntl
+                    fcntl.flock(lock.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                metadata = {"schema": 1, "stage": "installed_cancel_probe",
+                            "pid": os.getpid(), "parent_pid": os.getppid()}
+                temporary = marker.with_name(marker.name + ".tmp")
+                temporary.write_text(json.dumps(metadata), encoding="utf-8")
+                os.replace(temporary, marker)
+                while True:
+                    time.sleep(0.1)
+        worker_runner = SequentialAIRunner(vram_budget_gb=0, vram_probe=lambda: 0)
+        worker_runner.add(AIStage("installed_cancel_probe", None, hold_stage_worker, timeout_sec=600))
+        worker_runner.run()
+        raise RuntimeError("installed cancellation probe returned without cancellation")
+    agent_runner._agent_stages = cancellation_probe
 `;
 
 async function runCreationTaskFromInstalledUi(window, { stage, voicePath = '', timeoutMs = 9 * 60 * 1000 }) {

@@ -11,14 +11,13 @@ const path = require('node:path');
 const { fileURLToPath } = require('node:url');
 
 const { INJECTOR, prepareCreationUi, runAgentFromInstalledUi } = require('./agent-preflight-ui');
+const { runInstalledWorkerCancellation } = require('./installed-worker-cancellation');
 
 function sha256File(file) {
   return crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
 }
 
-function samePath(left, right) {
-  return typeof left === 'string' && path.resolve(left) === path.resolve(right);
-}
+function samePath(left, right) { return typeof left === 'string' && path.resolve(left) === path.resolve(right); }
 
 function isWithinPath(candidate, root) {
   if (typeof candidate !== 'string' || typeof root !== 'string' || !candidate || !root) return false;
@@ -41,9 +40,7 @@ function snapshotFiles(root) {
   return result;
 }
 
-function preservesSnapshot(before, after) {
-  return Object.entries(before).every(([name, hash]) => after[name] === hash);
-}
+function preservesSnapshot(before, after) { return Object.entries(before).every(([name, hash]) => after[name] === hash); }
 
 function unchangedSnapshot(before, after) {
   return Object.keys(before).length === Object.keys(after).length && preservesSnapshot(before, after);
@@ -70,7 +67,6 @@ function refusalOutcome(run, expectedReason) {
     noHeavyStages,
   };
 }
-
 
 async function runDenialCase({ window, scenario, name, expectedReason, voicePath, hits, before, sentinel }) {
   process.env.ZSMM_AGENT_TEST_SCENARIO = scenario;
@@ -110,6 +106,7 @@ async function checkAgentPreflight(window, app) {
     acceptanceMet: false,
     limitations: ['Synthetic deny cases verify installed-path enforcement, not physical low-resource hardware.',
       'A test-only bootstrap response unlocks the current creation UI; it installs no engine and does not participate in agent-hit tasks.',
+      'The cancellation probe runs a test-only SequentialAIRunner stage function with model=None; it verifies process-tree teardown and lock release, not model loading or inference.',
       'Retry uses measured CPU/DSP inventory; inference, product profile, CUDA/AMD support and song quality remain unverified.'],
     checks: {},
   };
@@ -121,6 +118,8 @@ async function checkAgentPreflight(window, app) {
   const rvcInput = path.join(workspace, `agent-preflight-rvc-input-${process.pid}.wav`);
   const injection = fs.mkdtempSync(path.join(os.tmpdir(), 'zsmm-agent-preflight-'));
   const injector = path.join(injection, 'sitecustomize.py');
+  const cancellationMarker = path.join(injection, 'stage-worker.json');
+  const cancellationLock = path.join(injection, 'stage-worker.lock');
   fs.writeFileSync(injector, INJECTOR, 'utf8');
   fs.mkdirSync(hits, { recursive: true });
   if (!fs.existsSync(path.join(project, 'main.py')) || !fs.existsSync(python)) {
@@ -131,7 +130,7 @@ async function checkAgentPreflight(window, app) {
   fs.writeFileSync(sentinel, sentinelBytes, { flag: 'wx' });
   fs.writeFileSync(rvcInput, 'preflight-only placeholder; no RVC inference is executed\n', { flag: 'wx' });
   const before = snapshotFiles(hits);
-  const environmentKeys = ['PYTHONPATH', 'ZSMM_AGENT_TEST_SCENARIO', 'ZSMM_ONLINE', 'ZSMM_PROBE_LOCAL_SERVICES'];
+  const environmentKeys = ['PYTHONPATH', 'ZSMM_AGENT_TEST_SCENARIO', 'ZSMM_CANCEL_TEST_MARKER', 'ZSMM_CANCEL_TEST_LOCK', 'ZSMM_ONLINE', 'ZSMM_PROBE_LOCAL_SERVICES'];
   const oldEnvironment = Object.fromEntries(environmentKeys.map((key) => [key, process.env[key]]));
   const pythonPath = injection; // test hook only; never inherit a checkout PYTHONPATH
   let installedRuntime = null;
@@ -240,7 +239,14 @@ async function checkAgentPreflight(window, app) {
     report.checks.unbudgetedHeavyEngineDenial.ok = report.checks.unbudgetedHeavyEngineDenial.ok
       && report.checks.unbudgetedHeavyEngineDenial.backendMatches;
 
+    process.env.ZSMM_CANCEL_TEST_MARKER = cancellationMarker;
+    process.env.ZSMM_CANCEL_TEST_LOCK = cancellationLock;
+    process.env.ZSMM_AGENT_TEST_SCENARIO = 'cancel_model_worker';
+    report.checks.modelWorkerCancellation = await runInstalledWorkerCancellation({
+      window, python, markerPath: cancellationMarker, lockPath: cancellationLock,
+    });
     process.env.ZSMM_AGENT_TEST_SCENARIO = '';
+
     const retryRun = await runAgentFromInstalledUi(window, '');
     const retry = retryRun.done?.report;
     const preflight = retry?.hardware_preflight;
@@ -373,9 +379,10 @@ async function checkAgentPreflight(window, app) {
     A0004: {
       owner, sourceSha: report.sourceSha, relatedTIds: ['T0025', 'T0026', 'T0027', 'T0028'],
       requirement: 'Unknown or insufficient RAM/VRAM/disk refuses before heavy work; the subsequent recovery attempt preserves prior user files.',
-      scenario: 'Installed current creation UI → agent-hit IPC/shared task runner → bundled Python; injected unknown/low resource measurements for deny cases; then retry on measured Windows runner inventory.',
+      scenario: 'Installed current creation UI → agent-hit IPC/shared task runner → bundled Python; injected unknown/low resource measurements for deny cases; test-only stage-worker cancellation via the visible Stop button; then retry on measured Windows runner inventory.',
       environment,
-      positiveResults: { measuredRetry: retry },
+      positiveResults: { modelWorkerCancellation: report.checks.modelWorkerCancellation || null,
+        measuredRetry: retry },
       negativeResults: denials,
       recoveryResults: { afterNegativeMatrix: retry.taskDone ? 'measured_retry_completed' : 'not_completed',
         priorFilesPreserved: retry.previousFilesPreserved ?? false,
