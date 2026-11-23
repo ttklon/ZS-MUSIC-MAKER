@@ -356,3 +356,42 @@ quality_accepted=false. Сгенерирован новый unpacked Electron, �
 нажатие «сгенерировать» от UI до результата и не запуск рендера bundled Python.
 Нет singing, human quality acceptance или CUDA/AMD GPU inference. Нет подписи
 и сертификации release binary. Полный T0021–T0030 не закрыт; счётчик 20.
+
+## Настоящие DOM-клики: packaged GUI → IPC → worker → WAV
+
+Source `a29fbd960cf559f4736b7e7c3c0fe30311f38559`:
+`desktop/electron/gui-beat-check.js` — диагностический opt-in только в
+--window-check + ZSMM_GUI_BEAT_CHECK=1. Не подменяет renderBeat, preload,
+IPC handler или Worker. Открывает beat section, заполняет phonk/140/seed7,
+вокал none и bank off, кликает production «Собрать бит».
+
+Сначала запускает 120 s запрос и кликает «Отменить» после первого настоящего
+IPC progress event. Проверяет возврат кнопок, canceled status и неизменность
+предыдущего audio state. Затем через ту же кнопку запускает 20 s retry.
+Проверяет реальный worker (не fallback main), отчёт/UI controls, blob player,
+полный PCM16 stereo WAV, длительность/peak/RMS/размер/SHA и записывает artifact.
+Это программные DOM click events, не ручной человеческий аудит.
+
+[Windows 45161164359](https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45161164359):
+**SUCCESS все пять job**. [Durable GUI/CPU reports](restart-hardware-gui-windows-45161164359.json).
+`guiBeat.ok=true`, cancellation.clicked=true, progress_count=1,
+previous_audio_preserved=true; статус «Рендер отменён — бит не сохранён».
+Повтор: «Готово: 6 секций, 20 с. Можно слушать.», save/open enabled,
+cancel disabled, player visible/blob. Renderer worker, **20.0 s за 5.5834 s**
+после click; весь GUI-check с navigation/cancel/transfer — 5.845 s.
+WAV 3528044 bytes, stereo 44100 Hz / 16 bit, peak 0.76837, RMS 0.16898,
+SHA `fb1df45ac8b19b275c22f789316364cb7b1f2793c130f3f4cfc2db34cfc4632d`.
+Hash совпал со standalone Node worker 20 s этого же source; это единичная
+байтовая воспроизводимость, не обещание для всех версий/движков.
+
+Локально 43 JS tests passed и 17 Python budget/product/plan checks passed.
+JS fixtures отдельно тестируют отказы validator; не выдаются за GUI execution.
+Настоящий GUI-WAV и window report — workflow artifacts:
+output/gui-click-instrumental.wav, output/classic-live-window.json.
+
+Границы: только существующий раздел «Бит», JS procedural engine без Python,
+voice/samples off, win-unpacked. Это не wizard/agent song generation, не
+bundled Python, не NSIS/ACL install. Включение Save/Open проверено, но системный
+диалог сохранения/плеер не запускались. Звук не прослушан человеком, общий
+RSS всех Electron процессов не измерен. quality/profile accepted=false.
+CUDA/AMD GPU и full singing/song не приняты; T0021–T0030 остаётся активным.

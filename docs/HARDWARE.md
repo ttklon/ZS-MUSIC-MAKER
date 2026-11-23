@@ -201,3 +201,18 @@ rejected. `quality_accepted=false`.
 не GUI click-through generation и не bundled-Python rendering. Весь
 универсальный CPU/CUDA/AMD профиль этим не принимается.
 [Протокол](plan/evidence/restart-hardware-packaged-windows-45160086121.json).
+
+### Реальное создание инструментала кликом в packaged GUI
+
+[Windows 45161164359](https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45161164359),
+все пять job SUCCESS: production DOM-кнопки раздела **«Бит»** запустили
+настоящий IPC/worker, отменили первый запрос после progress и успешно
+повторили рендер. **20 s аудио за 5.5834 s** от click до результата;
+WAV stereo 44100 Hz / PCM16 / 3528044 bytes проверен целиком и захеширован.
+Плеер видим, Save/Open включены, Cancel выключен, предыдущий audio state при
+отмене сохранён. [Протокол](plan/evidence/restart-hardware-gui-windows-45161164359.json).
+
+Это JS procedural / bank off / no vocal в win-unpacked, не Python-pipeline,
+не agent/song wizard и не NSIS install. Системные Save/Open dialogs, фактическое
+воспроизведение аудиоустройством, качество, общий Electron RSS, singing и GPU
+этим не проверены. `product_profile_accepted=false` сохраняется.

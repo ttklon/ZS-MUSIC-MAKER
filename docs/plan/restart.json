@@ -1421,7 +1421,8 @@
         "docs/plan/evidence/restart-hardware-adapters-windows-45153740505.json",
         "docs/plan/evidence/restart-hardware-content-windows-45158238672.json",
         "docs/plan/evidence/restart-hardware-provenance-windows-45158731434.json",
-        "docs/plan/evidence/restart-hardware-packaged-windows-45160086121.json"
+        "docs/plan/evidence/restart-hardware-packaged-windows-45160086121.json",
+        "docs/plan/evidence/restart-hardware-gui-windows-45161164359.json"
       ],
       "remaining": [
         "Windows regression/inference SUCCESS; повторная приёмка всего пакета требует протоколов полных заявляемых CPU/CUDA/AMD профилей."
@@ -1443,7 +1444,8 @@
         "docs/plan/evidence/restart-hardware-adapters-windows-45153740505.json",
         "docs/plan/evidence/restart-hardware-content-windows-45158238672.json",
         "docs/plan/evidence/restart-hardware-provenance-windows-45158731434.json",
-        "docs/plan/evidence/restart-hardware-packaged-windows-45160086121.json"
+        "docs/plan/evidence/restart-hardware-packaged-windows-45160086121.json",
+        "docs/plan/evidence/restart-hardware-gui-windows-45161164359.json"
       ],
       "remaining": [
         "Windows regression/inference SUCCESS; повторная приёмка всего пакета требует протоколов полных заявляемых CPU/CUDA/AMD профилей."
@@ -1465,7 +1467,8 @@
         "docs/plan/evidence/restart-hardware-adapters-windows-45153740505.json",
         "docs/plan/evidence/restart-hardware-content-windows-45158238672.json",
         "docs/plan/evidence/restart-hardware-provenance-windows-45158731434.json",
-        "docs/plan/evidence/restart-hardware-packaged-windows-45160086121.json"
+        "docs/plan/evidence/restart-hardware-packaged-windows-45160086121.json",
+        "docs/plan/evidence/restart-hardware-gui-windows-45161164359.json"
       ],
       "remaining": [
         "Windows regression/inference SUCCESS; повторная приёмка всего пакета требует протоколов полных заявляемых CPU/CUDA/AMD профилей."
@@ -1487,7 +1490,8 @@
         "docs/plan/evidence/restart-hardware-adapters-windows-45153740505.json",
         "docs/plan/evidence/restart-hardware-content-windows-45158238672.json",
         "docs/plan/evidence/restart-hardware-provenance-windows-45158731434.json",
-        "docs/plan/evidence/restart-hardware-packaged-windows-45160086121.json"
+        "docs/plan/evidence/restart-hardware-packaged-windows-45160086121.json",
+        "docs/plan/evidence/restart-hardware-gui-windows-45161164359.json"
       ],
       "remaining": [
         "Windows regression/inference SUCCESS; повторная приёмка всего пакета требует протоколов полных заявляемых CPU/CUDA/AMD профилей."
@@ -1509,7 +1513,8 @@
         "docs/plan/evidence/restart-hardware-adapters-windows-45153740505.json",
         "docs/plan/evidence/restart-hardware-content-windows-45158238672.json",
         "docs/plan/evidence/restart-hardware-provenance-windows-45158731434.json",
-        "docs/plan/evidence/restart-hardware-packaged-windows-45160086121.json"
+        "docs/plan/evidence/restart-hardware-packaged-windows-45160086121.json",
+        "docs/plan/evidence/restart-hardware-gui-windows-45161164359.json"
       ],
       "remaining": [
         "Windows regression/inference SUCCESS; повторная приёмка всего пакета требует протоколов полных заявляемых CPU/CUDA/AMD профилей."
@@ -1531,7 +1536,8 @@
         "docs/plan/evidence/restart-hardware-adapters-windows-45153740505.json",
         "docs/plan/evidence/restart-hardware-content-windows-45158238672.json",
         "docs/plan/evidence/restart-hardware-provenance-windows-45158731434.json",
-        "docs/plan/evidence/restart-hardware-packaged-windows-45160086121.json"
+        "docs/plan/evidence/restart-hardware-packaged-windows-45160086121.json",
+        "docs/plan/evidence/restart-hardware-gui-windows-45161164359.json"
       ],
       "remaining": [
         "Windows regression/inference SUCCESS; повторная приёмка всего пакета требует протоколов полных заявляемых CPU/CUDA/AMD профилей."
@@ -1553,7 +1559,8 @@
         "docs/plan/evidence/restart-hardware-adapters-windows-45153740505.json",
         "docs/plan/evidence/restart-hardware-content-windows-45158238672.json",
         "docs/plan/evidence/restart-hardware-provenance-windows-45158731434.json",
-        "docs/plan/evidence/restart-hardware-packaged-windows-45160086121.json"
+        "docs/plan/evidence/restart-hardware-packaged-windows-45160086121.json",
+        "docs/plan/evidence/restart-hardware-gui-windows-45161164359.json"
       ],
       "remaining": [
         "Windows regression/inference SUCCESS; повторная приёмка всего пакета требует протоколов полных заявляемых CPU/CUDA/AMD профилей."
@@ -1575,7 +1582,8 @@
         "docs/plan/evidence/restart-hardware-adapters-windows-45153740505.json",
         "docs/plan/evidence/restart-hardware-content-windows-45158238672.json",
         "docs/plan/evidence/restart-hardware-provenance-windows-45158731434.json",
-        "docs/plan/evidence/restart-hardware-packaged-windows-45160086121.json"
+        "docs/plan/evidence/restart-hardware-packaged-windows-45160086121.json",
+        "docs/plan/evidence/restart-hardware-gui-windows-45161164359.json"
       ],
       "remaining": [
         "Windows regression/inference SUCCESS; повторная приёмка всего пакета требует протоколов полных заявляемых CPU/CUDA/AMD профилей."
@@ -1597,10 +1605,11 @@
         "docs/plan/evidence/restart-hardware-adapters-windows-45153740505.json",
         "docs/plan/evidence/restart-hardware-content-windows-45158238672.json",
         "docs/plan/evidence/restart-hardware-provenance-windows-45158731434.json",
-        "docs/plan/evidence/restart-hardware-packaged-windows-45160086121.json"
+        "docs/plan/evidence/restart-hardware-packaged-windows-45160086121.json",
+        "docs/plan/evidence/restart-hardware-gui-windows-45161164359.json"
       ],
       "remaining": [
-        "Scoped CPU instrumental typed success и actual-artifact packaged renderer проверены; full song/quality/NSIS GUI generation и реальные CUDA/AMD GPU не приняты."
+        "Scoped CPU typed instrumental и packaged JS GUI click/cancel/retry измерены; full song/quality/NSIS install и реальные CUDA/AMD GPU не приняты."
       ]
     },
     {
@@ -1619,10 +1628,11 @@
         "docs/plan/evidence/restart-hardware-adapters-windows-45153740505.json",
         "docs/plan/evidence/restart-hardware-content-windows-45158238672.json",
         "docs/plan/evidence/restart-hardware-provenance-windows-45158731434.json",
-        "docs/plan/evidence/restart-hardware-packaged-windows-45160086121.json"
+        "docs/plan/evidence/restart-hardware-packaged-windows-45160086121.json",
+        "docs/plan/evidence/restart-hardware-gui-windows-45161164359.json"
       ],
       "remaining": [
-        "Scoped CPU instrumental typed success и actual-artifact packaged renderer проверены; full song/quality/NSIS GUI generation и реальные CUDA/AMD GPU не приняты."
+        "Scoped CPU typed instrumental и packaged JS GUI click/cancel/retry измерены; full song/quality/NSIS install и реальные CUDA/AMD GPU не приняты."
       ]
     },
     {
