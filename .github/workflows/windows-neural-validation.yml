@@ -64,6 +64,7 @@ jobs:
           $log = Get-Content bootstrap-resolver.log -Raw
           if ($code -eq 0 -or $log -notmatch 'ResolutionImpossible' -or $log -notmatch 'audiocraft 1.3.0 depends on torch==2.1.0') { Write-Output '::error::Expected specific AudioCraft/Torch resolver rejection was not observed'; exit 1 }
           Write-Output '::notice title=Expected dependency rejection::Incompatible shared installation rejected; this is NOT a successful AudioCraft installation.'
+          exit 0
       - uses: actions/upload-artifact@v4
         if: always()
         with:
