@@ -110,3 +110,12 @@ def test_invalid_local_package_is_not_redownloaded(environment, monkeypatch):
 def test_unknown_model_id_is_rejected_before_import_or_network(environment):
     with pytest.raises(ValueError, match="unsupported"):
         loader.load_silero("../../unknown")
+
+
+def test_online_loader_pins_upstream_code_revision(environment, monkeypatch):
+    root, calls, model, torch = environment
+    monkeypatch.setattr('app.core.net_policy.network_allowed', lambda: True)
+    torch.hub.load = lambda **kw: (calls.append(('hub', kw)), (model, None))[1]
+    loader.load_silero()
+    assert next(kw for kind, kw in calls if kind == 'hub')['repo_or_dir'] == 'snakers4/silero-models:' + loader.UPSTREAM_REVISION
+    assert len(loader.UPSTREAM_REVISION) == 40

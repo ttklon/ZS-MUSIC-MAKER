@@ -10,6 +10,8 @@ import os
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+# Auditable upstream loader code; model package bytes are separately hashed by benchmarks.
+UPSTREAM_REVISION = "e382298387332f2bf461fe6eadfde99104611b0c"
 MODEL_IDS = frozenset({"v3_1_ru", "v4_ru"})
 
 
@@ -45,7 +47,7 @@ def load_silero(model_id: str = "v3_1_ru"):
         model = torch.package.PackageImporter(str(path)).load_pickle("tts_models", "model")
     elif network_allowed():
         model, _ = torch.hub.load(
-            repo_or_dir="snakers4/silero-models", model="silero_tts",
+            repo_or_dir=f"snakers4/silero-models:{UPSTREAM_REVISION}", model="silero_tts",
             language="ru", speaker=model_id, trust_repo=True,
         )
     else:
