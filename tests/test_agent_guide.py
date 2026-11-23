@@ -114,7 +114,8 @@ def test_run_reports_blocked_lyrics_and_voice_without_engines(monkeypatch, tmp_p
     report = run_conversation_hit({"mood": "ночь"}, output_root=str(tmp_path))
 
     assert report["ok"] is False
-    assert report["artifact_available"] is True
+    assert report["master_reported"] is True
+    assert report["artifact_available"] is False
     assert not report["result"]["succeeded"]
     blocked = {item["stage"] for item in report["blocked"]}
     assert {"lyrics", "voice", "references", "samples"} <= blocked

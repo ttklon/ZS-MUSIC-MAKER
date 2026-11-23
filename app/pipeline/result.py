@@ -72,6 +72,8 @@ def _missing_evidence(evidence, kind, artifact: dict) -> list[str]:
         reasons.append("Не подтверждены обязательные проверки содержимого и тайминга.")
     if kind == "generated_singing" and evidence.get("vocal_method") != "singing":
         reasons.append("TTS и RVC сами по себе не подтверждают генерацию пения.")
+    if kind == "own_vocal_song" and evidence.get("vocal_method") != "recorded_singing":
+        reasons.append("Своя запись должна быть подтверждена как спетое исполнение, не речь.")
     return reasons
 
 

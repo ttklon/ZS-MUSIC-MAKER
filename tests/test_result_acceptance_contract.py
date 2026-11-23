@@ -23,7 +23,8 @@ def audio(tmp_path):
 def evidence(audio, kind):
     return {'schema': 1, 'master_sha256': inspect_audio(audio)['sha256'],
             'kind': kind, 'engine': 'contract_fixture_NOT_real_model', 'revision': 'test1',
-            'checks': dict.fromkeys(CHECKS[kind], True), 'vocal_method': 'singing'}
+            'checks': dict.fromkeys(CHECKS[kind], True),
+            'vocal_method': 'recorded_singing' if kind == 'own_vocal_song' else 'singing'}
 
 
 def test_high_score_lyrics_and_rvc_flags_do_not_prove_song(audio):
@@ -197,3 +198,10 @@ def test_cancellation_never_opens_stale_audio(monkeypatch):
     monkeypatch.setattr(results, 'inspect_audio', lambda filename: seen.append(filename) or {'valid': False})
     assert results.assess_result({'master_path': 'stale.wav', 'canceled': True})['status'] == 'canceled'
     assert seen == [None]
+
+
+@pytest.mark.parametrize('method', [None, 'tts', 'speech', 'silero', 'xtts', 'rvc', 'singing'])
+def test_own_recording_alone_cannot_certify_sung_performance(audio, method):
+    proof = evidence(audio, 'own_vocal_song'); proof['vocal_method'] = method
+    assert not assess_result({'master_path': audio, 'requested_kind': 'own_vocal_song',
+                              'render_evidence': proof})['succeeded']

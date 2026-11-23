@@ -11,7 +11,7 @@
 |---|---|---|
 | instrumental | инструментал | music_present |
 | speech_draft | речевой черновик | speech_present |
-| own_vocal_song | музыка со своей спетой записью | music_present, vocal_mixed, own_recording, timing_checked |
+| own_vocal_song | музыка со своей спетой записью | music_present, vocal_mixed, own_recording, timing_checked и vocal_method=recorded_singing |
 | generated_singing | автоматически спетая песня | music_present, vocal_mixed, lyrics_applied, pitch_text_aligned и vocal_method=singing |
 | unverified_audio | валидный файл неизвестного состава | нет достаточных сведений о содержимом |
 
@@ -67,7 +67,11 @@ schema provenance — целое 1 (не true), engine/revision — непуст
 
 Окно дополнительно требует совпадения requested_kind/kind с собственным запросом,
 valid=true артефакта, совпадающего пути и SHA-256, пустых reasons/blocked и успешной
-задачи. Renderer не декодирует и не прослушивает файл независимо: он проверяет
+задачи. Agent producer различает master_reported (заявлен путь), artifact_available
+(файл действительно прошёл проверку) и ok (принят весь запрошенный результат).
+Строка прогресса «Прогон завершён» не обещает готовую песню.
+
+Renderer не декодирует и не прослушивает файл независимо: он проверяет
 согласованность типизированного отчёта, а не доказывает музыку по JSON.
 
 ## 3. Статус задачи/стадии
