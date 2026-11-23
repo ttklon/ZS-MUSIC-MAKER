@@ -19,6 +19,10 @@ def attach_request_outcome(report, recipe, stages, quality_failures, dry_run, on
     report['outcome'] = report_outcome(stages, quality_failures=quality_failures, dry_run=dry_run,
         only=only, required_names=set(STAGE_RECORDS) - disabled, not_requested_names=disabled)
     report['request_scope'] = {'not_requested': sorted(disabled), 'source': 'normalized_caller_recipe'}
+    from app.core.instrumental_evidence import attach_instrumental_evidence
+    from pathlib import Path
+    if report.get('project_root'):
+        attach_instrumental_evidence(report, recipe, stages, Path(report['project_root']))
 
 
 def classic_execution_contract(wizard_state):

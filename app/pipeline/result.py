@@ -1,6 +1,7 @@
 """Conservative content contract. Evidence is producer provenance, NOT an AI listening test.
 
-No current producer supplies accepted content evidence: legacy audio stays degraded.
+Only the narrow classic procedural producer supplies traced instrumental evidence.
+Legacy audio without provenance stays degraded.
 A claimed source='rvc', high score or a transcript cannot certify singing.
 """
 from __future__ import annotations

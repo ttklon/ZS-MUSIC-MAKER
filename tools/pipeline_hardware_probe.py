@@ -104,6 +104,7 @@ def main():
     print(json.dumps(summary_for(report), ensure_ascii=True, indent=2))
     summary = {key: report.get(key) for key in ('ok', 'kind', 'source', 'measurements', 'diagnostic_audio')}
     summary['product_profile_accepted'] = False
+    summary['render_evidence'] = (report.get('pipeline') or {}).get('render_evidence')
     summary['adapter_status'] = (report.get('adapter_outcome') or {}).get('status')
     summary['typed_result_status'] = (report.get('typed_result') or {}).get('status')
     summary['outcome_status'] = (report.get('pipeline', {}).get('outcome') or {}).get('status')
