@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { inspectAudio, optionsFor, benchmark } = require('../../tools/desktop_render_benchmark');
+const { inspectAudio, optionsFor, benchmark, summaryFor } = require('../../tools/desktop_render_benchmark');
 const { encodeWav } = require('../src/core/audio/wav');
 
 test('benchmark rejects invalid durations and silent/truncated audio', () => {
@@ -34,6 +34,10 @@ test('real worker cancellation then instrumental render produces verified WAV', 
     assert.ok(report.wall_seconds > 0);
     assert.ok(report.process_lifetime_max_rss_bytes > 0);
     assert.equal(report.audio.sha256.length, 64);
+    const summary = summaryFor(report);
+    assert.equal(summary.audio.sha256, report.audio.sha256);
+    assert.ok(JSON.stringify(summary).length < 3800, 'GitHub annotation must not truncate JSON');
+    assert.equal(summary.engine.vocal, null);
     assert.equal(report.audio.bytes, fs.statSync(path.join(directory, 'instrumental.wav')).size);
   } finally { fs.rmSync(directory, { recursive: true, force: true }); }
 });

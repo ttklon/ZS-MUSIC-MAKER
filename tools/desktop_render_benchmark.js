@@ -68,11 +68,19 @@ async function benchmark(seconds, directory) {
   return report;
 }
 
+function summaryFor(report) {
+  const { engine_report, ...summary } = report;
+  summary.engine = engine_report ? { drum_engine: engine_report.drum_engine,
+    samples_used: engine_report.samples_used, vocal: engine_report.vocal,
+    duration_sec: engine_report.duration_sec } : null;
+  return summary;
+}
+
 if (require.main === module) {
   benchmark(Number(process.argv[2] || 20), path.resolve(process.argv[3] || 'output/desktop-render-benchmark'))
     .then(report => {
-      console.log('::notice title=Real desktop DSP benchmark::' + JSON.stringify(report));
+      console.log('::notice title=Real desktop DSP benchmark::' + JSON.stringify(summaryFor(report)));
       process.exitCode = report.ok ? 0 : 1;
     }).catch(error => { console.error(error); process.exitCode = 1; });
 }
-module.exports = { inspectAudio, optionsFor, benchmark };
+module.exports = { inspectAudio, optionsFor, benchmark, summaryFor };
