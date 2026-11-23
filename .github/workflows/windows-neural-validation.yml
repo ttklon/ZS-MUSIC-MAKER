@@ -6,6 +6,8 @@ on:
       - '.github/workflows/windows-neural-validation.yml'
       - 'tools/windows_neural_smoke.py'
       - 'tools/neural_benchmark.py'
+      - 'tools/local_model_benchmark.py'
+      - 'tests/test_local_model_benchmark.py'
       - 'tools/desktop_render_benchmark.js'
       - 'desktop/test/hardware-benchmark.test.js'
       - 'app/ai/hardware.py'
@@ -35,7 +37,7 @@ jobs:
       - name: Verify hardware and offline contracts on Windows (mocked model tests, not inference)
         shell: pwsh
         run: |
-          python -m pytest tests/test_ai_hardware_detection.py tests/test_adaptive_hardware.py tests/test_ai_registry.py tests/test_hardware_profiles_contract.py tests/test_neural_benchmark.py tests/test_silero_offline.py -q --junitxml=output/windows-neural-smoke/contracts.xml 2>&1 | Tee-Object -FilePath hardware-contracts.log
+          python -m pytest tests/test_ai_hardware_detection.py tests/test_adaptive_hardware.py tests/test_ai_registry.py tests/test_hardware_profiles_contract.py tests/test_neural_benchmark.py tests/test_silero_offline.py tests/test_local_model_benchmark.py -q --junitxml=output/windows-neural-smoke/contracts.xml 2>&1 | Tee-Object -FilePath hardware-contracts.log
           $code = $LASTEXITCODE
           $detail = ((Get-Content hardware-contracts.log | Select-Object -Last 15) -join ' | ') -replace '%','%25'
           if ($code -ne 0) { Write-Output "::error title=Hardware regression::$detail" } else { Write-Output "::notice title=Hardware regression::$detail" }
@@ -47,6 +49,9 @@ jobs:
           $code = $LASTEXITCODE
           if ($code -ne 0) { $detail = ((Get-Content neural-console.log | Select-Object -Last 15) -join ' | ') -replace '%','%25'; Write-Output "::error title=neural benchmark failure::$detail" }
           exit $code
+      - name: Strict offline explicit-backend inference using the actual cached model
+        run: >-
+          python -c "import subprocess,sys,torch; from modules.silero_loader import _local_package; from tools.neural_benchmark import sha256; p=_local_package(torch,'v3_1_ru'); assert p is not None; subprocess.run([sys.executable,'tools/local_model_benchmark.py','--backend','cpu','--trusted-model',str(p),'--sha256',sha256(p),'--out','output/windows-neural-smoke/strict-cpu'],check=True)"
       - name: Preserve measured report and generated speech
         if: always()
         uses: actions/upload-artifact@v4
