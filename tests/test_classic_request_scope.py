@@ -76,3 +76,19 @@ def test_scoped_typed_boundary_still_requires_content_evidence(tmp_path):
         row['status'] = 'FAILED'
         assert classic_result(report, state, requested_kind='instrumental')['status'] == 'failed'
         row['status'] = 'OK'
+
+
+def test_scoped_result_cannot_omit_all_execution_records(tmp_path):
+    import numpy as np
+    import soundfile as sf
+    from app.core.stage_request import classic_result
+    from app.pipeline.artifact import inspect_audio
+    target = tmp_path / 'fixture.wav'
+    sf.write(target, np.sin(np.arange(8000) * 0.1) * 0.1, 8000)
+    artifact = inspect_audio(str(target))
+    report = {'master_path': str(target), 'render_evidence': {
+        'schema': 1, 'kind': 'instrumental', 'engine': 'fixture', 'revision': 'test',
+        'master_sha256': artifact['sha256'], 'checks': {'music_present': True}}}
+    result = classic_result(report, {'voice_mode': 'off'}, requested_kind='instrumental')
+    assert result['succeeded'] is False
+    assert any('Обязательная стадия' in reason for reason in result['reasons'])

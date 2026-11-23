@@ -98,7 +98,7 @@ def _execution_issue(report, requested, required_names=(), not_requested_names=(
             issues.append(('degraded', ['В отчёте остаются заблокированные или некорректно описанные стадии.']))
         if data.get('dry_run') or data.get('only') or data.get('synthetic') or data.get('placeholder'):
             issues.append(('degraded', ['Пробный, частичный или синтетический прогон не подтверждает полный результат.']))
-        if (any(key in data for key in ('outcome', 'stages')) or data.get('quality_gate_failures')
+        if ((data is report and required_names) or any(key in data for key in ('outcome', 'stages')) or data.get('quality_gate_failures')
                 or ('quality_gate_failures' in data and not isinstance(data['quality_gate_failures'], list))):
             try:
                 outcome = outcome_from_report(data, required_names=required_names, not_requested_names=not_requested_names)
