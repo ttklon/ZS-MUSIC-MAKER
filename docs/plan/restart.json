@@ -1415,7 +1415,8 @@
         "docs/plan/evidence/restart-hardware-windows-45143489947.json",
         "docs/plan/evidence/restart-hardware-dsp-windows-45146015331.json",
         "docs/plan/evidence/restart-hardware-windows-45146340788.json",
-        "docs/plan/evidence/restart-hardware-strict-windows-45148490225.json"
+        "docs/plan/evidence/restart-hardware-strict-windows-45148490225.json",
+        "docs/plan/evidence/restart-hardware-classic-windows-45149932663.json"
       ],
       "remaining": [
         "Windows regression/inference SUCCESS; повторная приёмка всего пакета требует протоколов полных заявляемых CPU/CUDA/AMD профилей."
@@ -1431,7 +1432,8 @@
         "docs/plan/evidence/restart-hardware-windows-45143489947.json",
         "docs/plan/evidence/restart-hardware-dsp-windows-45146015331.json",
         "docs/plan/evidence/restart-hardware-windows-45146340788.json",
-        "docs/plan/evidence/restart-hardware-strict-windows-45148490225.json"
+        "docs/plan/evidence/restart-hardware-strict-windows-45148490225.json",
+        "docs/plan/evidence/restart-hardware-classic-windows-45149932663.json"
       ],
       "remaining": [
         "Windows regression/inference SUCCESS; повторная приёмка всего пакета требует протоколов полных заявляемых CPU/CUDA/AMD профилей."
@@ -1447,7 +1449,8 @@
         "docs/plan/evidence/restart-hardware-windows-45143489947.json",
         "docs/plan/evidence/restart-hardware-dsp-windows-45146015331.json",
         "docs/plan/evidence/restart-hardware-windows-45146340788.json",
-        "docs/plan/evidence/restart-hardware-strict-windows-45148490225.json"
+        "docs/plan/evidence/restart-hardware-strict-windows-45148490225.json",
+        "docs/plan/evidence/restart-hardware-classic-windows-45149932663.json"
       ],
       "remaining": [
         "Windows regression/inference SUCCESS; повторная приёмка всего пакета требует протоколов полных заявляемых CPU/CUDA/AMD профилей."
@@ -1463,7 +1466,8 @@
         "docs/plan/evidence/restart-hardware-windows-45143489947.json",
         "docs/plan/evidence/restart-hardware-dsp-windows-45146015331.json",
         "docs/plan/evidence/restart-hardware-windows-45146340788.json",
-        "docs/plan/evidence/restart-hardware-strict-windows-45148490225.json"
+        "docs/plan/evidence/restart-hardware-strict-windows-45148490225.json",
+        "docs/plan/evidence/restart-hardware-classic-windows-45149932663.json"
       ],
       "remaining": [
         "Windows regression/inference SUCCESS; повторная приёмка всего пакета требует протоколов полных заявляемых CPU/CUDA/AMD профилей."
@@ -1479,7 +1483,8 @@
         "docs/plan/evidence/restart-hardware-windows-45143489947.json",
         "docs/plan/evidence/restart-hardware-dsp-windows-45146015331.json",
         "docs/plan/evidence/restart-hardware-windows-45146340788.json",
-        "docs/plan/evidence/restart-hardware-strict-windows-45148490225.json"
+        "docs/plan/evidence/restart-hardware-strict-windows-45148490225.json",
+        "docs/plan/evidence/restart-hardware-classic-windows-45149932663.json"
       ],
       "remaining": [
         "Windows regression/inference SUCCESS; повторная приёмка всего пакета требует протоколов полных заявляемых CPU/CUDA/AMD профилей."
@@ -1495,7 +1500,8 @@
         "docs/plan/evidence/restart-hardware-windows-45143489947.json",
         "docs/plan/evidence/restart-hardware-dsp-windows-45146015331.json",
         "docs/plan/evidence/restart-hardware-windows-45146340788.json",
-        "docs/plan/evidence/restart-hardware-strict-windows-45148490225.json"
+        "docs/plan/evidence/restart-hardware-strict-windows-45148490225.json",
+        "docs/plan/evidence/restart-hardware-classic-windows-45149932663.json"
       ],
       "remaining": [
         "Windows regression/inference SUCCESS; повторная приёмка всего пакета требует протоколов полных заявляемых CPU/CUDA/AMD профилей."
@@ -1511,7 +1517,8 @@
         "docs/plan/evidence/restart-hardware-windows-45143489947.json",
         "docs/plan/evidence/restart-hardware-dsp-windows-45146015331.json",
         "docs/plan/evidence/restart-hardware-windows-45146340788.json",
-        "docs/plan/evidence/restart-hardware-strict-windows-45148490225.json"
+        "docs/plan/evidence/restart-hardware-strict-windows-45148490225.json",
+        "docs/plan/evidence/restart-hardware-classic-windows-45149932663.json"
       ],
       "remaining": [
         "Windows regression/inference SUCCESS; повторная приёмка всего пакета требует протоколов полных заявляемых CPU/CUDA/AMD профилей."
@@ -1527,7 +1534,8 @@
         "docs/plan/evidence/restart-hardware-windows-45143489947.json",
         "docs/plan/evidence/restart-hardware-dsp-windows-45146015331.json",
         "docs/plan/evidence/restart-hardware-windows-45146340788.json",
-        "docs/plan/evidence/restart-hardware-strict-windows-45148490225.json"
+        "docs/plan/evidence/restart-hardware-strict-windows-45148490225.json",
+        "docs/plan/evidence/restart-hardware-classic-windows-45149932663.json"
       ],
       "remaining": [
         "Windows regression/inference SUCCESS; повторная приёмка всего пакета требует протоколов полных заявляемых CPU/CUDA/AMD профилей."
@@ -1543,10 +1551,11 @@
         "docs/plan/evidence/restart-hardware-windows-45143489947.json",
         "docs/plan/evidence/restart-hardware-dsp-windows-45146015331.json",
         "docs/plan/evidence/restart-hardware-windows-45146340788.json",
-        "docs/plan/evidence/restart-hardware-strict-windows-45148490225.json"
+        "docs/plan/evidence/restart-hardware-strict-windows-45148490225.json",
+        "docs/plan/evidence/restart-hardware-classic-windows-45149932663.json"
       ],
       "remaining": [
-        "Silero CPU речь и desktop procedural instrumental 20/120 s измерены; полный путь песни и CUDA/AMD inference ещё не испытаны."
+        "Classic orchestration измерен, но outcome blocked даже при реальном мастере; нужны full-success и реальные CUDA/AMD GPU испытания."
       ]
     },
     {
@@ -1559,10 +1568,11 @@
         "docs/plan/evidence/restart-hardware-windows-45143489947.json",
         "docs/plan/evidence/restart-hardware-dsp-windows-45146015331.json",
         "docs/plan/evidence/restart-hardware-windows-45146340788.json",
-        "docs/plan/evidence/restart-hardware-strict-windows-45148490225.json"
+        "docs/plan/evidence/restart-hardware-strict-windows-45148490225.json",
+        "docs/plan/evidence/restart-hardware-classic-windows-45149932663.json"
       ],
       "remaining": [
-        "Silero CPU речь и desktop procedural instrumental 20/120 s измерены; полный путь песни и CUDA/AMD inference ещё не испытаны."
+        "Classic orchestration измерен, но outcome blocked даже при реальном мастере; нужны full-success и реальные CUDA/AMD GPU испытания."
       ]
     },
     {

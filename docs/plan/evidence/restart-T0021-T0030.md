@@ -158,3 +158,41 @@ CUDA/ROCm ветки имеют только контрактные тесты �
 измерений в этом изменении нет. Windows AMD GPU/DirectML не приравниваются
 к ROCm или AMD CPU hosted runner. Полный путь песни не принят.
 Пакет остаётся активным без увеличения счётчика выполненных пунктов.
+
+## Classic Python orchestration: реальный мастер не равен полной приёмке
+
+Код `f0ebf972a48432258f88276038f3f5c8bc024857`:
+`tools/pipeline_hardware_probe.py`. Новый каталог обязателен, существующий
+прогон не перезаписывается. CPU, procedural, voice off, streaming-only,
+quality fast, stems off; пользовательский текст задан только как метаданные.
+Все стадии вызываются production `run_full_pipeline`, `dry_run=False`,
+без `only`, без подмены исполнителей. Python socket guard и offline policy;
+CUDA_VISIBLE_DEVICES скрывает CUDA до импортов в отдельном CLI-процессе.
+Это не OS sandbox, не ROCm/DirectML isolation и не GPU-профиль.
+
+Локальный реальный результат: diagnostic master 20.0 s, wall 25.5687 s,
+sampled RSS 371294208 bytes; outcome **blocked**, exit **1**. Запущенные
+mix/master/QA/release стадии успешны, но есть обязательные blocked стадии:
+MusicGen texture, voice off, stems off. Не меняли required contract и не
+переклассифицировали этот результат в success ради зелёного benchmark.
+
+[Windows 45149932663](https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45149932663):
+**SUCCESS все пять job**. Classic diagnostic job проверяет **ожидаемый отказ**:
+реальный probe exit 1, `ok=false`, `outcome_status=blocked`, настоящий
+20.0 s polished.wav, wall 36.9244 s, sampled RSS 474902528 bytes. Отдельный
+контроль требует OK у mix/master/auto_qa/release; отсутствие мастера/другая
+ошибка не засчитываются как ожидаемая неполнота.
+[Сохранённая compact summary и job metadata](restart-hardware-classic-windows-45149932663.json).
+Зелёный job НЕ означает successful pipeline/product profile: он доказывает,
+что имеющийся мастер не повысил неполный прогон до PASS. Полный report, WAV
+и журналы находятся в workflow artifact `windows-classic-pipeline-diagnostic`.
+
+Регрессия: 127 локальных Python tests passed (включая общий hardware/result
+набор); отдельно 39 outcome/probe/function tests passed. Добавлены:
+отказ от повторного использования каталога, наличие файла при failed outcome,
+противоречивые succeeded/status, dry/partial, неверная длительность.
+Наличие diagnostic_audio никогда не заменяет `ok=true`.
+
+Открытая работа теперь подтверждена исполнением: classic full-success ещё не
+получен, не только не измерен; CUDA/AMD GPU физически не испытаны. В повторном
+проходе T0021–T0030 не закрыт и счётчик 20 не повышен.

@@ -119,3 +119,23 @@ NVIDIA CUDA. DirectML этим инструментом не поддержив�
 Strict CPU: 5.775 s речи за 9.2548 s wall, sampled RSS 909131776 bytes,
 RTF 1.6026, Python network attempts 0. GPU-ветки этим прогоном **не испытаны**.
 [Сохранённая compact summary](plan/evidence/restart-hardware-strict-windows-45148490225.json).
+
+## Диагностика классического Python-пайплайна
+
+```
+python tools/pipeline_hardware_probe.py --duration 20 --out output/new-classic-hardware-run
+```
+
+Каталог должен быть новым. Это настоящий procedural CPU-прогон всех стадий
+без `only`/dry-run; voice off, stems off, один streaming stand, quality fast.
+Он не обещает полный neural/song profile. При blocked/failed outcome код
+возврата **1**, даже если сформирован master. Файл учитывается только как
+`diagnostic_audio`, а не как успешный продукт. Результат лежит в
+`probe_report.json`, подробный pipeline report — в подкаталоге `pipeline`.
+
+[Windows 45149932663](https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45149932663):
+20.0 s diagnostic master, 36.9244 s wall, sampled RSS 474902528 bytes,
+**outcome blocked, probe exit 1, profile not accepted**. Отдельный CI-job
+успешно проверил именно этот отрицательный контракт и реальные OK стадии
+mix/master/QA/release. Это не успешная полная приёмка classic pipeline.
+[Протокол](plan/evidence/restart-hardware-classic-windows-45149932663.json).
