@@ -259,6 +259,9 @@ def _run_texture_stage(
     only: Any,
 ) -> StageResult:
     """Текстура: переиспользование → запуск с режимом качества → блокировка."""
+    if recipe.get("use_texture") is False:
+        return _blocked("_stage_texture", "texture explicitly disabled by caller",
+                        output={"requested": False, "skip_kind": "user_disabled"})
     if "_stage_texture" in reused_stages:
         return reused_stages["_stage_texture"]
     if not _wanted(only, "texture"):

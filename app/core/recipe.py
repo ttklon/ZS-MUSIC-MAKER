@@ -50,6 +50,7 @@ def _sound_flags(state: dict) -> dict:
     рендерило бы трек с другим звуком.
     """
     return {
+        "use_texture": state.get("use_texture") is not False,
         "adaptive_level": _as_int(state.get("adaptive_level"), 0) or 0,
         "enhanced_dsp": bool(state.get("enhanced_dsp", True)),
     }

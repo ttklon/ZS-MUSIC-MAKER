@@ -146,6 +146,18 @@ def _musicgen_usable(has_torch: bool) -> bool:
         _LOG.debug("audiocraft spec check failed: %s", exc)
         return False
 
+def _local_ace_available():
+    """Local discovery can be explicitly disabled without enabling remote network."""
+    if os.environ.get('ZSMM_PROBE_LOCAL_SERVICES') == '0':
+        return False
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as connection:
+            connection.settimeout(0.5)
+            return connection.connect_ex(('127.0.0.1', 8001)) == 0
+    except Exception:
+        return False
+
+
 def get_adaptive_config(overrides: dict | None = None) -> dict:
     """
     Возвращает адаптивный конфиг для HitFactory под текущее железо.
@@ -160,14 +172,7 @@ def get_adaptive_config(overrides: dict | None = None) -> dict:
     vram_total = gpu.get("vram_total") or 0
     vram_free = gpu.get("vram_free")
 
-    aceserver = False
-    try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.settimeout(0.5)
-        aceserver = s.connect_ex(("127.0.0.1", 8001)) == 0
-        s.close()
-    except Exception:
-        aceserver = False
+    aceserver = _local_ace_available()
 
     has_torch = False
     try:

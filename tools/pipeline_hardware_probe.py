@@ -51,15 +51,17 @@ def evaluate(report, expected_seconds):
     return inspect_master(report, expected_seconds)
 
 
-def probe(seconds, directory):
+def probe(seconds, directory, *, without_texture=False):
     state = scenario(seconds)
+    if without_texture:
+        state["use_texture"] = False
     directory.mkdir(parents=True, exist_ok=False)
     report = dict(schema=1, ok=False, kind='real_classic_cpu_instrumental_probe_not_neural',
                   product_profile_accepted=False, os=platform.system(), python=sys.version,
                   source=os.environ.get('GITHUB_SHA'), input=state, measurements={},
                   network_guard='python_socket_only_not_os_firewall')
     try:
-        with patch.dict(os.environ, {'ZSMM_ONLINE': '0', 'CUDA_VISIBLE_DEVICES': ''}), block_python_network() as attempts:
+        with patch.dict(os.environ, {'ZSMM_ONLINE': '0', 'CUDA_VISIBLE_DEVICES': '', 'ZSMM_PROBE_LOCAL_SERVICES': '0'}), block_python_network() as attempts:
             report['network_attempts'] = attempts
             from app.core.orchestrator import run_full_pipeline
             from app.ai.profiles import measure_profile
@@ -91,8 +93,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--duration', type=int, choices=(20, 120), default=20)
     parser.add_argument('--out', type=Path, required=True)
+    parser.add_argument('--without-texture', action='store_true', help='Explicit caller request: no neural texture')
     args = parser.parse_args()
-    report = probe(args.duration, args.out)
+    report = probe(args.duration, args.out, without_texture=args.without_texture)
     print(json.dumps(summary_for(report), ensure_ascii=True, indent=2))
     summary = {key: report.get(key) for key in ('ok', 'kind', 'source', 'measurements', 'diagnostic_audio')}
     summary['product_profile_accepted'] = False

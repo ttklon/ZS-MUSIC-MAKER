@@ -91,10 +91,8 @@ def finalize_report(
     )
     if rebuild_info is not None:
         report["rebuild"] = rebuild_info
-    from app.pipeline.outcome import report_outcome
-    from app.core.pipeline_runtime import STAGE_RECORDS
-    report["outcome"] = report_outcome(stages, quality_failures=quality_failures, dry_run=dry_run,
-                                       only=only, required_names=STAGE_RECORDS)
+    from app.core.stage_request import attach_request_outcome
+    attach_request_outcome(report, recipe, stages, quality_failures, dry_run, only)
     return report
 
 

@@ -5,7 +5,7 @@ STATES = {"OK": "success", "FALLBACK": "degraded", "BLOCKED": "blocked",
           "FAILED": "failed", "CANCELED": "canceled"}
 
 
-def _normalize(stage, index, required_names):
+def _normalize(stage, index, required_names, not_requested_names=()):
     try:
         row = stage.to_dict() if hasattr(stage, "to_dict") else dict(stage)
     except (TypeError, ValueError):
@@ -22,6 +22,8 @@ def _normalize(stage, index, required_names):
         status, required, reason = "failed", True, "Некорректный или противоречивый результат стадии"
     if name in required_names:
         required = True  # executor cannot downgrade the caller's required contract
+    if status == "blocked" and name in not_requested_names and name not in required_names:
+        status, required = "not_requested", False
     output = row.get("output")
     if status == "success" and isinstance(output, dict) and any(output.get(k) for k in ("synthetic", "dry_run", "placeholder")):
         status = "degraded"
@@ -29,11 +31,11 @@ def _normalize(stage, index, required_names):
             "reason": str(reason) if reason else ("" if status == "success" else "Причина не предоставлена исполнителем")}
 
 
-def stage_outcome(stages, *, required_names=()) -> dict:
+def stage_outcome(stages, *, required_names=(), not_requested_names=()) -> dict:
     required_names = set(required_names)
     reasons, normalized, present = [], [], set()
     for index, stage in enumerate(stages, 1):
-        row = _normalize(stage, index, required_names)
+        row = _normalize(stage, index, required_names, set(not_requested_names))
         if row['name'] in present:
             row.update(status="failed", required=True, reason="Повтор имени стадии: результат неоднозначен")
         present.add(row['name'])
@@ -47,15 +49,15 @@ def stage_outcome(stages, *, required_names=()) -> dict:
     else:
         status = next((s for s in ("failed", "canceled", "blocked", "degraded")
                        if any(row["status"] == s for row in mandatory)), "success")
-        if status == "success" and any(row["status"] != "success" for row in normalized):
+        if status == "success" and any(row["status"] not in ("success", "not_requested") for row in normalized):
             status = "degraded"
-    reasons.extend(f"{row['name']}: {row['reason']}" for row in normalized if row["status"] != "success")
+    reasons.extend(f"{row['name']}: {row['reason']}" for row in normalized if row["status"] not in ("success", "not_requested"))
     return {"schema": 1, "status": status, "succeeded": status == "success",
             "reasons": reasons, "stages": normalized, "song_verified": False}
 
 
-def report_outcome(stages, *, quality_failures=(), dry_run=False, only=None, required_names=()) -> dict:
-    outcome = stage_outcome(stages, required_names=required_names)
+def report_outcome(stages, *, quality_failures=(), dry_run=False, only=None, required_names=(), not_requested_names=()) -> dict:
+    outcome = stage_outcome(stages, required_names=required_names, not_requested_names=not_requested_names)
     if quality_failures:
         outcome.update(status="failed", succeeded=False)
         outcome["reasons"].extend(str(item) for item in quality_failures)

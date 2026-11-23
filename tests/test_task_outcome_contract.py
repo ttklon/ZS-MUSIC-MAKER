@@ -120,3 +120,23 @@ def test_adapter_rejects_contradictory_declared_canonical_success():
     result = outcome_from_report({'stages': [{'name': 'mix', 'status': 'OK'}],
                                   'outcome': {'status': 'success', 'succeeded': False}})
     assert result['status'] == 'failed'
+
+
+def test_only_caller_can_authorize_not_requested_blocked_stages():
+    stages = [{'name': 'mix', 'status': 'OK'}, {'name': 'voice', 'status': 'BLOCKED',
+               'output': {'requested': False, 'skip_kind': 'user_disabled'}}]
+    assert stage_outcome(stages)['status'] == 'blocked'
+    result = stage_outcome(stages, required_names=['mix'], not_requested_names=['voice'])
+    assert result['succeeded'] is True
+    assert result['stages'][1]['status'] == 'not_requested'
+    assert not stage_outcome(stages, required_names=['mix', 'voice'], not_requested_names=['voice'])['succeeded']
+    for status in ('FAILED', 'CANCELED', 'UNKNOWN', 'FALLBACK'):
+        stages[1]['status'] = status
+        assert not stage_outcome(stages, required_names=['mix'], not_requested_names=['voice'])['succeeded']
+
+
+def test_untrusted_adapter_does_not_infer_skip_permission_from_producer_scope():
+    from app.pipeline.outcome import outcome_from_report
+    report = {'stages': [{'name': 'mix', 'status': 'OK'}, {'name': 'voice', 'status': 'BLOCKED'}],
+              'request_scope': {'not_requested': ['voice']}, 'outcome': {'status': 'success', 'succeeded': True}}
+    assert outcome_from_report(report)['status'] == 'blocked'
