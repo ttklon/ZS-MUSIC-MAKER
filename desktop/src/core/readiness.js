@@ -76,6 +76,20 @@ function computeReadiness({ probes = {}, inventory = null } = {}) {
   const heavy = ['musicgen_runtime', 'demucs_runtime'].filter((key) => audio[key] === 'BLOCKED');
   if (heavy.length) caps.push([65, `heavy engines unavailable: ['${heavy.join("', '")}']`]);
   if (architecture.updater_module !== 'REAL_PASS') caps.push([85, 'no updater module']);
+  // Клон голоса — заявленная функция: без окружения RVC инференс невозможен.
+  // JS-счётчик обязан повторять Python, иначе окно показывало бы 100 % там,
+  // где движок не установлен (так и было до этой проверки).
+  const rvcEnv = voice.rvc_env;
+  if (rvcEnv !== undefined && rvcEnv !== null && rvcEnv !== 'REAL_PASS') {
+    caps.push([90, `voice clone engine not ready: rvc_env=${rvcEnv} `
+      + '(python main.py --bootstrap --online)']);
+  }
+
+  // Без текстового движка припев пустой — потолок честный и с готовой командой.
+  if (audio.lyrics_llm === 'BLOCKED') {
+    caps.push([75, 'lyrics engine not ready: Ollama/модель не найдены '
+      + '(python main.py --ollama-setup)']);
+  }
 
   const capMin = caps.length ? Math.min(...caps.map(([value]) => value)) : 100;
   const percent = Math.floor(Math.min(totalScore, capMin));

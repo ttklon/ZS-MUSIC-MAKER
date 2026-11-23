@@ -94,8 +94,13 @@ def test_without_internet_cloud_is_not_called(no_network, contacts, monkeypatch)
 
     assert calls == [], "без разрешения сети облачные провайдеры не вызываются"
     assert "cloud_skipped_no_internet" in result["provider_chain"]
-    assert result["ok"] is True, "локальный шаблон обязан отработать"
-    assert "local_template" in result["provider_chain"]
+    # Текста нет — это BLOCKED, а не шаблон: подмена шаблоном удалена из прода
+    # (TZ: «текст связный, актуальный», а не «тема, жанр, время идёт»).
+    assert result["ok"] is False
+    assert result["provider"] == "BLOCKED"
+    assert result["fallback_used"] is False
+    assert "blocked_no_llm" in result["provider_chain"]
+    assert "qwen3:4b" in result["error"]["action"]
 
 
 def test_result_names_the_reason_it_stayed_offline(no_network, contacts, monkeypatch) -> None:

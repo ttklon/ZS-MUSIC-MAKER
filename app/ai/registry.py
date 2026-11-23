@@ -15,8 +15,8 @@ from app.ai.model_catalog import MODEL_REGISTRY  # noqa: F401 - existing public 
 ROOT = Path(__file__).resolve().parents[2]
 from app.ai.weights import ensure_local_weights
 
-MODELS_DIR = ROOT / "data" / "ai_models"
-MODELS_DIR.mkdir(parents=True, exist_ok=True)
+MODELS_DIR = Path(os.environ.get("ZSMM_WORKSPACE") or ROOT) / "data" / "ai_models"
+# Inventory/import must be read-only, especially inside an installed application.
 
 
 @dataclass
@@ -27,16 +27,26 @@ class HardwareBudget:
     cpu_cores: int = 1
     prefer_gpu: bool = True
 
+    def __post_init__(self):
+        from app.ai.hardware import checked_gib
+        checked_gib(self.ram_gb, "RAM budget")
+        checked_gib(self.vram_gb, "VRAM budget")
+        if any(type(n) is not int or n < 1 for n in (self.cpu_threads, self.cpu_cores)) or self.cpu_cores > self.cpu_threads:
+            raise ValueError("CPU cores/threads must be positive integers with cores <= threads")
+        if type(self.prefer_gpu) is not bool:
+            raise ValueError("prefer_gpu must be boolean")
+
     @classmethod
     def from_env(cls) -> "HardwareBudget":
         from app.ai.hardware import detect_budget
 
         detected = detect_budget()
+        threads = int(os.environ.get("ZSMM_CPU_THREADS", detected["cpu_threads"]))
         return cls(
             vram_gb=float(os.environ.get("ZSMM_VRAM_GB", detected["vram_gb"])),
             ram_gb=float(os.environ.get("ZSMM_RAM_GB", detected["ram_gb"])),
-            cpu_threads=int(os.environ.get("ZSMM_CPU_THREADS", detected["cpu_threads"])),
-            cpu_cores=int(os.environ.get("ZSMM_CPU_CORES", detected["cpu_cores"])),
+            cpu_threads=threads,
+            cpu_cores=int(os.environ.get("ZSMM_CPU_CORES", min(threads, detected["cpu_cores"]))),
             prefer_gpu=os.environ.get("ZSMM_PREFER_GPU", "1") == "1",
         )
 
@@ -192,15 +202,16 @@ class ModelRegistry:
     def pick_device(self, spec: Dict[str, Any]) -> str:
         """Use CUDA/ROCm only if measured *free* VRAM leaves a 1 GiB reserve."""
         pref = spec.get("device_pref", "auto")
-        need = float(spec.get("vram_est_gb", 0.0))
+        from app.ai.hardware import checked_gib
+        need = checked_gib(spec.get("vram_est_gb", 0.0), "model VRAM estimate")
         if pref == "cpu" or not self.hw.prefer_gpu:
             return "cpu"
         try:
             import torch
             if pref in ("cuda", "auto") and torch.cuda.is_available():
                 free_bytes, _ = torch.cuda.mem_get_info()
-                free_gb = min(self.hw.vram_gb, free_bytes / (1024 ** 3))
-                if need <= max(0.0, free_gb - 1.0):
+                free_gb = min(self.hw.vram_gb, checked_gib(free_bytes / (1024 ** 3), "free VRAM"))
+                if free_gb >= need + 1.0:
                     return "cuda"
         except Exception:
             logging.getLogger(__name__).debug("GPU free memory unavailable", exc_info=True)

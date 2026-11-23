@@ -21,6 +21,7 @@ const html = fs.readFileSync(path.join(SRC, 'index.html'), 'utf8');
 const { windowScripts } = require('./fake-dom');
 const appJs = windowScripts(SRC).map((script) => script.source).join('\n');
 const preload = fs.readFileSync(path.join(ELECTRON, 'preload.js'), 'utf8');
+const healthJs = fs.readFileSync(path.join(SRC, 'sections', 'health.js'), 'utf8');
 
 /** Исходники главного процесса: main.js сам тонкий, IPC живёт рядом. */
 function readElectron(names) {
@@ -106,7 +107,14 @@ test('скрипты окна делят одну глобальную обла�
   // Каждый раздел обёрнут в функцию: только так он не выбрасывает свои имена
   // в общую область. Проверяем структурно, а не по отступам.
   for (const { name, source } of scripts) {
+    // `app.js` — хост окна и регистрирует разделы сам; `recorder.js` считает
+    // себя библиотекой; `core/report-text.js` — не раздел, а набор чистых
+    // функций отчёта: он тоже в IIFE, но инициализатора у него нет.
     if (name === 'app.js' || name === 'sections/recorder.js') continue;
+    if (name.startsWith('core/')) {
+      assert.match(source, /^\(function \(\) \{/m, `${name} не обёрнут в функцию`);
+      continue;
+    }
     const live = source
       .replace(/^\s*\/\*[\s\S]*?\*\//gm, '')
       .split('\n')
@@ -236,7 +244,9 @@ test('бит рендерится в главном процессе, а не в
 });
 
 test('настройки и окружение приложения доходят до окна', () => {
-  const main = readElectron(['main.js', 'beat-service.js', 'settings.js']);
+  // Каналы «О системе» живут в shell-service.js: main.js остаётся тонким,
+  // поэтому контракт проверяется по всем модулям главного процесса.
+  const main = readElectron(['main.js', 'beat-service.js', 'settings.js', 'shell-service.js']);
 
   for (const channel of ['zsmm:settings-load', 'zsmm:settings-save', 'zsmm:environment', 'zsmm:save-copy']) {
     assert.match(main, new RegExp(channel), `нет канала ${channel}`);
@@ -277,11 +287,22 @@ test('каждое поле ввода названо словами, а не т
     return !/aria-label=/.test(tag) && !/aria-labelledby=/.test(tag) && !/\bid="[^"]+"/.test(tag.replace(/aria-label[^>]*/, ''));
   });
   assert.deepEqual(nameless, [], 'поля без доступного имени');
-  const labelled = fields.filter((tag) => /aria-label=/.test(tag));
-  // Минус флажок «банк сэмплов»: он подписан текстом в <label>.
-  assert.equal(labelled.length, fields.length - 1, 'имя должно быть у каждого поля, а не у половины');
+  // Флажки подписаны текстом в <label> (или через aria-labelledby), поэтому
+  // `aria-label` обязателен только для остальных полей.
+  const nonCheckbox = fields.filter((tag) => !/type="checkbox"/.test(tag));
+  const labelled = nonCheckbox.filter((tag) => /aria-label=/.test(tag));
+  assert.equal(labelled.length, nonCheckbox.length, 'имя должно быть у каждого поля, а не у половины');
   // Флажок «банк сэмплов» подписан текстом внутри <label> — это допустимо.
   assert.match(html, /<label class="muted check"><input type="checkbox" id="beat-use-bank"/);
+});
+
+test('у флажка сети есть видимая подпись и связь с ней', () => {
+  assert.match(html, /<input type="checkbox" id="health-network-online"/);
+  assert.match(html, /id="health-network-label"/);
+  // aria-labelledby выставляется в health.js: разметка не должна полагаться
+  // на порядок соседних элементов.
+  assert.match(healthJs, /aria-labelledby/);
+  assert.match(healthJs, /networkOnline: online/);
 });
 
 test('сообщения об ошибке и о ходе работы объявлены живыми областями', () => {
@@ -381,4 +402,35 @@ test('модули главного процесса достижимы из т�
     .filter((file) => file.endsWith('.js'))
     .filter((file) => !names.has(file));
   assert.deepEqual(unreachable, [], `модули вне графа main.js: ${unreachable.join(', ')}`);
+});
+
+test('громкость описана честно: до/после и что сделал нормализатор', () => {
+  const { describeLoudness } = require('../src/core/report-text');
+
+  // Не измеряли — так и говорим, а не показываем «−14 LUFS» из воздуха.
+  assert.equal(describeLoudness(null), 'не измерялась');
+  assert.match(describeLoudness({ ok: false, reason: 'тишина' }), /не нормализована: тишина/);
+
+  const moved = describeLoudness({ ok: true, before: -19.5, after: -14.1, target: -14, applied_db: 5.4 });
+  assert.match(moved, /-19\.5 → -14\.1 LUFS/);
+  assert.match(moved, /\+5\.4 дБ/);
+
+  // Потолок и лимитер называются числами: по ним видно, влезает ли трек в
+  // требования площадки, а не просто «звучит ровно».
+  const limited = describeLoudness({
+    ok: true, before: -19.5, after: -14.1, target: -14, applied_db: 5.4,
+    limited_by_ceiling: true, true_peak_after: -1, ceiling_dbtp: -1,
+    limiter: { gain_reduction_db: 2.4 },
+  });
+  assert.match(limited, /истинный пик -1 dBTP/);
+  assert.match(limited, /лимитер снял 2\.4 дБ/);
+  // Клиппер меняет форму пиков — он называется, а не прячется.
+  assert.doesNotMatch(limited, /клиппером/);
+
+  const knee = describeLoudness({
+    ok: true, before: -18.2, after: -14.2, target: -14, applied_db: 4.2,
+    true_peak_after: -1, ceiling_dbtp: -1, limited_by_ceiling: true,
+    limiter: { gain_reduction_db: 3.9 }, clip_knee_dbfs: -2.5,
+  });
+  assert.match(knee, /клиппером на -2\.5 dBFS/);
 });

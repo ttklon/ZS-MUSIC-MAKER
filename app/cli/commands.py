@@ -131,11 +131,17 @@ def run_readiness() -> int:
         return 2
 
 
-def run_update() -> int:
+def run_update(allow_online: bool = False) -> int:
+    """Проверить обновления. Без `--online` апдейтер честно отвечает `offline`.
+
+    Раньше флаг не пробрасывался: `--update --online` всегда возвращал
+    «remote update check requires --online», то есть проверить обновления было
+    невозможно в принципе — ни из CLI, ни из GUI.
+    """
     try:
         from updater.updater import check_git_update_status
 
-        report = check_git_update_status(ROOT)
+        report = check_git_update_status(ROOT, allow_online=allow_online)
     except Exception as e:
         safe_print(f"[main --update] failed: {e}")
         return 2
@@ -193,6 +199,9 @@ def run_ai_pull(target: str) -> int:
 
 
 def run_bootstrap(allow_online: bool = False) -> int:
+    from app.cli.task_events import TaskEvents
+    events = TaskEvents()
+    events.progress("Проверка и подготовка окружения")
     try:
         from app.core.bootstrap import auto_bootstrap, wire_full_agents
         safe_print("[bootstrap] тихий авто-докач all_heavy — железо определяется само, без вопросов...")
@@ -206,10 +215,120 @@ def run_bootstrap(allow_online: bool = False) -> int:
         # если сеть запрещена — подсказка
         if res.get('heavy',{}).get('skipped') or res.get('models',{}).get('skipped'):
             safe_print("[bootstrap] сеть запрещена: включи network.online=true или --online и повтори")
-        return 0 if res.get('readiness_after',0) >= 65 else 1
+        for blocker in res.get("blockers", []):
+            safe_print(f"[bootstrap] BLOCKED {blocker}")
+        safe_print("[bootstrap] подготовка завершена" if res.get("ok") else
+                   "[bootstrap] подготовка НЕ завершена; причины указаны выше")
+        from app.core.bootstrap_report import summarize_setup
+        setup = summarize_setup(res)
+        events.emit("done", ok=setup["ok"], report={"setup": setup})
+        return 0 if setup["ok"] else 1
     except Exception as e:
+        events.emit("error", message=str(e))
+        events.emit("done", ok=False, report={"error": str(e)})
         safe_print(f"[main --bootstrap] failed: {e}")
         import traceback; traceback.print_exc()
+        return 2
+
+
+def run_rvc_fork(fork: str = "applio") -> int:
+    """Подтянуть тренер RVC — без него клонирование голоса честно заблокировано.
+
+    Обучение RVC не входит в `rvc-python` (там только инференс), поэтому тренер
+    берётся из открытого форка. Это отдельная явная команда: git clone на
+    гигабайты не должен случаться «сам» посреди рендера.
+    """
+    from modules.rvc_manager.backend import ensure_fork
+    from modules.rvc_manager.config import AMD_FORKS, FORKS_DIR
+
+    name = (fork or "applio").strip().lower()
+    if name not in AMD_FORKS:
+        safe_print(f"[rvc-fork] неизвестный форк {name!r}; доступны: {', '.join(sorted(AMD_FORKS))}")
+        return 2
+    path = ensure_fork(name, on_progress=lambda msg: safe_print(f"[rvc-fork] {msg}"))
+    trainer = FORKS_DIR / name
+    if (trainer / ".git").exists():
+        safe_print(f"[rvc-fork] тренер готов: {path}")
+        safe_print(f"[rvc-fork] обучение: python main.py --rvc-train --rvc-voice <имя>")
+        return 0
+    safe_print(f"[rvc-fork] форк НЕ подтянут ({path}): проверь git и сеть, затем повтори")
+    return 1
+
+
+def run_rvc_setup() -> int:
+    """Подготовить окружение RVC: `.venv-rvc`, `rvc-python`, базовые веса.
+
+    Отдельная команда, потому что это долгая установка (~2–3 ГБ), и человек
+    должен видеть её вывод, а не ждать молча. Окно зовёт её кнопкой
+    «Подготовить голосовой движок».
+    """
+    try:
+        from app.core.bootstrap import ensure_rvc_environment, ensure_rvc_default_voice
+        from app.core.net_policy import network_allowed
+        from modules.rvc_manager.venv import rvc_venv_report
+
+        allow = network_allowed()
+        safe_print("[rvc-setup] создаю отдельное окружение RVC (numpy<=1.23.5, rvc-python 0.1.5)…")
+        env = ensure_rvc_environment(silent=False, allow_download=allow)
+        safe_print(json.dumps({"environment": env}, ensure_ascii=False, indent=2))
+        voice = ensure_rvc_default_voice(silent=False, allow_download=allow)
+        safe_print(json.dumps({"model": voice}, ensure_ascii=False, indent=2))
+        report = rvc_venv_report()
+        safe_print(json.dumps({"report": report}, ensure_ascii=False, indent=2))
+        return 0 if report.get("installed") else 1
+    except Exception as e:  # noqa: BLE001 - CLI обязан вернуть код и причину
+        safe_print(f"[main --rvc-setup] failed: {e}")
+        return 2
+
+
+def run_ollama_status() -> int:
+    """Состояние текстового движка: без сети и без изменений на диске."""
+    try:
+        from modules.llm.ollama_setup import install_report
+
+        report = install_report()
+        safe_print(json.dumps(report, ensure_ascii=False, indent=2))
+        return 0 if report.get("ready") else 1
+    except Exception as e:  # noqa: BLE001 - CLI обязан вернуть код и причину
+        safe_print(f"[main --ollama-status] failed: {e}")
+        return 2
+
+
+def run_ollama_setup() -> int:
+    """Подготовить Ollama и текстовую модель; печатает отчёт и следующий шаг.
+
+    Раньше установка Ollama и `ollama pull` были возможны только руками в
+    консоли: `bootstrap._ensure_ollama_qwen` молча ничего не делал без `ollama`
+    в `PATH`, и чистая машина получала `BLOCKED` без объяснения в окне.
+    """
+    try:
+        from app.core.net_policy import network_allowed
+        from modules.llm.ollama_setup import ensure_ollama
+
+        allow = network_allowed()
+        safe_print("[ollama-setup] проверяю Ollama и текстовую модель…")
+        result = ensure_ollama(allow_download=allow)
+        safe_print(json.dumps(result, ensure_ascii=False, indent=2))
+        if result.get("needs_user_action"):
+            safe_print(f"[ollama-setup] нужен шаг человека: {result.get('action')}")
+        elif not result.get("ok"):
+            safe_print(f"[ollama-setup] не готово: {result.get('reason')}")
+        return 0 if result.get("ok") else 1
+    except Exception as e:  # noqa: BLE001
+        safe_print(f"[main --ollama-setup] failed: {e}")
+        return 2
+
+
+def run_rvc_train(voice_name: str = "my_voice", epochs: int = 100) -> int:
+    """Обучить RVC-модель и напечатать отчёт: модель или честная причина."""
+    try:
+        from modules.voice_convert import train_rvc_model
+
+        result = train_rvc_model(voice_name=voice_name, epochs=int(epochs))
+        safe_print(json.dumps(result, ensure_ascii=False, indent=2))
+        return 0 if result.get("ok") else 1
+    except Exception as e:  # noqa: BLE001 - CLI обязан вернуть код, а не трейсбек
+        safe_print(f"[main --rvc-train] failed: {e}")
         return 2
 
 

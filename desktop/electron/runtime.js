@@ -110,6 +110,7 @@ function resolvePython({ root = null, env = process.env, platform = process.plat
   // нет. Признак задаётся явно.
   const candidates = [
     { value: env.ZSMM_PYTHON, viaPath: false },
+    { value: root && platform === 'win32' ? path.join(root, '.python', 'python.exe') : null, viaPath: false },
     { value: root && platform === 'win32' ? path.join(root, '.venv', 'Scripts', 'python.exe') : null, viaPath: false },
     { value: root ? path.join(root, '.venv', 'bin', 'python3') : null, viaPath: false },
     { value: root ? path.join(root, '.venv', 'Scripts', 'python.exe') : null, viaPath: false },
@@ -154,7 +155,10 @@ function resolvePython({ root = null, env = process.env, platform = process.plat
  * @returns {{root: string|null, error: string|null}}
  */
 function resolvePipelineRoot({ root = null, env = process.env, exists = (p) => fs.existsSync(p) } = {}) {
-  const candidates = [env.ZSMM_PIPELINE_ROOT, root, env.ZSMM_ROOT].filter(Boolean);
+  // В установщике `resources/project` — это и данные, и код пайплайна: без него
+  // MusicGen, RVC и Ollama недоступны, то есть «одна программа» превращалась в
+  // «окно рисует бит на JS». Корень проекта тоже кандидат: запуск из репозитория.
+  const candidates = [env.ZSMM_PIPELINE_ROOT, root && path.join(root, 'project'), root, env.ZSMM_ROOT].filter(Boolean);
   for (const candidate of candidates) {
     try {
       if (exists(path.join(candidate, 'main.py')) && exists(path.join(candidate, 'app'))) {
@@ -166,10 +170,10 @@ function resolvePipelineRoot({ root = null, env = process.env, exists = (p) => f
   }
   return {
     root: null,
-    error: 'Пайплайн на Python в поставку не входит: в установщике есть только '
-      + 'данные проекта, а main.py и app/ остаются в репозитории. Укажите '
-      + 'ZSMM_PIPELINE_ROOT=путь к копии репозитория (или запускайте из него). '
-      + 'Рендер бита, жанры, досье и три задачи без Python работают всегда.',
+    error: 'Код пайплайна на Python (main.py, app/, modules/) не найден рядом с '
+      + 'приложением. Укажите ZSMM_PIPELINE_ROOT=путь к копии репозитория — или '
+      + 'поставьте сборку, где он лежит в resources/project. Рендер бита, жанры, '
+      + 'досье и три задачи без Python работают всегда.',
   };
 }
 

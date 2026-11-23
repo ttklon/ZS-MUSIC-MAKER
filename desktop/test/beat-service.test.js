@@ -67,8 +67,10 @@ test('конвейер регистрирует все каналы бита', (
     [
       'zsmm:beat-bank', 'zsmm:beat-cancel', 'zsmm:beat-open-external', 'zsmm:beat-render',
       'zsmm:beat-save', 'zsmm:save-copy',
-      // Вокал: выбор WAV, статус входа, запись с микрофона и выгрузка дубля.
-      'zsmm:vocal-export', 'zsmm:vocal-input', 'zsmm:vocal-pick',
+      // Вокал: выбор WAV, статус входа, запись с микрофона, выгрузка дубля и
+      // индексация записи в голосовое хранилище (без неё обучение RVC её не
+      // находит).
+      'zsmm:vocal-export', 'zsmm:vocal-index', 'zsmm:vocal-input', 'zsmm:vocal-pick',
       'zsmm:vocal-save-recording',
     ].sort(),
   );
@@ -390,4 +392,44 @@ test('рендер с вокалом отдаёт окну WAV дубля, бе�
   assert.equal(dry.ok, true, dry.error);
   assert.equal(dry.data.vocalWavBase64, null);
   assert.equal(dry.data.vocalName, null);
+});
+
+test('индексация записи: без Python — причина, с Python — ответ vault', async () => {
+  const ipc = fakeIpc();
+  registerBeatIpc({
+    ipcMain: ipc, dialog: fakeDialog(null), rootDir: ROOT, getWindow: () => null,
+    musicDir: tempDir, python: () => null,
+  });
+  const noPython = await ipc.handlers.get('zsmm:vocal-index')({}, { filePath: path.join(tempDir(), 'a.wav') });
+  assert.equal(noPython.ok, false);
+  assert.match(noPython.error, /Python/);
+
+  // Подменяем spawn: настоящий Python здесь не нужен, проверяется разбор ответа.
+  const vocalService = require('../electron/vocal-service');
+  const calls = [];
+  const fakeSpawn = (cmd, args) => {
+    calls.push([cmd, args]);
+    const { EventEmitter } = require('node:events');
+    const child = new EventEmitter();
+    child.stdout = new EventEmitter();
+    child.stderr = new EventEmitter();
+    child.kill = () => {};
+    setImmediate(() => {
+      child.stdout.emit('data', 'import noise\n');
+      child.stdout.emit('data', JSON.stringify({ ok: true, item: { id: 'abc' } }) + '\n');
+      child.emit('close', 0);
+    });
+    return child;
+  };
+  const reply = await vocalService.indexRecording({
+    spawn: fakeSpawn, python: 'python', root: ROOT, filePath: '/abs/take.wav',
+  });
+
+  assert.equal(reply.ok, true);
+  assert.equal(reply.data.item.id, 'abc');
+  assert.match(calls[0][1].join(' '), /voice_vault/);
+  assert.ok(calls[0][1].includes('/abs/take.wav'));
+
+  const relative = await vocalService.indexRecording({ spawn: fakeSpawn, python: 'python', root: ROOT, filePath: 'take.wav' });
+  assert.equal(relative.ok, false, 'относительный путь не должен превращаться в чужой файл');
 });

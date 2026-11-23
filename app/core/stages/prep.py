@@ -5,6 +5,8 @@ app/core/stages/prep.py — Подготовка: анализ референс�
 
 from __future__ import annotations
 
+from modules.errors import failure_reason
+
 from typing import Any
 
 
@@ -117,7 +119,13 @@ def _stage_analyze(
             res = analyzer.analyze_multi(refs)
         return {"ok": True, "analysis": res}
     except Exception as e:
-        return {"ok": False, "reason": str(e), "fallback_used": True}
+        # У части исключений чтения аудио пустой `str(e)` — `NoBackendError`
+        # из audioread именно такой. `reason: ""` в отчёте бесполезен: человек
+        # видит «стадия упала» и ни одной зацепки. Поэтому имя типа обязательно.
+        reason = failure_reason(e)
+        if refs:
+            reason += f"; references not applied (requested {len(refs)})"
+        return {"ok": False, "reason": reason, "fallback_used": True}
 
 
 def _stage_groove(refs: list[str], genre: str = "drift_phonk") -> dict[str, Any]:
@@ -155,7 +163,7 @@ def _stage_groove(refs: list[str], genre: str = "drift_phonk") -> dict[str, Any]
             g = None
         return {"ok": True, "groove": g}
     except Exception as e:
-        return {"ok": False, "reason": str(e)}
+        return {"ok": False, "reason": failure_reason(e)}
 
 
 DEFAULT_ARRANGEMENT_SEC = 150.0

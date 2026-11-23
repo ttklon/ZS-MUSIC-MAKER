@@ -49,16 +49,16 @@ function bootWindow(stored) {
 
 const flush = () => new Promise((resolve) => setImmediate(resolve));
 
-test('окно открывается на запомненном разделе', async (t) => {
+test('окно открывается на создании трека вместо технического раздела', async (t) => {
   t.after(() => { delete global.window; delete global.document; });
   const { document } = bootWindow({ view: 'health' });
   await flush();
   await flush();
-  assert.equal(document.getElementById('view-health').classList.contains('is-hidden'), false);
+  assert.equal(document.getElementById('view-agent').classList.contains('is-hidden'), false);
   assert.equal(document.getElementById('view-overview').classList.contains('is-hidden'), true);
   const active = [...document.querySelectorAll('.nav-item')].filter((b) => b.classList.contains('is-active'));
   assert.equal(active.length, 1);
-  assert.equal(active[0].dataset.view, 'health');
+  assert.equal(active[0].dataset.view, 'agent');
 });
 
 test('смена раздела запоминается, а битый раздел — нет', async (t) => {
@@ -66,7 +66,7 @@ test('смена раздела запоминается, а битый разд
   const { document, saved } = bootWindow({ view: 'nope' });
   await flush();
   await flush();
-  assert.equal(document.getElementById('view-overview').classList.contains('is-hidden'), false, 'неизвестный раздел → «Обзор»');
+  assert.equal(document.getElementById('view-agent').classList.contains('is-hidden'), false, 'неизвестный раздел → создание трека');
 
   const button = [...document.querySelectorAll('[data-view]')].find((b) => b.dataset.view === 'tracks');
   button.dispatch('click');

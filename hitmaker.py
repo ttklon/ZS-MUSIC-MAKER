@@ -82,7 +82,7 @@ def _run_breakthrough(args) -> int:
 
 
 def _cli() -> int:
-    p = argparse.ArgumentParser(description="ZS HIT FACTORY — автономная фабрика хитов (бесплатно) + ПРОРЫВ")
+    p = argparse.ArgumentParser(description="EXPERIMENTAL engineering CLI; not the supported Electron studio; no hit or quality guarantee")
     p.add_argument("--count", type=int, default=1, help="сколько треков генерить")
     p.add_argument("--genre", type=str, default="", help="фиксированный жанр (пусто = рандом хитовый)")
     p.add_argument("--theme", type=str, default="", help="тема (пусто = авто из трендов 2026)")
@@ -98,6 +98,8 @@ def _cli() -> int:
     p.add_argument("--refs", type=str, default="", help="референс-треки/ссылки через запятую (1-7 wav/mp3/http)")
     p.add_argument("--voice", type=str, default="", help="сырая запись голоса wav для RVC (10 мин)")
     args = p.parse_args()
+    from app.core.entrypoints import LEGACY_NOTICE
+    print(LEGACY_NOTICE)
     # прорыв если явно указан флаг/env/артист/refs/voice
     env_break = os.getenv("ZSMM_BREAKTHROUGH", "").strip() in ("1", "true", "yes")
     if args.breakthrough or env_break or args.artist or args.refs or args.voice:

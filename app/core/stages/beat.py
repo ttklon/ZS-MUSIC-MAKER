@@ -5,6 +5,8 @@ app/core/stages/beat.py — Бит: вызов `beat_constructor` и честн�
 
 from __future__ import annotations
 
+from modules.errors import failure_reason
+
 from pathlib import Path
 from typing import Any
 
@@ -28,6 +30,20 @@ def _stage_ai_beat(recipe: dict[str, Any], plan: Any, out_dir: Path,
         except Exception as exc:
             prefix = "recorded backing: " if expected else ""
             return {"ok": False, "engine": "user_instrumental", "reason": f"{prefix}{type(exc).__name__}: {exc}"}
+    if recipe.get("beat_engine") == "musicgen":
+        # Настоящая генерация MusicGen (small/medium) — CPU чанками по 30 с.
+        # Не удалось (нет весов/движка) — честный отказ, а не подмена.
+        from modules.beat_gen_musicgen import render_musicgen_beat
+
+        prompt = f"{(recipe.get('genre') or 'trap')} instrumental, {recipe.get('theme') or ''}, " \
+                 f"{(style or {}).get('target_bpm') or 0} bpm, no vocals, club ready"
+        return render_musicgen_beat(
+            prompt,
+            str(out_dir / "beat.wav"),
+            duration_sec=int((plan or {}).get("duration_sec") or 90),
+            model_name=str(recipe.get("musicgen_model") or "facebook/musicgen-small"),
+            device=str(recipe.get("musicgen_device") or "cpu"),
+        )
     if recipe.get("beat_engine") != "ace_step":
         return {"ok": False, "reason": f"unknown beat engine: {recipe.get('beat_engine')}"}
     if dry_run:
@@ -108,7 +124,7 @@ def _stage_beat(
                 beat_wav, duration=_dur, bpm=_bpm, key_root=_key.split()[0], key_name=_key
             )
         except Exception:
-            return {"ok": False, "reason": str(e)}
+            return {"ok": False, "reason": failure_reason(e)}
 
 
 def recipe_key(style: dict[str, Any] | None) -> str:
@@ -167,7 +183,9 @@ def _synth_beat(
 
         stereo, section_info, sr, length = _render_beat_buffer(duration, bpm, key_root)
         Path(out_wav).parent.mkdir(parents=True, exist_ok=True)
-        sf.write(out_wav, stereo, sr)
+        from modules.dsp.wavio import write_wav
+
+        write_wav(out_wav, stereo, sr, subtype="FLOAT")
         return {
             "ok": True,
             "path": out_wav,
@@ -180,6 +198,6 @@ def _synth_beat(
             "reason": "synthesized structured beat (beat_constructor unavailable)",
         }
     except Exception as e:
-        return {"ok": False, "reason": str(e)}
+        return {"ok": False, "reason": failure_reason(e)}
 
 

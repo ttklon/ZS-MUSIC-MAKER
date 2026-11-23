@@ -57,13 +57,13 @@ function clean() {
   delete global.document;
 }
 
-test('запомненный раздел открывается, когда человек ничего не нажимал', async (t) => {
+test('создание трека открывается вместо запомненной технической вкладки', async (t) => {
   const { document, window } = bootWindow({
     srcDir: SRC, html: HTML, bridge: bridge({ view: 'tracks' }),
   });
   t.after(clean);
   await ready(window);
-  assert.equal(document.getElementById('view-title').textContent, 'Треки');
+  assert.equal(document.getElementById('view-title').textContent, 'Создание трека');
 });
 
 test('выбор человека до конца чтения настроек не откатывается', async (t) => {
@@ -98,5 +98,5 @@ test('стартовое переключение не считается выб
   await ready(window);
   // Автоматический старт не закрепляет раздел: следующий выбор работает.
   assert.equal(window.ZSMM_UI.state.pinned, null);
-  assert.equal(document.getElementById('view-title').textContent, 'Диагностика');
+  assert.equal(document.getElementById('view-title').textContent, 'Создание трека');
 });

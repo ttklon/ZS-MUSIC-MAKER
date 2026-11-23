@@ -9,7 +9,11 @@ tools/readiness/probes.py — пробы подсистем.
 
 from __future__ import annotations
 
+import logging
+
 from tools.readiness.paths import ROOT, TEST_ROOT
+
+_LOGGER = logging.getLogger(__name__)
 
 
 def _module_exists(name: str) -> bool:
@@ -86,6 +90,21 @@ def probe_core_modules() -> dict[str, str]:
     return p
 
 
+def _lyrics_llm_status() -> str:
+    """REAL_PASS — Ollama отвечает и текстовая модель на диске.
+
+    Ошибка внутри пробы не должна ронять весь отчёт: любой сбой — BLOCKED с
+    причиной в логе (сеть здесь не используется, только localhost).
+    """
+    try:
+        from modules.llm.ollama_setup import install_report
+
+        return "REAL_PASS" if install_report().get("ready") else "BLOCKED"
+    except Exception:  # noqa: BLE001 - отчёт готовности важнее деталей
+        _LOGGER.debug("lyrics_llm probe failed", exc_info=True)
+        return "BLOCKED"
+
+
 def probe_audio_pipeline() -> dict[str, str]:
     p: dict[str, str] = {}
     p["matchering_runtime"] = _dependency_status("matchering")
@@ -98,6 +117,10 @@ def probe_audio_pipeline() -> dict[str, str]:
     )
     p["musicgen_runtime"] = _dependency_status("audiocraft")
     p["demucs_runtime"] = _dependency_status("demucs")
+    # Текст песен — половина хита. Без Ollama LLM честно отдаёт BLOCKED, значит
+    # готовность не может быть максимальной. Проба не ходит в сеть: смотрит
+    # бинарь `ollama` и локальный демон (127.0.0.1) с таймаутом 2 с.
+    p["lyrics_llm"] = _lyrics_llm_status()
     p["mastering_adapter"] = (
         "REAL_PASS" if _module_exists("modules.mastering_reference") else "MISSING"
     )
@@ -124,6 +147,16 @@ def probe_voice_recording() -> dict[str, str]:
     p["rvc_model"] = (
         "REAL_PASS" if list((ROOT / "models" / "rvc").rglob("*.pth")) else "MISSING"
     )
+    # Инференс клона живёт в отдельном окружении (numpy<=1.23.5 у rvc-python).
+    # Проверяем сам интерпретатор, а не намерение: без него «клонировать» нельзя.
+    try:
+        from modules.rvc_manager.venv import rvc_venv_report
+
+        report = rvc_venv_report()
+        p["rvc_env"] = "REAL_PASS" if report.get("installed") else "BLOCKED"
+    except Exception as exc:  # noqa: BLE001 - проба не должна ронять отчёт
+        _LOGGER.debug("rvc venv probe failed: %s", exc)
+        p["rvc_env"] = "MISSING"
     try:
         from modules import voice_recording as vr
 

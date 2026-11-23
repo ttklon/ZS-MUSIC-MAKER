@@ -1,0 +1,6 @@
+.venv/bin/python -m pytest tests/test_recipe_transport.py tests/test_recipe_contract.py tests/test_agent_guide.py tests/test_snapshot_covers_wizard_state.py tests/test_hit_factory.py tests/test_project_input_reopening.py tests/test_project_input_replacements.py tests/test_pipeline_stage_contract.py tests/test_user_journey_regressions.py tests/test_function_length_budget.py tests/test_product_plan.py tests/test_release_gate.py tests/test_product_maps.py tests/test_windows_entrypoints.py tests/test_release_source_zip.py -q
+
+........................................................................ [ 40%]
+........................................................................ [ 80%]
+..................................                                       [100%]
+178 passed in 10.84s

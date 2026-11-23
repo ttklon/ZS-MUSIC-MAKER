@@ -7,8 +7,8 @@
 о котором пользователь не просил.
 
 Правило: перед загрузкой проверяем каталог `data/ai_models/<role>`. Нет весов
-— `FileNotFoundError` с готовой командой. Скачивание разрешается только явной
-переменной `ZSMM_ALLOW_MODEL_DOWNLOAD=1`.
+— `FileNotFoundError` с готовой командой. Скачивание требует общего сетевого согласия и литерала
+`ZSMM_ALLOW_MODEL_DOWNLOAD=1`; при явном ZSMM_ONLINE=0 оно запрещено.
 """
 
 from __future__ import annotations
@@ -25,7 +25,8 @@ _WEIGHT_SUFFIXES = (
 
 def download_allowed() -> bool:
     """Разрешена ли неявная загрузка весов (по умолчанию — нет)."""
-    return os.environ.get(ALLOW_DOWNLOAD_ENV, "").strip().lower() in _TRUE
+    from app.core.net_policy import network_allowed
+    return network_allowed() and os.environ.get(ALLOW_DOWNLOAD_ENV, "").strip() == "1"
 
 
 def weights_hint(role: str, models_dir: Path) -> str:
@@ -44,7 +45,7 @@ def has_local_weights(role: str, models_dir: Path) -> bool:
     if not folder.is_dir():
         return False
     for path in folder.rglob("*"):
-        if path.is_file() and (path.suffix.lower() in _WEIGHT_SUFFIXES or path.name.endswith(".json")):
+        if path.is_file() and (path.suffix.lower() in _WEIGHT_SUFFIXES):
             return True
     return False
 
@@ -56,8 +57,13 @@ def ensure_local_weights(role: str, models_dir: Path) -> Path | None:
     разрешена пользователем. Иначе бросает `FileNotFoundError` с инструкцией.
     """
     folder = Path(models_dir) / role
-    if folder.is_dir() and any(folder.iterdir()):
+    if has_local_weights(role, models_dir):
         return folder
     if download_allowed():
+        from app.ai.model_catalog import MODEL_REGISTRY
+        from app.core.download_budget import space_plan
+        plan = space_plan(MODEL_REGISTRY.get(role, {}).get('expected_size_bytes'), folder)
+        if not plan['allowed']:
+            raise FileNotFoundError(f"download preflight blocked for {role}: {plan['reason']}")
         return None
     raise FileNotFoundError(weights_hint(role, models_dir))

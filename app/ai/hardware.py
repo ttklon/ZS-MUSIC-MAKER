@@ -10,6 +10,14 @@ import logging
 import os
 
 
+def checked_gib(value, label="memory") -> float:
+    """Reject invalid estimates before comparisons (NaN comparisons fail open)."""
+    import math
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or value < 0:
+        raise ValueError(f"Invalid {label}: expected finite nonnegative GiB")
+    return float(value)
+
+
 def detect_budget() -> dict[str, float | int]:
     try:
         import psutil
@@ -235,18 +243,20 @@ def detect_system(disk_path=None) -> dict:
 def assert_whisper_memory(spec: dict, device: str, local_model=None) -> None:
     """Approximate free-RAM guard, not a guarantee against out-of-memory."""
     free_ram = available_memory_gib()
-    required = (float(spec.get("ram_est_gb", 8.0)) if device == "cpu" else 3.0) + 1.0
+    estimate = checked_gib(spec.get("ram_est_gb", 8.0), "ASR RAM estimate")
+    required = (estimate if device == "cpu" else 3.0) + 1.0
     if device == "cpu" and local_model is not None and local_model.is_file():
         required = max(required, local_model.stat().st_size / (1024 ** 3) * 1.3 + 2.0)
-    if free_ram is None or free_ram < required:
+    if free_ram is None or checked_gib(free_ram, "available RAM") < required:
         raise RuntimeError(f"Insufficient or unknown free RAM for ASR: need approximately {required:.1f} GiB")
 
 
 def assert_llama_memory(key: str, spec: dict, layers: int) -> None:
     """Conservative host-RAM floor; estimates cannot guarantee inference succeeds."""
     free_ram = available_memory_gib()
-    required_ram = 2.0 if layers in (-1, 999) else float(spec.get("ram_est_gb", 0.0)) + 1.0
-    if free_ram is None or free_ram < required_ram:
+    estimate = checked_gib(spec.get("ram_est_gb", 0.0), "LLM RAM estimate")
+    required_ram = 2.0 if layers in (-1, 999) else estimate + 1.0
+    if free_ram is None or checked_gib(free_ram, "available RAM") < required_ram:
         raise RuntimeError(
             f"Insufficient or unknown free RAM for {key}: {free_ram} GiB available; "
             f"conservative estimate {required_ram:.1f} GiB. Free memory or use a smaller model."

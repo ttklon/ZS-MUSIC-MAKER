@@ -71,6 +71,12 @@ class VoicesMixin:
         # Ограничение ±9 мс: дальше это уже не грув, а рассинхрон.
         return float(np.clip(offset_ms, -9.0, 9.0)) / 1000.0
 
+    def _note_sample(self, instrument: str, bank: bool) -> None:
+        """Учесть прозвучавший сэмпл; отсутствие счётчика не роняет рендер."""
+        note = getattr(self, "note_sample", None)
+        if callable(note):
+            note(instrument, bank)
+
     def _velocity(self, part: str, step: int, bar: int, ghost: bool = False) -> float:
         """Громкость удара: акценты семейства × человеческий джиттер."""
         gain = humanize.velocity_gain(
@@ -99,11 +105,14 @@ class VoicesMixin:
         # он короче, чем нужно дропу.
         bank_kick = self._bank_audio("kick", velocity)
         kick = bank_kick * drums.BANK_GAIN["kick"] if bank_kick is not None else None
+        if kick is not None:
+            self._note_sample("kick", True)
         if kick is None and self.kick_samples:
             kick_path = self.kick_samples[
                 humanize.variant_index(self._random, len(self.kick_samples))
             ]
             kick = self._load_audio(kick_path)
+            self._note_sample("kick", False)
         if kick is None:
             variant = humanize.variant_index(self._random, KICK_VARIANTS)
             tune = 1.0 + (variant - 1) * 0.035
@@ -143,9 +152,11 @@ class VoicesMixin:
             instrument = "snare"
             bank_hit = self._bank_audio(instrument, velocity)
         if bank_hit is not None:
+            self._note_sample(instrument, True)
             return bank_hit * drums.BANK_GAIN[instrument] * velocity * drums.INSTRUMENT_GAIN["snare"]
 
         if self.snare_samples:
+            self._note_sample(instrument, False)
             snare_path = self.snare_samples[
                 humanize.variant_index(self._random, len(self.snare_samples))
             ]
@@ -187,12 +198,15 @@ class VoicesMixin:
         # Открытый хэт — на последней шестнадцатой такта, как в живом груве.
         open_hat = (step % 16 == 15) and bar % 2 == 1
 
-        bank_hat = self._bank_audio("open_hat" if open_hat else "hat", velocity)
+        hat_instrument = "open_hat" if open_hat else "hat"
+        bank_hat = self._bank_audio(hat_instrument, velocity)
         if bank_hat is not None:
-            trim = drums.BANK_GAIN["open_hat" if open_hat else "hat"]
+            trim = drums.BANK_GAIN[hat_instrument]
+            self._note_sample(hat_instrument, True)
             return bank_hat * trim * velocity * drums.INSTRUMENT_GAIN["hat"]
 
         if self.hihat_samples:
+            self._note_sample(hat_instrument, False)
             if open_hat and self.open_hat_samples:
                 hat_path = self.open_hat_samples[
                     humanize.variant_index(self._random, len(self.open_hat_samples))
@@ -241,6 +255,7 @@ class VoicesMixin:
             bass = self._load_audio(bass_path)
             if len(bass) < bar_samples:
                 bass = np.pad(bass, (0, bar_samples - len(bass)))
+            self._note_sample("bass", False)
             return bass[:bar_samples] * 0.8
 
         # 808 в банке — это затухающий удар TR-808, а не «луп на такт»: он не
@@ -251,6 +266,7 @@ class VoicesMixin:
         bank_808 = self._bank_audio("808", 0.9)
         attack = None
         if bank_808 is not None and len(bank_808):
+            self._note_sample("808", True)
             attack_len = min(len(bank_808), int(self.sr * 0.09))
             attack = bank_808[:attack_len].copy() * drums.INSTRUMENT_GAIN["bass808"]
             # Не обрывать волну на произвольной фазе: плавный спад подавляет щелчок.

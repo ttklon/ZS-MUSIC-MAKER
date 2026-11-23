@@ -22,7 +22,7 @@ const W = (window.ZSMM_UI = window.ZSMM_UI || {});
 window.ZSMM_SECTIONS = {};
 
 const state = {
-  view: 'overview',
+  view: 'agent',
   genres: [],
   loaded: new Set(),
   tasks: [],
@@ -45,6 +45,7 @@ const $ = (id) => document.getElementById(id);
 W.$ = $;
 
 function showError(message) {
+  window.zsmm?.reportError?.({ message: String(message), taskId: state.lastTaskId || null }).catch(() => {});
   const banner = $('error-banner');
   // Текст отдельным узлом: в баннере теперь ещё и кнопка закрытия, и
   // `textContent` на весь баннер стёр бы её.
@@ -62,6 +63,14 @@ function hideError() {
 
 W.hideError = hideError;
 W.showError = showError;
+// Register before section scripts execute, so their runtime failures are retained.
+for (const type of ['error', 'unhandledrejection']) {
+  window.addEventListener(type, event => {
+    const error = event.error || event.reason;
+    showError('Ошибка окна: ' + String(error?.stack || error?.message || error || event.message || 'неизвестно'));
+  });
+}
+
 
 function setStatus(ok, label) {
   const dot = $('backend-dot');
@@ -181,7 +190,9 @@ const LOADERS = {
   dossiers: () => W.loadDossiers(),
   tracks: () => W.loadTracks(),
   run: () => W.loadRun(),
-  agent: () => W.loadAgent(),
+  agent: () => W.loadCreation(),
+  models: () => W.loadModelsScreen(),
+  settings: () => W.loadStudioSettings(),
   health: () => W.loadHealth(),
   help: () => W.loadHelp(),
 };
@@ -194,7 +205,9 @@ const TITLES = {
   dossiers: 'Досье',
   tracks: 'Треки',
   run: 'Запуск',
-  agent: 'Агент',
+  agent: 'Создание трека',
+  models: 'Модели и загрузки',
+  settings: 'Настройки',
   health: 'Диагностика',
   help: 'Справка',
 };
@@ -233,6 +246,7 @@ function focusViewHeading() {
 
 async function switchView(view, { force = false, user = false } = {}) {
   if (!LOADERS[view]) return;
+  if (view !== 'agent') W.releaseCreationAudio?.();
   state.view = view;
   // Выбор человека закрепляется до старта: `start()` проверит его и не станет
   // переключать раздел обратно.
@@ -248,7 +262,7 @@ async function switchView(view, { force = false, user = false } = {}) {
     $(`view-${name}`).classList.toggle('is-hidden', name !== view);
   }
   focusViewHeading();
-  if (force || !state.loaded.has(view)) {
+  if (force || ['agent', 'models', 'settings'].includes(view) || !state.loaded.has(view)) {
     try {
       await LOADERS[view]();
       state.loaded.add(view);
@@ -264,6 +278,13 @@ W.switchView = switchView;
 W.blobUrl = blobUrl;
 
 function wire() {
+  $('export-errors').addEventListener('click', async () => {
+    try {
+      if (!window.zsmm?.exportErrors) throw new Error('Мост диагностики недоступен');
+      const reply = await window.zsmm.exportErrors();
+      if (!reply?.ok) throw new Error(reply?.error || 'Не удалось сохранить журнал');
+    } catch (err) { showError(err.message); }
+  });
   for (const button of document.querySelectorAll('.nav-item')) {
     button.addEventListener('click', () => switchView(button.dataset.view, { user: true }));
   }
@@ -300,7 +321,7 @@ function wire() {
 }
 
 /**
- * С какого раздела начать: сохранённый, иначе «Обзор».
+ * Начальный экран — мастер создания трека, а не техническая вкладка.
  *
  * Файл настроек читается один раз, поэтому при смене разделов в первые
  * секунды после старта запись не затирает ещё не прочитанное.
@@ -315,9 +336,9 @@ async function startView() {
         // Настройки недоступны — открываем «Обзор»: окно не должно не открыться.
       }
     }
-    if (state.settings && LOADERS[state.settings.view]) return state.settings.view;
+    // The creation guide is the home screen, never a saved technical tab.
   }
-  return 'overview';
+  return 'agent';
 }
 
 /**
@@ -349,7 +370,7 @@ if (typeof document !== 'undefined') {
     // Настройки читаются ДО первого переключения, иначе `saveSettings` мог бы
     // записать «Обзор» поверх запомненного раздела. Пока диск отвечает, человек
     // уже может нажать раздел сам — тогда его выбор главнее запомненного.
-    start();
+    start().catch(err => showError('Ошибка запуска: ' + err.message));
   });
 }
 

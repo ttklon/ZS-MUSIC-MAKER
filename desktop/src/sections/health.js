@@ -16,6 +16,94 @@ function envRow(key, value, hint) {
   return tr;
 }
 
+/**
+ * Галочка «сеть»: единственное место, где пользователь даёт согласие.
+ *
+ * Настройка `networkOnline` существовала в `electron/settings.js` с самого
+ * начала, но окна у неё не было — то есть включить сеть было нельзя вообще,
+ * и `--rvc-setup`/`--bootstrap --online` всегда отвечали `network disabled`.
+ */
+function wireNetworkToggle() {
+  const box = $('health-network-online');
+  const note = $('health-network-note');
+  if (!box) return;
+  // Windows Narrator читает флажок по подписи: без связи «флажок → текст»
+  // он объявляет просто «флажок», и согласие на сеть даётся вслепую.
+  const label = $('health-network-label');
+  if (label) box.setAttribute('aria-labelledby', label.id);
+  const renderNote = (online) => {
+    if (!note) return;
+    note.textContent = online
+      ? 'сеть разрешена: задачи Python получают ZSMM_ONLINE=1'
+      : 'сеть выключена — новые загрузки запрещены; готовность локальных движков проверяется отдельно';
+  };
+  // Мост может отсутствовать (предпросмотр в браузере, упавший preload):
+  // без `?.` инициализатор раздела падал целиком, и «Диагностика» не
+  // открывалась даже там, где всё остальное работало.
+  const bridge = window.zsmm && typeof window.zsmm === 'object' ? window.zsmm : null;
+  const canPersist = Boolean(bridge && typeof bridge.saveSettings === 'function');
+  const load = bridge && typeof bridge.loadSettings === 'function'
+    ? bridge.loadSettings()
+    : Promise.resolve(null);
+  Promise.resolve(load)
+    .then((reply) => {
+      const online = !!(reply && reply.ok === true && reply.data && reply.data.networkOnline === true);
+      box.checked = online;
+      renderNote(online);
+    })
+    .catch(() => renderNote(false));
+  box.addEventListener('change', () => {
+    const online = box.checked === true;
+    renderNote(online);
+    if (!canPersist) {
+      if (note) {
+        note.textContent = 'настройки недоступны в предпросмотре: значение не сохранено';
+      }
+      return;
+    }
+    Promise.resolve(bridge.saveSettings({ networkOnline: online })).catch((err) => {
+      if (note) note.textContent = `настройка не сохранена: ${err.message}`;
+    });
+  });
+}
+
+/**
+ * Кнопка «Подготовить текстовый движок»: Ollama + модель из приложения.
+ *
+ * Проверка состояния (`--ollama-status`) идёт без сети и без изменений на
+ * диске, поэтому её можно звать при открытии раздела; подготовка — задача
+ * `ollama-setup` с живым логом в «Запуске», как у RVC.
+ */
+function wireOllamaSetup() {
+  const button = $('health-ollama-setup');
+  const status = $('health-ollama-status');
+  if (!button) return;
+  button.addEventListener('click', async () => {
+    button.disabled = true;
+    if (status) status.textContent = 'запускаю подготовку…';
+    if (!window.zsmm || typeof window.zsmm.startTask !== 'function') {
+      if (status) status.textContent = 'запуск задач доступен только в приложении';
+      button.disabled = false;
+      return;
+    }
+    try {
+      const reply = await window.zsmm.startTask('ollama-setup', {});
+      if (!reply || reply.ok !== true) {
+        if (status) status.textContent = `не запустилось: ${(reply && reply.error) || 'нет ответа'}`;
+        return;
+      }
+      if (status) {
+        status.textContent = 'подготовка идёт в разделе «Запуск» — там виден лог '
+          + '(модель ~2.5 ГБ; без сети установка честно откажет)';
+      }
+    } catch (err) {
+      if (status) status.textContent = `ошибка: ${err.message}`;
+    } finally {
+      button.disabled = false;
+    }
+  });
+}
+
 async function loadHealth() {
   const [system, readiness] = await Promise.all([ask('system'), ask('readiness')]);
   // Окружение приложения (пути, Python, worker) знает только главный процесс;
@@ -84,5 +172,7 @@ W.loadHealth = loadHealth;
   // живёт в своей функции, а наружу отдаёт только одно имя.
   window.ZSMM_SECTIONS.initHealth = function () {
     W.loadHealth = loadHealth;
+    wireNetworkToggle();
+    wireOllamaSetup();
   };
 })();

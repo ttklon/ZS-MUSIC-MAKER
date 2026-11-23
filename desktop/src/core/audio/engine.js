@@ -38,6 +38,15 @@ const takes = require('./takes');
 const { encodeWav } = require('./wav');
 const analysis = require('./analysis');
 
+// Цель громкости та же, что у пайплайна (`mastering_pro`, pyloudnorm −14 LUFS):
+// два движка обязаны выдавать сопоставимый уровень, иначе один и тот же трек
+// звучит по-разному в зависимости от того, кто его собрал.
+const LOUDNESS_TARGET_LUFS = -14.0;
+const { balanceMix } = require('./balance');
+const loudness = require('./loudness');
+const { drumEngineReport } = require('./engine-report');
+const { buildReport } = require('./report');
+
 const SAMPLE_RATE = 44100;
 
 // Сборка и мастеринг живут в отдельных модулях, но экспортируются отсюда:
@@ -136,42 +145,6 @@ function prepareRender({
  *
  * @returns {{wav: Buffer, report: object}}
  */
-/**
- * Отчёт об источнике звука — замена `_drum_engine_report()` из Python.
- *
- * Правило то же: если из банка покрыто ≥ 4 барабанных инструмента, статус
- * REAL_PASS и имя движка не врёт (`sample_bank+procedural`); иначе FALLBACK с
- * причиной, сколько инструментов реально покрыто.
- */
-function drumEngineReport(bank) {
-  const base = { ...drums.CAPABILITIES };
-  if (!bank || typeof bank.report !== 'function') {
-    base.reason = 'sample bank is not connected to this render; synthesised one-shots are used';
-    return base;
-  }
-  const report = bank.report();
-  const covered = (report.drum_instruments_with_samples || [])
-    .filter((name) => ['kick', 'snare', 'clap', 'hat', 'open_hat', '808'].includes(name));
-  const out = {
-    ...base,
-    sample_bank: {
-      instruments_with_samples: covered,
-      total_samples: report.total_samples || 0,
-      loaded_samples: report.loaded_samples || 0,
-      velocity_mode: report.velocity_mode,
-    },
-  };
-  if (covered.length >= 4) {
-    out.status = 'REAL_PASS';
-    out.engine = 'sample_bank+procedural';
-    out.reason = 'drums come from the licensed sample bank';
-  } else {
-    out.reason = `sample bank covers ${covered.length} of 6 drum instruments; the rest is synthesised`;
-  }
-  if (report.errors && report.errors.length) out.sample_load_errors = report.errors.slice();
-  return out;
-}
-
 /**
  * Полная сборка трека — замена `BeatConstructor.build_track`.
  *
@@ -308,8 +281,8 @@ async function renderBeatInSteps(
  * @returns {{wav: Buffer, report: object}}
  */
 function finishRender({
-  plans, bpm, key, genre, seed, durationSec, bank, left, right, float32 = false,
-  vocalTake = null, vocalGain = 0.5,
+  plans, bpm, key, genre, seed, durationSec, bank, engine = null, left, right,
+  float32 = false, vocalTake = null, vocalGain = 0.5,
 }) {
   const sr = SAMPLE_RATE;
   const barSec = (60.0 / bpm) * 4;
@@ -323,8 +296,21 @@ function finishRender({
   // не выдаёт себя за запись с микрофона.
   const vocalInfo = mixVocal({ left, right, take: vocalTake, gain: vocalGain, sr, target });
   const fitted = fitLength(left, right, target);
+  // Баланс полос правится ДО ширины и «человечности»: коррекция меняет спектр,
+  // и делать её после дрейфа/шума значит измерять уже другой трек.
+  const balance = balanceMix(fitted.left, fitted.right, sr);
   const stereo = finalizeStereo(fitted.left, fitted.right, sr);
+  // Громкость по BS.1770 — ПОСЛЕ коррекции баланса и до «человечности»:
+  // дрейф и шум комнаты меняют уровень на десятые доли дБ, а лимитер держит
+  // потолок пика, а не громкость. Раньше окно отдавало −19.5 LUFS там, где
+  // пайплайн мастерит в −14: трек звучал на 5.5 дБ тише всего на площадке.
+  // «Человечность» (дрейф уровня, шум комнаты) — ДО нормализации: иначе она
+  // меняет уровень уже после замера, и отчёт расходится с файлом на десятые
+  // доли дБ (проверено: −15.58 в отчёте против −15.84 в WAV).
   const humanity = applyHumanity(stereo.left, stereo.right, sr, seed);
+  const loudnessReport = loudness.normalizeLoudness(humanity.left, humanity.right, sr, {
+    targetLufs: LOUDNESS_TARGET_LUFS,
+  });
 
   const wav = encodeWav([humanity.left, humanity.right], sr, { float32 });
   const dramaturgy = arrangement.structureReport(plans, bpm);
@@ -341,32 +327,11 @@ function finishRender({
 
   return {
     wav,
-    report: {
-      ok: true,
-      sample_rate: sr,
-      channels: 2,
-      bits: float32 ? 32 : 16,
-      duration_sec: Math.round((humanity.left.length / sr) * 100) / 100,
-      bpm,
-      key,
-      genre,
-      seed: seed === null || seed === undefined ? null : seed,
-      deterministic: seed !== null && seed !== undefined,
-      groove_family: patterns.familyForGenre(genre),
-      drum_engine: drumEngineReport(bank),
-      sections: sectionInfo,
-      total_bars: plans.reduce((sum, plan) => sum + plan.bars, 0),
-      dramaturgy,
-      humanity: humanity.report,
-      measured_humanity: measured,
-      repetition,
-      bytes: wav.length,
-      slot_plan: Object.fromEntries(
-        Object.entries(slotPatterns).map(([slot, row]) => [slot, row.concat(row, row, row)]),
-      ),
-      motif_is_major: isMajor(key),
-      vocal: vocalInfo,
-    },
+    report: buildReport({
+      sr, float32, humanity, bpm, key, genre, seed, bank, engine, sectionInfo,
+      plans, dramaturgy, balance, measured, repetition, wav, slotPatterns, vocalInfo,
+      loudness: loudnessReport,
+    }),
   };
 }
 
@@ -385,7 +350,6 @@ module.exports = {
   applyHumanity,
   limitBar,
   applyLowTrim,
-  drumEngineReport,
   prepareRender,
   finishRender,
   renderBeat,

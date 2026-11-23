@@ -30,17 +30,9 @@ def _synth_silero(text: str, out_wav: Path, speaker: str = "kseniya") -> bool:
 
         model_path = ROOT / "models" / "silero_female.pt"
         if not model_path.exists():
-            model, _ = torch.hub.load(
-                repo_or_dir="snakers4/silero-models",
-                model="silero_tts",
-                language="ru",
-                speaker="v4_ru",
-                trust_repo=True,
-            )
-            try:
-                torch.save(model, model_path)
-            except Exception:
-                logging.getLogger(__name__).debug("ignored exception", exc_info=True)
+            from modules.silero_loader import load_silero
+
+            model = load_silero("v4_ru")
         else:
             model = torch.load(model_path, map_location="cpu", weights_only=False)
         audio = model.apply_tts(text=text or "мм", speaker=speaker, sample_rate=48000)

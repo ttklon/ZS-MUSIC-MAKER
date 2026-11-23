@@ -20,6 +20,8 @@ ZS Music Maker v14 — voice_onboarding.py (P0.07, TZ 14)
 
 from __future__ import annotations
 
+from modules.errors import failure_reason
+
 import json
 import logging
 import threading
@@ -265,7 +267,7 @@ def run_cli() -> int:
 
         cap = vr.capability_report()
     except Exception as e:
-        cap = {"real_recording_possible": False, "error": str(e)}
+        cap = {"real_recording_possible": False, "error": failure_reason(e)}
     print("[capability]", json.dumps(cap, ensure_ascii=False))
     mic_ok = bool(cap.get("real_recording_possible"))
     if not mic_ok:

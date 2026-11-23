@@ -60,6 +60,11 @@ function signingStatus(env = process.env) {
  */
 function buildConfig({ pkg, env = process.env }) {
   const config = JSON.parse(JSON.stringify(pkg.build || {}));
+  if (env.ZSMM_BUNDLE_PYTHON === '1') {
+    config.extraResources = config.extraResources || [];
+    config.extraResources.push({ from: 'python-runtime', to: 'project/.python',
+      filter: ['**/*', '!**/__pycache__/**', '!**/*.pyc'] });
+  }
   const status = signingStatus(env);
   if (!status.ready) {
     // Подписи нет — и блока нет: electron-builder не должен пытаться.

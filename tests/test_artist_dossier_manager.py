@@ -304,7 +304,8 @@ class TestBuildWithoutModels:
         track = dm._load_track("kalash", dm.list_tracks("Kalash")[0]["track_id"])
         assert track is not None
         assert track.status == "failed"
-        assert track.dossier == {"error": "движок упал"}
+        # имя типа в причине обязательно: у NoBackendError текста нет вовсе
+        assert track.dossier == {"error": "RuntimeError: движок упал"}
 
 
 # --------------------------------------------------------------------------- #

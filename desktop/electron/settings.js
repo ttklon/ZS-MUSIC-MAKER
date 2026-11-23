@@ -17,6 +17,8 @@ const path = require('node:path');
 
 const DEFAULTS = {
   networkOnline: false,
+  agentMood: '',
+  agentArtist: '',
   genre: 'phonk',
   bpm: 140,
   seed: 7,
@@ -70,13 +72,23 @@ const VOCAL_TEXT_MAX = 120;
  * Разделы окна. Список нужен, чтобы `settings.json` не открывал окно на
  * несуществующем разделе (тогда экран был бы пустым без объяснения).
  */
-const VIEWS = ['overview', 'modules', 'genres', 'beat', 'dossiers', 'tracks', 'run', 'health', 'help'];
+const VIEWS = ['models', 'settings', 'agent', 'overview', 'modules', 'genres', 'beat', 'dossiers', 'tracks', 'run', 'health', 'help'];
 
 /** Привести произвольный объект к известным полям. */
 function sanitizeSettings(raw) {
   const value = raw && typeof raw === 'object' ? raw : {};
   const out = { ...DEFAULTS };
   const errors = [];
+
+  for (const [key, max] of [['agentMood', 300], ['agentArtist', 80]]) {
+    if (typeof value[key] === 'string') {
+      const text = value[key].trim();
+      const valid = text.length <= max && !/[\x00-\x1f\x7f]/.test(text)
+        && (key !== 'agentArtist' || !text || /^[\w \-А-Яа-яЁё]{2,80}$/u.test(text));
+      if (valid) out[key] = text;
+      else errors.push(key);
+    } else if (value[key] !== undefined) errors.push(key);
+  }
 
   if (typeof value.genre === 'string' && GENRE_RE.test(value.genre.trim())) {
     out.genre = value.genre.trim();
@@ -174,6 +186,9 @@ function createSettingsStore({ dir, fileSystem = require('node:fs') } = {}) {
       const current = this.load().value;
       // `invalid` — какие поля не приняты: окно говорит об этом, а не молчит.
       const { value, errors } = sanitizeSettings({ ...current, ...(patch && typeof patch === 'object' ? patch : {}) });
+      if (errors.some(key => key === 'agentMood' || key === 'agentArtist')) {
+        return { value: current, invalid: errors, error: 'Тема или артист не прошли проверку; сохранённые ответы не изменены' };
+      }
       try {
         fileSystem.mkdirSync(dir, { recursive: true });
         fileSystem.writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`, 'utf8');

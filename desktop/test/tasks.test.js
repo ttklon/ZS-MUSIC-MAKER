@@ -66,7 +66,12 @@ test('белый список задач не пуст и каждая прин�
     }
     assert.ok(TASKS[task.key], `нет описания для ${task.key}`);
     for (const accepted of task.accepts) {
-      assert.ok(['genre', 'theme', 'seed', 'artist'].includes(accepted), `неизвестный параметр ${accepted}`);
+      // `mood/refs/voice` — ответы агентика (`--agent-hit`): без них кнопка
+      // «Сделать хит» не передаёт Python ни темы, ни голоса.
+      assert.ok(
+        ['genre', 'theme', 'seed', 'artist', 'mood', 'refs', 'voice'].includes(accepted),
+        `неизвестный параметр ${accepted}`,
+      );
     }
   }
 });
@@ -204,4 +209,71 @@ test('сборка досье запускает тот же CLI, что тер�
     buildCommand('dossier-build', { artist: 'МС Тест' }),
     ['--dossier-build', '--dossier-artist', 'МС Тест'],
   );
+});
+
+test('задача ollama-setup зовёт --ollama-setup и не просит полей', () => {
+  assert.ok(TASKS['ollama-setup'], 'задача подготовки текстового движка пропала');
+  assert.deepEqual(buildCommand('ollama-setup', {}), ['--ollama-setup']);
+  assert.deepEqual(TASKS['ollama-setup'].accepts, []);
+  // Модель ~2.5 ГБ на медленном канале: таймаут не должен быть «на минуту».
+  assert.ok(TASKS['ollama-setup'].timeoutMs >= 60 * 60_000);
+});
+
+
+test('bootstrap is explicit and does not force network access', () => {
+  assert.deepEqual(buildCommand('bootstrap'), ['--bootstrap']);
+  assert.equal(TASKS.bootstrap.timeoutMs, 12 * 60 * 60_000);
+  assert.deepEqual(TASKS.bootstrap.accepts, []);
+});
+
+test('optional artist may be empty in the actual wizard payload', () => {
+  for (const artist of ['', '   ', null, undefined]) {
+    assert.deepEqual(buildCommand('agent-hit', { mood: '', artist, refs: '', voice: '' }), ['--agent-hit']);
+  }
+  assert.deepEqual(buildCommand('agent-hit', { artist: '  Артист  ' }), ['--agent-hit', '--agent-artist', 'Артист']);
+  assert.throws(() => buildCommand('dossier-build', { artist: '' }), /нужно имя/);
+  assert.throws(() => buildCommand('agent-hit', { artist: '../invalid' }), TaskError);
+});
+
+test('task completes after trailing stdout report has been delivered', async t => {
+  const os = require('node:os');
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'zsmm-task-report-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  fs.writeFileSync(path.join(root, 'main.py'),
+    'import sys\nsys.stdout.write("x" * 200000 + "\\n")\nsys.stdout.write(\'{"master_path":"/final.wav"}\')\nsys.stdout.flush()\n');
+  const lines = [];
+  const task = runTask({ key: 'health', python: python(), root,
+    onEvent: e => { if (e.type === 'stdout') lines.push(e.line); } });
+  const result = await task.done;
+  assert.equal(result.ok, true);
+  assert.equal(lines.at(-1), '{"master_path":"/final.wav"}');
+});
+
+test('real subprocess protocol survives noise and UTF8 splits, exit alone never certifies agent success', async t => {
+  const os = require('node:os');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'zsmm-protocol-process-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const interpreter = python();
+  assert.ok(interpreter, 'Python required on Windows and Linux');
+  const script = `import json, os
+print('noise {"master_path":"fake.wav"}', flush=True)
+e = dict(schema='zsmm.task', version=1, task_id=os.environ['ZSMM_TASK_ID'], seq=1, type='progress', message='Ночь\\nстрока')
+for b in (json.dumps(e, ensure_ascii=False) + '\\n').encode('utf-8'):
+    os.write(1, bytes([b]))
+e.update(seq=2, type='done', ok=False, report=dict(master_path=None, verdict='PARTIAL'))
+print(json.dumps(e), flush=True)
+`;
+  fs.writeFileSync(path.join(dir, 'main.py'), script, 'utf8');
+  const events = [];
+  const handle = runTask({ key: 'agent-hit', root: dir, python: interpreter, onEvent: e => events.push(e) });
+  const result = await handle.done;
+  assert.equal(result.code, 0);
+  assert.equal(result.ok, false);
+  assert.equal(result.protocolError, false);
+  assert.equal(result.report.verdict, 'PARTIAL');
+  assert.equal(events.find(e => e.type === 'protocol').event.message, 'Ночь\nстрока');
+  fs.writeFileSync(path.join(dir, 'main.py'), 'print(\'{"master_path":"fake.wav"}\')');
+  const missing = await runTask({ key: 'agent-hit', root: dir, python: interpreter }).done;
+  assert.equal(missing.ok, false);
+  assert.equal(missing.protocolError, true);
 });

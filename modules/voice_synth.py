@@ -5,7 +5,7 @@
   1. silero  — русский v3.1, ~50MB, самый лёгкий, быстрый, локальный
   2. xtts    — Coqui XTTS-v2, многоязычный, качественнее
   3. bark    — bark-full от Suno, самый выразительный, но медленный
-  4. pyttsx3 — системный TTS Windows (гарантированный fallback)
+  4. pyttsx3 — системный TTS, только с ZSMM_ALLOW_SYSTEM_TTS=1 в auto
 
 Все движки graceful: если один не установлен — идём к следующему.
 """
@@ -23,20 +23,13 @@ LOGGER = logging.getLogger(__name__)
 def _synth_silero(text: str, out_path: str, speaker: str = "aidar") -> bool:
     """Silero v3.1 RU — быстро и локально."""
     try:
-        import torch
+        from modules.silero_loader import load_silero
 
-        # Silero через torch.hub (первый раз скачивает ~50 MB)
-        model, _ = torch.hub.load(
-            repo_or_dir="snakers4/silero-models",
-            model="silero_tts",
-            language="ru",
-            speaker="v3_1_ru",
-            trust_repo=True,
-        )
-        audio = model.apply_tts(text=text, speaker=speaker, sample_rate=48000)
-        import torchaudio
+        model = load_silero()
+        from modules.voice_text import silero_audio
+        from modules.dsp.wavio import write_wav
 
-        torchaudio.save(out_path, audio.unsqueeze(0), 48000)
+        write_wav(out_path, silero_audio(model, text, speaker), 48000)
         return True
     except Exception as e:
         LOGGER.warning("Silero draft synthesis unavailable: %s", e)
@@ -95,6 +88,10 @@ def _synth_pyttsx3(text: str, out_path: str) -> bool:
 
 def _synth_gtts(text: str, out_path: str) -> bool:
     """Fallback для Linux через Google TTS (требует интернет)."""
+    from app.core.net_policy import network_allowed
+
+    if not network_allowed():
+        return False
     try:
         from gtts import gTTS
 
@@ -107,20 +104,35 @@ def _synth_gtts(text: str, out_path: str) -> bool:
 
 
 def _produced(out_path: str) -> bool:
-    """Return whether a synthesizer produced a non-empty output file."""
-    try:
-        return os.path.exists(out_path) and os.path.getsize(out_path) > 100
-    except OSError:
-        return False
+    """Decode actual audio rather than accepting arbitrary bytes by file size."""
+    from modules.voice_output import usable_voice
+
+    return usable_voice(out_path)
 
 
 def _run_candidates(candidates: tuple[str, ...], engines: dict[str, object], out_path: str) -> bool:
     """Run candidate backends in order, accepting only verified output files."""
     for candidate in candidates:
+        Path(out_path).unlink(missing_ok=True)
         synthesize = engines[candidate]
-        if synthesize() and _produced(out_path):
-            return True
+        try:
+            if synthesize() and _produced(out_path):
+                return True
+        except Exception as exc:  # A failed backend must not prevent the next one.
+            LOGGER.warning("voice engine %s failed: %s", candidate, exc)
     return False
+
+
+def _allowed_candidates() -> tuple[str, ...]:
+    """Auto mode means neural voices, not a hidden system/cloud fallback."""
+    from app.core.net_policy import network_allowed
+
+    names = ["silero", "xtts", "bark"]
+    if os.environ.get("ZSMM_ALLOW_SYSTEM_TTS", "").strip() in ("1", "true", "yes"):
+        names.append("pyttsx3")
+    if network_allowed():
+        names.append("gtts")
+    return tuple(names)
 
 
 def synth(
@@ -133,20 +145,24 @@ def synth(
     """Return a verified draft-vocal file path or an honest empty string."""
     if not text or not text.strip():
         return ""
-    try:
-        OUT_DIR.mkdir(parents=True, exist_ok=True)
-    except OSError as error:
-        LOGGER.warning("voice draft output directory unavailable: %s", error)
-        return ""
-
     silero_speaker = (
         "kseniya" if str(gender).lower() in ("female", "f", "ж", "жен") else "aidar"
     )
     if not out_name:
-        import time as _time
+        from uuid import uuid4
 
-        out_name = f"draft_{int(_time.time() * 1000)}.wav"
+        out_name = f"draft_{uuid4().hex}.wav"
     out_path = str(OUT_DIR / out_name)
+    from modules.voice_output import render_atomic
+
+    ok = render_atomic(out_path, lambda staged: _synthesize_into(
+        text, engine, staged, speaker_wav, silero_speaker,
+    ))
+    return out_path if ok else ""
+
+
+def _synthesize_into(text, engine, out_path, speaker_wav, silero_speaker) -> bool:
+    """Backend selection stays inside an isolated, unpublished render path."""
     engines = {
         "silero": lambda: _synth_silero(text, out_path, speaker=silero_speaker),
         "xtts": lambda: _synth_xtts(text, out_path, speaker_wav=speaker_wav),
@@ -156,23 +172,24 @@ def synth(
         "gtts": lambda: _synth_gtts(text, out_path),
     }
 
+    candidates = _allowed_candidates()
     if engine == "auto":
-        if _run_candidates(("silero", "xtts", "bark", "pyttsx3", "gtts"), engines, out_path):
-            return out_path
+        if _run_candidates(candidates, engines, out_path):
+            return True
         LOGGER.warning("all draft voice engines failed or are unavailable; returning empty result")
-        return ""
+        return False
 
     selected = engine if engine in engines else "silero"
     if selected != engine:
         LOGGER.warning("unknown draft voice engine %s; falling back to silero", engine)
     if _run_candidates((selected,), engines, out_path):
-        return out_path
+        return True
 
-    fallbacks = tuple(name for name in ("silero", "pyttsx3", "gtts") if name != engine)
+    fallbacks = tuple(name for name in candidates if name != selected)
     if _run_candidates(fallbacks, engines, out_path):
-        return out_path
+        return True
     LOGGER.warning("no draft voice engine produced a verified file; returning empty result")
-    return ""
+    return False
 
 
 if __name__ == "__main__":

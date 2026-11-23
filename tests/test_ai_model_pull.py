@@ -84,7 +84,7 @@ def test_verify_rejects_unverified_external_cache(tmp_path, monkeypatch):
 def test_pull_all_attempts_remaining_roles_after_failure(monkeypatch):
     calls = []
     monkeypatch.setattr(puller, "MODEL_REGISTRY", {"a": {}, "b": {}, "c": {}})
-    monkeypatch.setattr(puller, "pull", lambda key: calls.append(key) or key != "a")
+    monkeypatch.setattr(puller, "pull", lambda key, **kwargs: calls.append(key) or key != "a")
     assert puller.main(["--all"]) == 1
     assert calls == ["a", "b", "c"]
 

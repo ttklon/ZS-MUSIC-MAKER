@@ -5,6 +5,8 @@ app/core/stages/master.py — Мастер: стенды, anti-neuro полир�
 
 from __future__ import annotations
 
+from modules.errors import failure_reason
+
 from pathlib import Path
 from typing import Any
 
@@ -44,14 +46,18 @@ def _stage_mastering(
         r["fallback_used"] = fb
         return r
     except Exception as e:
-        return {"ok": False, "reason": str(e)}
+        return {"ok": False, "reason": failure_reason(e)}
 
 
-def _stage_polish(input_wav: str, out_dir: Path) -> dict[str, Any]:
+def _stage_polish(input_wav: str, out_dir: Path, seed: int | None = None) -> dict[str, Any]:
     """Anti-neuro обработка мастера: трековая цепочка → вокальная → честная копия.
 
     Каждый движок пробуется изолированно: сбой одного не отменяет следующий,
     а полный отказ заканчивается явной копией с `fallback_used=True`.
+
+    `seed` пробрасывается в цепочку полировки: без него эффекты брали текущее
+    время, и одинаковый рецепт давал разные файлы (beat.wav и мастер при этом
+    совпадали побайтово — недетерминизм жил ровно в полировке).
     """
     out_wav = str(out_dir / "polished.wav")
     attempts: list[str] = []
@@ -70,11 +76,11 @@ def _stage_polish(input_wav: str, out_dir: Path) -> dict[str, Any]:
             result: Any = None
             try:
                 if name == "polish_track":
-                    result = fn(input_wav, out_wav, preset="standard")
+                    result = fn(input_wav, out_wav, preset="standard", seed=seed)
                 elif name == "apply_polish":
                     result = fn(input_wav, out_wav, intensity=0.5)
                 else:
-                    result = fn(input_wav, out_wav, preset="standard")
+                    result = fn(input_wav, out_wav, preset="standard", seed=seed)
             except TypeError:
                 try:
                     result = fn(input_wav, out_wav)
@@ -194,6 +200,80 @@ def _stage_stems(master_wav: str, out_dir: Path) -> dict[str, Any]:
         }
 
 
+
+def apply_adaptive_enhance(master_wav: str, adaptive_level: int, enhanced_dsp: bool) -> dict[str, Any]:
+    """Лёгкая сатурация + расширение для ultra_light без нейросетей.
+
+    Живёт в пайплайне, а не после него: раньше хит-фабрика вызывала этот шаг
+    уже после `run_full_pipeline`, из-за чего hit-score, релизный пакет и
+    `artifact_integrity` описывали один мастер, а на диске лежал другой.
+    Теперь обработка — часть стадии `_stage_polish`, до всех измерений.
+    """
+    if not enhanced_dsp or int(adaptive_level or 0) != 0:
+        return {"ok": True, "applied": False, "reason": "adaptive DSP disabled for this level"}
+    try:
+        import numpy as np
+        import soundfile as sf
+
+        from modules.hit_factory.adaptive import get_adaptive_config
+
+        cfg = get_adaptive_config()
+        if cfg.get("use_acestep") or cfg.get("use_musicgen"):
+            return {"ok": True, "applied": False, "reason": "neural engine owns the master"}
+        data, sr = sf.read(str(master_wav))
+        if data.ndim == 1:
+            data = np.stack([data, data], axis=1)
+        if data.shape[0] > sr * 0.02:
+            drive = 0.02
+            data = np.tanh(data * (1 + drive)) / np.tanh(1 + drive)
+            delay = int(sr * 0.012)
+            if delay > 0 and data.shape[0] > delay:
+                data[delay:, 1] = 0.7 * data[delay:, 1] + 0.3 * data[:-delay, 1]
+        try:
+            from scipy.signal import butter, lfilter
+
+            b, a = butter(2, 80 / (sr / 2), btype="low")
+            low = lfilter(b, a, data, axis=0)
+            data = data * 0.85 + low * 0.15 * 1.2
+        except Exception as _exc:  # noqa: BLE001 - фильтр опционален
+            print(f"[adaptive] ignored: {_exc}")
+        peak = float(np.max(np.abs(data)) + 1e-9)
+        if peak > 0.99:
+            data = data / peak * 0.95
+        from modules.dsp.wavio import write_wav
+
+        write_wav(master_wav, data, sr, subtype="FLOAT")
+        return {"ok": True, "applied": True, "engine": "adaptive.ultra_light"}
+    except Exception as exc:  # noqa: BLE001 - обработка не критична
+        return {"ok": False, "applied": False, "reason": f"{type(exc).__name__}: {exc}"}
+
+
+def _stage_auto_qa(master_wav: str) -> dict[str, Any]:
+    """Второе «ухо» на финальный мастер: QA-вердикт и конкретные правки.
+
+    `modules/auto_qa.audit_track` умел это давно, но в пайплайн не был
+    подключён ни разу — QA-отчёт существовал только как ручной вызов. Стадия
+    возвращает `verdict` (`release`/`patch`/`rebuild`) и список `actions`;
+    она не переводит трек в FAILED: замечания к качеству — это информация,
+    а не поломка рендера.
+    """
+    try:
+        from modules.auto_qa import audit_track
+
+        report = audit_track(master_wav)
+        if not report.get("ok"):
+            return {"ok": False, "reason": report.get("error") or "auto QA failed"}
+        return {
+            "ok": True,
+            "verdict": report.get("verdict"),
+            "verdict_text": report.get("verdict_text"),
+            "actions": [item.get("reason") for item in report.get("actions") or []],
+            "report_path": report.get("report_path"),
+        }
+    except Exception as exc:  # noqa: BLE001 - QA не должен ронять рендер
+        return {"ok": False, "reason": f"{type(exc).__name__}: {exc}"}
+
+
 def _stage_hit_score(master_wav: str) -> dict[str, Any]:
     """v19 FIX (P0): раньше искали hit_scorer.score(...), но реальная функция —
     hit_scorer.score_track(...). Из-за этого пайплайн всегда отдавал
@@ -211,19 +291,16 @@ def _stage_hit_score(master_wav: str) -> dict[str, Any]:
                 break
         if fn is None:
             return {
-                "ok": True,
-                "hit_score": 60.0,
-                "verdict": "solid",
-                "fallback_used": True,
+                "ok": False,
                 "reason": "hit_scorer: no scoring entry exposed",
             }
         r = fn(master_wav)
         if not isinstance(r, dict):
             return {"ok": False, "reason": f"hit_scorer.{fn.__name__} bad return type"}
-        if r.get("error"):
+        if r.get("error") or r.get("verdict") == "invalid_audio":
             return {
                 "ok": False,
-                "reason": r["error"],
+                "reason": r.get("error") or r.get("reason") or "invalid audio",
                 "hit_score": r.get("hit_score", 0.0),
                 "verdict": r.get("verdict", "flop_risk"),
             }
@@ -234,6 +311,10 @@ def _stage_hit_score(master_wav: str) -> dict[str, Any]:
             "metrics": r.get("metrics"),
             "tiktok_slice": r.get("tiktok_slice"),
             "actions": r.get("actions"),
+            # Оценщик знает, когда балл стоит на приблизительной метрике
+            # (например, громкость не измерилась и заменена RMS-оценкой).
+            # Без проброса это знание оставалось внутри и отчёт молчал.
+            "warnings": r.get("warnings") or [],
             "engine": "hit_scorer." + fn.__name__,
         }
     except Exception as e:

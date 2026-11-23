@@ -12,6 +12,9 @@
 
 const { spawn } = require('node:child_process');
 const path = require('node:path');
+const { randomUUID } = require('node:crypto');
+const { createTaskStream } = require('./task-stream');
+const { terminateTree, monitorActivity } = require('./process-control');
 
 const { nativeTaskList } = require('./native-tasks');
 
@@ -58,6 +61,48 @@ const TASKS = {
     accepts: [],
     timeoutMs: 15 * 60_000,
   },
+  // Агентик: 4 ответа → трек. Отдельная задача, потому что это единственная
+  // кнопка, после которой человек ждёт «готовый трек», а не отчёт: таймаут
+  // больше, и первый запуск сам докачивает тяжёлые движки.
+  'agent-hit': {
+    label: 'Сделать хит (агентик: 4 вопроса → трек)',
+    args: () => ['--agent-hit'],
+    accepts: ['mood', 'artist', 'refs', 'voice'],
+    timeoutMs: 12 * 60 * 60_000,
+  },
+  // Клонирование голоса: обучение RVC на записях из voice_vault. Кнопка
+  // существует только потому, что у неё есть настоящий исполнитель
+  // (`--rvc-train`), а не заглушка: без тренера Python отвечает «не
+  // подключено» и подсказывает `--rvc-fork`.
+  // Подготовка голосового движка: отдельное окружение RVC (numpy<=1.23.5)
+  // и базовые веса. Первый запуск долгий (~2–3 ГБ), поэтому это отдельная
+  // задача с живым логом, а не «магия» внутри рендера.
+  'rvc-setup': {
+    label: 'Подготовить голосовой движок (RVC)',
+    args: () => ['--rvc-setup'],
+    accepts: [],
+    timeoutMs: 3 * 60 * 60_000,
+  },
+  'rvc-train': {
+    label: 'Обучить голос (RVC) на моих записях',
+    args: () => ['--rvc-train'],
+    accepts: ['voice'],
+    timeoutMs: 4 * 60 * 60_000,
+  },
+  // Текст песен делает локальная модель: без Ollama припев честно BLOCKED.
+  // Раньше её установка была возможна только руками в консоли.
+  bootstrap: {
+    label: 'Подготовить локальные движки и модели (крупные загрузки)',
+    args: () => ['--bootstrap'],
+    accepts: [],
+    timeoutMs: 12 * 60 * 60_000,
+  },
+  'ollama-setup': {
+    label: 'Подготовить текстовый движок (Ollama)',
+    args: () => ['--ollama-setup'],
+    accepts: [],
+    timeoutMs: 3 * 60 * 60_000,
+  },
   'ai-status': {
     label: 'Статус AI-моделей',
     args: () => ['--ai-status'],
@@ -79,7 +124,18 @@ function sanitizeOptions(options = {}) {
   const genre = options.genre === undefined || options.genre === null ? null : String(options.genre);
   const theme = options.theme === undefined || options.theme === null ? null : String(options.theme);
   const seed = options.seed === undefined || options.seed === null ? null : options.seed;
-  const artist = options.artist === undefined || options.artist === null ? null : String(options.artist);
+  const artist = options.artist === undefined || options.artist === null || String(options.artist).trim() === ''
+    ? null : String(options.artist).trim();
+  // Ответы агентика: тема и референсы — свободный текст, но без переводов
+  // строк и кавычек shell-уровня: они уходят одним аргументом (`spawn` без
+  // оболочки), поэтому запрещаем только то, что ломает формат отчёта.
+  const mood = cleanText(options.mood, 300, 'настроение');
+  const refs = cleanRefs(options.refs);
+  const voice = cleanText(options.voice, 260, 'голос');
+  // Имя голоса уходит в `--rvc-voice` и становится каталогом модели.
+  const voiceModeName = options.rvcVoice === undefined || options.rvcVoice === null
+    ? ''
+    : cleanText(options.rvcVoice, 40, 'имя голоса').replace(/\s+/g, '_');
 
   // Имя артиста уходит аргументом в Python: только буквы, цифры, пробел, «-» и
   // «_». Это же имя Python превращает в slug каталога, поэтому `..` и слэши
@@ -93,6 +149,11 @@ function sanitizeOptions(options = {}) {
   }
   if (theme !== null && !/^[\w \-]{1,64}$/u.test(theme)) {
     throw new TaskError(`недопустимая тема: ${theme}`);
+  }
+  // Имя голоса становится каталогом модели, поэтому запрещены слэши и точки
+  // рядом с точкой, но буквы — любые: человек называет голос по-русски.
+  if (voiceModeName && !/^[\p{L}\p{N}_\-]{1,40}$/u.test(voiceModeName)) {
+    throw new TaskError(`недопустимое имя голоса: ${voiceModeName}`);
   }
   let seedValue = null;
   if (seed !== null && seed !== '') {
@@ -109,22 +170,88 @@ function sanitizeOptions(options = {}) {
       throw new TaskError(`сид должен быть неотрицательным целым: ${seed}`);
     }
   }
-  return { genre, theme, seed: seedValue, artist };
+  return { genre, theme, seed: seedValue, artist, mood, refs, voice, rvcVoice: voiceModeName };
+}
+
+/**
+ * Свободный текст из вопроса агентика: без переводов строк и управляющих
+ * символов, с ограничением длины. Пустая строка — это «пусто», а не null:
+ * агент сам решит, брать ли значение из трендов.
+ */
+function cleanText(value, limit, label) {
+  if (value === undefined || value === null) return '';
+  const text = String(value).replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim();
+  if (text.length > limit) throw new TaskError(`${label} длиннее ${limit} символов`);
+  return text;
+}
+
+/**
+ * Референсы: список путей/ссылок через запятую. Кавычки и переводы строк
+ * запрещены — это единственный символ, который мог бы «склеить» аргументы.
+ */
+function cleanRefs(value) {
+  if (value === undefined || value === null || value === '') return '';
+  const text = String(value).replace(/["'`\r\n]/g, '').trim();
+  if (text.length > 1200) throw new TaskError('слишком много референсов');
+  return text;
+}
+
+/**
+ * Проверить, что задача принимает переданные ей параметры.
+ *
+ * Раньше неизвестный параметр молча игнорировался: окно считало, что ответ
+ * агентика ушёл в Python, а тот его просто не получал. Теперь это ошибка с
+ * именем параметра — её видно в отчёте, а не в пустом результате.
+ */
+function assertAccepted(key, task, options = {}) {
+  const known = ['genre', 'theme', 'seed', 'artist', 'mood', 'refs', 'voice', 'rvcVoice'];
+  for (const name of Object.keys(options || {})) {
+    if (options[name] === undefined || options[name] === null || options[name] === '') continue;
+    if (!known.includes(name)) throw new TaskError(`неизвестный параметр: ${name}`);
+    // Задача без такого флага просто его не получает (`buildCommand` ниже
+    // проверяет `accepts`): это старое поведение, и менять его нельзя —
+    // раздел «Запуск» передаёт общий набор полей любой задаче.
+  }
+}
+
+/**
+ * Аргументы артиста.
+ *
+ * У «досье» артист обязателен, у агентика — нет: пусто означает «из трендов».
+ * Флаг разный: `--dossier-artist` запускает сборку досье, а не трек.
+ */
+function appendArtist(argv, key, safe) {
+  if (!safe.artist) {
+    if (key === 'dossier-build') throw new TaskError('для этой задачи нужно имя артиста');
+    return;
+  }
+  argv.push(key === 'agent-hit' ? '--agent-artist' : '--dossier-artist', safe.artist);
 }
 
 /** Собрать argv для задачи: только разрешённые флаги, без оболочки. */
 function buildCommand(key, options = {}) {
   const task = TASKS[key];
   if (!task) throw new TaskError(`неизвестная задача: ${key}`);
-  const safe = sanitizeOptions(options);
+  // Всё, что вернул `sanitizeOptions`, должно быть явно разрешено задачей:
+  // иначе параметр молча терялся бы, и окно думало бы, что ответ ушёл.
+  assertAccepted(key, task, options);
+  // У обучения голоса поле «голос» — это имя модели, а не путь к записи:
+  // окно присылает его в `voice`, поэтому переводим в `rvcVoice` до проверки.
+  const prepared = key === 'rvc-train'
+    ? { ...options, rvcVoice: options.rvcVoice || options.voice }
+    : options;
+  const safe = sanitizeOptions(prepared);
   const argv = [...task.args(safe)];
   if (safe.genre !== null && task.accepts.includes('genre')) argv.push('--genre', safe.genre);
   if (safe.theme !== null && task.accepts.includes('theme')) argv.push('--theme', safe.theme);
   if (safe.seed !== null && task.accepts.includes('seed')) argv.push('--seed', String(safe.seed));
-  if (task.accepts.includes('artist')) {
-    if (!safe.artist) throw new TaskError('для этой задачи нужно имя артиста');
-    argv.push('--dossier-artist', safe.artist);
+  if (task.accepts.includes('mood') && safe.mood) argv.push('--agent-mood', safe.mood);
+  if (task.accepts.includes('refs') && safe.refs) argv.push('--agent-refs', safe.refs);
+  if (key === 'rvc-train' && safe.rvcVoice) argv.push('--rvc-voice', safe.rvcVoice);
+  else if (task.accepts.includes('voice') && safe.voice && key !== 'rvc-train') {
+    argv.push('--agent-voice', safe.voice);
   }
+  if (task.accepts.includes('artist')) appendArtist(argv, key, safe);
   return argv;
 }
 
@@ -132,73 +259,71 @@ function buildCommand(key, options = {}) {
  * Запустить задачу. `onEvent` получает {type, ...}: start, stdout, stderr,
  * timeout, exit. Возвращает handle с `stop()` и `done` (Promise).
  */
-function runTask({ key, options = {}, python, root, env = process.env, onEvent = () => {} }) {
+function runTask({ key, options = {}, python, root, env = process.env, onEvent = () => {}, taskId = randomUUID() }) {
   if (!python) throw new TaskError('не указан интерпретатор Python');
   const argv = buildCommand(key, options);
   const task = TASKS[key];
   const script = path.join(root, 'main.py');
 
-  let timedOut = false;
+  let timedOut = false, canceled = false, termination = null, terminationFailed = false;
   let settled = false;
-  const child = spawn(python, [script, ...argv], {
-    cwd: root,
-    env: { ...env, PYTHONUNBUFFERED: '1', PYTHONIOENCODING: 'utf-8' },
+  const installedHost = path.join(root, 'app', 'cli', 'managed_task_host.py');
+  const host = require('node:fs').existsSync(installedHost) ? installedHost
+    : path.resolve(__dirname, '../../app/cli/managed_task_host.py');
+  const child = spawn(python, [host, script, ...argv], {
+    cwd: root, detached: process.platform !== 'win32', windowsHide: true,
+    env: { ...env, ZSMM_TASK_ID: taskId, PYTHONUNBUFFERED: '1', PYTHONIOENCODING: 'utf-8' },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
 
-  const timer = setTimeout(() => {
-    timedOut = true;
-    onEvent({ type: 'timeout', timeoutMs: task.timeoutMs });
-    child.kill('SIGKILL');
-  }, task.timeoutMs);
-
-  const emitLines = (stream, kind) => {
-    let buffer = '';
-    stream.on('data', (chunk) => {
-      buffer += chunk.toString();
-      let index = buffer.indexOf('\n');
-      while (index !== -1) {
-        const line = buffer.slice(0, index);
-        buffer = buffer.slice(index + 1);
-        onEvent({ type: kind, line });
-        index = buffer.indexOf('\n');
-      }
+  const requestStop = reason => {
+    if (settled || (termination && !terminationFailed)) return false;
+    canceled = reason === 'canceled'; timedOut = reason === 'timeout';
+    onEvent({ type: 'stopping', reason, message: 'Завершаю дерево процессов; ожидаю подтверждение.' });
+    terminationFailed = false;
+    termination = terminateTree(child.pid).then(result => {
+      terminationFailed = !result.confirmed;
+      if (terminationFailed) onEvent({ type: 'cleanup-failed', message: 'Завершение дерева не подтверждено. Сохраните диагностику и проверьте процессы; новая задача заблокирована.', error: result.error });
+      return result;
     });
-    stream.on('end', () => {
-      if (buffer.length) onEvent({ type: kind, line: buffer });
-    });
+    return true;
   };
-
-  emitLines(child.stdout, 'stdout');
-  emitLines(child.stderr, 'stderr');
+  const monitor = monitorActivity({ onEvent, hardMs: task.timeoutMs,
+    onTimeout: () => { onEvent({ type: 'timeout', timeoutMs: task.timeoutMs }); requestStop('timeout'); } });
+  const stream = createTaskStream({ taskId, onEvent: event => { monitor.touch(); onEvent(event); } });
+  stream.attach(child.stdout, 'stdout');
+  stream.attach(child.stderr, 'stderr');
   onEvent({ type: 'start', command: ['main.py', ...argv], label: task.label });
 
   const done = new Promise((resolve) => {
     child.on('error', (err) => {
       if (settled) return;
       settled = true;
-      clearTimeout(timer);
+      monitor.close();
       onEvent({ type: 'error', error: err.message });
       resolve({ ok: false, code: null, timedOut, error: err.message });
     });
-    child.on('exit', (code, signal) => {
+    child.on('close', async (code, signal) => {
       if (settled) return;
       settled = true;
-      clearTimeout(timer);
+      monitor.close();
       onEvent({ type: 'exit', code, signal, timedOut });
-      resolve({ ok: code === 0 && !timedOut, code, signal, timedOut });
+      const cleanup = termination ? await termination : null;
+      const { terminal, invalid } = stream.result();
+      const protocolOk = key === 'bootstrap'
+        ? terminal?.ok === true && terminal.report?.setup?.ok === true && !invalid
+        : key !== 'agent-hit' || (terminal?.ok === true && !invalid &&
+        terminal.report?.result?.succeeded === true && terminal.report.result.status === 'success');
+      resolve({ ok: code === 0 && !timedOut && !canceled && protocolOk, code, signal, timedOut,
+        taskId, canceled, termination: cleanup, report: terminal?.report || null, protocolError: invalid || (key === 'agent-hit' && !terminal) });
     });
   });
 
   return {
-    done,
+    done, taskId,
     pid: child.pid,
     command: ['main.py', ...argv],
-    stop() {
-      if (settled) return false;
-      child.kill('SIGTERM');
-      return true;
-    },
+    stop() { return requestStop('canceled'); },
   };
 }
 

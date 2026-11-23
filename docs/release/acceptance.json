@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "source_commit": null,
+  "gates": {
+    "G0": {
+      "accepted": false,
+      "reviewer": null,
+      "evidence": []
+    },
+    "G1": {
+      "accepted": false,
+      "reviewer": null,
+      "evidence": []
+    },
+    "G2": {
+      "accepted": false,
+      "reviewer": null,
+      "evidence": []
+    },
+    "G3": {
+      "accepted": false,
+      "reviewer": null,
+      "evidence": []
+    },
+    "G4": {
+      "accepted": false,
+      "reviewer": null,
+      "evidence": []
+    },
+    "G5": {
+      "accepted": false,
+      "reviewer": null,
+      "evidence": []
+    },
+    "G6": {
+      "accepted": false,
+      "reviewer": null,
+      "evidence": []
+    },
+    "G7": {
+      "accepted": false,
+      "reviewer": null,
+      "evidence": []
+    },
+    "G8": {
+      "accepted": false,
+      "reviewer": null,
+      "evidence": []
+    },
+    "G9": {
+      "accepted": false,
+      "reviewer": null,
+      "evidence": []
+    }
+  }
+}

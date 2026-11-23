@@ -1,0 +1,15 @@
+{
+  "source": "GitHub check-run annotation, not full raw artifact",
+  "run_url": "https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45034836350",
+  "check_run_id": 137246156927,
+  "commit": "1e91e5a3e4e2c5b9baab7444be69aa118297117e",
+  "measurements": {
+    "cpu_threads": 4,
+    "ram_total_gib": 15.99,
+    "ram_available_gib": 13.41,
+    "disk_free_gib": 146.96,
+    "gpu": "not_measured"
+  },
+  "inference_verified": false,
+  "product_profile_accepted": false
+}

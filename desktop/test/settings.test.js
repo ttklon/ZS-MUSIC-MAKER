@@ -141,3 +141,38 @@ test('чужие поля внутри вокала не проходят бел
   assert.equal(saved.vocalGain, DEFAULTS.vocalGain);
   assert.ok(saved.vocalText.length <= 120, `текст не обрезан: ${saved.vocalText.length}`);
 });
+
+test('agent preferences survive restart without retaining media or changing network consent', () => {
+  const dir = tempDir();
+  const saved = createSettingsStore({ dir }).save({
+    agentMood: 'ночной город', agentArtist: 'Скриптонит',
+    agentVoice: 'C:\\private\\voice.wav', agentRefs: ['private.wav'],
+  });
+  assert.equal(saved.error, null);
+  const value = createSettingsStore({ dir }).load().value;
+  assert.equal(value.agentMood, 'ночной город');
+  assert.equal(value.agentArtist, 'Скриптонит');
+  assert.equal(value.networkOnline, false);
+  assert.equal('agentVoice' in value, false);
+  assert.equal('agentRefs' in value, false);
+  createSettingsStore({ dir }).save({ agentMood: '', agentArtist: '' });
+  assert.equal(createSettingsStore({ dir }).load().value.agentMood, '');
+});
+
+test('agent preference strings match task limits and reject malformed input', () => {
+  for (const patch of [{ agentMood: 'x'.repeat(301) }, { agentMood: 'a\nb' },
+    { agentArtist: '../evil' }, { agentArtist: {} }, { agentArtist: 'x'.repeat(81) }]) {
+    const result = sanitizeSettings(patch);
+    assert.ok(result.errors.length);
+    assert.equal(result.value.agentMood, '');
+    assert.equal(result.value.agentArtist, '');
+  }
+});
+
+test('invalid agent patch does not erase saved choices', () => {
+  const store = createSettingsStore({ dir: tempDir() });
+  store.save({ agentMood: 'ночь', agentArtist: 'Артист' });
+  assert.ok(store.save({ agentArtist: '../invalid' }).error);
+  assert.equal(store.load().value.agentArtist, 'Артист');
+  assert.equal(store.load().value.agentMood, 'ночь');
+});

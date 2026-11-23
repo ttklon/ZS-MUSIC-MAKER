@@ -9,6 +9,8 @@ app/cli/backup.py — preflight-снимок проекта перед тяжё�
 
 from __future__ import annotations
 
+from modules.errors import failure_reason
+
 from app.cli.env import safe_print
 
 
@@ -24,4 +26,4 @@ def preflight_backup(mode: str) -> dict:
         return report
     except Exception as exc:
         safe_print(f"[backup] WARNING: preflight snapshot failed: {exc}")
-        return {"ok": False, "reason": str(exc)}
+        return {"ok": False, "reason": failure_reason(exc)}

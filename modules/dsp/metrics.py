@@ -229,6 +229,10 @@ def loudness_report(y: np.ndarray, sample_rate: int) -> dict[str, float | str | 
         "peak_dbfs": round(peak_dbfs(arr), 2),
         "true_peak_dbtp": round(true_peak_dbtp(arr), 2),
         "crest_db": round(crest_db(arr), 2),
+        # Тот же crest, но по самому громкому участку: именно им правит
+        # мастеринг-оптимизатор, поэтому и гейт должен опираться на него.
+        # Сквозной `crest_db` описан в документации как норма микса (8…14 дБ).
+        "reference_crest_db": round(reference_crest_db(arr, sample_rate), 2),
         "lufs": round(float(lufs), 2),
         "stereo_correlation": round(stereo_correlation(arr), 3),
         "mono_loss_db": round(mono_loss_db(arr), 2),

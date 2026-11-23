@@ -34,9 +34,10 @@ def test_download_is_disabled_by_default(monkeypatch) -> None:
     assert download_allowed() is False
 
 
-@pytest.mark.parametrize("value", ["1", "true", "yes", "on"])
+@pytest.mark.parametrize("value", ["1"])
 def test_download_can_be_opted_in(monkeypatch, value: str) -> None:
     monkeypatch.setenv(ALLOW_DOWNLOAD_ENV, value)
+    monkeypatch.setenv("ZSMM_ONLINE", "1")
 
     assert download_allowed() is True
 
@@ -71,7 +72,9 @@ def test_preflight_recognises_a_local_directory(tmp_path) -> None:
 
 def test_preflight_allows_missing_weights_when_download_is_enabled(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv(ALLOW_DOWNLOAD_ENV, "1")
+    monkeypatch.setenv("ZSMM_ONLINE", "1")
 
+    monkeypatch.setattr("app.core.download_budget.space_plan", lambda *a, **kw: {"allowed": True})
     assert ensure_local_weights("music_generation", tmp_path) is None
 
 

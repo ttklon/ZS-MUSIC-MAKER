@@ -29,6 +29,8 @@ else:
     _IMPORT_ERROR = None
 
 from modules.hit_factory.evolver import mutate, select_best, should_evolve
+from modules.hit_factory.readiness import attempt_readiness
+from modules.hit_factory.retry import stop_for_environment
 
 try:
     from modules.hit_factory.adaptive import get_adaptive_config, log_adaptive
@@ -55,6 +57,68 @@ def _maybe_auto_genre(genre: str | None, theme: str | None) -> str | None:
     except Exception as _e:
         _LOG.debug(f"[hit_factory] wire agents skip: {_e}")
     return genre
+
+
+def _apply_overrides(state: dict[str, Any], **kwargs: Any) -> None:
+    """Перенести референсы, запись вокала и настройки артиста в `wizard_state`.
+
+    Базовые поля (жанр/тема/seed/bpm/aggression/длительность) выставляет
+    `_build_wizard_state`; здесь только то, чего он не знает. Отдельная
+    функция, потому что `make_one` упирался в бюджет длины.
+    """
+    refs = kwargs.get("references")
+    if refs:
+        state["references"] = [str(item) for item in refs if str(item).strip()]
+    own_vocal = kwargs.get("own_vocal_wav")
+    if own_vocal is not None:
+        if not str(own_vocal).strip():
+            raise ValueError("own_vocal_wav must not be blank")
+        state["own_vocal_wav"] = str(own_vocal)
+    if kwargs.get("use_rvc") is not None:
+        state["use_rvc"] = bool(kwargs["use_rvc"])
+    if kwargs.get("artist") is not None:
+        state["artist"] = str(kwargs["artist"])
+    warns = kwargs.get("reference_warnings")
+    if warns:
+        state["reference_warnings"] = [str(w) for w in warns]
+
+
+def _save_factory_summary(best, attempts, min_score, do_evolve) -> None:
+    """Persist musical ratings separately from render readiness."""
+    if best:
+        if attempts[-1].get("evolution_stop"):
+            best["evolution_stop"] = attempts[-1]["evolution_stop"]
+        try:
+            summary_path = Path(best["out_root"]) / "factory_summary.json"
+            summary_path.write_text(
+                json.dumps(
+                    {
+                        "best_project_id": best["project_id"],
+                        "best_hit_score": best["hit_score"],
+                        "best_verdict": best["verdict"],
+                        "readiness": best["readiness"],
+                        "evolution_stop": best.get("evolution_stop"),
+                        "attempts": [
+                            {
+                                "project_id": a["project_id"],
+                                "hit_score": a["hit_score"],
+                                "verdict": a["verdict"],
+                                "readiness": a["readiness"],
+                                "master_path": a["master_path"],
+                                "wizard_state": a["wizard_state"],
+                            }
+                            for a in attempts
+                        ],
+                        "min_score": min_score,
+                        "evolve": do_evolve,
+                    },
+                    ensure_ascii=False,
+                    indent=2,
+                ),
+                encoding="utf-8",
+            )
+        except Exception as _exc:
+            print(f"[hit_factory] ignored: {_exc}")
 
 
 class HitFactory:
@@ -146,31 +210,37 @@ class HitFactory:
         aggression: float | None = None,
         duration_sec: int | None = None,
         evolve: bool | None = None,
+        references: list[str] | None = None,
+        reference_warnings: list[str] | None = None,
+        *,
+        own_vocal_wav: str | None = None,
+        use_rvc: bool | None = None,
+        artist: str | None = None,
+        recipe: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """Сгенерить один хит с эволюцией. Возвращает лучший attempt dict."""
-        genre = _maybe_auto_genre(genre, theme)
-        rng = random.Random(int(seed) if seed is not None else random.randint(1, 1_000_000))
+        """Сгенерить один хит с эволюцией. Возвращает лучший attempt dict.
+
+        `references` и `reference_warnings` едут в `wizard_state` → рецепт →
+        `_stage_analyze` (см. `_apply_overrides`): раньше путь «breakthrough»
+        анализировал референсы и выбрасывал их, а отчёт показывал
+        `n_refs: 0`/`source: genre_default` без единого предупреждения.
+        """
+        from modules.hit_factory.recipe_input import factory_recipe
+
+        if recipe is not None and any(value is not None for value in (
+            genre, theme, seed, bpm_override, aggression, duration_sec,
+            references, reference_warnings, own_vocal_wav, use_rvc, artist,
+        )):
+            raise ValueError("recipe cannot be mixed with legacy keyword overrides")
+        inputs = recipe if recipe is not None else {"genre": _maybe_auto_genre(genre, theme),
+            "theme": theme, "seed": seed, "bpm_override": bpm_override,
+            "aggression": aggression, "duration_sec": duration_sec}
+        rng = random.Random(inputs.get("seed"))
         do_evolve = self.evolve if evolve is None else bool(evolve)
-        base_state = self._build_wizard_state(
-            genre=genre or "",
-            theme=theme or "",
-            bpm_override=bpm_override,
-            aggression=aggression,
-            seed=seed,
-            duration_sec=duration_sec,
-            rng=rng,
-        )
-        base_state["genre"] = genre or base_state["genre"]
-        if theme:
-            base_state["theme"] = theme
-        if seed is not None:
-            base_state["seed"] = int(seed)
-        if bpm_override is not None:
-            base_state["bpm_override"] = int(bpm_override)
-        if aggression is not None:
-            base_state["aggression"] = float(aggression)
-        if duration_sec is not None:
-            base_state["duration_sec"] = int(duration_sec)
+        base_state = factory_recipe(inputs, self._build_wizard_state, rng, strict=recipe is not None)
+        if recipe is None:
+            _apply_overrides(base_state, references=references, reference_warnings=reference_warnings,
+                             own_vocal_wav=own_vocal_wav, use_rvc=use_rvc, artist=artist)
 
         attempts: list[dict[str, Any]] = []
         cur_state = dict(base_state)
@@ -179,49 +249,22 @@ class HitFactory:
             pid = self._new_project_id(cur_state["genre"])
             self._log(f"\n[HIT FACTORY] Попытка {attempt_idx+1}/{attempts_limit}  genre={cur_state['genre']}  BPM={cur_state['bpm_override']}  seed={cur_state['seed']}  theme='{cur_state['theme'][:60]}'")
             ctx = self._run_pipeline_once(pid, cur_state, rng)
+            ctx["readiness"] = attempt_readiness(ctx)
             ctx["attempt"] = attempt_idx + 1
             ctx["wizard_state"] = dict(cur_state)
             attempts.append(ctx)
             hit_score = float(ctx.get("hit_score") or 0.0)
             verdict = str(ctx.get("verdict") or "")
             self._log(f"[HIT FACTORY] -> {pid}  hit_score={hit_score:.1f}  verdict={verdict}  master={ctx.get('master_path')}")
-            if not do_evolve or attempt_idx + 1 >= attempts_limit:
+            if stop_for_environment(ctx, self._log) or not do_evolve or attempt_idx + 1 >= attempts_limit:
                 break
-            if not should_evolve(hit_score, verdict, self.min_score):
+            if ctx["readiness"]["ready"] and not should_evolve(hit_score, verdict, self.min_score):
                 self._log(f"[HIT FACTORY] Порог {self.min_score} пробит ({hit_score:.1f} ≥ {self.min_score}) — стоп эволюция.")
                 break
             cur_state = mutate(cur_state, ctx.get("hit"), rng)
             self._log(f"[HIT FACTORY] Эволюция → next BPM={cur_state['bpm_override']} seed={cur_state['seed']} aggression={cur_state['aggression']}")
         best = select_best(attempts)
-        if best:
-            try:
-                summary_path = Path(best["out_root"]) / "factory_summary.json"
-                summary_path.write_text(
-                    json.dumps(
-                        {
-                            "best_project_id": best["project_id"],
-                            "best_hit_score": best["hit_score"],
-                            "best_verdict": best["verdict"],
-                            "attempts": [
-                                {
-                                    "project_id": a["project_id"],
-                                    "hit_score": a["hit_score"],
-                                    "verdict": a["verdict"],
-                                    "master_path": a["master_path"],
-                                    "wizard_state": a["wizard_state"],
-                                }
-                                for a in attempts
-                            ],
-                            "min_score": self.min_score,
-                            "evolve": do_evolve,
-                        },
-                        ensure_ascii=False,
-                        indent=2,
-                    ),
-                    encoding="utf-8",
-                )
-            except Exception as _exc:
-                print(f"[hit_factory] ignored: {_exc}")
+        _save_factory_summary(best, attempts, self.min_score, do_evolve)
         try:
             from modules.hit_factory.kpi import build_kpi
 

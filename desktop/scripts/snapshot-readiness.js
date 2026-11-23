@@ -15,7 +15,12 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const ROOT = path.resolve(__dirname, '..', '..');
-const OUT_DIR = path.join(ROOT, 'data', 'desktop');
+// Куда писать снимок. По умолчанию — в репозиторий; ZSMM_SNAPSHOT_OUT
+// позволяет пересчитать снимок во временный каталог и сравнить, не трогая
+// рабочие файлы (tools/check_snapshot_freshness.py --tree).
+const OUT_DIR = process.env.ZSMM_SNAPSHOT_OUT
+  ? path.resolve(process.env.ZSMM_SNAPSHOT_OUT)
+  : path.join(ROOT, 'data', 'desktop');
 
 function resolvePython(env = process.env) {
   const candidates = [env.ZSMM_PYTHON, path.join(ROOT, '.venv', 'bin', 'python3'),

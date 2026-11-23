@@ -448,3 +448,70 @@ def test_rendered_beat_is_not_formulaic_like_python(tmp_path: Path) -> None:
     assert js["bars"] >= 10
     # Python на этом же заходе даёт 0.641 — окно не должно уезжать далеко.
     assert abs(js["entropy_normalized"] - 0.641) <= 0.08, js
+
+
+def _parity_signal():
+    """Тестовый сигнал с межсэмпловым выбросом: сэмпловый пик его не видит."""
+    import numpy as np
+
+    sr = 44100
+    t = np.arange(sr * 3) / sr
+    left = 0.5 * np.sin(2 * np.pi * 220 * t) + 0.2 * np.sin(2 * np.pi * 3000 * t)
+    right = left * 0.8 + 0.25 * np.sin(2 * np.pi * (sr / 4) * t + np.pi / 4)
+    return np.stack([left, right], axis=1), sr
+
+
+_LOUDNESS_SCRIPT = """
+const fs = require('node:fs');
+const { integratedLoudness } = require('./src/core/audio/loudness');
+const { truePeakDbtp } = require('./src/core/audio/true-peak');
+const data = JSON.parse(fs.readFileSync(process.argv[1], 'utf8'));
+const left = Float32Array.from(data.left);
+const right = Float32Array.from(data.right);
+process.stdout.write(JSON.stringify({
+  lufs: integratedLoudness([left, right], data.sr).lufs,
+  true_peak: truePeakDbtp([left, right]),
+}));
+"""
+
+
+def _measure_in_node(audio, sr) -> dict:
+    """Прогнать сигнал через JS-модули окна и вернуть их числа."""
+    import json as json_module
+    import subprocess as sp
+    import tempfile
+
+    payload = {"sr": sr, "left": audio[:, 0].tolist(), "right": audio[:, 1].tolist()}
+    with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as handle:
+        json_module.dump(payload, handle)
+        path = handle.name
+    try:
+        result = sp.run(
+            [NODE, "-e", _LOUDNESS_SCRIPT, path],
+            cwd=DESKTOP, capture_output=True, text=True, timeout=300, check=False,
+        )
+    finally:
+        Path(path).unlink(missing_ok=True)
+    assert result.returncode == 0, result.stderr[-500:]
+    return json_module.loads(result.stdout)
+
+
+def test_loudness_and_true_peak_match_python() -> None:
+    """Громкость и истинный пик в окне совпадают с pyloudnorm/scipy.
+
+    Окно и пайплайн долго жили с разными потолками: окно держало сэмпловый
+    пик −0.26 dBFS, а мастер — истинный −1 dBTP, и готовый микс уезжал на
+    +0.5 dBTP. Теперь обе стороны считают одну и ту же величину, и это
+    проверяется числом, а не обещанием.
+    """
+    from modules.dsp.metrics import integrated_lufs, true_peak_dbtp
+
+    audio, sr = _parity_signal()
+    js = _measure_in_node(audio, sr)
+
+    py_lufs = float(integrated_lufs(audio, sr)[0])
+    py_true_peak = float(true_peak_dbtp(audio))
+    assert abs(js["lufs"] - py_lufs) < 0.1, f"LUFS: JS {js['lufs']} против Python {py_lufs:.2f}"
+    assert abs(js["true_peak"] - py_true_peak) < 0.15, (
+        f"dBTP: JS {js['true_peak']:.2f} против Python {py_true_peak:.2f}"
+    )

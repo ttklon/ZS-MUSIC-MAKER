@@ -106,6 +106,12 @@ jobs:
       run: python -m compileall -q app agents modules tools updater ui main.py
     - name: AST dead-imports audit (ШАГ 010)
       run: python tools/ast_dead_imports.py
+    - name: Repository size guard
+      # 55 МБ демо-WAV однажды уже лежали в git без пользы для тестов. Сторож
+      # падает, если в отслеживаемом появится артефакт рендера.
+      run: python tools/size_guard.py
+    - name: .gitignore guard (код не съеден правилами)
+      run: python tools/gitignore_guard.py
     - name: Pytest
       run: |
         status=0

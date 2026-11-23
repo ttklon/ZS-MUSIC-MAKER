@@ -1,0 +1,28 @@
+{
+  "conclusion": "failure",
+  "headSha": "39b4bf8535d0c20b5e134109c1a6883e1c8dc47d",
+  "jobs": [
+    {
+      "name": "validate-plan-not-product",
+      "conclusion": "success",
+      "url": "https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45046284737/job/137281502668",
+      "failed_steps": []
+    },
+    {
+      "name": "packaged-product-specification",
+      "conclusion": "failure",
+      "url": "https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45046284737/job/137281502841",
+      "failed_steps": [
+        "Product contract and UI regression tests"
+      ]
+    },
+    {
+      "name": "result-outcome-hardware-contracts",
+      "conclusion": "success",
+      "url": "https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45046284737/job/137281502966",
+      "failed_steps": []
+    }
+  ],
+  "url": "https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45046284737",
+  "limitation": "Raw logs unavailable through allowed network; exact Node test failure not localized. Subsequent same runtime passed. Not claimed fixed."
+}

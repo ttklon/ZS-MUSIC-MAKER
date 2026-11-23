@@ -5,10 +5,18 @@ app/core/stages/vocal.py — Вокал: TTS-синтез, конвертаци�
 
 from __future__ import annotations
 
+from modules.errors import failure_reason
+
 import logging
+import os
 
 from pathlib import Path
 from typing import Any
+
+from app.core.stages.vocal_synth import (  # noqa: F401 - реэкспорт для тестов
+    _no_neural_tts,
+    _system_tts_allowed,
+)
 
 ROOT = Path(__file__).resolve().parents[3]
 
@@ -25,16 +33,32 @@ def _with_attempts(result: dict[str, Any], attempts: list[dict[str, str]]) -> di
 
 
 def _stage_voice_synth(lyrics_text: str, out_dir: Path) -> dict[str, Any]:
+    """Черновой вокал: сильный нейро-TTS, а не системный «виндовский» голос.
+
+    Порядок: `voice_synth.synth` (silero/XTTS/bark) → `synthesize` → честный
+    BLOCKED. `pyttsx3` (голос Windows) исключён из основного пути: заказчик
+    прямо запретил звучать как Windows TTS. Он остаётся доступен только явным
+    флагом `ZSMM_ALLOW_SYSTEM_TTS=1` — для проверки вёрстки, и в отчёте тогда
+    написано, что это системный голос.
+    """
     out_wav = str(out_dir / "voice_preview.wav")
     if not lyrics_text or not lyrics_text.strip():
+        # Нет текста — это не поломка стадии, а отсутствующий вход: проект
+        # везде помечает такое `ok: True, blocked: True` (как стемы без demucs
+        # или RVC без модели). Иначе инструментальный прогон получал FAILED и
+        # вердикт PARTIAL вместо честного PASS_BLOCKED.
         return {
-            "ok": False,
+            "ok": True,
+            "blocked": True,
             "reason": "empty lyrics",
             "notice": "voice synth requires lyrics text",
+            "action": "сгенерируй текст (нужна Ollama) или запиши свой вокал в разделе «Вокал»",
         }
     fallback_attempts: list[dict[str, str]] = []
 
     def use_fallback() -> dict[str, Any]:
+        if not _system_tts_allowed():
+            return _with_attempts(_no_neural_tts(), fallback_attempts)
         return _with_attempts(_pyttsx3_speak(lyrics_text, out_wav), fallback_attempts)
 
     try:
@@ -47,43 +71,59 @@ def _stage_voice_synth(lyrics_text: str, out_dir: Path) -> dict[str, Any]:
         })
         return use_fallback()
 
-    if hasattr(voice_synth, "synth"):
-        try:
-            path = voice_synth.synth(
-                lyrics_text, engine="auto", out_name=Path(out_wav).name
-            )
-            if path and Path(path).exists() and Path(path).stat().st_size > 1000:
-                return {"ok": True, "path": path, "engine": "voice_synth.synth"}
-            fallback_attempts.append({
-                "engine": "voice_synth.synth",
-                "status": "invalid_output",
-                "error": "no usable audio path returned",
-            })
-        except Exception as exc:
-            fallback_attempts.append({
-                "engine": "voice_synth.synth",
-                "status": "failed",
-                "error": f"{type(exc).__name__}: {exc}",
-            })
-    if hasattr(voice_synth, "synthesize"):
-        try:
-            result = voice_synth.synthesize(lyrics_text, out_wav)
-            if isinstance(result, dict):
-                return _with_attempts(result, fallback_attempts)
-            if isinstance(result, str) and Path(result).exists():
-                return {"ok": True, "path": result, "engine": "voice_synth"}
-            fallback_attempts.append({
-                "engine": "voice_synth.synthesize",
-                "status": "invalid_output",
-                "error": f"expected result dict or existing path, got {type(result).__name__}",
-            })
-        except Exception as exc:
-            fallback_attempts.append({
-                "engine": "voice_synth.synthesize",
-                "status": "failed",
-                "error": f"{type(exc).__name__}: {exc}",
-            })
+    for attempt in (_synth_via_synth, _synth_via_synthesize):
+        result = attempt(voice_synth, lyrics_text, out_wav, fallback_attempts)
+        if result is not None:
+            return _with_attempts(result, fallback_attempts)
     return use_fallback()
+
+
+def _synth_via_synth(voice_synth, lyrics_text: str, out_wav: str,
+                     fallback_attempts: list[dict[str, str]]) -> dict[str, Any] | None:
+    """Первая ступень: `voice_synth.synth` (silero/XTTS/bark через `engine=auto`)."""
+    if not hasattr(voice_synth, "synth"):
+        return None
+    try:
+        path = voice_synth.synth(lyrics_text, engine="auto", out_name=str(Path(out_wav).resolve()))
+        if path and Path(path).exists() and Path(path).stat().st_size > 1000:
+            return {"ok": True, "path": path, "engine": "voice_synth.synth"}
+        fallback_attempts.append({
+            "engine": "voice_synth.synth",
+            "status": "invalid_output",
+            "error": "no usable audio path returned",
+        })
+    except Exception as exc:  # noqa: BLE001 — следующий движок, причина в отчёте
+        fallback_attempts.append({
+            "engine": "voice_synth.synth",
+            "status": "failed",
+            "error": f"{type(exc).__name__}: {exc}",
+        })
+    return None
+
+
+def _synth_via_synthesize(voice_synth, lyrics_text: str, out_wav: str,
+                          fallback_attempts: list[dict[str, str]]) -> dict[str, Any] | None:
+    """Вторая ступень: `voice_synth.synthesize` (dict или путь)."""
+    if not hasattr(voice_synth, "synthesize"):
+        return None
+    try:
+        result = voice_synth.synthesize(lyrics_text, out_wav)
+        if isinstance(result, dict):
+            return result
+        if isinstance(result, str) and Path(result).exists():
+            return {"ok": True, "path": result, "engine": "voice_synth"}
+        fallback_attempts.append({
+            "engine": "voice_synth.synthesize",
+            "status": "invalid_output",
+            "error": f"expected result dict or existing path, got {type(result).__name__}",
+        })
+    except Exception as exc:  # noqa: BLE001 — отчёт важнее исключения
+        fallback_attempts.append({
+            "engine": "voice_synth.synthesize",
+            "status": "failed",
+            "error": f"{type(exc).__name__}: {exc}",
+        })
+    return None
 
 
 def _pyttsx3_speak(text: str, out_wav: str) -> dict[str, Any]:
@@ -213,7 +253,9 @@ def _pyttsx3_speak(text: str, out_wav: str) -> dict[str, Any]:
         if peak > 0.9:
             y = y / peak * 0.9
         Path(out_wav).parent.mkdir(parents=True, exist_ok=True)
-        _sf.write(out_wav, y, sr)
+        from modules.dsp.wavio import write_wav
+
+        write_wav(out_wav, y, sr, subtype="FLOAT")
         if Path(out_wav).exists() and Path(out_wav).stat().st_size > 1000:
             return {
                 "ok": True,
@@ -279,9 +321,9 @@ def _stage_rvc(
         return {"ok": bool(r), "path": r or out_wav, "engine": "rvc_python",
                 "execution": "isolated_python" if os.environ.get("ZSMM_RVC_PYTHON", "").strip() else "in_process"}
     except RuntimeError as e:
-        return {"ok": True, "blocked": True, "path": "", "reason": str(e)}
+        return {"ok": True, "blocked": True, "path": "", "reason": failure_reason(e)}
     except Exception as e:
-        return {"ok": False, "reason": str(e)}
+        return {"ok": False, "reason": failure_reason(e)}
 
 
 def _split_key(key: str | None) -> tuple[str, str]:

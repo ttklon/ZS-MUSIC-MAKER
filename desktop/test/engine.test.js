@@ -198,7 +198,7 @@ test('с банком проект говорит REAL_PASS, без банка �
 
   const synthOnly = renderBeat({ bpm: 140, genre: 'phonk', seed: 7, durationSec: 4, bank: null });
   assert.strictEqual(synthOnly.report.drum_engine.status, 'FALLBACK');
-  assert.ok(synthOnly.report.drum_engine.reason.includes('sample bank'));
+  assert.ok(synthOnly.report.drum_engine.reason.includes('банк сэмплов'));
   assert.ok(!synthOnly.wav.equals(withBank.wav), 'банк и синтез должны звучать по-разному');
 });
 
@@ -229,7 +229,7 @@ test('repair-путь: битый банк не роняет рендер, а ч
   });
   const { report } = renderBeat({ bpm: 120, genre: 'trap', seed: 2, durationSec: 2, bank: broken });
   assert.strictEqual(report.drum_engine.status, 'FALLBACK');
-  assert.ok(report.drum_engine.reason.includes('covers 0 of 6'));
+  assert.ok(report.drum_engine.reason.includes('0 из 6'), report.drum_engine.reason);
 });
 
 test('пошаговый рендер выдаёт те же байты, что синхронный', async () => {

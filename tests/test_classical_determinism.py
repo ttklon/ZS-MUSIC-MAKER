@@ -6,6 +6,18 @@ import modules.cyber_synth as cyber_module
 from modules.beat_constructor import BeatConstructor
 
 
+class _BlockTorch:
+    """Имитировать отсутствие torch: импорт поднимает ImportError, как в реальности."""
+
+    def find_module(self, name, path=None):  # pragma: no cover - legacy API
+        return self if name == "torch" or name.startswith("torch.") else None
+
+    def find_spec(self, name, path=None, target=None):
+        if name == "torch" or name.startswith("torch."):
+            raise ImportError("torch is not installed (simulated)")
+        return None
+
+
 def test_seeded_classic_beat_is_byte_identical_and_seed_sensitive(tmp_path, monkeypatch) -> None:
     import modules.beat_constructor as beat_module
 
@@ -42,7 +54,16 @@ def test_classical_pipeline_creates_valid_cpu_master_without_torch(tmp_path, mon
     from app.core.orchestrator import run_full_pipeline
 
     # The classical reference must not accidentally acquire or require Torch.
-    monkeypatch.setitem(sys.modules, "torch", None)
+    # `sys.modules["torch"] = None` — не та же ситуация, что «torch не
+    # установлен»: scipy проверяет `getattr(sys.modules["torch"], "Tensor")` и
+    # падает на None ещё при импорте `scipy.signal`, то есть тест ломался в
+    # зависимости от порядка импортов, а не из-за нашего кода. Убираем модуль
+    # и блокируем импорт — ровно как на машине без torch.
+    saved = {name: sys.modules.pop(name) for name in list(sys.modules) if name == "torch" or name.startswith("torch.")}
+
+    monkeypatch.setattr(sys, "meta_path", [_BlockTorch(), *sys.meta_path])
+    for name, module in saved.items():  # вернуть всё после теста
+        monkeypatch.setitem(sys.modules, name, module)
     result = run_full_pipeline(
         "cpu_classical_regression",
         {
@@ -61,7 +82,10 @@ def test_classical_pipeline_creates_valid_cpu_master_without_torch(tmp_path, mon
     audio, sample_rate = sf.read(streaming, always_2d=True)
 
     assert result["dry_run"] is False
-    assert result["master_path"] == str(streaming)
+    # `master_path` — финальный мастер (polished.wav после anti-neuro цепочки),
+    # а не сырой стенд: именно он измерен hit-score и упакован в релиз.
+    assert result["master_path"] == str(streaming.parent.parent / "polished.wav")
+    assert Path(result["master_path"]).exists()
     assert streaming.exists() and streaming.suffix == ".wav"
     assert sample_rate >= 22_050
     assert audio.shape[0] >= sample_rate * 3

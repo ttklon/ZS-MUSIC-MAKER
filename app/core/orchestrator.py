@@ -24,6 +24,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from app.core import pipeline_blocks as blocks
+from app.core.agent_context import _attach_agent_context  # noqa: F401 - реэкспорт для тестов
 from app.core.pipeline_blocks import (  # noqa: F401 - реэкспорт для тестов и подмены
     _add_stage,
     _run_post_master_stages,
@@ -45,9 +46,11 @@ from app.core.pipeline_runtime import (  # noqa: F401
 )
 from app.core.recipe import build_arrangement_plan, build_recipe
 from app.core.revision import add_mix_integrity
+from app.core.report_finalize import finalize_report
 from app.core.stages.beat import _stage_ai_beat, _stage_beat  # noqa: F401
 from app.core.stages.lyrics import _run_lyrics_stage  # noqa: F401
 from app.core.stages.master import (  # noqa: F401
+    _stage_auto_qa,
     _stage_hit_score,
     _stage_mastering,
     _stage_polish,
@@ -112,6 +115,25 @@ def _write_report(report: dict[str, Any], out_root: Path, warnings: list[str]) -
         warnings.append(f"report.json not written: {exc}")
 
 
+def _release_title(lyrics_dict: dict[str, Any], recipe: dict[str, Any]) -> str:
+    """Имя релиза: из текста, иначе из темы, и только в крайнем случае — заглушка.
+
+    Раньше сюда попадал только `lyrics_dict.get("title", "ZS Track")`, а
+    `lyrics_dict` пуст, когда текст не сгенерирован (нет локальной LLM).
+    В итоге любой инструментал уходил на площадки как «ZS Track», хотя тема
+    проекта была известна: «город спит» превращался в безымянный трек.
+    """
+    title = str(lyrics_dict.get("title") or "").strip()
+    if title and not title.startswith("ZS Track"):
+        return title
+    theme = str(recipe.get("theme") or "").strip()
+    if theme:
+        # тема — это промпт, а не название: берём первую строку и ограничиваем
+        # длину, чтобы имя файла и метаданные остались валидными
+        return theme.splitlines()[0][:80].strip()
+    return title or "ZS Track"
+
+
 def _release_meta(
     recipe: dict[str, Any],
     lyrics_dict: dict[str, Any],
@@ -130,7 +152,7 @@ def _release_meta(
     """
     hit = _output(hit_stage)
     return {
-        "title": lyrics_dict.get("title", "ZS Track"),
+        "title": _release_title(lyrics_dict, recipe),
         "artist": recipe["artist"],
         "genre": recipe["genre"],
         "theme": recipe["theme"],
@@ -191,6 +213,9 @@ def run_full_pipeline(
     )
     if dry_run:
         recipe["dry_run"] = True
+    # Все ИИ-агенты работают в каждом прогоне, а не только в hit_factory:
+    # тренды дают тексту актуальные слова, sample_hunter проверяет банк.
+    agent_context = _attach_agent_context(recipe)
 
     stages: list[StageResult] = []
     warnings: list[str] = []
@@ -252,7 +277,15 @@ def run_full_pipeline(
         streaming_raw.get("out_wav") if isinstance(streaming_raw, dict) else streaming_raw
     )
 
-    add(*blocks._run_post_master_stages(streaming_master, recipe, out_root, only))
+    post_master = blocks._run_post_master_stages(streaming_master, recipe, out_root, only)
+    add(*post_master)
+    # Полированный мастер — это и есть то, что измерено и что уйдёт в релиз.
+    # Без этой подмены релизный пакет собирался из сырого стенда, а hit-score
+    # считался по другому файлу: metadata врал о содержимом архива.
+    polished_stage = next((stage for stage in post_master if stage.name == "_stage_polish"), None)
+    polished_path = _output(polished_stage).get("path") if polished_stage is not None else None
+    if polished_path and Path(polished_path).exists():
+        streaming_master = polished_path
 
     hit_stage = stages[-1]
     meta = _release_meta(recipe, lyrics_dict, style_vector, beat_stage, hit_stage, lyrics_text)
@@ -318,50 +351,26 @@ def _build_report(
     initial_integrity: dict[str, Any],
 ) -> dict[str, Any]:
     """Отчёт прогона: вердикт, стадии, предупреждения, снимок рецепта."""
-    report: dict[str, Any] = {
-        "project_id": project_id,
-        "started_at": started_at,
-        "finished_at": finished_at,
-        "duration_sec": round(finished_at - started_at, 3),
-        "dry_run": dry_run,
-        "seed": recipe.get("seed"),
-        "only": sorted(only) if only else None,
-        "resume": bool(resume),
-        "verdict": summary["verdict"],
-        "stages": [stage.to_dict() for stage in stages],
-        "percent": summary["percent"],
-        "warnings": warnings,
-        "quality_gate_failures": quality_failures,
-        "master_path": str(streaming_master) if streaming_master else None,
-        "status_summary": {
-            "blocked": summary["blocked_stages"],
-            "fallback": summary["fallback_stages"],
-            "failed": summary["failed_stages"],
-        },
-        "recipe": {
-            "genre": recipe["genre"],
-            "voice_mode": recipe["voice_mode"],
-            "quality_mode": recipe["quality_mode"],
-            "n_verses": recipe["n_verses"],
-            "stands": recipe["stands"],
-        },
-    }
-    from app.core.input_integrity import finish_input_capture
-    from app.core.project_snapshot import snapshot_recipe
-
-    if rebuild_info is not None:
-        report["rebuild"] = rebuild_info
-    report["project_root"] = str(out_root.resolve())
-    try:
-        report["desktop_recipe_snapshot"] = snapshot_recipe(wizard_state)
-    except ValueError as exc:
-        warnings.append(f"project recipe not saved; reopening unavailable: {exc}")
-    finish_input_capture(report, wizard_state, input_capture, warnings)
-    add_mix_integrity(report, mix_stage, out_root, warnings)
-    if initial_integrity.get("artifact_integrity") != report.get("artifact_integrity"):
-        report.pop("artifact_integrity", None)
-        warnings.append("mix changed during render; master revision is unavailable")
-    return report
+    return finalize_report(
+        project_id=project_id,
+        recipe=recipe,
+        stages=stages,
+        summary=summary,
+        warnings=warnings,
+        quality_failures=quality_failures,
+        streaming_master=streaming_master,
+        started_at=started_at,
+        finished_at=finished_at,
+        dry_run=dry_run,
+        only=only,
+        resume=resume,
+        rebuild_info=rebuild_info,
+        out_root=out_root,
+        wizard_state=wizard_state,
+        input_capture=input_capture,
+        mix_stage=mix_stage,
+        initial_integrity=initial_integrity,
+    )
 
 
 def build_gradio_ui():

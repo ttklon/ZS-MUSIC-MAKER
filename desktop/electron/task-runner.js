@@ -16,6 +16,7 @@
  */
 
 const path = require('node:path');
+const { randomUUID } = require('node:crypto');
 
 const nativeTasks = require('./native-tasks');
 const tasks = require('./tasks');
@@ -33,23 +34,51 @@ const { resolvePython, resolvePipelineRoot } = require('./runtime');
  * @param {Function} [params.onTaskStarted] вызывается после старта (для quit)
  * @returns {{handlers: string[]}}
  */
+/**
+ * Окружение процесса Python: галочка «сеть» из окна должна до него доходить.
+ *
+ * Раньше `networkOnline` жила только в настройках Electron: пользователь
+ * включал сеть в приложении, а `python main.py --rvc-setup` всё равно отвечал
+ * `network disabled`, потому что `app/core/net_policy.py` смотрит либо на
+ * `allow_online`, либо на `data/settings.json`. Явная переменная окружения —
+ * самый узкий мост: она действует ровно на запущенную задачу и не пишет
+ * чужой конфиг за спиной у пользователя.
+ */
+function taskEnv(networkOnline, base = process.env, python = null, userBase = null) {
+  const env = { ...base };
+  if (networkOnline === true) env.ZSMM_ONLINE = '1';
+  else env.ZSMM_ONLINE = '0';
+  env.ZSMM_ALLOW_MODEL_DOWNLOAD = '0'; // network consent is not implicit weight loading
+  env.HF_HUB_OFFLINE = networkOnline === true ? '0' : '1';
+  env.TRANSFORMERS_OFFLINE = networkOnline === true ? '0' : '1';
+  if (python && userBase && path.basename(path.dirname(python)) === '.python') {
+    env.PYTHONUSERBASE = userBase;
+    env.PIP_USER = '1';
+    delete env.PIP_TARGET;
+    delete env.PIP_PREFIX;
+    delete env.PYTHONNOUSERSITE;
+  }
+  return env;
+}
+
 function registerTaskIpc({
   ipcMain,
   root = null,
+  pythonUserBase = null,
+  workspaceRoot = null,
   getProject,
   getWindows = () => null,
+  getSettings = () => null,
   state = { activeTask: null },
+  diagnostics = null,
 }) {
   ipcMain.handle('zsmm:tasks', () => ({ ok: true, data: tasks.taskList() }));
 
-  ipcMain.handle('zsmm:task-start', async (event, { key, options } = {}) => {
-    if (state.activeTask) {
-      return { ok: false, error: 'уже выполняется другая задача: сначала остановите её' };
-    }
+  const execute = async (key, options = {}, sender = null, taskId) => {
     const windows = getWindows && getWindows();
-    const sender = event.sender;
     const send = (channel, payload) => {
-      if (!sender.isDestroyed()) sender.send(channel, payload);
+      diagnostics?.task?.(taskId, key, payload);
+      if (sender && !sender.isDestroyed()) sender.send(channel, { ...payload, taskId, eventVersion: 1 });
     };
 
     // Задачи без Python считает сам главный процесс: это чтение файлов и
@@ -93,11 +122,19 @@ function registerTaskIpc({
     if (!pipeline.root) return { ok: false, error: pipeline.error };
 
     try {
+      const runRoot = workspaceRoot
+        ? await require('./pipeline-workspace').prepareWorkspace(pipeline.root, workspaceRoot, { signal: state.taskSlot?.controller.signal })
+        : pipeline.root;
+      if (state.taskSlot?.controller.signal.aborted) throw new Error('Подготовка отменена; процесс не запускался');
+      const directoryEnv = workspaceRoot ? await require('./workspace-layout').runtimeEnvironment(runRoot) : {};
+      if (state.taskSlot?.controller.signal.aborted) throw new Error('Подготовка отменена');
+      const settingsValue = (getSettings && getSettings()) || {};
       state.activeTask = tasks.runTask({
-        key,
+        key, taskId,
         options: options || {},
         python,
-        root: pipeline.root,
+        root: runRoot,
+        env: { ...taskEnv(settingsValue.networkOnline === true, process.env, python, pythonUserBase), ...directoryEnv },
         onEvent: (payload) => {
           if (windows) windows.showTaskProgress(payload);
           send('zsmm:task-event', payload);
@@ -105,24 +142,53 @@ function registerTaskIpc({
       });
       state.activeTask.done.then((result) => {
         state.activeTask = null;
+        if (state.taskSlot?.taskId === taskId && result.termination?.confirmed !== false) state.taskSlot = null;
         send('zsmm:task-done', result);
       });
       return {
         ok: true,
-        data: { pid: state.activeTask.pid, command: state.activeTask.command },
+        data: { pid: state.activeTask.pid, command: state.activeTask.command, taskId },
       };
     } catch (err) {
       state.activeTask = null;
+      send('zsmm:task-done', { ok: false, canceled: state.taskSlot?.controller.signal.aborted === true, error: err.message });
       return { ok: false, error: err.message };
     }
-  });
+  };
+
+  // One shared capacity-one queue, including asynchronous workspace preparation.
+  // Conflicts are rejected explicitly; never silently enqueue another pip job.
+  const start = async (key, options = {}, sender = null) => {
+    if (state.activeTask || state.taskSlot) {
+      return { ok: false, error: 'уже выполняется другая задача: сначала остановите её',
+        taskId: state.taskSlot?.taskId || null };
+    }
+    const taskId = randomUUID();
+    state.taskSlot = { taskId, key, controller: new AbortController() };
+    try {
+      const result = await execute(key, options, sender, taskId);
+      if (result.ok) result.data = { ...result.data, taskId };
+      return result;
+    } finally {
+      if (!state.activeTask && state.taskSlot?.taskId === taskId) state.taskSlot = null;
+    }
+  };
+
+  ipcMain.handle('zsmm:task-start', (event, payload = {}) =>
+    start(payload.key, payload.options || {}, event.sender));
 
   ipcMain.handle('zsmm:task-stop', () => {
+    if (!state.activeTask && state.taskSlot) {
+      state.taskSlot.controller.abort(new Error('Подготовка отменена; процесс не запускался'));
+      return { ok: true, data: { stopped: true, pending: true, taskId: state.taskSlot.taskId } };
+    }
     if (!state.activeTask) return { ok: false, error: 'нет запущенной задачи' };
     return { ok: true, data: { stopped: state.activeTask.stop() } };
   });
 
-  return { handlers: ['zsmm:tasks', 'zsmm:task-start', 'zsmm:task-stop'] };
+  // `start` отдаётся наружу: агентик запускает ту же задачу, а не вторую
+  // копию лаунчера — иначе белый список команд легко обойти.
+  return { handlers: ['zsmm:tasks', 'zsmm:task-start', 'zsmm:task-stop'], start };
 }
 
-module.exports = { registerTaskIpc };
+module.exports = { registerTaskIpc, taskEnv };

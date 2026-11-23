@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import sys
 import tempfile
 import traceback
@@ -50,8 +51,9 @@ def _candidate_dirs() -> list[Path]:
         xdg = os.environ.get("XDG_STATE_HOME")
         candidates.append((Path(xdg) if xdg else Path.home() / ".local" / "share") / POSIX_DIR_NAME / "logs")
     project_logs = Path(__file__).resolve().parents[2] / "output" / "logs"
-    candidates.append(project_logs)
     candidates.append(Path(tempfile.gettempdir()) / POSIX_DIR_NAME / "logs")
+    if not os.environ.get("ZSMM_WORKSPACE"):
+        candidates.append(project_logs)
     return candidates
 
 
@@ -69,6 +71,11 @@ def log_dir() -> Path:
     return Path(tempfile.gettempdir())
 
 
+def _task_id() -> str:
+    raw = os.environ.get("ZSMM_TASK_ID", "")
+    return raw if re.fullmatch(r"[a-zA-Z0-9_-]{1,80}", raw) else "none"
+
+
 class _SecretRedactingFilter(logging.Filter):
     """Не даёт ключам и токенам попасть в файл журнала."""
 
@@ -78,7 +85,14 @@ class _SecretRedactingFilter(logging.Filter):
         except Exception:  # noqa: BLE001 - логирование не должно падать
             record.msg = str(record.msg)
         record.args = ()
+        record.task_id = _task_id()
         return True
+
+
+class _RedactingFormatter(logging.Formatter):
+    def format(self, record: logging.LogRecord) -> str:
+        # Logging appends exc_info after filters: scrub the formatted traceback too.
+        return redact_secrets(super().format(record))
 
 
 class SafeStream:
@@ -114,7 +128,7 @@ def setup_logger(
 ) -> logging.Logger:
     """Настроить логгер с ротацией. Повторный вызов обработчики не дублирует."""
     directory = log_dir()
-    formatter = logging.Formatter("%(asctime)s | %(levelname)s | %(name)s | %(message)s")
+    formatter = _RedactingFormatter("%(asctime)s | %(levelname)s | %(name)s | task_id=%(task_id)s | %(message)s")
 
     logger = logging.getLogger(name)
     logger.setLevel(level)
@@ -152,6 +166,7 @@ def write_crash_report(error: BaseException, *, context: str = "") -> Path:
     body = [
         f"time: {datetime.now().isoformat(timespec='seconds')}",
         f"platform: {sys.platform}",
+        f"task_id: {_task_id()}",
         f"python: {sys.version}",
         f"context: {context}" if context else "context: -",
         "",

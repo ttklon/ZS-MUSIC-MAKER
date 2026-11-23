@@ -125,10 +125,67 @@ async function saveRecording({ dialog, getWindow, musicDir, payload = {} }) {
   }
 }
 
+/**
+ * Положить запись в голосовое хранилище (`voice_vault`), чтобы её нашло
+ * обучение RVC.
+ *
+ * Зачем отдельный шаг: обучение читает записи из vault, а не из папки
+ * «Музыка». Кнопка «Сохранить запись» только писала файл, и человек, честно
+ * записавший голос, всё равно получал «в vault нет записей». Здесь тот же
+ * файл (или уже сохранённый путь) индексируется настоящим Python-модулем:
+ * фичи, SNR, дедупликация — всё как при импорте.
+ *
+ * @param {object} params
+ * @param {string} params.python   интерпретатор проекта
+ * @param {string} params.root     корень репозитория
+ * @param {string} params.filePath существующий WAV
+ */
+function indexRecording({ spawn, python, root, filePath, timeoutMs = 120_000 }) {
+  if (!python) return Promise.resolve({ ok: false, error: 'Python не найден: индексация недоступна' });
+  if (!filePath || !path.isAbsolute(String(filePath))) {
+    return Promise.resolve({ ok: false, error: 'нужен абсолютный путь к записи' });
+  }
+  const script = [
+    'import json, sys',
+    'from modules import voice_vault',
+    'print(json.dumps(voice_vault.add_recording(sys.argv[1]), ensure_ascii=False))',
+  ].join('\n');
+  return new Promise((resolve) => {
+    const child = spawn(python, ['-c', script, String(filePath)], { cwd: root });
+    let out = '';
+    let err = '';
+    const timer = setTimeout(() => {
+      child.kill();
+      resolve({ ok: false, error: 'индексация не уложилась в лимит' });
+    }, timeoutMs);
+    child.stdout.on('data', (chunk) => { out += chunk; });
+    child.stderr.on('data', (chunk) => { err += chunk; });
+    child.on('error', (error) => {
+      clearTimeout(timer);
+      resolve({ ok: false, error: `Python не запустился: ${error.message}` });
+    });
+    child.on('close', (code) => {
+      clearTimeout(timer);
+      if (code !== 0) {
+        resolve({ ok: false, error: (err.trim() || `exit=${code}`).slice(-400) });
+        return;
+      }
+      const line = out.trim().split('\n').filter(Boolean).pop() || '';
+      try {
+        const parsed = JSON.parse(line);
+        resolve({ ok: parsed.ok !== false, data: parsed, error: parsed.error });
+      } catch (parseError) {
+        resolve({ ok: false, error: `ответ vault не разобран: ${parseError.message}` });
+      }
+    });
+  });
+}
+
 /** Сохранить WAV через диалог. base64 проверяется до записи. */
 
 module.exports = {
   describeInput,
+  indexRecording,
   recordingToWav,
   saveRecording,
 };

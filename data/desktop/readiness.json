@@ -1,20 +1,20 @@
 {
-  "generated_at": "2026-11-15T05:15:19.964Z",
+  "generated_at": "2026-11-22T16:57:03.628Z",
   "percent": 65,
   "module_inventory": {
-    "tracked_modules": 321,
-    "REAL_PASS": 281,
+    "tracked_modules": 360,
+    "REAL_PASS": 320,
     "REAL_FAIL": 0,
-    "PLANNED": 1,
-    "DEPRECATED": 39
+    "PLANNED": 3,
+    "DEPRECATED": 37
   },
-  "module_reachability_share": 0.8754,
+  "module_reachability_share": 0.8889,
   "block_scores": {
     "architecture": 100,
-    "core_modules": 83.56,
-    "audio_pipeline": 75,
-    "voice_recording": 71.43,
-    "release": 100,
+    "core_modules": 84.84,
+    "audio_pipeline": 22.22,
+    "voice_recording": 62.5,
+    "release": 80,
     "testing": 100
   },
   "weights": {
@@ -48,12 +48,13 @@
       "presets_library": "REAL_PASS"
     },
     "audio_pipeline": {
-      "matchering_runtime": "REAL_PASS",
-      "pedalboard_runtime": "REAL_PASS",
-      "pyloudnorm_runtime": "REAL_PASS",
-      "librosa_soundfile_runtime": "REAL_PASS",
+      "matchering_runtime": "BLOCKED",
+      "pedalboard_runtime": "BLOCKED",
+      "pyloudnorm_runtime": "BLOCKED",
+      "librosa_soundfile_runtime": "BLOCKED",
       "musicgen_runtime": "BLOCKED",
       "demucs_runtime": "BLOCKED",
+      "lyrics_llm": "BLOCKED",
       "mastering_adapter": "REAL_PASS",
       "smoke_scripts": "REAL_PASS"
     },
@@ -64,6 +65,7 @@
       "voice_cleaner": "REAL_PASS",
       "vocal_fx": "REAL_PASS",
       "rvc_model": "MISSING",
+      "rvc_env": "BLOCKED",
       "mic_recording": "BLOCKED"
     },
     "release": {
@@ -71,7 +73,7 @@
       "release_pack": "REAL_PASS",
       "distribution": "REAL_PASS",
       "cover_art": "REAL_PASS",
-      "mutagen_runtime": "REAL_PASS"
+      "mutagen_runtime": "BLOCKED"
     },
     "testing": {
       "pytest_suite": "REAL_PASS",
@@ -88,9 +90,17 @@
     [
       65,
       "heavy engines unavailable: ['musicgen_runtime', 'demucs_runtime']"
+    ],
+    [
+      90,
+      "voice clone engine not ready: rvc_env=BLOCKED (python main.py --bootstrap --online)"
+    ],
+    [
+      75,
+      "lyrics engine not ready: Ollama/модель не найдены (python main.py --ollama-setup)"
     ]
   ],
-  "weighted_sum": 83.93,
+  "weighted_sum": 67.27,
   "cap_min": 65,
   "final_floor": 65
 }

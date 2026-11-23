@@ -1,10 +1,7 @@
-name: Release - Fully Ready App
+name: Release - Windows App
 
-# Собирает полностью готовое приложение со всеми зависимостями:
-# - Python EXE (PyInstaller onedir) включает core requirements.txt
-# - Electron NSIS installer + portable включает данные проекта
-# Пользователь скачивает один файл, распаковывает/устанавливает и сразу жмёт "Создать хит".
-# Обновление — кнопкой в приложении: updater скачивает ZIP из этого релиза и ставит поверх.
+# Windows desktop installer and separate Python CLI build.
+# Neural runtimes and model weights are not bundled by this workflow.
 
 on:
   push:
@@ -30,7 +27,7 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install core dependencies (fully ready = requirements.txt)
+      - name: Install core dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
@@ -53,9 +50,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: windows-exe
-          path: |
-            dist/ZS Music Maker/
-            dist/ZS-Music-Maker-Windows-Portable.zip
+          path: dist/ZS-Music-Maker-Windows-Portable.zip
           retention-days: 30
 
   build-desktop-installer:
@@ -111,6 +106,16 @@ jobs:
           Set-Content -Path "node_modules/electron/path.txt" -Value "electron.exe" -NoNewline
           Remove-Item $zip -Force
 
+      - name: Set up bundled Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          architecture: 'x64'
+
+      - name: Bundle Python and core dependencies for clean Windows installs
+        shell: pwsh
+        run: ./desktop/scripts/bundle-python.ps1
+
       - name: Build NSIS + portable
         working-directory: desktop
         shell: pwsh
@@ -122,6 +127,35 @@ jobs:
             Start-Sleep -Seconds (10*$i)
           }
           if (-not $ok) { exit 1 }
+
+      - name: Smoke bundled Python inside packaged app
+        shell: pwsh
+        run: |
+          $root = Resolve-Path 'desktop/dist/win-unpacked/resources/project'
+          & "$root/.python/python.exe" -I -c "import numpy, scipy, soundfile, requests, pip; print('bundled core imports OK')"
+          if ($LASTEXITCODE -ne 0) { throw 'Packaged Python imports failed' }
+          & "$root/.python/python.exe" "$root/main.py" --version
+          if ($LASTEXITCODE -ne 0) { throw 'Packaged pipeline startup failed' }
+          $workspace = Join-Path $env:RUNNER_TEMP 'zsmm-user-workspace'
+          node -e "require('./desktop/electron/pipeline-workspace').prepareWorkspace(process.argv[1],process.argv[2]).catch(e=>{console.error(e);process.exit(1)})" "$root" "$workspace"
+          if ($LASTEXITCODE -ne 0) { throw 'Workspace preparation failed' }
+          Push-Location $workspace
+          try {
+            & "$root/.python/python.exe" -c "from pathlib import Path; import config.settings; Path('output').mkdir(exist_ok=True); Path('output/write-probe.txt').write_text('ok')"
+            if ($LASTEXITCODE -ne 0) { throw 'Workspace config import or write failed' }
+            & "$root/.python/python.exe" "$workspace/main.py" --version
+            if ($LASTEXITCODE -ne 0) { throw 'Workspace pipeline startup failed' }
+          } finally { Pop-Location }
+
+
+      - name: Real packaged renderer startup check
+        shell: pwsh
+        run: |
+          $env:ZSMM_WINDOW_CHECK_OUT = Join-Path $env:RUNNER_TEMP 'zsmm-window-startup.json'
+          $process = Start-Process -FilePath 'desktop/dist/win-unpacked/ZS Music Maker.exe' -ArgumentList '--window-check' -PassThru
+          if (-not $process.WaitForExit(60000)) { $process.Kill(); throw 'Window startup hung' }
+          if (Test-Path $env:ZSMM_WINDOW_CHECK_OUT) { Get-Content $env:ZSMM_WINDOW_CHECK_OUT }
+          if ($process.ExitCode -ne 0 -or -not (Test-Path $env:ZSMM_WINDOW_CHECK_OUT)) { throw 'Packaged window startup failed' }
 
       - name: List built installers
         working-directory: desktop
@@ -139,9 +173,13 @@ jobs:
 
   publish-release:
     needs: [build-python-exe, build-desktop-installer]
+    concurrency: product-release-publication
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Require product acceptance for this exact source commit
+        run: python3 tools/release_gate.py --commit "$GITHUB_SHA"
 
       - name: Download all artifacts
         uses: actions/download-artifact@v4
@@ -164,34 +202,57 @@ jobs:
           fi
           cat $GITHUB_OUTPUT
 
-      - name: Create source ZIP for updater (what updater installs)
+      - name: Create source ZIP for developers
         run: |
-          # ZIP содержимого репозитория без мусора — именно его ставит updater/install_from_zip
-          zip -r _artifacts/ZS-Music-Maker-Source-${{ steps.ver.outputs.version }}.zip \
-            . -x ".git/*" ".github/*" "output/*" ".venv/*" "venv/*" "node_modules/*" "desktop/node_modules/*" "desktop/dist/*" "dist/*" "*.pyc" "__pycache__/*" ".pytest_cache/*" \
+          # Архив пишется в /tmp, а НЕ в _artifacts/: раньше файл создавался внутри
+          # того же каталога, который архифицировал, и zip глатал уже собранные
+          # EXE. В релизах 42.0.x это давало 632 МБ вместо 68 МБ источника.
+          # _artifacts сюда попадает только как исключение — на случай порядка шагов.
+          V="${{ steps.ver.outputs.version }}"
+          zip -r "/tmp/ZS-Music-Maker-Source-$V.zip" \
+            . -x ".git/*" ".github/*" "output/*" ".venv/*" "venv/*" "node_modules/*" "desktop/node_modules/*" "desktop/dist/*" "dist/*" "*.pyc" "__pycache__/*" ".pytest_cache/*" "demo_site/*.wav" "_artifacts/*" \
             -q
-          ls -lh _artifacts/*.zip _artifacts/**/*.zip 2>&1 | head -n 20
+          cp "/tmp/ZS-Music-Maker-Source-$V.zip" "_artifacts/"
+          du -h "_artifacts/ZS-Music-Maker-Source-$V.zip"
           ls -lh _artifacts/** 2>&1 | head -n 50
+
+      - name: Refuse replacement of an existing release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ steps.ver.outputs.tag }}
+        run: |
+          gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" --jq '.[].tag_name' > /tmp/release-tags
+          if grep -Fx -- "$RELEASE_TAG" /tmp/release-tags; then
+            echo "Existing release is immutable; use a new version. No assets changed."
+            exit 1
+          fi
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
+          overwrite_files: false
+          make_latest: true
           tag_name: ${{ steps.ver.outputs.tag }}
-          name: ZS Music Maker ${{ steps.ver.outputs.version }} — Fully Ready
+          name: ZS Music Maker ${{ steps.ver.outputs.version }}
           body: |
-            **Полностью готовое приложение — скачай и сразу создавай хиты.**
+            ### Windows-приложение
+            - `ZS-Music-Maker-Setup-*.exe` — установщик Electron: интерфейс, локальный JS-аудиодвижок, жанры, пресеты, сэмплы и код Python-пайплайна.
+            - `ZS-Music-Maker-*-portable.exe` — переносная версия оболочки.
+            - `ZS-Music-Maker-Windows-Portable.zip` — отдельная Python CLI-сборка с core-зависимостями.
+            - `ZS-Music-Maker-Source-*.zip` — исходники для разработчиков, НЕ обновление установленного Electron-приложения.
 
-            ### Что внутри
-            - `ZS-Music-Maker-Windows-Portable.zip` — Python EXE (PyInstaller onedir) со всеми `requirements.txt`, готова без `pip install`. Запуск: распаковать и `ZS Music Maker.exe --help` или `scripts/run.cmd`.
-            - `ZS-Music-Maker-Setup-*.exe` — Electron установщик (NSIS) с данными проекта (жанры, пресеты, сэмплы). Устанавливается в Program Files, пишет данные в `%LOCALAPPDATA%\ZS Music Maker`.
-            - `ZS-Music-Maker-Source-*.zip` — исходники для обновления в один клик (кнопка «Обновить» в приложении скачивает его и вызывает `updater.install_from_zip` с сохранением `voice_vault/lyric_vault/output`).
+            ### Обновления
+            В версии 42.0.27+: включите сеть в настройках → Справка → Проверить обновления → Скачать и установить.
+            Приложение проверяет SHA-256 установщика, запускает мастер Windows и закрывается. Завершите мастер установки.
+            Для перехода с более ранней версии скачайте Setup вручную: старый механизм обновления через ZIP был неисправен.
+            Пользовательские данные оболочки хранятся отдельно от файлов приложения.
 
-            ### Установка с нуля (Windows 11)
-            1. Скачай `Portable` или `Setup` из Assets ниже.
-            2. Запусти — Python и зависимости уже внутри, `hitmaker.py --count 5 --evolve` работает.
-            3. Обновление: в приложении `Справка → Обновления → Проверить` → `Скачать и установить` — не нужно переустанавливать вручную, бэкап и откат автоматические (`updater/backup`).
+            ### Ограничения
+            Нейродвижки и веса (torch, MusicGen, XTTS/Bark, Ollama/LLM) не предустановлены.
+            Начиная с 42.0.30 оболочка включает CPython 3.11 и core-зависимости; нейродвижки требуют отдельной загрузки с разрешения пользователя.
+            Сборка установщика не доказывает готовность генерации песни и не гарантирует коммерческий хит.
 
-            `version.json` — единый источник правды: `${{ steps.ver.outputs.version }}`
+            Версия: `${{ steps.ver.outputs.version }}`.
           files: |
             _artifacts/**/*.zip
             _artifacts/**/*.exe

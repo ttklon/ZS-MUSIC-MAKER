@@ -8,6 +8,8 @@ updater/checks.py — проверка доступных обновлений.
 
 from __future__ import annotations
 
+from modules.errors import failure_reason
+
 import json
 import subprocess
 from pathlib import Path
@@ -45,7 +47,7 @@ def check_git_update_status(
                 "relation": relation, "working_tree_clean": not dirty,
                 "apply_performed": False}
     except Exception as exc:
-        return {"ok": False, "reason": str(exc), "apply_performed": False}
+        return {"ok": False, "reason": failure_reason(exc), "apply_performed": False}
 
 
 def check_updates(release_url: str, allow_online: bool = False) -> dict[str, Any]:
@@ -61,5 +63,5 @@ def check_updates(release_url: str, allow_online: bool = False) -> dict[str, Any
         with urlreq.urlopen(release_url, timeout=15) as resp:
             data = json.loads(resp.read().decode("utf-8"))
     except Exception as e:
-        return {"ok": False, "reason": str(e)}
+        return {"ok": False, "reason": failure_reason(e)}
     return {"ok": True, "data": data}

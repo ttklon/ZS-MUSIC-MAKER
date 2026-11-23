@@ -1,0 +1,22 @@
+{
+  "conclusion": "success",
+  "headSha": "98f8cb99aabcb843b7f4896e1bf40c813b73e35c",
+  "jobs": [
+    {
+      "name": "packaged-product-specification",
+      "conclusion": "success",
+      "url": "https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45041330349/job/137266246364"
+    },
+    {
+      "name": "result-outcome-hardware-contracts",
+      "conclusion": "success",
+      "url": "https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45041330349/job/137266246491"
+    },
+    {
+      "name": "validate-plan-not-product",
+      "conclusion": "success",
+      "url": "https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45041330349/job/137266246576"
+    }
+  ],
+  "url": "https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45041330349"
+}

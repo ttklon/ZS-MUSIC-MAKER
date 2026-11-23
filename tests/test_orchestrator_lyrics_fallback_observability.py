@@ -1,7 +1,14 @@
 from app.core.stages import lyrics as lyrics_stage
 
 
-def test_lyrics_template_fallback_preserves_router_exception(monkeypatch):
+def test_lyrics_blocked_preserves_router_exception(monkeypatch):
+    """Роутер упал — текста нет, причина сохранена.
+
+    Шаблон в проде больше не подставляется: «текст» из punch-библиотеки не
+    является текстом песни, и отчёт не должен показывать его как результат.
+    """
+    monkeypatch.delenv("ZSMM_ALLOW_TEMPLATE_LYRICS", raising=False)
+
     class BrokenRouter:
         def __init__(self, **_kwargs):
             pass
@@ -13,9 +20,10 @@ def test_lyrics_template_fallback_preserves_router_exception(monkeypatch):
 
     result = lyrics_stage._stage_lyrics("night drive", "phonk")
 
-    assert result["ok"] is True
-    assert result["provider"] == "local_template"
-    assert result["fallback_used"] is True
+    assert result["ok"] is False
+    assert result["provider"] == "BLOCKED"
+    assert result["fallback_used"] is False
+    assert result["text"] == ""
     assert result["fallback_attempts"] == [
         {
             "engine": "LLMRouter",
@@ -25,7 +33,9 @@ def test_lyrics_template_fallback_preserves_router_exception(monkeypatch):
     ]
 
 
-def test_lyrics_template_fallback_preserves_unusable_router_response(monkeypatch):
+def test_lyrics_blocked_preserves_unusable_router_response(monkeypatch):
+    monkeypatch.delenv("ZSMM_ALLOW_TEMPLATE_LYRICS", raising=False)
+
     class EmptyRouter:
         def __init__(self, **_kwargs):
             pass
@@ -37,7 +47,8 @@ def test_lyrics_template_fallback_preserves_unusable_router_response(monkeypatch
 
     result = lyrics_stage._stage_lyrics("night drive", "phonk")
 
-    assert result["provider"] == "local_template"
+    assert result["provider"] == "BLOCKED"
+    assert result["blocked"] is True
     assert result["fallback_attempts"] == [
         {
             "engine": "LLMRouter",

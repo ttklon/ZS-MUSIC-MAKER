@@ -1,3 +1,4 @@
+from modules.errors import failure_reason
 """
 [v7] user_profile.py — профиль пользователя.
 
@@ -245,7 +246,7 @@ def sync_voice_progress() -> dict:
             "detail": v,
         }
     except Exception as e:
-        return {"error": str(e)}
+        return {"error": failure_reason(e)}
 
 
 def save_last_settings(settings: dict) -> None:

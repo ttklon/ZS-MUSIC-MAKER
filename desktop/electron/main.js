@@ -13,6 +13,8 @@
 
 const { app, BrowserWindow, ipcMain, shell, dialog, Menu, nativeTheme, screen } = require('electron');
 const path = require('node:path');
+const { createDiagnostics, registerDiagnostics } = require('./startup-diagnostics');
+const diagnostics = createDiagnostics(path.join(app.getPath('userData'), 'logs'));
 const fs = require('node:fs');
 const fsp = require('node:fs/promises');
 
@@ -23,7 +25,9 @@ const smoke = require('./smoke');
 const { resolveRoot, resolvePython, resolvePipelineRoot } = require('./runtime');
 const { createSettingsStore, DEFAULTS } = require('./settings');
 const { registerTaskIpc } = require('./task-runner');
-const { registerUpdaterIpc } = require('./updater-service');
+const agentService = require('./agent-service');
+const shellService = require('./shell-service');
+const { registerUpdaterIpc, createConfirmInstall } = require('./updater-service');
 const policy = require('./window-policy');
 const appMenu = require('./app-menu');
 const appPaths = require('./app-paths');
@@ -145,8 +149,69 @@ function showAbout() {
   });
 }
 
+/**
+ * Рендер, банк сэмплов, сохранения бита и вокальный вход — в `beat-service.js`.
+ *
+ * Здесь остаётся только то, что умеет Electron: диалоги, выход в системный
+ * плеер и каталог «Музыка». Вынесено отдельной функцией, потому что блок
+ * вырос и main.js перевалил за лимит 400 строк (тест `ui-contract`).
+ *
+ * Это место однажды уже потерялось при разборе main.js на модули:
+ * `registerBeatIpc` остался в модуле, но его перестали звать, и все каналы
+ * бита (`zsmm:beat-*`, `zsmm:vocal-*`) оказались не зарегистрированы —
+ * «Собрать бит» в собранном приложении не работал бы вовсе. Структурный тест
+ * `ui-contract` теперь сверяет preload с регистрацией каналов.
+ */
+function wireBeatIpc() {
+  return beatService.registerBeatIpc({
+    ipcMain,
+    dialog,
+    // Python нужен индексации записи в голосовое хранилище: путь ищется той
+    // же функцией, что и для задач, чтобы окно не угадывало интерпретатор.
+    python: resolvePython,
+    pipelineRoot: resolvePipelineRoot,
+    rootDir: SAMPLE_ROOT || path.resolve(__dirname, '..', '..'),
+    getWindow: () => (windows ? windows.get() : null),
+    musicDir: safeMusicDir,
+    // Открытие готового WAV в системном плеере: `shell.openPath` — то же,
+    // что двойной щелчок по файлу в проводнике Windows.
+    openPath: async (file) => {
+      const error = await shell.openPath(file);
+      return error || null;
+    },
+    // Прогресс рендера виден и в панели задач: свёрнутое окно иначе выглядит
+    // зависшим. Значение считает window-policy (там же и тест).
+    onProgressSender: (event, progress) => {
+      if (windows) windows.showTaskbarProgress(progress);
+      if (event && event.sender && !event.sender.isDestroyed()) {
+        event.sender.send('zsmm:beat-progress', progress);
+      }
+    },
+  });
+}
+
+/**
+ * Агентик: запуск через общий белый список задач и открытие мастера.
+ *
+ * Вынесено из `registerIpc`, чтобы главный файл не превращался в свалку
+ * каналов: правило проекта — файл окна не длиннее 400 строк (тест
+ * `ui-contract`).
+ */
+function wireAgentIpc(taskIpc) {
+  const shellOpen = async (file) => (await shell.openPath(file)) || null;
+  return agentService.registerAgentIpc({
+    ipcMain,
+    fsApi: fs,
+    audioRoots: [ROOT && path.join(ROOT, 'output', 'hits'),
+      app.isPackaged && path.join(app.getPath('userData'), 'workspace', 'output', 'hits')].filter(Boolean),
+    startAgent: (options) => taskIpc.start('agent-hit', options),
+    openPath: shellOpen,
+  });
+}
+
 /** IPC: один канал на раздел. Возвращаем данные либо {error} — без исключений. */
 function registerIpc(getProject) {
+  registerDiagnostics({ ipcMain, diagnostics, dialog });
   // Данные проекта — в ipc-project.js: шесть однотипных загрузчиков не должны
   // занимать место рядом с окном и задачами.
   registerProjectIpc({
@@ -171,116 +236,49 @@ function registerIpc(getProject) {
   } catch {
     taskState.userData = null;
   }
-  registerTaskIpc({
+  // Регистратор задач отдаётся наружу: агентику нужен тот же путь запуска
+  // (`zsmm:task-start`), а не второй процесс-лаунчер. «Сделать хит» —
+  // единственная кнопка, которая обязана вернуть файл, поэтому её канал
+  // (`zsmm:agent-hit` + открытие мастера) регистрируется сразу за задачами.
+  wireAgentIpc(registerTaskIpc({
+    diagnostics, pythonUserBase: path.join(app.getPath('userData'), 'python-packages'),
+    workspaceRoot: app.isPackaged ? path.join(app.getPath('userData'), 'workspace') : null,
     ipcMain,
     root: ROOT,
     getProject,
     getWindows: () => windows,
+    // Галочка сети в окне — единственный источник согласия пользователя:
+    // без этого моста Python-задачи видели `network disabled` при включённой
+    // в приложении сети.
+    getSettings: () => settings().load().value,
     state: taskState,
-  });
+  }));
 
   // Обновления в один клик: кнопка в приложении скачивает релиз с GitHub и ставит поверх
   try {
-    registerUpdaterIpc({ ipcMain, root: ROOT, settingsStore: settings(), resolvePython });
+    registerUpdaterIpc({ ipcMain, root: ROOT, settingsStore: settings(), app, shell,
+      confirmInstall: createConfirmInstall(dialog),
+    });
   } catch (e) {
     console.error('updater ipc failed', e);
   }
 
-  // Рендер, банк сэмплов, сохранения бита и вокальный вход — в
-  // `beat-service.js`. Здесь передаём только то, что умеет Electron: диалоги,
-  // выход в системный плеер и каталог «Музыка».
-  //
-  // Это место однажды уже потерялось при разборе main.js на модули:
-  // `registerBeatIpc` остался в модуле, но его перестали звать, и все каналы
-  // бита (`zsmm:beat-*`, `zsmm:vocal-*`) оказались не зарегистрированы —
-  // «Собрать бит» в собранном приложении не работал бы вовсе. Структурный
-  // тест `ui-contract` теперь сверяет preload с регистрацией каналов.
-  beatIpc = beatService.registerBeatIpc({
+  beatIpc = wireBeatIpc();
+
+  // «О системе»-каналы (корень, ссылки, настройки, окружение) — в
+  // `shell-service.js`: registerIpc остаётся списком вызовов.
+  shellService.registerShellIpc({
     ipcMain,
-    dialog,
-    rootDir: SAMPLE_ROOT || path.resolve(__dirname, '..', '..'),
-    getWindow: () => (windows ? windows.get() : null),
-    musicDir: safeMusicDir,
-    // Открытие готового WAV в системном плеере: `shell.openPath` — то же,
-    // что двойной щелчок по файлу в проводнике Windows.
-    openPath: async (file) => {
-      const error = await shell.openPath(file);
-      return error || null;
-    },
-    // Прогресс рендера виден и в панели задач: свёрнутое окно иначе выглядит
-    // зависшим. Значение считает window-policy (там же и тест).
-    onProgressSender: (event, progress) => {
-      if (windows) windows.showTaskbarProgress(progress);
-      if (event && event.sender && !event.sender.isDestroyed()) {
-        event.sender.send('zsmm:beat-progress', progress);
-      }
-    },
-  });
-
-  ipcMain.handle('zsmm:reveal-root', async () => {
-    if (!ROOT) return { ok: false, error: rootInfo.error };
-    const error = await shell.openPath(ROOT);
-    return { ok: error === '', error: error || null, root: ROOT };
-  });
-
-  ipcMain.handle('zsmm:open-external', async (_event, url) => {
-    const allowed = policy.externalUrl(url);
-    if (!allowed) return { ok: false, error: 'разрешены только http(s)-ссылки' };
-    await shell.openExternal(allowed);
-    return { ok: true };
-  });
-
-  ipcMain.handle('zsmm:settings-load', () => {
-    const { value, error, errors } = settings().load();
-    return { ok: true, data: { ...value, error, invalid: errors } };
-  });
-
-  ipcMain.handle('zsmm:settings-save', (_event, patch) => {
-    const { value, error } = settings().save(patch);
-    return { ok: error === null, data: value, error };
-  });
-
-  // Всё, что отличает «работает в репозитории» от «работает на Windows
-  // после установки»: пути, наличие Python, каталог настроек.
-  ipcMain.handle('zsmm:environment', () => {
-    const python = resolvePython({ root: ROOT, env: process.env });
-    const pipeline = resolvePipelineRoot({ root: ROOT });
-    return {
-      ok: true,
-      data: {
-        version: app.getVersion(),
-        packaged: app.isPackaged,
-        root: ROOT,
-        rootCandidates: rootInfo.candidates,
-        rootError: rootInfo.error,
-        user_data: (() => {
-          try {
-            return app.getPath('userData');
-          } catch {
-            return null;
-          }
-        })(),
-        music_dir: safeMusicDir(),
-        // Где приложение ведёт досье и почему: в установленной сборке
-        // `resources/project` только для чтения.
-        dossier_dir: dossierPlan().dir,
-        dossier_source: dossierPlan().source === 'user'
-          ? 'каталог пользователя: каталог установки только для чтения'
-          : 'каталог проекта: приложение запущено из репозитория',
-        python: python.python,
-        python_error: python.error,
-        // Пайплайн — отдельная вещь от интерпретатора: «Python есть» не
-        // значит «задачи раздела „Запуск“ заработают».
-        pipeline_root: pipeline.root,
-        pipeline_error: pipeline.error,
-        platform: process.platform,
-        arch: process.arch,
-        electron: process.versions.electron || null,
-        node: process.versions.node,
-        chrome: process.versions.chrome || null,
-        worker_render: true,
-      },
-    };
+    root: ROOT,
+    rootInfo,
+    shell,
+    policy,
+    settings,
+    safeMusicDir,
+    dossierPlan,
+    resolvePython,
+    resolvePipelineRoot,
+    versions: process.versions, getUserData: () => app.getPath('userData'), isPackaged: app.isPackaged,
   });
 }
 
@@ -359,7 +357,14 @@ app.whenReady().then(() => {
     return;
   }
   registerIpc(() => project);
-  windows.create(project);
+  const mainWindow = windows.create(project);
+  require('./window-startup-check').checkWindow(mainWindow, app);
+  mainWindow.webContents.on('preload-error', (_e, _file, error) => diagnostics.record('preload', error));
+  mainWindow.webContents.on('did-fail-load', (_e, code, description) => diagnostics.record('load', `${code}: ${description}`));
+}).catch(err => {
+  diagnostics.record('startup', err);
+  dialog.showErrorBox('Не удалось запустить приложение', String(err.message || err) + '\nЖурнал: ' + diagnostics.file);
+  app.quit();
 });
 
 app.on('window-all-closed', () => {

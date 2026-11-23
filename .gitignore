@@ -6,6 +6,16 @@ __pycache__/
 .Python
 env/
 build/
+# Кэши тестов и тулинга: ни один из них не нужен в репозитории и не должен
+# попадать в source-ZIP для обновления.
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.hypothesis/
+.coverage
+.coverage.*
+htmlcov/
+.benchmarks/
 # Ресурсы сборки Electron (иконка) — это исходник, а не артефакт.
 !desktop/build/
 develop-eggs/
@@ -53,8 +63,11 @@ logs/
 *.wav
 # Скриншоты окна — это документация (docs/screenshots/), а не артефакты.
 !docs/screenshots/**
-# Демо-превью HIT FACTORY — коммитится для прослушки в LIVE PREVIEW
+# Демо-превью HIT FACTORY: в git живёт только страница и обложки.
+# WAV-демо — это 55 МБ артефактов рендера, которые ни один тест не использует;
+# они генерируются командами с этой же страницы и остаются локально.
 !demo_site/**
+demo_site/*.wav
 *.mp3
 *.flac
 *.m4a
@@ -101,3 +114,6 @@ desktop/build-config.generated.json
 # Снимок чисел (data/desktop/readiness.json, inventory.md) версионируется:
 # именно его читает окно и именно по нему проверяется устаревание.
 
+
+# Relocatable Python assembled on Windows CI, never commit binaries.
+desktop/python-runtime/

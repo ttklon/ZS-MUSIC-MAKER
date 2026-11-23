@@ -8,6 +8,8 @@ app/core/ai/stages_meta.py — метаданные AI-пайплайна.
 
 from __future__ import annotations
 
+from modules.errors import failure_reason
+
 import json
 
 from app.core.ai.context import AIContext
@@ -23,7 +25,7 @@ def stage_hw(_, ctx):
         from app.core.hw_autodetect import get_hardware_profile
         return get_hardware_profile()
     except Exception as e:
-        return {"error": str(e)}
+        return {"error": failure_reason(e)}
 
 def stage_dossier_load(_, ctx):
     ai: AIContext = ctx["ai"]

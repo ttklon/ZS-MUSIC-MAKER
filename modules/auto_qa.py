@@ -20,6 +20,8 @@ Auto-QA берёт финальный master.wav и прогоняет его ч
 
 from __future__ import annotations
 
+from modules.errors import failure_reason
+
 import json
 import math
 import time
@@ -31,7 +33,15 @@ QA_DIR = ROOT / "output" / "auto_qa"
 
 
 def _loudness(y, sr) -> dict:
-    """Приблизительный интегрированный LUFS / peak / crest factor."""
+    """Громкость для QA: настоящий BS.1770, а не «RMS минус 3».
+
+    Раньше здесь стояло `lufs_approx = rms_db - 3.0` с комментарием «very
+    rough K-weighting». На живом мастере это давало −20.4 LUFS там, где
+    мастеринг измерил −14.4: QA объявлял правильно сведённый трек «слишком
+    тихим» и выставлял `verdict=rebuild`. Теперь метрика одна на всё
+    приложение — `modules.dsp.metrics.integrated_lufs` (pyloudnorm/BS.1770),
+    а `lufs_approx` остаётся в ответе только как грубая оценка для сравнения.
+    """
     import numpy as np
 
     if y.ndim > 1:
@@ -42,14 +52,23 @@ def _loudness(y, sr) -> dict:
     rms = float(np.sqrt(np.mean(m * m))) if len(m) else 0.0
     peak_db = 20 * math.log10(peak + 1e-9)
     rms_db = 20 * math.log10(rms + 1e-9)
-    lufs_approx = rms_db - 3.0  # very rough K-weighting
     crest = peak_db - rms_db
-    return {
+    out = {
         "peak_db": round(peak_db, 2),
         "rms_db": round(rms_db, 2),
-        "lufs_approx": round(lufs_approx, 2),
+        "lufs_approx": round(rms_db - 3.0, 2),
         "crest_factor_db": round(crest, 2),
     }
+    try:
+        from modules.dsp import metrics as dsp_metrics
+
+        lufs, info = dsp_metrics.integrated_lufs(np.asarray(y), sr)
+        out["lufs"] = round(float(lufs), 2)
+        out["lufs_engine"] = str(info.get("engine") or "unknown")
+    except Exception as exc:  # noqa: BLE001 - без движка остаётся оценка
+        out["lufs"] = out["lufs_approx"]
+        out["lufs_engine"] = f"approx ({type(exc).__name__})"
+    return out
 
 
 def _structure_check(y, sr) -> dict:
@@ -59,8 +78,11 @@ def _structure_check(y, sr) -> dict:
         import numpy as np
 
         rms = librosa.feature.rms(y=y, frame_length=2048, hop_length=1024)[0]
-        # 8-сек окно ~ 44100*8/1024
-        w = int(sr * 8 / 1024)
+        # Окно хука: 8 секунд на нормальном треке, но не больше трети самого
+        # трека. Фиксированные 8 с требовали минимум 24 с и любой короткий
+        # рендер (20 с по умолчанию в хит-фабрике) получал «структура не
+        # проверена» — то есть QA молчал именно там, где нужен.
+        w = max(int(sr * 2 / 1024), min(int(sr * 8 / 1024), len(rms) // 3))
         if len(rms) < 3 * w:
             # Раньше здесь не было error, а вызывающий код его читает:
             # структура считалась проверенной с hook_score 0 и без причины.
@@ -87,7 +109,7 @@ def _structure_check(y, sr) -> dict:
             "sections_detected": len(chunks),
         }
     except Exception as e:
-        return {"hook_score": 0.0, "error": str(e)}
+        return {"hook_score": 0.0, "error": failure_reason(e)}
 
 
 def _audit_ai_detector(master_wav: Path) -> tuple[dict, list[dict]]:
@@ -99,7 +121,15 @@ def _audit_ai_detector(master_wav: Path) -> tuple[dict, list[dict]]:
         ad = analyze_track(str(master_wav))
         # Отсутствие метрики — это отсутствие вердикта, а не 0 %: пустой ответ
         # детектора нельзя читать как «нейросети не найдено».
-        neuro = ad.get("neuronoshnost_percent", ad.get("neuroness_percent"))
+        # Имена полей берём из реального контракта `analyze_track`:
+        # `ai_risk_percent` (текущее) и `score` (0..1). Прежние
+        # `neuronoshnost_percent`/`neuroness_percent` не существовали никогда,
+        # поэтому QA всегда писал «AI Detector не дал оценку», хотя детектор
+        # отвечал `ai_risk_percent: 11.1`, а это `verdict=patch` вместо
+        # `rebuild`. `verdict` и `advice` тоже нужно донести до пользователя.
+        neuro = ad.get("ai_risk_percent")
+        if neuro is None and isinstance(ad.get("score"), (int, float)):
+            neuro = round(float(ad["score"]) * 100.0, 1)
         # analyze_track возвращает {"error": ...} вместо исключения. Молча
         # прочитать это как 0 % — значит объявить трек чистым от нейросети
         # на основании того, что его не анализировали.
@@ -112,6 +142,15 @@ def _audit_ai_detector(master_wav: Path) -> tuple[dict, list[dict]]:
                 }
             )
             neuro = 0
+        if ad.get("advice"):
+            for item in ad["advice"]:
+                actions.append(
+                    {
+                        "target": "ai_detector",
+                        "reason": str(item),
+                        "fix": "правка звука по совету детектора (не атрибуция ИИ)",
+                    }
+                )
         if neuro and neuro > 70:
             actions.append(
                 {
@@ -130,14 +169,14 @@ def _audit_ai_detector(master_wav: Path) -> tuple[dict, list[dict]]:
             )
         return ad, actions
     except Exception as e:
-        return {"error": str(e)}, actions
+        return {"error": failure_reason(e)}, actions
 
 
 def _audit_loudness(y, sr, target_lufs: float) -> tuple[dict, list[dict]]:
     """Второе «ухо»: громкость, пики и крест-фактор."""
     actions: list[dict] = []
     loudness = _loudness(y, sr)
-    lu = loudness["lufs_approx"]
+    lu = float(loudness.get("lufs", loudness["lufs_approx"]))
     if lu < target_lufs - 3:
         actions.append(
             {
@@ -180,14 +219,33 @@ def _audit_structure(structure: dict) -> list[dict]:
     return []
 
 
-def audit_track(master_wav: str | Path, target_lufs: float = -9.0) -> dict:
-    """
-    Полный аудит финального трека. Возвращает dict с 3 блоками:
-    {ai_detector, loudness, structure, verdict, actions[]}
+def _verdict_for(actions: list[dict]) -> tuple[str, str]:
+    """Свести замечания к одному вердикту и человеческому тексту."""
+    if not actions:
+        return "release", "✅ Готов к релизу"
+    targets = ", ".join(str(item.get("target")) for item in actions)
+    if len(actions) <= 2:
+        return "patch", f"⚠ Переделать: {targets}"
+    return "rebuild", "❌ Пересобрать всё"
 
-    `ok` здесь значит «аудит проведён и записан», а не «трек хорош»: качество
-    описывает `verdict`, и `ok=true` рядом с `verdict=rebuild` — норма.
+
+def audit_track(master_wav: str | Path, target_lufs: float | None = None) -> dict:
+    """Полный аудит финального трека.
+
+    Возвращает dict с блоками `{ai_detector, loudness, structure, verdict,
+    actions[]}`. `ok` здесь значит «аудит проведён и записан», а не «трек
+    хорош»: качество описывает `verdict`, и `ok=true` рядом с
+    `verdict=rebuild` — норма.
+
+    `target_lufs` по умолчанию берётся из `mastering.targets` (−14.0 для
+    streaming). Раньше здесь стоял литерал −9.0, из-за чего правильно
+    сведённый по §7.2 мастер получал замечание «слишком тихо» и уезжал в
+    `verdict=patch` — то есть QA спорил с собственным мастерингом.
     """
+    if target_lufs is None:
+        from modules.mastering.targets import STAND_TARGET_LUFS
+
+        target_lufs = STAND_TARGET_LUFS["streaming"]
     master_wav = Path(master_wav)
     result = {
         "master": str(master_wav),
@@ -215,18 +273,7 @@ def audit_track(master_wav: str | Path, target_lufs: float = -9.0) -> dict:
         result["loudness_error"] = str(e)
 
     # 3) Verdict
-    n_actions = len(result["actions"])
-    if n_actions == 0:
-        result["verdict"] = "release"
-        result["verdict_text"] = "✅ Готов к релизу"
-    elif n_actions <= 2:
-        result["verdict"] = "patch"
-        result["verdict_text"] = "⚠ Переделать: " + ", ".join(
-            a["target"] for a in result["actions"]
-        )
-    else:
-        result["verdict"] = "rebuild"
-        result["verdict_text"] = "❌ Пересобрать всё"
+    result["verdict"], result["verdict_text"] = _verdict_for(result["actions"])
 
     # Save
     # QA_DIR в чистой установке отсутствует (output/ не в git) — без mkdir

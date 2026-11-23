@@ -9,6 +9,8 @@ VAD с гистерезисом и накопление буфера. Ошибк
 
 from __future__ import annotations
 
+from modules.errors import failure_reason
+
 import math
 import time
 import wave
@@ -131,7 +133,7 @@ class RealMicRecorder:
             }
         except Exception as e:
             self._active = False
-            return {"ok": False, "backend": self._backend, "reason": str(e)}
+            return {"ok": False, "backend": self._backend, "reason": failure_reason(e)}
 
     def stop(self) -> dict[str, Any]:
         self._stop_ts = time.time()
@@ -196,7 +198,7 @@ class RealMicRecorder:
                 "For P0.03 compliance, real recording is required.",
             }
         except Exception as e:
-            return {"ok": False, "reason": str(e)}
+            return {"ok": False, "reason": failure_reason(e)}
 
     def stop_and_split(
         self, min_silence_ms: int = 600, min_take_ms: int = 800

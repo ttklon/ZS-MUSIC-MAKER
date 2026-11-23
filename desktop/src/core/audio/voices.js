@@ -15,7 +15,8 @@ const harmony = require('./harmony');
 const { zeros, mixInto, peak } = require('./dsp');
 const { ROOT_FREQS } = require('./tuning');
 const { rootFreq, isMajor } = require('./tuning');
-const { hookMotif, motifLead } = require('./hook');
+const { hookMotif, motifLead, motifLoopForBar } = require('./hook');
+const { SampleUsageMixin } = require('./sample-usage');
 
 const KICK_VARIANTS = 3;
 const SNARE_VARIANTS = 3;
@@ -201,11 +202,18 @@ class VoiceEngine {
     return (rootFreq(this.key) / 2.0) * Math.pow(2, semitones / 12);
   }
 
-  /** Сэмпл из банка (mono) или null: тонкость в том, что банк может быть пуст. */
+  /**
+   * Сэмпл из банка (mono) или null: тонкость в том, что банк может быть пуст.
+   *
+   * Считает прозвучавшие сэмплы: отчёт `drum_engine.status = REAL_PASS` без
+   * подтверждения «сколько реально попало в трек» — утверждение без факта.
+   */
   bankAudio(instrument, velocity) {
     if (!this.bank || this.bank.empty) return null;
     const audio = this.bank.audio(instrument, this.noiseRng, velocity);
-    return audio && audio.length ? audio : null;
+    if (!audio || !audio.length) return null;
+    this.noteSample(instrument, true);
+    return audio;
   }
 
   /**
@@ -353,6 +361,9 @@ class VoiceEngine {
   }
 }
 
+// Счётчики сэмплов живут в отдельном модуле: см. core/audio/sample-usage.js.
+Object.assign(VoiceEngine.prototype, SampleUsageMixin);
+
 module.exports = {
   ROOT_FREQS,
   KICK_VARIANTS,
@@ -362,6 +373,7 @@ module.exports = {
   isMajor,
   hookMotif,
   motifLead,
+  motifLoopForBar,
   VoiceEngine,
   peak,
 };

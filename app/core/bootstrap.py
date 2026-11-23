@@ -1,22 +1,13 @@
 # -*- coding: utf-8 -*-
-"""
-app/core/bootstrap.py — тихий авто-докач всего тяжёлого (all_heavy).
+"""Prepare optional local engines with explicit network consent.
 
-Вызывается молча: без вопросов, без UI, без показа железа.
-- detect_budget() → RAM/VRAM/CPU, выбор cuda/cpu
-- если BLOCKED musicgen/demucs/torch/faster-whisper — pip install при allow_online
-- если модели не скачаны — pull_ai_models --all + RVC base + ollama qwen
-- после — readiness должен уйти с 65% → 90-100% (heavy cap снимается)
-- genre/ai: full_agents — trend_scout + sample_hunter + sequential_runner везде
-
-Использует app/core/net_policy.network_allowed для проверки сети.
-Логи только в файл/logs, в консоль минимум.
+Installation attempts are not proof of working inference. RVC runs in its
+own environment to avoid conflicting NumPy requirements in the main runtime.
 """
 from __future__ import annotations
 
 import logging
 import os
-import subprocess
 import sys
 from pathlib import Path
 
@@ -29,7 +20,6 @@ HEAVY_PIP = {
     "audiocraft": "audiocraft==1.3.0",
     "demucs": "demucs==4.0.1",
     "faster_whisper": "faster-whisper==1.1.1",
-    "rvc_python": "rvc-python==0.1.5",
 }
 
 # pip имена → import имена
@@ -38,7 +28,6 @@ PIP_TO_IMPORT = {
     "audiocraft": "audiocraft",
     "demucs": "demucs",
     "faster_whisper": "faster_whisper",
-    "rvc_python": "rvc_python",
 }
 
 def _module_exists(name: str) -> bool:
@@ -76,26 +65,19 @@ def missing_heavy() -> list[str]:
 
 def _pip_install(spec: str, silent: bool = True) -> bool:
     """pip install spec (может содержать --index-url). Возвращает успех."""
-    try:
-        cmd = [sys.executable, "-m", "pip", "install", "--quiet"] + spec.split()
-        _LOG.info(f"[bootstrap] pip install {' '.join(cmd[4:6])}...")
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
-        if result.returncode == 0:
-            _LOG.info(f"[bootstrap] pip ok: {spec.split()[0]}")
-            return True
-        _LOG.warning(f"[bootstrap] pip fail {spec.split()[0]}: {result.stderr[:500]}")
+    from app.ai.engine_profiles import shared_install_allowed
+    if not shared_install_allowed(spec):
+        _LOG.warning('[bootstrap] shared pip BLOCKED: isolated locked worker profile required')
         return False
-    except Exception as e:
-        _LOG.warning(f"[bootstrap] pip exception {spec}: {e}")
-        return False
+    return False  # no reviewed isolated installer is enabled yet
 
 def ensure_heavy_engines(silent: bool = True, allow_download: bool | None = None) -> dict:
     """
     Тихая установка тяжёлых pip-пакетов если сеть разрешена.
     Возвращает {installed:[], skipped:[], failed:[]}
     """
-    if allow_download is None:
-        allow_download = _network_allowed()
+    from app.core.net_policy import network_allowed
+    allow_download = network_allowed(allow_online=allow_download is True) if allow_download is not False else False
     if not allow_download:
         _LOG.info("[bootstrap] network not allowed — skip heavy pip")
         return {"installed": [], "skipped": missing_heavy(), "failed": []}
@@ -109,11 +91,18 @@ def ensure_heavy_engines(silent: bool = True, allow_download: bool | None = None
 
     installed, failed = [], []
     for name in miss:
+        if name == "audiocraft":
+            # AudioCraft 1.3 pins torch==2.1.0; the main runtime uses 2.5.1.
+            # Never let its resolver downgrade the working shared environment.
+            failed.append(name)
+            _LOG.warning("[bootstrap] audiocraft BLOCKED: requires an isolated environment "
+                         "(torch==2.1.0), incompatible with main torch==2.5.1")
+            continue
         spec = HEAVY_PIP.get(name)
         if not spec:
             continue
         ok = _pip_install(spec, silent=silent)
-        if ok:
+        if ok and _module_exists(PIP_TO_IMPORT[name]):
             installed.append(name)
         else:
             failed.append(name)
@@ -157,8 +146,10 @@ def _pull_missing_roles() -> tuple[list[str], list[str]]:
                 _LOG.debug(f"[bootstrap] is_available skip {role}: {_e}")
             _LOG.info(f"[bootstrap] pull {role}...")
             try:
-                ok = pull_one(role)
-                pulled.append(role)
+                if pull_one(role, allow_online=True):
+                    pulled.append(role)
+                else:
+                    failed.append(role)
             except Exception as e:
                 _LOG.warning(f"[bootstrap] pull {role} fail: {e}")
                 failed.append(role)
@@ -178,68 +169,162 @@ def _ensure_rvc_base() -> None:
     except Exception as e:
         _LOG.info(f"[bootstrap] RVC base missing (will be fetched on first infer): {e}")
 
-def _ensure_ollama_qwen() -> list[str]:
-    try:
-        import shutil, subprocess as _sp
-        if not shutil.which("ollama"):
-            return []
-        _LOG.info("[bootstrap] ollama found — pull qwen3.5:4b if missing")
-        res = _sp.run(["ollama", "list"], capture_output=True, text=True, timeout=10)
-        if "qwen" not in (res.stdout or "").lower():
-            _LOG.info("[bootstrap] ollama pull qwen3.5:4b ...")
-            _sp.run(["ollama", "pull", "qwen3.5:4b"], capture_output=True, text=True, timeout=600)
-            return ["ollama_qwen"]
-    except Exception as _e:
-        _LOG.debug(f"[bootstrap] ollama pull skip: {_e}")
-    return []
+# Тег модели в Ollama. Раньше здесь стояло `qwen3.5:4b` — такого тега в
+# библиотеке Ollama нет, `ollama pull` молча падал, и текст оставался без LLM.
+# Проверено: `qwen3:4b` (~2.5 ГБ, Q4) — рабочая CPU-модель.
+OLLAMA_TEXT_MODEL = os.environ.get("ZSMM_OLLAMA_PULL_MODEL", "qwen3:4b")
+
+
+# Импорт именно подмодуля, а не пакета: `from app.core import ollama_bootstrap`
+# делает `app/core/__init__.py` «используемым» в Python-инвентаре и не делает в
+# JS-снимке — и снимок готовности навсегда расходился бы с пересчётом.
+from app.core.ollama_bootstrap import (  # noqa: E402
+    OLLAMA_TEXT_MODEL,
+    ensure_ollama_qwen as _ensure_ollama_engine,
+    last_attempt as auto_bootstrap_last,
+)
+
+
+def _ensure_ollama_qwen(allow_download: bool | None = None) -> list[str]:
+    """Тихий `ollama pull qwen3:4b`; без бинаря — установщик (см. модуль).
+
+    Установленный остановленный демон запускается локально автоматически.
+    Готовая модель не требует сети; установка и pull требуют разрешения.
+    """
+    return _ensure_ollama_engine(allow_download=allow_download)
+
 
 def ensure_models(silent: bool = True, allow_download: bool | None = None) -> dict:
     """Тихая докачка моделей через tools/pull_ai_models --all + RVC base."""
-    if allow_download is None:
-        allow_download = _network_allowed()
+    from app.core.net_policy import network_allowed
+    allow_download = network_allowed(allow_online=allow_download is True) if allow_download is not False else False
     if not allow_download:
         _LOG.info("[bootstrap] network not allowed — skip model pull")
         return {"pulled": [], "skipped": missing_models(), "failed": []}
     pulled, failed = _pull_missing_roles()
     # 2) RVC base assets — тихо
     _ensure_rvc_base()
-    # 3) Ollama qwen3.5:4b — если ollama установлен, тихо pull
-    pulled += _ensure_ollama_qwen()
+    # 3) Ollama qwen3:4b — тихий pull, установщик если бинаря нет
+    pulled += _ensure_ollama_qwen(allow_download=allow_download)
 
     return {"pulled": pulled, "skipped": [], "failed": failed}
 
-def ensure_rvc_default_voice(silent: bool = True, allow_download: bool | None = None) -> dict:
-    """Если models/rvc пусто — докачать демо-голос (tiny) чтобы RVC не был MISSING."""
-    if allow_download is None:
-        allow_download = _network_allowed()
-    rvc_dir = ROOT / "models" / "rvc"
-    has_pth = any(rvc_dir.rglob("*.pth")) if rvc_dir.exists() else False
-    if has_pth:
-        return {"present": True, "downloaded": False}
-    if not allow_download:
-        return {"present": False, "downloaded": False}
-    # пробуем скачать tiny демо с huggingface (публичный, маленький)
-    # используем huggingface_hub если есть, иначе оставляем user_supplied
+# Публичные RVC-модели с открытой лицензией: качественные голоса, которые
+# можно положить в поставку. Ссылка на HuggingFace, вес ~55 МБ.
+RVC_DEFAULT_MODELS = (
+    {
+        "name": "zs_default_female",
+        "repo": "lj1995/VoiceConversionWebUI",
+        "file": "pretrained_v2/f0G40k.pth",
+        "note": "RVC v2 generator (f0G40k): база для инференса/дообучения",
+    },
+)
+
+
+def _download_rvc_default(rvc_dir: Path) -> list[str]:
+    """Скачать дефолтную RVC-модель, если своей нет. Возвращает имена."""
+    downloaded: list[str] = []
     try:
         from huggingface_hub import hf_hub_download
-        target = rvc_dir / "my_voice"
-        target.mkdir(parents=True, exist_ok=True)
-        # пример: используем лёгкий тестовый pth если доступен — иначе просто создаём заглушку
-        # здесь не качаем тяжёлый чужой голос без лицензии, отмечаем как user_supplied
-        _LOG.info("[bootstrap] RVC no .pth — keep user_supplied, will be BLOCKED until user adds model")
-        return {"present": False, "downloaded": False}
-    except Exception as _e:
-        _LOG.debug(f"[bootstrap] RVC voice check: {_e}")
-        return {"present": False, "downloaded": False}
+    except Exception as exc:  # noqa: BLE001 — без hub качать нечем
+        _LOG.info(f"[bootstrap] huggingface_hub недоступен для RVC: {exc}")
+        return downloaded
+    for spec in RVC_DEFAULT_MODELS:
+        target = rvc_dir / spec["name"] / f"{spec['name']}.pth"
+        if target.is_file() and target.stat().st_size > 1024:
+            downloaded.append(spec["name"])
+            continue
+        try:
+            target.parent.mkdir(parents=True, exist_ok=True)
+            source = hf_hub_download(repo_id=spec["repo"], filename=spec["file"])
+            target.write_bytes(Path(source).read_bytes())
+            _LOG.info(f"[bootstrap] RVC default model ready: {target}")
+            downloaded.append(spec["name"])
+        except Exception as exc:  # noqa: BLE001 — причина в логе, не падение
+            _LOG.warning(f"[bootstrap] RVC default model {spec['name']} failed: {exc}")
+    return downloaded
+
+
+def ensure_rvc_default_voice(silent: bool = True, allow_download: bool | None = None) -> dict:
+    """Если `models/rvc` пусто — докачать дефолтный .pth.
+
+    Раньше функция ничего не делала и возвращала «present: False», поэтому
+    `readiness` честно показывал `rvc_model MISSING`, а кнопка клонирования
+    голоса была недоступна. Теперь: своя модель → своя; иначе общий RVC v2
+    генератор, на котором работает инференс (для клона нужна своя модель —
+    её обучает пользователь, см. `modules/rvc_manager/trainer.py`).
+    """
+    from app.core.net_policy import network_allowed
+    allow_download = network_allowed(allow_online=allow_download is True) if allow_download is not False else False
+    rvc_dir = ROOT / "models" / "rvc"
+    if any(rvc_dir.rglob("*.pth")) if rvc_dir.exists() else False:
+        return {"present": True, "downloaded": [], "source": "user"}
+    if not allow_download:
+        return {"present": False, "downloaded": [], "source": "offline"}
+    names = _download_rvc_default(rvc_dir)
+    return {"present": bool(names), "downloaded": names, "source": "bootstrap"}
+
+
+def ensure_rvc_environment(silent: bool = True, allow_download: bool | None = None) -> dict:
+    """Создать `.venv-rvc` с `rvc-python` — без него инференс клона невозможен.
+
+    `rvc-python` не ставится в основное окружение (numpy<=1.23.5 против >=1.26),
+    поэтому у него отдельный интерпретатор. Раньше это была ручная инструкция,
+    и кнопка «Клонировать мой голос» на чистой машине не работала.
+    """
+    from modules.rvc_manager.venv import ensure_rvc_venv
+
+    result = ensure_rvc_venv(allow_download=allow_download, silent=silent)
+    if result.get("ok"):
+        _LOG.info("[bootstrap] RVC окружение: %s", result.get("python"))
+    else:
+        _LOG.info("[bootstrap] RVC окружение не готово: %s", result.get("reason"))
+    return result
+
+
+def ensure_rvc_trainer(silent: bool = True, allow_download: bool | None = None) -> dict:
+    """Подтянуть тренер RVC, без которого клонирование голоса не работает.
+
+    `rvc-python` умеет только инференс, поэтому обучение берётся из форка
+    (Applio — CPU-совместимый). Git clone делается один раз и только при
+    разрешённой сети: молча качать гигабайты в офлайне нельзя.
+    """
+    from modules.rvc_manager.config import AMD_FORKS, FORKS_DIR
+
+    from app.core.net_policy import network_allowed
+    allow_download = network_allowed(allow_online=allow_download is True) if allow_download is not False else False
+    forks = [path for name in AMD_FORKS if (path := FORKS_DIR / name).joinpath(".git").exists()]
+    if forks:
+        return {"present": True, "downloaded": [], "forks": [p.name for p in forks]}
+    if not allow_download:
+        return {"present": False, "downloaded": [], "reason": "network disabled"}
+    from modules.rvc_manager.backend import ensure_fork
+
+    try:
+        ensure_fork("applio", on_progress=lambda msg: _LOG.info(f"[bootstrap] {msg}"))
+    except Exception as exc:  # noqa: BLE001 — причина важнее падения bootstrap
+        _LOG.warning(f"[bootstrap] RVC trainer fork failed: {exc}")
+        return {"present": False, "downloaded": [], "reason": str(exc)[:200]}
+    ready = (FORKS_DIR / "applio" / ".git").exists()
+    return {"present": ready, "downloaded": ["applio"] if ready else [], "forks": ["applio"] if ready else []}
+
+
+def _announce(message: str, silent: bool) -> None:
+    _LOG.info("[bootstrap] %s", message)
+    if not silent:
+        from app.cli.env import safe_print
+        safe_print(f"[bootstrap] {message}")
+
 
 def auto_bootstrap(silent: bool = True, allow_download: bool | None = None) -> dict:
     """
     Главный тихий авто-докач: железо → heavy pip → модели → RVC.
     Ничего не показывает, сам понимает. Вызывать при старте если heavy BLOCKED.
     """
-    if allow_download is None:
-        allow_download = _network_allowed()
-    res: dict = {"hardware": {}, "heavy": {}, "models": {}, "rvc": {}, "readiness_before": None, "readiness_after": None}
+    from app.core.net_policy import network_allowed
+    allow_download = network_allowed(allow_online=allow_download is True) if allow_download is not False else False
+    res: dict = {"hardware": {}, "heavy": {}, "models": {}, "rvc": {}, "rvc_trainer": {}, "rvc_env": {},
+                 "readiness_before": None, "readiness_after": None}
     try:
         from tools.readiness.scoring import compute as readiness_compute
         _, before = readiness_compute()
@@ -248,9 +333,22 @@ def auto_bootstrap(silent: bool = True, allow_download: bool | None = None) -> d
         _LOG.debug(f"[bootstrap] readiness before skip: {_e}")
 
     res["hardware"] = silent_hardware_budget()
+    auto_bootstrap_last.clear()
+    res["ollama"] = {}
+    _announce("Проверка и установка Python-движков…", silent)
     res["heavy"] = ensure_heavy_engines(silent=silent, allow_download=allow_download)
+    _announce("Проверка и загрузка моделей; это может занять часы…", silent)
     res["models"] = ensure_models(silent=silent, allow_download=allow_download)
+    res["ollama"] = dict(auto_bootstrap_last.get("ollama") or {})
+    _announce("Подготовка базовых ресурсов голоса…", silent)
     res["rvc"] = ensure_rvc_default_voice(silent=silent, allow_download=allow_download)
+    _announce("Подготовка тренера RVC…", silent)
+    res["rvc_trainer"] = ensure_rvc_trainer(silent=silent, allow_download=allow_download)
+    # 4) окружение RVC: сначала оно, потом базовые веса (пакет кладёт их внутрь себя)
+    _announce("Подготовка отдельного окружения RVC…", silent)
+    res["rvc_env"] = ensure_rvc_environment(silent=silent, allow_download=allow_download)
+    if res["rvc_env"].get("ok"):
+        _ensure_rvc_base()
 
     # авто-жанр/full_agents уже в breakthrough/orchestrator — здесь только гарантия что heavy есть
     try:
@@ -262,6 +360,10 @@ def auto_bootstrap(silent: bool = True, allow_download: bool | None = None) -> d
     except Exception as e:
         _LOG.debug(f"[bootstrap] readiness after fail: {e}")
 
+    from app.ai.worker_client import probe_worker
+    res['worker_protocol'] = probe_worker(Path(sys.executable), 'core')
+    from app.core.bootstrap_report import summarize_setup
+    res.update(summarize_setup(res))
     return res
 
 def wire_full_agents():

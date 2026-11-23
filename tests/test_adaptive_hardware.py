@@ -123,7 +123,13 @@ def test_ollama_router_autoselects_installed_model(monkeypatch):
 
 
 def test_no_fitting_model_falls_back_without_generation(monkeypatch):
+    """Нет подходящей модели — BLOCKED, а не шаблонный текст.
+
+    Флаг `ZSMM_ALLOW_TEMPLATE_LYRICS` оставлен для отладки интерфейса: в проде
+    шаблон не подставляется (иначе человек слышит «тема, жанр, время идёт»).
+    """
     from modules.llm import ollama_adaptive, router
+    monkeypatch.setenv("ZSMM_ALLOW_TEMPLATE_LYRICS", "1")
     monkeypatch.delenv("ZSMM_OLLAMA_MODEL", raising=False)
     monkeypatch.setattr(router.LLMRouter, "_preflight", lambda self: {"internet": False, "ollama": True})
     monkeypatch.setattr(ollama_adaptive, "discover_ollama_model", lambda url: {
@@ -236,3 +242,19 @@ def test_ram_detection_survives_cpu_affinity_failure(monkeypatch):
     monkeypatch.setitem(sys.modules, "torch", SimpleNamespace(cuda=SimpleNamespace(is_available=lambda: False)))
     found = hardware.detect_budget()
     assert found["ram_gb"] == 16 and found["cpu_threads"] >= 1
+
+
+def test_missing_model_without_optin_is_blocked_not_template(monkeypatch):
+    """Шаблонный текст без явного флага не появляется."""
+    from modules.llm import ollama_adaptive, router
+    monkeypatch.delenv("ZSMM_ALLOW_TEMPLATE_LYRICS", raising=False)
+    monkeypatch.delenv("ZSMM_OLLAMA_MODEL", raising=False)
+    monkeypatch.setattr(router.LLMRouter, "_preflight", lambda self: {"internet": False, "ollama": True})
+    monkeypatch.setattr(ollama_adaptive, "discover_ollama_model", lambda url: {
+        "model": None, "reason": "no known installed text model fits estimated free RAM"})
+    monkeypatch.setattr(router, "call_ollama", lambda *a, **kw: pytest.fail("must not load"))
+
+    result = router.LLMRouter().complete("тема")
+
+    assert result["ok"] is False and result["provider"] == "BLOCKED"
+    assert result["text"] == ""

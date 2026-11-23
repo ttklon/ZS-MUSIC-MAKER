@@ -8,6 +8,7 @@
  */
 
 const path = require('node:path');
+const { spawn } = require('node:child_process');
 const fsp = require('node:fs/promises');
 const { existsSync, readFileSync } = require('node:fs');
 const os = require('node:os');
@@ -32,13 +33,18 @@ const { renderInWorker, createCancelSignal } = require('./render-host');
  * @param {string} params.rootDir     где лежит `data/samples`
  * @param {Function} params.getWindow вернуть окно (для диалогов)
  * @param {Function} params.musicDir  каталог для сохранений по умолчанию
- * @param {Function} [params.python]  для сообщений о разделе «Запуск»
+ * @param {Function|string} [params.python] интерпретатор проекта (индексация записи)
+ * @param {Function|string} [params.pipelineRoot] корень с `modules/` для Python
  * @returns {{bankProvider: object, handlers: object}}
  */
 function registerBeatIpc({
   ipcMain, dialog, rootDir, getWindow, musicDir, onProgressSender,
   openPath = null, tempDir = require('node:os').tmpdir(),
+  python = null, pipelineRoot = null,
 }) {
+  const pythonPath = typeof python === 'function' ? python : () => python;
+  const projectRoot = (typeof pipelineRoot === 'function' ? pipelineRoot() : pipelineRoot)
+    || path.resolve(rootDir || '.', '..');
   // Банк один на процесс: декодированные one-shot'ы кэшируются, повторный
   // рендер не перечитывает 32 файла.
   const bankProvider = createBankProvider({ rootDir });
@@ -127,6 +133,12 @@ function registerBeatIpc({
     // верит на слово: иначе «записью» можно назвать что угодно.
     'zsmm:vocal-save-recording': async (_event, payload) => vocalService.saveRecording({
       dialog, getWindow, musicDir, payload,
+    }),
+
+    // Запись → голосовое хранилище: без этого шага честно записанный голос
+    // не находило обучение RVC, и человек видел «в vault нет записей».
+    'zsmm:vocal-index': async (_event, { filePath } = {}) => vocalService.indexRecording({
+      spawn, python: pythonPath(), root: projectRoot, filePath,
     }),
 
     // Тестовый дубль как файл: пользователь может послушать его отдельно и

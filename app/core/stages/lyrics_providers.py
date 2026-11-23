@@ -107,11 +107,14 @@ def _interpret_router_result(
         )
     text = str(result.get("text", ""))
     if not (result.get("ok") and text.strip()):
-        return None, _attempt(
+        failure = _attempt(
             "LLMRouter",
             str(result.get("reason") or result.get("error") or "no usable lyrics text"),
             "empty_or_failed_response",
         )
+        if result.get("retry_scope") == "environment":
+            failure.update(retry_scope="environment", action=str(result.get("action") or ""))
+        return None, failure
     return (
         {
             "ok": True,
@@ -130,6 +133,14 @@ def _interpret_router_result(
         },
         None,
     )
+
+
+
+def _retry_metadata(attempts: list[dict[str, str]]) -> dict[str, str]:
+    """Do not label mixed/transient failures as requiring environment repair."""
+    if attempts and all(item.get("retry_scope") == "environment" for item in attempts):
+        return {"retry_scope": "environment"}
+    return {}
 
 
 def _build_lyrics_prompt(

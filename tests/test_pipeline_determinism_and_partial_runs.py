@@ -56,7 +56,10 @@ def test_only_blocks_unselected_stages_explicitly(tmp_path: Path) -> None:
     )
 
     by_name = {stage["name"]: stage for stage in report["stages"]}
-    assert by_name["_stage_lyrics"]["status"] != "BLOCKED"
+    # Текста без LLM нет — это BLOCKED по делу, а не «OK с шаблоном».
+    # Проверяем именно механизм `--only`: выбранная стадия отработала (любой
+    # статус, кроме «пропущена по --only»), невыбранные — честно BLOCKED.
+    assert "skipped by --only" not in by_name["_stage_lyrics"]["reason"]
     assert by_name["_stage_beat"]["status"] == "BLOCKED"
     assert "skipped by --only" in by_name["_stage_beat"]["reason"]
     assert by_name["_stage_mastering"]["status"] == "BLOCKED"

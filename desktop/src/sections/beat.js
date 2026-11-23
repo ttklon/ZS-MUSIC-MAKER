@@ -8,6 +8,9 @@
 (function () {
 const W = window.ZSMM_UI;
 const { $, el, ask, showError, setStatus, card, statusTag, state } = W;
+// `core/report-text.js` подключён в index.html ДО этого раздела: в браузере
+// нет `require`, и строки отчёта — обычные функции в общей области видимости.
+const reportText = window.ZSMM_REPORT_TEXT;
 
 /**
  * Блок вокала живёт в `sections/vocal.js`: он отдаёт функцию настройки через
@@ -48,13 +51,6 @@ function beatOptions() {
   };
 }
 
-function describeVocal(vocal) {
-  if (!vocal) return 'не подключён';
-  const source = vocal.simulated ? 'тестовый дубль (имитация, не микрофон)' : vocal.label;
-  return `${source}; уровень ${vocal.gain}; в миксе ${vocal.mixed_seconds} с`
-    + (vocal.starts_outside ? '; дубль длиннее трека и обрезан' : '');
-}
-
 function renderBeatReport(report) {
   const rows = report.sections.map((section) => {
     const tr = document.createElement('tr');
@@ -84,6 +80,9 @@ function renderBeatReport(report) {
         : 'не подключён',
     ),
     reportLine('секций / тактов', `${report.sections.length} / ${report.total_bars}`),
+    // «Сэмплы звучат» — число, а не слово: статус REAL_PASS без счётчика
+    // ничего не доказывал (см. samples_used в отчёте движка).
+    reportLine('прозвучало сэмплов', reportText.describeSamples(report.samples_used)),
     reportLine('хук в первые 15 с', report.dramaturgy.hook_within_15s ? 'да' : 'нет'),
     reportLine('дрейф темпа', `${drift.drift_pct || 0} % (пик ${drift.peak_deviation_ms || 0} мс)`),
     reportLine(
@@ -101,7 +100,12 @@ function renderBeatReport(report) {
           + `вариативность уровня ${report.measured_humanity.level_variation_db} дБ`
         : 'не измерялось',
     ),
-    reportLine('вокал', describeVocal(report.vocal)),
+    reportLine(
+      'баланс полос',
+      reportText.describeSpectrum(report.spectrum, report.mix_balance),
+    ),
+    reportLine('вокал', reportText.describeVocal(report.vocal)),
+    reportLine('громкость', reportText.describeLoudness(report.loudness)),
     reportLine('пик', report.humanity.peak),
     reportLine('размер WAV', `${Math.round(report.bytes / 1024)} КБ`),
   ].join('\n');

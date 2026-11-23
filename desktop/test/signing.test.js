@@ -222,3 +222,10 @@ test('скрипт проверки подписи не требует сети 
   assert.doesNotMatch(source, /require\('node:https'\)|require\('node:http'\)|fetch\(/);
   assert.match(pkg.scripts.check, /scripts\/verify-signature\.js/);
 });
+
+test('release packaging includes relocatable Python without changing signing policy', () => {
+  const { config, signing } = buildConfig.buildConfig({ pkg, env: { ZSMM_BUNDLE_PYTHON: '1' } });
+  assert.equal(signing, false);
+  assert.ok(config.extraResources.some(item => item.from === 'python-runtime' && item.to === 'project/.python'));
+  assert.ok(!buildConfig.buildConfig({ pkg, env: {} }).config.extraResources.some(item => item.from === 'python-runtime'));
+});

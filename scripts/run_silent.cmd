@@ -2,6 +2,8 @@
 REM ZS Music Maker - запуск без окна консоли (как обычное приложение).
 REM Журнал и крэш-репорты: %LOCALAPPDATA%\ZS Music Maker\logs
 setlocal
+echo LEGACY developer launcher - not the supported Electron studio.
+echo Open installed ZS Music Maker for the primary application.
 cd /d "%~dp0.."
 if not exist ".venv\Scripts\pythonw.exe" (
     echo [run] окружение не найдено - запускаю setup ...

@@ -21,29 +21,16 @@ from typing import Any
 
 GOD_DURATION_SEC = 120  # «God Mode» = полноценный трек, а не фрагмент
 
-# Вердикты общего пайплайна → статус в терминах старого отчёта God Mode
-_COMPLETED_VERDICTS = {"PASS", "PASS_WITH_FALLBACK", "PASS_BLOCKED", "BLOCKED_SIMULATION"}
-
-
-def _status_from_verdict(verdict: str | None) -> str:
-    return "completed" if (verdict or "") in _COMPLETED_VERDICTS else "partial"
-
-
 def _vocal_report(stages: list[dict[str, Any]]) -> tuple[str, str | None]:
     """Честный статус вокала из стадий: OK / FALLBACK / BLOCKED / FAILED."""
     vocal = [s for s in stages if s.get("name") in
              ("_stage_voice_synth", "_stage_rvc", "_stage_vocal_fx")]
     if not vocal:
         return "SKIPPED", None
-    for stage in vocal:
-        if stage.get("status") == "FAILED":
-            return "FAILED", stage.get("reason")
-    fallback = [s for s in vocal if s.get("status") == "FALLBACK"]
-    if fallback:
-        return "FALLBACK", fallback[0].get("reason")
-    blocked = [s for s in vocal if s.get("status") == "BLOCKED"]
-    if len(blocked) == len(vocal):
-        return "BLOCKED", blocked[0].get("reason")
+    for status in ("FAILED", "CANCELED", "BLOCKED", "FALLBACK"):
+        matching = [stage for stage in vocal if stage.get("status") == status]
+        if matching:
+            return status, matching[0].get("reason")
     return "OK", None
 
 
@@ -64,12 +51,14 @@ def run_god_pipeline(
     )
     root.mkdir(parents=True, exist_ok=True)
 
+    from app.core.stage_request import classic_execution_contract
+    contract = classic_execution_contract(state)
     report = run_full_pipeline(project_id, state, dry_run=dry_run, out_root=root)
 
     stages = [
         {
             "name": stage.get("name"),
-            "ok": stage.get("status") != "FAILED",
+            "ok": stage.get("status") in {"OK", "FALLBACK"},
             "status": stage.get("status"),
             "duration_sec": stage.get("duration_sec", 0.0),
             "output": stage.get("output"),
@@ -78,11 +67,14 @@ def run_god_pipeline(
         for stage in report.get("stages", [])
     ]
     vocal_status, vocal_reason = _vocal_report(stages)
-    status = _status_from_verdict(report.get("verdict"))
+    from app.pipeline.outcome import outcome_from_report
+    outcome = outcome_from_report(report, **contract)
+    status = "completed" if outcome["succeeded"] else "partial"
     result = {
         "project_id": project_id,
         "god_mode": True,
         "status": status,
+        "outcome": outcome,
         "verdict": report.get("verdict"),
         "percent": report.get("percent"),
         "elapsed_sec": report.get("duration_sec"),

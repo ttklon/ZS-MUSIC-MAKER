@@ -17,6 +17,8 @@ degradation в «план + инструкции пользователю».
 
 from __future__ import annotations
 
+from modules.errors import failure_reason
+
 import json
 import threading
 import time
@@ -74,7 +76,7 @@ def probe_backend() -> dict:
             "vram_gb": 0.0,
             "fork": "rvc-python",
             "ok": False,
-            "reason": str(e),
+            "reason": failure_reason(e),
         }
 
 

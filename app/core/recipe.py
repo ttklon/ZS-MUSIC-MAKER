@@ -30,6 +30,32 @@ def _as_int(value: Any, default: int | None = None) -> int | None:
         return default
 
 
+def _ref_flags(state: dict) -> dict:
+    """Референсы и причина, по которой они не применились.
+
+    `ref_warnings` нужен отчёту: без него неудачный анализ референса выглядел
+    как «референсов не было» (`source=genre_default`, `n_refs=0`, тишина).
+    """
+    return {
+        "refs": [str(item) for item in (state.get("references") or [])],
+        "ref_warnings": [str(w) for w in (state.get("reference_warnings") or [])],
+    }
+
+
+def _sound_flags(state: dict) -> dict:
+    """Флаги, которые меняют готовый звук, а не маршрут пайплайна.
+
+    Вынесены из `build_recipe`, чтобы функция не разрасталась: адаптивный DSP
+    и его уровень обязан знать мастеринг-этап, иначе переоткрытие проекта
+    рендерило бы трек с другим звуком.
+    """
+    return {
+        "use_texture": state.get("use_texture") is not False,
+        "adaptive_level": _as_int(state.get("adaptive_level"), 0) or 0,
+        "enhanced_dsp": bool(state.get("enhanced_dsp", True)),
+    }
+
+
 def _as_float(value: Any, default: float | None = None) -> float | None:
     try:
         return float(value) if value not in (None, "") else default
@@ -65,7 +91,6 @@ def build_recipe(wizard_state: dict[str, Any] | None) -> dict[str, Any]:
     state = dict(wizard_state or {})
     preset_key = state.get("preset")
     preset_sv = _preset_style_vector(preset_key)
-
     theme = str(state.get("theme") or "лето, тачки, движ")
     extra_prompt = str(state.get("user_extra_prompt") or "").strip()
     if extra_prompt and extra_prompt not in theme:
@@ -96,8 +121,10 @@ def build_recipe(wizard_state: dict[str, Any] | None) -> dict[str, Any]:
 
     return {
         "project_id": state.get("project_id"),
-        "refs": [str(r) for r in (state.get("references") or [])],
+        **_ref_flags(state),
         "theme": theme,
+        # MusicGen как бит-движок: `wizard_state` ставит `beat_engine=musicgen`,
+        # когда adaptive видит audiocraft+torch (в т.ч. на CPU чанками 30 с).
         "beat_engine": str(state.get("beat_engine") or "procedural"),
         "beat_input_path": str(state.get("beat_input_path") or ""),
         "recorded_backing_sha256": str(state.get("recorded_backing_sha256") or ""),
@@ -107,6 +134,7 @@ def build_recipe(wizard_state: dict[str, Any] | None) -> dict[str, Any]:
         "artist": state.get("artist") or state.get("artist_name") or "ZS Producer",
         "preset": preset_key,
         "preset_style_vector": preset_sv,
+        "style_vector": dict(state.get("style_vector") or {}),
         "bpm_override": _as_int(state.get("bpm_override")),
         "aggression": aggression,
         "duration_sec": _as_int(state.get("duration_sec")),
@@ -131,6 +159,7 @@ def build_recipe(wizard_state: dict[str, Any] | None) -> dict[str, Any]:
         "tune": bool(state.get("tune", False)),
         # явные флаги пользователя: конвейер их уважает, а не игнорирует
         "export_stems": bool(state.get("export_stems", True)),
+        **_sound_flags(state),
         "bilingual": bool(state.get("bilingual", True)),
         # какие стадии пересобирать; None/пусто = полный прогон
         "only": _only_stages(state.get("only")),
@@ -172,6 +201,8 @@ def resolve_style_vector(recipe: dict[str, Any], analysis: Any) -> dict[str, Any
             style["target_mode"] = preset_sv["target_mode"]
         if preset_sv.get("prompt_hint"):
             style["prompt_hint"] = preset_sv["prompt_hint"]
+    if isinstance(recipe.get("style_vector"), dict):
+        style.update(recipe["style_vector"])
     if isinstance(analysis, dict):
         bpm = analysis.get("bpm") or analysis.get("target_bpm")
         mode = analysis.get("mode") or analysis.get("target_mode")

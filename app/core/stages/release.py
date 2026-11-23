@@ -5,6 +5,8 @@ app/core/stages/release.py — Релиз: полный пакет и честн
 
 from __future__ import annotations
 
+from modules.errors import failure_reason
+
 import logging
 
 import json
@@ -114,4 +116,4 @@ def _minimal_release_pack(
             "reason": "modules.release unavailable; minimal pack",
         }
     except Exception as e:
-        return {"ok": False, "reason": str(e)}
+        return {"ok": False, "reason": failure_reason(e)}

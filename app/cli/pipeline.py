@@ -61,6 +61,7 @@ def run_pipeline(args) -> int:
         json.dumps(
             {
                 "verdict": out.get("verdict"),
+                "outcome": out.get("outcome"),
                 "percent": out.get("percent"),
                 "master": out.get("master_path"),
                 "seed": out.get("seed"),
@@ -74,6 +75,8 @@ def run_pipeline(args) -> int:
             indent=2,
         )
     )
+    if isinstance(out.get("outcome"), dict):
+        return 0 if out["outcome"].get("succeeded") is True else 1
     return 0 if str(out.get("verdict", "")).endswith("PASS") else 1
 
 
@@ -93,11 +96,13 @@ def _run_ai_pipeline(
             "artist_slug": args.dossier_artist or None,
         }
         out = run_ai_pipeline(run_id, workspace, dry_run=dry_run, terminal_progress=True)
-        payload = {"stages": out["report"]["stages"]}
+        from app.pipeline.outcome import outcome_from_report
+        outcome = outcome_from_report(dict(out["report"], dry_run=dry_run))
+        payload = {"stages": out["report"]["stages"], "outcome": outcome}
         if not dry_run:
             payload["artefacts"] = out["artefacts"]
         safe_print(json.dumps(payload, ensure_ascii=False, indent=2))
-        return 0
+        return 0 if outcome["succeeded"] else 1
     except Exception as e:
         safe_print(f"[main] AI pipeline failed: {e}")
         return 2
@@ -144,7 +149,9 @@ def run_god(args) -> int:
             f"[main --god] Launching GOD MODE pipeline (genre={genre}, theme={theme})..."
         )
         out = run_god_pipeline("god_cli", {"theme": theme, "genre": genre})
-        safe_print(f"GOD MODE COMPLETED: elapsed={out.get('elapsed_sec')}s")
+        from app.pipeline.outcome import outcome_from_report
+        outcome = outcome_from_report(out)
+        safe_print(f"GOD MODE {outcome['status'].upper()}: elapsed={out.get('elapsed_sec')}s")
         # Мастер печатаем отдельной строкой и с причиной, если его нет.
         # Раньше при вердикте PARTIAL выходило «master=None» — человек не мог
         # понять, где файл, хотя мастера стендов лежали в пакете релиза.
@@ -159,7 +166,7 @@ def run_god(args) -> int:
                 safe_print(f"  заблокированы: {', '.join(blocked)}")
             if out.get("report_path"):
                 safe_print(f"  что собрано: {out.get('report_path')}")
-        return 0
+        return 0 if outcome["succeeded"] else 1
     except Exception as e:
         safe_print(f"[main --god] failed: {e}")
         traceback.print_exc()
@@ -177,11 +184,12 @@ def run_async(args) -> int:
     except Exception as e:
         safe_print(f"[async-mode] PIPELINE FAILED: {e}")
         return 1
-    # Статус failed/error — единственное честное основание вернуть код ошибки.
-    if isinstance(result, dict) and str(result.get("status", "")).lower() in (
-        "failed",
-        "error",
-    ):
-        safe_print(f"[async-mode] pipeline status={result.get('status')}")
+    from app.pipeline.outcome import outcome_from_report
+    if not isinstance(result, dict):
+        safe_print('[async-mode] missing pipeline result')
+        return 1
+    outcome = outcome_from_report(result)
+    if not outcome['succeeded']:
+        safe_print(f"[async-mode] pipeline status={result.get('status')}; outcome={outcome['status']}")
         return 1
     return 0

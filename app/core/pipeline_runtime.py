@@ -40,6 +40,7 @@ STAGE_KEYS = (
     "master",
     "polish",
     "stems",
+    "auto_qa",
     "hit_score",
     "release",
 )
@@ -69,6 +70,7 @@ STAGE_RECORDS = (
     "_stage_mastering",
     "_stage_polish",
     "_stage_stems",
+    "_stage_auto_qa",
     "_stage_hit_score",
     "_stage_release_pack",
 )
@@ -116,9 +118,9 @@ def _timed(name: str, fn: Callable[[], Any]) -> StageResult:
     )
 
 
-def _blocked(name: str, reason: str) -> StageResult:
+def _blocked(name: str, reason: str, *, output: dict[str, Any] | None = None) -> StageResult:
     """Честно пропущенная стадия (нет входа или выключена пользователем)."""
-    return StageResult(name=name, status=StageStatus.BLOCKED, reason=reason)
+    return StageResult(name=name, status=StageStatus.BLOCKED, reason=reason, output=output)
 
 
 def _normalize_path_map(data: Any, keys: list[str] | None = None) -> dict[str, str]:
@@ -257,6 +259,9 @@ def _run_texture_stage(
     only: Any,
 ) -> StageResult:
     """Текстура: переиспользование → запуск с режимом качества → блокировка."""
+    if recipe.get("use_texture") is False:
+        return _blocked("_stage_texture", "texture explicitly disabled by caller",
+                        output={"requested": False, "skip_kind": "user_disabled"})
     if "_stage_texture" in reused_stages:
         return reused_stages["_stage_texture"]
     if not _wanted(only, "texture"):

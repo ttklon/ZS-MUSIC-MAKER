@@ -4,7 +4,7 @@ app/pipeline/stage.py — модель результата стадии и св
 
 Проектные правила:
 
-  • статус стадии всегда один из четырёх (`StageStatus`), без «почти ок»;
+  • статус стадии всегда один из пяти (`StageStatus`), без «почти ок»;
   • `FALLBACK` и `BLOCKED` не маскируются под `OK` — причина/движок
     обязаны быть видны в отчёте;
   • `summarize()` — единственное место, где считается `verdict` и `percent`,
@@ -25,6 +25,7 @@ class StageStatus(str, Enum):
     FALLBACK = "FALLBACK"
     BLOCKED = "BLOCKED"
     FAILED = "FAILED"
+    CANCELED = "CANCELED"
 
 
 @dataclass
@@ -42,12 +43,13 @@ class StageResult:
     duration_sec: float = 0.0
     reason: str | None = None
     attempts: list[str] = field(default_factory=list)
+    required: bool = True
 
     # --- производные флаги (единая семантика для всех отчётов) ------------
     @property
     def ok(self) -> bool:
         """Стадия не сломалась (BLOCKED тоже «не сломалась»)."""
-        return self.status is not StageStatus.FAILED
+        return self.status not in (StageStatus.FAILED, StageStatus.CANCELED)
 
     @property
     def succeeded(self) -> bool:
@@ -81,6 +83,7 @@ class StageResult:
         """JSON-совместимое представление (с legacy-ключами отчётов)."""
         return {
             "name": self.name,
+            "required": self.required,
             "status": self.status.value,
             "ok": self.ok,
             "succeeded": self.succeeded,
@@ -105,14 +108,16 @@ def classify(
 ) -> StageResult:
     """Построить `StageResult` из «сырого» результата стадии.
 
-    Приоритет статусов: FAILED → BLOCKED → FALLBACK → OK. Порядок важен:
+    Приоритет статусов: CANCELED → FAILED → BLOCKED → FALLBACK → OK. Порядок важен:
     честный BLOCKED (нет тяжёлой зависимости) не должен считаться сбоем,
     а synthetic-заглушка без blocked — это FALLBACK, а не успех.
     """
     data = output if isinstance(output, dict) else {}
     flag_ok = output is not None if not isinstance(output, dict) else bool(data.get("ok", True))
 
-    if failed or not flag_ok:
+    if data.get("canceled"):
+        status = StageStatus.CANCELED
+    elif failed or not flag_ok:
         status = StageStatus.FAILED
     elif data.get("blocked"):
         status = StageStatus.BLOCKED
@@ -131,38 +136,25 @@ def classify(
     )
 
 
-def summarize(stages: Iterable[dict[str, Any] | StageResult], *, dry_run: bool = False) -> dict[str, Any]:
-    """Итоговый вердикт и честный процент по списку стадий.
+def _status(row: dict[str, Any]) -> str:
+    value = row.get("status")
+    value = value.value if isinstance(value, StageStatus) else value
+    value = str(value or "FAILED")
+    if value == "OK" and row.get("ok") is False:
+        return "FAILED"
+    return value if value in StageStatus._value2member_map_ else "FAILED"
 
-    * `PASS` — все стадии OK и ни одного упрощения;
-    * `PASS_WITH_FALLBACK` — всё отработало, но часть стадий с fallback;
-    * `PASS_BLOCKED` — часть тяжёлых стадий честно BLOCKED, остальное ок;
-    * `BLOCKED_SIMULATION` — в непустом прогоне появилась синтетическая заглушка;
-    * `PARTIAL` — есть провалы.
 
-    `percent`: полный зачёт за OK/FALLBACK, половинный за BLOCKED, ноль за
-    FAILED. При симуляции процент ограничен 60, чтобы «зелёный» отчёт нельзя
-    было получить на заглушках.
-    """
-    rows = [s.to_dict() if isinstance(s, StageResult) else dict(s) for s in stages]
-    warnings: list[str] = []
-
-    def _status(row: dict[str, Any]) -> str:
-        return str(row.get("status") or ("OK" if row.get("ok") else "FAILED"))
-
-    all_ok = all(row.get("ok") for row in rows)
+def _summary_verdict(rows, *, dry_run, any_sim):
+    warnings = []
+    all_ok = bool(rows) and all(_status(row) in ("OK", "FALLBACK") for row in rows)
     any_blocked = any(_status(row) == "BLOCKED" for row in rows)
     any_fallback = any(_status(row) == "FALLBACK" for row in rows)
-    any_sim = any(
-        _status(row) != "BLOCKED"
-        and bool((row.get("output") or {}).get("synthetic") or (row.get("output") or {}).get("dry_run")
-                 or (row.get("output") or {}).get("placeholder"))
-        for row in rows
-        if isinstance(row.get("output"), dict)
-    ) or any(row.get("synthetic") and _status(row) != "BLOCKED" for row in rows)
-    non_blocked_ok = all(row.get("ok") or _status(row) == "BLOCKED" for row in rows)
-
-    if dry_run:
+    non_blocked_ok = all(_status(row) in ("OK", "FALLBACK", "BLOCKED") for row in rows)
+    if not rows:
+        verdict = "BLOCKED"
+        warnings.append("No stages executed; an empty pipeline cannot pass.")
+    elif dry_run:
         verdict = "PASS" if all_ok else "PARTIAL"
     elif any_sim:
         verdict = "BLOCKED_SIMULATION"
@@ -186,18 +178,48 @@ def summarize(stages: Iterable[dict[str, Any] | StageResult], *, dry_run: bool =
     else:
         verdict = "PASS"
 
+    return verdict, warnings
+
+
+def summarize(stages: Iterable[dict[str, Any] | StageResult], *, dry_run: bool = False) -> dict[str, Any]:
+    """Итоговый вердикт и честный процент по списку стадий.
+
+    * `PASS` — все стадии OK и ни одного упрощения;
+    * `PASS_WITH_FALLBACK` — всё отработало, но часть стадий с fallback;
+    * `PASS_BLOCKED` — часть тяжёлых стадий честно BLOCKED, остальное ок;
+    * `BLOCKED_SIMULATION` — в непустом прогоне появилась синтетическая заглушка;
+    * `PARTIAL` — есть провалы.
+
+    `percent`: полный зачёт за OK/FALLBACK, половинный за BLOCKED, ноль за
+    FAILED. При симуляции процент ограничен 60, чтобы «зелёный» отчёт нельзя
+    было получить на заглушках.
+    """
+    rows = [s.to_dict() if isinstance(s, StageResult) else dict(s) for s in stages]
+    any_sim = any(
+        _status(row) != "BLOCKED"
+        and bool((row.get("output") or {}).get("synthetic") or (row.get("output") or {}).get("dry_run")
+                 or (row.get("output") or {}).get("placeholder"))
+        for row in rows
+        if isinstance(row.get("output"), dict)
+    ) or any(row.get("synthetic") and _status(row) != "BLOCKED" for row in rows)
+
+    verdict, warnings = _summary_verdict(rows, dry_run=dry_run, any_sim=any_sim)
+
     score = 0.0
     for row in rows:
         status = _status(row)
         if status == "BLOCKED":
             score += 0.5
-        elif status in ("OK", "FALLBACK") or row.get("ok"):
+        elif status in ("OK", "FALLBACK"):
             score += 1.0
     percent = int(round(100.0 * score / len(rows))) if rows else 0
     if any_sim and not dry_run:
         percent = min(percent, 60)
 
+    from app.pipeline.outcome import stage_outcome
     return {
+        "outcome": stage_outcome(rows),
+        "percent_kind": "legacy_stage_accounting_not_product_readiness",
         "verdict": verdict,
         "percent": percent,
         "warnings": warnings,

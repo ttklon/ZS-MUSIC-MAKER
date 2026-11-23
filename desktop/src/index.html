@@ -9,6 +9,7 @@
     />
     <title>ZS Music Maker</title>
     <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="studio.css" />
   </head>
   <body>
     <div class="shell">
@@ -21,16 +22,21 @@
           </div>
         </div>
         <nav class="nav" id="nav" aria-label="Разделы">
-          <button class="nav-item is-active" data-view="overview">Обзор</button>
+          <button class="nav-item is-active" data-view="agent">Создание трека</button>
+          <button class="nav-item" data-view="models">Модели и загрузки</button>
+          <button class="nav-item" data-view="tracks">Мои треки</button>
+          <button class="nav-item" data-view="settings">Настройки</button>
+          <button class="nav-item" data-view="health">Проверка системы</button>
+          <details class="technical-nav">
+            <summary>Инструменты и диагностика</summary>
+          <button class="nav-item" data-view="overview">Обзор</button>
           <button class="nav-item" data-view="modules">Модули</button>
           <button class="nav-item" data-view="genres">Жанры</button>
           <button class="nav-item" data-view="beat">Бит</button>
           <button class="nav-item" data-view="dossiers">Досье</button>
-          <button class="nav-item" data-view="tracks">Треки</button>
           <button class="nav-item" data-view="run">Запуск</button>
-          <button class="nav-item" data-view="agent">Агент</button>
-          <button class="nav-item" data-view="health">Диагностика</button>
           <button class="nav-item" data-view="help">Справка</button>
+          </details>
         </nav>
         <div class="sidebar-footer">
           <span class="dot" id="backend-dot"></span>
@@ -40,14 +46,17 @@
 
       <main class="content">
         <header class="topbar">
-          <h1 id="view-title" tabindex="-1">Обзор</h1>
+          <h1 id="view-title" tabindex="-1">Создание трека</h1>
           <div class="topbar-actions">
+            <button class="ghost" id="export-errors">Сохранить ошибки</button>
             <button class="ghost" id="refresh">Обновить</button>
             <button class="ghost" id="reveal">Папка проекта</button>
           </div>
         </header>
 
-        <section class="view" id="view-overview">
+        <section class="view is-hidden" id="view-models"><div id="models-body"></div></section>
+        <section class="view is-hidden" id="view-settings"><div id="settings-body"></div></section>
+        <section class="view is-hidden" id="view-overview">
           <div class="cards" id="overview-cards"></div>
           <div class="panel">
             <h2>Честный статус</h2>
@@ -149,6 +158,12 @@
                    уезжала вниз и читалась как часть записи. -->
               <div class="row">
                 <button class="ghost" id="vocal-save" disabled>Сохранить дубль как WAV</button>
+                <!-- Клонирование голоса: запись → vault → обучение RVC. Одна
+                     кнопка на весь путь, потому что иначе человек записывает
+                     голос и не понимает, почему «клон» не появился. -->
+                <button class="ghost" id="vocal-rvc-setup">Подготовить голосовой движок (RVC)</button>
+                <button class="ghost" id="vocal-clone" disabled>Клонировать мой голос (RVC)</button>
+                <span class="muted" id="vocal-clone-status" role="status" aria-live="polite"></span>
               </div>
               <p class="muted" id="vocal-note">Вокал выключен: трек будет без голоса.</p>
             </fieldset>
@@ -228,7 +243,7 @@
           </div>
         </section>
 
-        <section class="view is-hidden" id="view-agent">
+        <section class="view" id="view-agent">
           <div class="panel">
             <h2>ИИ-агентик — проводник</h2>
             <p class="muted">Один экран — 4 вопроса → хит. Досье/референсы по категориям — отдельно, но агент сам всё свяжет.</p>
@@ -243,6 +258,23 @@
               <table>
                 <tbody id="health-body"></tbody>
               </table>
+            </div>
+            <h3>Сеть</h3>
+            <p class="muted">
+              По умолчанию всё офлайн: скачивание моделей и загрузка сэмплов не
+              выполняются. Галочка — ваше согласие, и оно доходит до задач Python.
+            </p>
+            <label class="row-inline">
+              <input type="checkbox" id="health-network-online" />
+              <span id="health-network-label">Разрешить приложению выходить в сеть (скачать RVC, Ollama, модель Ollama)</span>
+            </label>
+            <p class="muted" id="health-network-note">сеть выключена — всё работает офлайн</p>
+            <div class="row">
+              <!-- Текст песен делает локальная модель. Раньше её установка была
+                   возможна только руками в консоли, и чистая машина получала
+                   BLOCKED без единой кнопки. -->
+              <button class="ghost" id="health-ollama-setup">Подготовить текстовый движок (Ollama)</button>
+              <span class="muted" id="health-ollama-status" role="status" aria-live="polite"></span>
             </div>
             <h3>Приложение</h3>
             <p class="muted" id="health-env-note">Загрузка…</p>
@@ -279,10 +311,15 @@
       то есть когда подключены все скрипты.
     -->
     <script src="app.js"></script>
+    <script src="core/product-contract.js"></script>
+    <script src="core/journey.js"></script>
+    <script src="core/task-events.js"></script>
+    <script src="core/creation-state.js"></script>
     <script src="sections/overview.js"></script>
     <script src="sections/genres.js"></script>
     <script src="sections/recorder.js"></script>
     <script src="sections/vocal.js"></script>
+    <script src="core/report-text.js"></script>
     <script src="sections/beat.js"></script>
     <script src="sections/dossiers.js"></script>
     <script src="sections/tracks.js"></script>
@@ -290,5 +327,6 @@
     <script src="sections/health.js"></script>
     <script src="sections/agent.js"></script>
     <script src="sections/help.js"></script>
+    <script src="sections/creation.js"></script>
   </body>
 </html>

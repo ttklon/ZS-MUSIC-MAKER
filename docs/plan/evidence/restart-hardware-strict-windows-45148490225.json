@@ -1,0 +1,614 @@
+{
+  "run": 45148490225,
+  "source": "bb528dad5e6f9e08c1993fb3c058a760623df568",
+  "conclusion": "success",
+  "jobs": [
+    {
+      "completedAt": "2026-11-23T09:36:50Z",
+      "conclusion": "success",
+      "databaseId": 137603595568,
+      "name": "real-desktop-dsp (20)",
+      "startedAt": "2026-11-23T09:35:57Z",
+      "status": "completed",
+      "steps": [
+        {
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Run actions/checkout@v4",
+          "number": 2,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Run actions/setup-node@v4",
+          "number": 3,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Validate benchmark and real worker cancellation/retry",
+          "number": 4,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Render actual instrumental through production worker",
+          "number": 5,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Run actions/upload-artifact@v4",
+          "number": 6,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Post Run actions/setup-node@v4",
+          "number": 11,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@v4",
+          "number": 12,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 13,
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45148490225/job/137603595568"
+    },
+    {
+      "completedAt": "2026-11-23T09:36:50Z",
+      "conclusion": "success",
+      "databaseId": 137603595800,
+      "name": "real-silero",
+      "startedAt": "2026-11-23T09:35:56Z",
+      "status": "completed",
+      "steps": [
+        {
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Run actions/checkout@v4",
+          "number": 2,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Run actions/setup-python@v5",
+          "number": 3,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Install actual CPU inference runtime",
+          "number": 4,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Verify hardware and offline contracts on Windows (mocked model tests, not inference)",
+          "number": 5,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Download real Silero weights and synthesize online and offline",
+          "number": 6,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Strict offline explicit-backend inference using the actual cached model",
+          "number": 7,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Preserve measured report and generated speech",
+          "number": 8,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Post Run actions/setup-python@v5",
+          "number": 15,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@v4",
+          "number": 16,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 17,
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45148490225/job/137603595800"
+    },
+    {
+      "completedAt": "2026-11-23T09:36:50Z",
+      "conclusion": "success",
+      "databaseId": 137603595875,
+      "name": "bootstrap-compatibility",
+      "startedAt": "2026-11-23T09:35:57Z",
+      "status": "completed",
+      "steps": [
+        {
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Run actions/checkout@v4",
+          "number": 2,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Run actions/setup-python@v5",
+          "number": 3,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Verify product refuses shared environment mutation",
+          "number": 4,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Verify resolver rejects the known incompatible combination",
+          "number": 5,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Run actions/upload-artifact@v4",
+          "number": 6,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Post Run actions/setup-python@v5",
+          "number": 11,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@v4",
+          "number": 12,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 13,
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45148490225/job/137603595875"
+    },
+    {
+      "completedAt": "2026-11-23T09:36:50Z",
+      "conclusion": "success",
+      "databaseId": 137603595971,
+      "name": "real-desktop-dsp (120)",
+      "startedAt": "2026-11-23T09:35:57Z",
+      "status": "completed",
+      "steps": [
+        {
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Run actions/checkout@v4",
+          "number": 2,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Run actions/setup-node@v4",
+          "number": 3,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Validate benchmark and real worker cancellation/retry",
+          "number": 4,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Render actual instrumental through production worker",
+          "number": 5,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Run actions/upload-artifact@v4",
+          "number": 6,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Post Run actions/setup-node@v4",
+          "number": 11,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@v4",
+          "number": 12,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 13,
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45148490225/job/137603595971"
+    }
+  ],
+  "reports": [
+    {
+      "job": "real-desktop-dsp (20)",
+      "job_id": 137603595568,
+      "type": "Real desktop DSP benchmark",
+      "report": {
+        "schema": 1,
+        "ok": true,
+        "kind": "real_desktop_dsp_instrumental_not_neural",
+        "options": {
+          "bpm": 140,
+          "genre": "phonk",
+          "key": "A minor",
+          "seed": 7,
+          "durationSec": 20,
+          "useBank": false,
+          "vocal": {
+            "mode": "none"
+          }
+        },
+        "platform": "win32",
+        "arch": "x64",
+        "node": "v22.23.5",
+        "source": "bb528dad5e6f9e08c1993fb3c058a760623df568",
+        "hardware": {
+          "cpu": "AMD EPYC 7763 64-Core Processor                ",
+          "logical_cpus": 4,
+          "available_parallelism": 4,
+          "total_ram_bytes": 17174360064,
+          "free_ram_before_bytes": 14330671104
+        },
+        "product_profile_accepted": false,
+        "network_verified": false,
+        "cancel_on_progress_verified": true,
+        "wall_seconds": 5.8983556,
+        "audio": {
+          "seconds": 20,
+          "channels": 2,
+          "sample_rate": 44100,
+          "bits": 16,
+          "peak": 0.76837158203125,
+          "rms": 0.16897964668108087,
+          "bytes": 3528044,
+          "sha256": "fb1df45ac8b19b275c22f789316364cb7b1f2793c130f3f4cfc2db34cfc4632d"
+        },
+        "real_time_factor": 0.29491778,
+        "process_lifetime_max_rss_bytes": 262811648,
+        "memory_scope": "process lifetime including worker threads, cancellation and validation; not per-render GPU memory",
+        "engine": {
+          "drum_engine": {
+            "engine": "procedural_drum_synth_js",
+            "status": "FALLBACK",
+            "reason": "банк сэмплов не подключён к этому рендеру: удары синтезированы",
+            "instruments": [
+              "kick",
+              "snare",
+              "clap",
+              "hat",
+              "bass808",
+              "impact"
+            ]
+          },
+          "samples_used": {
+            "by_instrument": {},
+            "by_source": {},
+            "total": 0,
+            "available": {
+              "kick": 0,
+              "snare": 0,
+              "clap": 0,
+              "hat": 0,
+              "open_hat": 0,
+              "bass": 0,
+              "melody": 0,
+              "fx": 0
+            }
+          },
+          "vocal": null,
+          "duration_sec": 20
+        }
+      }
+    },
+    {
+      "job": "real-silero",
+      "job_id": 137603595800,
+      "type": "Strict local model benchmark",
+      "report": {
+        "schema": 1,
+        "ok": true,
+        "inference_verified": true,
+        "product_profile_accepted": false,
+        "kind": "real_silero_draft_speech_not_singing",
+        "requested_backend": "cpu",
+        "os": "Windows",
+        "architecture": "AMD64",
+        "python": "3.11.9 (tags/v3.11.9:de54cf5, Apr  2 2024, 10:12:12) [MSC v.1938 64 bit (AMD64)]",
+        "source": "bb528dad5e6f9e08c1993fb3c058a760623df568",
+        "text": "Это проверка настоящей голосовой модели на явно выбранном устройстве без скачивания весов.",
+        "network_guard": "python_socket_only_not_os_firewall",
+        "measurements": {
+          "wall_seconds": 9.254817899999978,
+          "rss_baseline_bytes": 186241024,
+          "rss_peak_sampled_bytes": 909131776,
+          "rss_sample_interval_seconds": 0.02,
+          "rss_sample_count": 359,
+          "file": "speech.wav",
+          "seconds": 5.775,
+          "sample_rate": 48000,
+          "peak": 0.9236462712287903,
+          "sha256": "23c1b9ca1047d174565a68ff58737ded1152c70d16d26e18b1954861741990cd",
+          "network_attempts": [],
+          "real_time_factor": 1.6025658701298662
+        },
+        "torch": "2.5.1+cpu",
+        "device": "cpu",
+        "model_sha256": "cf60b47ec8a9c31046021d2d14b962ea56b8a5bf7061c98accaaaca428522f85"
+      }
+    },
+    {
+      "job": "real-silero",
+      "job_id": 137603595800,
+      "type": "Measured inference report",
+      "report": {
+        "ok": true,
+        "platform": "Windows-10-10.0.26100-SP0",
+        "python": "3.11.9 (tags/v3.11.9:de54cf5, Apr  2 2024, 10:12:12) [MSC v.1938 64 bit (AMD64)]",
+        "kind": "real_neural_draft_speech_not_singing",
+        "renders": [
+          {
+            "online_allowed": true,
+            "backend": "silero_cpu",
+            "network_guard": "none",
+            "wall_seconds": 12.089930400000014,
+            "rss_baseline_bytes": 184590336,
+            "rss_peak_sampled_bytes": 775753728,
+            "rss_sample_interval_seconds": 0.02,
+            "rss_sample_count": 425,
+            "file": "online.wav",
+            "seconds": 3.875,
+            "sample_rate": 48000,
+            "peak": 0.9315677285194397,
+            "sha256": "fabf4b12d6824cae6dd28d17ab401e7d25943d830a6ca344b1c82a83a0558196",
+            "network_attempts": [],
+            "real_time_factor": 3.119982038709681
+          },
+          {
+            "online_allowed": false,
+            "backend": "silero_cpu",
+            "network_guard": "python_socket_only_not_os_firewall",
+            "wall_seconds": 8.484370500000011,
+            "rss_baseline_bytes": 514904064,
+            "rss_peak_sampled_bytes": 986402816,
+            "rss_sample_interval_seconds": 0.02,
+            "rss_sample_count": 314,
+            "file": "offline.wav",
+            "seconds": 4.6875,
+            "sample_rate": 48000,
+            "peak": 0.8999496102333069,
+            "sha256": "22d10eaf0edce59de8c255a52fabc6f39b074daa46b6728ea8cc2c5a6d27a96a",
+            "network_attempts": [],
+            "real_time_factor": 1.8099990400000023
+          }
+        ],
+        "torch": "2.5.1+cpu",
+        "hardware": {
+          "schema": 1,
+          "os": "Windows",
+          "os_release": "10",
+          "architecture": "AMD64",
+          "measurements": {
+            "cpu_threads": 4,
+            "ram_total_gib": 15.99,
+            "ram_available_gib": 12.51,
+            "disk_free_gib": 146.96,
+            "gpu": {
+              "adapters": [
+                {
+                  "name": "Microsoft Basic Render Driver",
+                  "vendor": "unknown",
+                  "source": "dxgi",
+                  "total_vram_gib": null
+                },
+                {
+                  "name": "Microsoft Hyper-V Video",
+                  "vendor": "unknown",
+                  "source": "windows_cim"
+                }
+              ],
+              "pytorch_device": null,
+              "directml_devices": [],
+              "inference_verified": false
+            }
+          },
+          "errors": [],
+          "system": {
+            "os": "Windows",
+            "os_version": "10",
+            "architecture": "AMD64",
+            "cpu_name": "AMD64 Family 25 Model 1 Stepping 1, AuthenticAMD",
+            "cpu_threads": 4,
+            "cpu_cores": 2,
+            "ram_total_gib": 15.99,
+            "ram_available_gib": 12.51,
+            "disk_free_gib": 146.96,
+            "gpus": [
+              {
+                "name": "Microsoft Basic Render Driver",
+                "vendor": "unknown",
+                "source": "dxgi",
+                "total_vram_gib": null
+              },
+              {
+                "name": "Microsoft Hyper-V Video",
+                "vendor": "unknown",
+                "source": "windows_cim"
+              }
+            ],
+            "pytorch_device": null,
+            "directml_devices": [],
+            "default_backend": "cpu",
+            "notice": "Hardware detection does not verify model weights, compatibility or inference."
+          },
+          "kind": "inventory_only",
+          "inference_verified": false,
+          "product_profile_accepted": false,
+          "profiles": [
+            {
+              "id": "windows_cpu",
+              "status": "unverified",
+              "evidence": []
+            },
+            {
+              "id": "windows_cuda",
+              "status": "unverified",
+              "evidence": []
+            },
+            {
+              "id": "windows_amd",
+              "status": "unverified",
+              "evidence": []
+            }
+          ],
+          "warning": "Ресурсы измерены для диагностики, не для обещания скорости, пения или поддержки GPU."
+        },
+        "upstream_revision": "e382298387332f2bf461fe6eadfde99104611b0c",
+        "model_packages": [
+          {
+            "path": "C:\\Users\\runneradmin\\.cache\\torch\\hub\\snakers4_silero-models_e382298387332f2bf461fe6eadfde99104611b0c\\src\\silero\\model\\v3_1_ru.pt",
+            "sha256": "cf60b47ec8a9c31046021d2d14b962ea56b8a5bf7061c98accaaaca428522f85"
+          }
+        ]
+      }
+    },
+    {
+      "job": "real-desktop-dsp (120)",
+      "job_id": 137603595971,
+      "type": "Real desktop DSP benchmark",
+      "report": {
+        "schema": 1,
+        "ok": true,
+        "kind": "real_desktop_dsp_instrumental_not_neural",
+        "options": {
+          "bpm": 140,
+          "genre": "phonk",
+          "key": "A minor",
+          "seed": 7,
+          "durationSec": 120,
+          "useBank": false,
+          "vocal": {
+            "mode": "none"
+          }
+        },
+        "platform": "win32",
+        "arch": "x64",
+        "node": "v22.23.5",
+        "source": "bb528dad5e6f9e08c1993fb3c058a760623df568",
+        "hardware": {
+          "cpu": "AMD EPYC 7763 64-Core Processor                ",
+          "logical_cpus": 4,
+          "available_parallelism": 4,
+          "total_ram_bytes": 17174360064,
+          "free_ram_before_bytes": 14335430656
+        },
+        "product_profile_accepted": false,
+        "network_verified": false,
+        "cancel_on_progress_verified": true,
+        "wall_seconds": 28.7868292,
+        "audio": {
+          "seconds": 120,
+          "channels": 2,
+          "sample_rate": 44100,
+          "bits": 16,
+          "peak": 0.79058837890625,
+          "rms": 0.1635204341323889,
+          "bytes": 21168044,
+          "sha256": "cb3ada1357b1c7129dd5054ffb089d09fb3977d5aaa817ee52fa7a9db49f0873"
+        },
+        "real_time_factor": 0.23989024333333334,
+        "process_lifetime_max_rss_bytes": 892289024,
+        "memory_scope": "process lifetime including worker threads, cancellation and validation; not per-render GPU memory",
+        "engine": {
+          "drum_engine": {
+            "engine": "procedural_drum_synth_js",
+            "status": "FALLBACK",
+            "reason": "банк сэмплов не подключён к этому рендеру: удары синтезированы",
+            "instruments": [
+              "kick",
+              "snare",
+              "clap",
+              "hat",
+              "bass808",
+              "impact"
+            ]
+          },
+          "samples_used": {
+            "by_instrument": {},
+            "by_source": {},
+            "total": 0,
+            "available": {
+              "kick": 0,
+              "snare": 0,
+              "clap": 0,
+              "hat": 0,
+              "open_hat": 0,
+              "bass": 0,
+              "melody": 0,
+              "fx": 0
+            }
+          },
+          "vocal": null,
+          "duration_sec": 120
+        }
+      }
+    }
+  ]
+}

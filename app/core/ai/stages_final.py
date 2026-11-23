@@ -8,6 +8,8 @@ app/core/ai/stages_final.py — финал AI-пайплайна.
 
 from __future__ import annotations
 
+from modules.errors import failure_reason
+
 from pathlib import Path
 
 from app.core.ai.context import AIContext
@@ -86,4 +88,4 @@ def stage_tag(bundle, ctx):
         return {"ok": True, "tags": tags, "goal": ai.ws["genre"],
                 "match_genre": ai.ws["genre"] in tags}
     except Exception as e:
-        return {"ok": False, "reason": str(e)}
+        return {"ok": False, "reason": failure_reason(e)}

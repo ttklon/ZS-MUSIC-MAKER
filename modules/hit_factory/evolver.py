@@ -2,12 +2,14 @@
 """
 modules.hit_factory.evolver — эволюционная петля hit_score.
 
-mutate() — слегка сдвигает recipe (BPM ±5, aggression ±0.15, seed+1, duration вариант)
+mutate() — сдвигает BPM, aggression и seed, сохраняя заданную длительность
 select_best() — выбирает лучшего по hit_score среди попыток.
 """
 from __future__ import annotations
 
 import random
+
+from modules.hit_factory.readiness import attempt_rank, usable_score
 from typing import Any
 
 from modules.hit_factory.config import BPM_MAP, MUTATION_RANGES
@@ -58,9 +60,8 @@ def mutate(
     dagr = rng.uniform(-MUTATION_RANGES["aggression_delta"], MUTATION_RANGES["aggression_delta"])
     nxt["aggression"] = round(max(0.3, min(0.95, cur_agr + dagr)), 2)
 
-    # duration — иногда меняем длину (tiktok vs full влияет на структуру)
-    if rng.random() < 0.25:
-        nxt["duration_sec"] = rng.choice(MUTATION_RANGES["duration_variants"])
+    # Duration is a render budget/user constraint, not a quality mutation.
+    # In particular a short requested clip must never turn into 120 seconds.
 
     # если слабые метрики указывают на low_end или стерео — чуть подвигаем aggression/жанр не трогаем
     # жанр оставляем тем же, чтобы не ломать expectation; смену жанра делает верхнеуровневый batch
@@ -70,16 +71,12 @@ def mutate(
 
 def select_best(attempts: list[dict[str, Any]]) -> dict[str, Any] | None:
     """
-    Выбирает лучшую попытку по hit_score.
+    Выбирает завершённый рендер прежде неполного, затем по hit_score.
     Каждый attempt: {recipe, report, hit_score, verdict, master_path}
     """
     if not attempts:
         return None
-    # фильтр: у кого есть hit_score
-    scored = [a for a in attempts if isinstance(a.get("hit_score"), (int, float))]
-    if not scored:
-        return attempts[0]
-    return max(scored, key=lambda a: float(a["hit_score"]))
+    return max(attempts, key=attempt_rank)
 
 
 def should_evolve(
@@ -87,8 +84,6 @@ def should_evolve(
     verdict: str | None,
     min_score: float = 68.0,
 ) -> bool:
-    if hit_score is None:
+    if not usable_score(hit_score):
         return True
-    if verdict in ("chart_ready", "solid") and hit_score >= min_score:
-        return False
-    return hit_score < min_score
+    return verdict not in ("chart_ready", "solid") or hit_score < min_score

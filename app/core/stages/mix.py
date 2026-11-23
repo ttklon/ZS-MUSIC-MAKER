@@ -20,9 +20,9 @@ def _stage_mix_and_sidechain(
 ) -> dict[str, Any]:
     """Собрать микс штатным микшером и вернуть измеренный отчёт."""
     try:
-        from modules.mix.bus import prepare_mix
+        from app.core.stages.mix_trace import prepare_traced_mix
 
-        result = prepare_mix(beat_wav, voice_wav, out_dir, vocal_offset_ms=vocal_offset_ms)
+        result = prepare_traced_mix(beat_wav, voice_wav, out_dir, vocal_offset_ms=vocal_offset_ms)
     except Exception as exc:  # noqa: BLE001 - стадия обязана вернуть причину, не падать
         return {"ok": False, "reason": f"{type(exc).__name__}: {exc}"}
 
@@ -130,6 +130,7 @@ def _stage_mix_and_sidechain(
         "report_path": str(stage_report),
         "pre_mix_report_path": result.get("report_path"),
         "engine": "modules.mix.bus",
+        "source_trace": result.get("source_trace"),
         "fallback_used": fallback_used,
         "reason": fallback_reason,
         "vocal_used": bool(result.get("vocal_used")),

@@ -29,6 +29,7 @@ except Exception:  # pragma: no cover - окружение без mutagen
     WAVE = None
     HAS_MUTAGEN = False
 
+from modules.release.note import write_release_readme  # noqa: E402
 ROOT = Path(__file__).resolve().parents[2]
 RELEASES_DIR = ROOT / "output" / "releases"
 
@@ -364,15 +365,16 @@ def export_release(
             if path.is_file():
                 artifacts[name] = sha256_file(path)
 
+        (release_dir / "manifest.json").write_text(
+            json.dumps(manifest, ensure_ascii=False, indent=2, sort_keys=True), encoding="utf-8"
+        )
+        files["manifest.json"] = str(release_dir / "manifest.json")
         (release_dir / "release_notes.txt").write_text(
             _release_notes(meta, manifest), encoding="utf-8"
         )
         files["release_notes.txt"] = str(release_dir / "release_notes.txt")
 
-        (release_dir / "manifest.json").write_text(
-            json.dumps(manifest, ensure_ascii=False, indent=2, sort_keys=True), encoding="utf-8"
-        )
-        files["manifest.json"] = str(release_dir / "manifest.json")
+        write_release_readme(release_dir, meta, lyrics_text, files)  # см. note.py
 
         zip_path = release_dir / "release.zip"
         archived = _archive_release(release_dir, zip_path)

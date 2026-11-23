@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import json
+import sys
 import shutil
 import subprocess
 from pathlib import Path
@@ -99,6 +100,25 @@ def test_snapshot_files_are_committed_and_fresh() -> None:
 
     rows = [line for line in inventory.read_text(encoding="utf-8").splitlines() if line.startswith("| ")]
     assert len(rows) > 100, f"в inventory всего {len(rows)} строк"
+
+    # Свежесть: снимок обязан совпадать с пересчётом. Без этой проверки новый
+    # модуль (например modules/release/note.py) валил только CI-шаг «Regenerate
+    # readiness snapshot», а локальный pytest молчал — и провал всплывал уже
+    # после пуша и тега.
+    # `--tree` сверяет снимок с пересчётом по РАБОЧЕМУ ДЕРЕВУ. Режим по
+    # умолчанию сверяет с `HEAD`, и это ловушка: после правки кода локально
+    # в `HEAD` лежат и старый снимок, и старый код, они «совпадают», pytest
+    # зелёный — а CI падает уже после пуша и тега. Проверено дважды на 42.0.17
+    # и 42.0.18: оба раза красным становился только шаг «Regenerate readiness
+    # snapshot».
+    check = ROOT / "tools" / "check_snapshot_freshness.py"
+    result = subprocess.run(
+        [sys.executable, str(check), "--tree"], cwd=ROOT, capture_output=True, text=True
+    )
+    assert result.returncode == 0, (
+        "снимок готовности устарел — перегенерируйте: "
+        f"node desktop/scripts/snapshot-readiness.js ({result.stdout.strip()})"
+    )
 
 
 @pytest.mark.skipif(NODE is None, reason="Node.js не установлен в окружении")

@@ -8,6 +8,9 @@
 
 const { contextBridge, ipcRenderer } = require('electron');
 
+function reportError(message) { return ipcRenderer.invoke('zsmm:report-error', message); }
+function exportErrors() { return ipcRenderer.invoke('zsmm:export-errors'); }
+
 async function section(name) {
   const reply = await ipcRenderer.invoke(`zsmm:${name}`);
   if (!reply || reply.error) {
@@ -30,6 +33,26 @@ async function startTask(key, options) {
 
 async function stopTask() {
   return ipcRenderer.invoke('zsmm:task-stop');
+}
+
+/**
+ * Агентик: «Сделать хит».
+ *
+ * Ответ приходит сразу (обычно `{ok: true, data: {pid, command}}`), а сам
+ * трек — потом, общим потоком `onTaskEvent`/`onTaskDone`. Отдельная функция
+ * нужна, чтобы окно не собирало `task-start` руками с непроверенным ключом.
+ */
+async function agentHit(answers) {
+  return ipcRenderer.invoke('zsmm:agent-hit', answers || {});
+}
+
+/** Открыть готовый мастер агентика в системном плеере (путь проверит главный процесс). */
+async function agentOpen(masterPath) {
+  return ipcRenderer.invoke('zsmm:agent-open', { masterPath });
+}
+
+function agentAudio(masterPath) {
+  return ipcRenderer.invoke('zsmm:agent-audio', { masterPath });
 }
 
 /** Подписка на поток вывода. Возвращает функцию отписки. */
@@ -115,6 +138,15 @@ function saveBeat(wavBase64) {
  *
  * @param {{wavBase64: string, seconds?: number, name?: string}} payload
  */
+/**
+ * Положить запись в голосовое хранилище — иначе обучение RVC её не увидит.
+ * Сохранение файла и индексация разделены: сохранение делает диск, а vault
+ * считает фичи записи (SNR, дедупликацию) настоящим Python-модулем.
+ */
+async function indexRecording(filePath) {
+  return ipcRenderer.invoke('zsmm:vocal-index', { filePath });
+}
+
 function saveRecording(payload) {
   return ipcRenderer.invoke('zsmm:vocal-save-recording', payload);
 }
@@ -186,6 +218,8 @@ function openExternal(url) {
 }
 
 contextBridge.exposeInMainWorld('zsmm', {
+  reportError,
+  exportErrors,
   updaterCheck: () => updaterCheck(),
   updaterDownload: (url, name) => updaterDownload(url, name),
   updaterInstall: (zipPath) => updaterInstall(zipPath),
@@ -196,6 +230,9 @@ contextBridge.exposeInMainWorld('zsmm', {
   readiness: () => section('readiness'),
   dossiers: () => section('dossiers'),
   system: () => section('system'),
+  agentHit,
+  agentOpen,
+  agentAudio,
   listTasks,
   startTask,
   stopTask,
@@ -213,6 +250,7 @@ contextBridge.exposeInMainWorld('zsmm', {
   pickVocalFile,
   vocalInput,
   saveRecording,
+  indexRecording,
   dossierAdd,
   dossierRemove,
   dossierTracks,

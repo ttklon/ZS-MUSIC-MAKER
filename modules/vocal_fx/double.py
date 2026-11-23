@@ -9,6 +9,8 @@ modules/vocal_fx/double.py — double-tracking: «второй дубль» бе
 
 from __future__ import annotations
 
+from modules.errors import failure_reason
+
 from dataclasses import dataclass
 
 from modules.vocal_fx.dsp import (
@@ -92,5 +94,5 @@ def apply_vocal_double(
         )
     except Exception as e:
         return VocalFxResult(
-            False, "", "none", False, False, 0, -100.0, -100.0, reason=str(e)
+            False, "", "none", False, False, 0, -100.0, -100.0, reason=failure_reason(e)
         )

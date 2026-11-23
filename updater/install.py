@@ -10,6 +10,8 @@ updater/install.py — установка обновления из ZIP и от�
 
 from __future__ import annotations
 
+from modules.errors import failure_reason
+
 import json
 import re
 import shutil
@@ -106,7 +108,7 @@ def install_from_zip(
     try:
         extraction = _safe_extract(zip_p, stg)
     except Exception as e:
-        return {"ok": False, "stage": "extract", "error": str(e), "backup": str(bak)}
+        return {"ok": False, "stage": "extract", "error": failure_reason(e), "backup": str(bak)}
     if not extraction["ok"]:
         # Небезопасный архив отвергается целиком: ничего не заменяем.
         return {
@@ -145,7 +147,7 @@ def install_from_zip(
         return {
             "ok": False,
             "stage": "replace",
-            "error": str(e),
+            "error": failure_reason(e),
             "rolled_back": rb.get("ok", False),
             "backup": str(bak),
         }
@@ -295,4 +297,4 @@ def rollback_last() -> dict[str, Any]:
             "user_data_failed": report["failed"],
         }
     except Exception as e:  # noqa: BLE001 - отчёт важнее стека
-        return {"ok": False, "error": str(e), "restored_from": str(last)}
+        return {"ok": False, "error": failure_reason(e), "restored_from": str(last)}

@@ -30,6 +30,38 @@ def _block_percent(probes: dict[str, str]) -> float:
     return round(100.0 * score / len(probes), 2)
 
 
+def _caps(blocks_raw: dict[str, dict[str, str]]) -> list[tuple[float, str]]:
+    """Потолки готовности: каждый — заявленная функция, которая не работает.
+
+    Вынесено из `compute()`: раньше список рос прямо в середине свёртки, и
+    функция перевалила за бюджет 60 строк.
+    """
+    caps: list[tuple[float, str]] = []
+    if blocks_raw["voice_recording"].get("mic_recording") != "REAL_PASS":
+        caps.append((80.0, "no real microphone recording available"))
+    heavy = [
+        key
+        for key in ("musicgen_runtime", "demucs_runtime")
+        if blocks_raw["audio_pipeline"].get(key) == "BLOCKED"
+    ]
+    if heavy:
+        caps.append((65.0, f"heavy engines unavailable: {heavy}"))
+    if blocks_raw["architecture"].get("updater_module") != "REAL_PASS":
+        caps.append((85.0, "no updater module"))
+    # Клон голоса — заявленная функция, а не «желательно»: без окружения RVC
+    # инференс физически невозможен, поэтому потолок честный и с причиной.
+    rvc_env = blocks_raw["voice_recording"].get("rvc_env")
+    if rvc_env not in (None, "REAL_PASS"):
+        caps.append((90.0, f"voice clone engine not ready: rvc_env={rvc_env} "
+                           f"(python main.py --bootstrap --online)"))
+    # Текст — не «желательная» часть хита: без LLM припев остаётся пустым, и
+    # приложение честно отдаёт BLOCKED.
+    if blocks_raw["audio_pipeline"].get("lyrics_llm") == "BLOCKED":
+        caps.append((75.0, "lyrics engine not ready: Ollama/модель не найдены "
+                           "(python main.py --ollama-setup)"))
+    return caps
+
+
 def compute() -> tuple[float, dict[str, Any]]:
     blocks_raw = {
         "architecture": probe_architecture(),
@@ -55,18 +87,7 @@ def compute() -> tuple[float, dict[str, Any]]:
     for key, weight in WEIGHTS.items():
         total += block_pcts.get(key, 0.0) * weight / 100.0
 
-    caps: list[tuple[float, str]] = []
-    if blocks_raw["voice_recording"].get("mic_recording") != "REAL_PASS":
-        caps.append((80.0, "no real microphone recording available"))
-    heavy = [
-        key
-        for key in ("musicgen_runtime", "demucs_runtime")
-        if blocks_raw["audio_pipeline"].get(key) == "BLOCKED"
-    ]
-    if heavy:
-        caps.append((65.0, f"heavy engines unavailable: {heavy}"))
-    if blocks_raw["architecture"].get("updater_module") != "REAL_PASS":
-        caps.append((85.0, "no updater module"))
+    caps = _caps(blocks_raw)
 
     cap_min = min([cap[0] for cap in caps], default=100.0)
     final = math.floor(min(total, cap_min))

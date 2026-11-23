@@ -1,0 +1,247 @@
+name: Product plan integrity - Windows
+on:
+  push:
+    branches: ['arena/bbed83d1-zs-music-maker']
+    paths:
+      - 'docs/plan/**'
+      - 'docs/ENGINE_PREFLIGHT.md'
+      - 'tests/test_engine_preflight_contract.py'
+      - 'tests/test_ai_model_pull.py'
+      - 'app/ai/engine_profiles.py'
+      - 'app/ai/worker*.py'
+      - 'app/ai/weights.py'
+      - 'app/ai/model_catalog.py'
+      - 'app/core/net_policy.py'
+      - 'app/core/download_budget.py'
+      - 'app/core/bootstrap.py'
+      - 'tools/pull_ai_models.py'
+      - 'tools/export_model_catalog.py'
+      - 'tools/probe_engine_worker.py'
+      - 'data/desktop/model-catalog.json'
+      - 'desktop/electron/model-storage.js'
+      - 'desktop/electron/shell-service.js'
+      - 'requirements*.txt'
+      - 'docs/TASK_LIFECYCLE.md'
+      - 'tests/test_runtime_lifecycle.py'
+      - 'tests/test_windows_job_host.py'
+      - 'app/cli/windows_job.py'
+      - 'app/cli/managed_task_host.py'
+      - 'desktop/electron/diagnostic-export.js'
+      - 'tools/audit_diagnostic_export.py'
+      - 'app/core/logger.py'
+      - 'app/core/security_utils.py'
+      - 'app/core/bootstrap_report.py'
+      - 'app/cli/commands.py'
+      - 'app/ai/activity.py'
+      - 'app/ai/sequential_runner.py'
+      - 'app/ai/stage_process.py'
+      - 'tests/test_stage_process.py'
+      - 'tests/test_diagnostic_export_audit.py'
+      - 'desktop/scripts/check-nsis-install.ps1'
+      - 'desktop/electron/process-control.js'
+      - 'desktop/electron/startup-diagnostics.js'
+      - 'desktop/electron/diagnostic-redaction.js'
+      - 'desktop/electron/workspace-layout.js'
+      - 'desktop/electron/pipeline-workspace.js'
+      - 'desktop/src/core/creation-state.js'
+      - 'docs/RECIPE_TRANSPORT.md'
+      - 'app/core/recipe.py'
+      - 'app/core/project_snapshot.py'
+      - 'app/cli/task_events.py'
+      - 'app/cli/agent_task.py'
+      - 'modules/hit_factory/**'
+      - 'modules/agent_guide/runner.py'
+      - 'tests/test_recipe_transport.py'
+      - 'desktop/electron/task*.js'
+      - 'desktop/electron/agent-service.js'
+      - 'desktop/src/core/task-events.js'
+      - 'desktop/test/task*.test.js'
+      - 'desktop/test/creation.test.js'
+      - 'docs/release/**'
+      - 'tools/release_gate.py'
+      - 'tests/test_release_gate.py'
+      - 'desktop/electron/updater-service.js'
+      - 'desktop/test/updater.test.js'
+      - 'main.py'
+      - 'app/core/entrypoints.py'
+      - 'app/core/resource_policy.py'
+      - 'app/cli/parser.py'
+      - 'app/cli/probes.py'
+      - 'agents/sample_hunter/license.py'
+      - 'desktop/src/core/journey.js'
+      - 'docs/ENTRYPOINTS.md'
+      - 'docs/USER_JOURNEY.md'
+      - 'docs/RESOURCE_POLICY.md'
+      - 'tests/test_product_maps.py'
+      - 'app/pipeline/**'
+      - 'app/ai/profiles.py'
+      - 'app/cli/agent_task.py'
+      - 'modules/agent_guide/narration.py'
+      - 'desktop/src/sections/creation.js'
+      - 'tools/measure_hardware_profile.py'
+      - 'tests/test_result_acceptance_contract.py'
+      - 'tests/test_task_outcome_contract.py'
+      - 'tests/test_hardware_profiles_contract.py'
+      - 'docs/PRODUCT.md'
+      - 'README.md'
+      - 'desktop/src/core/product-contract.js'
+      - 'desktop/src/sections/help.js'
+      - 'desktop/src/index.html'
+      - 'desktop/scripts/product-spec.js'
+      - 'desktop/test/product-contract.test.js'
+      - 'desktop/electron/window-startup-check.js'
+      - 'desktop/electron/product-help-check.js'
+      - 'desktop/electron/result-contract-check.js'
+      - 'tools/build_product_plan.py'
+      - 'tests/test_product_plan.py'
+      - '.github/workflows/product-plan.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  validate-plan-not-product:
+    runs-on: windows-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Check 1000 tasks and dependency graph (not application readiness)
+        run: python tools/build_product_plan.py --check
+      - name: Install plan test dependency
+        run: python -m pip install pytest numpy soundfile requests psutil cloudpickle==3.1.2
+      - name: Canonical model catalogue projection and real stdlib worker handshake
+        run: |
+          python tools/export_model_catalog.py --check
+          python tools/probe_engine_worker.py
+      - name: Observe closed publication gate without publishing
+        env:
+          PYTHONIOENCODING: utf-8
+        shell: pwsh
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $false
+          python tools/release_gate.py --commit "$env:GITHUB_SHA" > "$env:RUNNER_TEMP/release-gate.json"
+          if ($LASTEXITCODE -ne 1) { throw 'Expected exactly exit 1 while product acceptance is incomplete' }
+          $r = Get-Content "$env:RUNNER_TEMP/release-gate.json" -Raw | ConvertFrom-Json
+          if ($r.publication_allowed -ne $false -or $r.reasons.Count -lt 10) { throw 'Missing fail-closed evidence' }
+          exit 0
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-gate-denial
+          path: ${{ runner.temp }}/release-gate.json
+          retention-days: 7
+      - name: Plan and publication contract regression tests only
+        shell: pwsh
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $false
+          $output = & python -m pytest tests/test_diagnostic_export_audit.py tests/test_stage_process.py tests/test_windows_job_host.py tests/test_product_plan.py tests/test_release_gate.py tests/test_recipe_transport.py tests/test_runtime_lifecycle.py tests/test_bootstrap_results.py tests/test_logger_and_crash.py tests/test_engine_preflight_contract.py tests/test_ai_model_pull.py tests/test_model_loading_offline.py tests/test_net_online_bridge.py -q --tb=short 2>&1
+          $code = $LASTEXITCODE
+          $output | Write-Output
+          if ($code -ne 0) {
+            $details = (($output | Select-Object -Last 140) -join "`n").Replace('%','%25').Replace("`r",'%0D').Replace("`n",'%0A')
+            Write-Output "::error title=Python regression details::$details"
+            exit $code
+          }
+
+
+  packaged-product-specification:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Product contract and UI regression tests
+        shell: pwsh
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $false
+          node desktop/scripts/product-spec.js --check
+          if ($LASTEXITCODE -ne 0) { throw 'Product specification mismatch' }
+          $output = & node --test desktop/test/product-contract.test.js desktop/test/render.test.js desktop/test/ui-contract.test.js desktop/test/updater.test.js desktop/test/creation.test.js desktop/test/task-stream.test.js desktop/test/task-runner.test.js desktop/test/tasks.test.js desktop/test/agent-bridge.test.js desktop/test/task-lifecycle.test.js desktop/test/pipeline-workspace.test.js desktop/test/startup-diagnostics.test.js desktop/test/runtime.test.js desktop/test/model-storage.test.js 2>&1
+          $code = $LASTEXITCODE
+          $output | Write-Output
+          if ($code -ne 0) {
+            $failures = $output | Select-String -Pattern 'not ok' -Context 0,24
+            foreach ($failure in $failures) {
+              $message = ($failure | Out-String).Replace('%','%25').Replace("`r",'%0D').Replace("`n",'%0A')
+              Write-Output "::error title=Node regression failure::$message"
+            }
+            throw "Node regression exit $code"
+          }
+      - name: Install build tools and Electron
+        working-directory: desktop
+        run: |
+          npm install --ignore-scripts --no-audit --no-fund
+          node node_modules/electron/install.js
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Bundle relocatable core Python for clean installer checks
+        shell: pwsh
+        run: ./desktop/scripts/bundle-python.ps1
+      - name: Package development application (no release publication)
+        working-directory: desktop
+        run: npm run dist:dir
+      - name: Real packaged help matches product specification
+        shell: pwsh
+        run: |
+          $env:ZSMM_WINDOW_CHECK_OUT = Join-Path $env:RUNNER_TEMP 'product-spec-window.json'
+          $p = Start-Process -FilePath 'desktop/dist/win-unpacked/ZS Music Maker.exe' -ArgumentList '--window-check' -PassThru
+          if (-not $p.WaitForExit(60000)) { $p.Kill(); throw 'Packaged window hung' }
+          if (-not (Test-Path $env:ZSMM_WINDOW_CHECK_OUT)) { throw 'Missing window report' }
+          Get-Content $env:ZSMM_WINDOW_CHECK_OUT
+          $r = Get-Content $env:ZSMM_WINDOW_CHECK_OUT -Raw | ConvertFrom-Json
+          if ($p.ExitCode -ne 0 -or -not $r.ok) { throw 'Packaged specification check failed' }
+          Write-Output '::notice title=Product specification verified::Real packaged Electron: models, settings, help contract and creation. NOT song generation or clean NSIS installation.'
+      - name: Build NSIS without publishing
+        working-directory: desktop
+        run: npm run dist
+      - name: Clean NSIS install, actual installed window, ACL and uninstall
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem desktop/dist -Filter '*Setup*.exe' | Select-Object -First 1
+          if (-not $installer) { throw 'NSIS installer missing' }
+          ./desktop/scripts/check-nsis-install.ps1 -Installer $installer.FullName -Report "$env:RUNNER_TEMP/nsis-install-check.json"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: nsis-install-check
+          path: ${{ runner.temp }}/nsis-install-check.json
+          retention-days: 7
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: product-spec-window
+          path: ${{ runner.temp }}/product-spec-window.json
+          retention-days: 7
+
+  result-outcome-hardware-contracts:
+    runs-on: windows-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install lightweight contract test runtime (no models)
+        run: python -m pip install pytest numpy soundfile psutil
+      - name: Real WAV contract and canonical outcome regressions
+        run: python -m pytest tests/test_result_acceptance_contract.py tests/test_task_outcome_contract.py tests/test_hardware_profiles_contract.py tests/test_product_maps.py -q
+      - name: Check read-only CLI entrypoint registry
+        run: python main.py --entrypoints
+      - name: Inspect resource provenance (incomplete rights are expected)
+        shell: pwsh
+        run: |
+          python main.py --resource-policy
+          if ($LASTEXITCODE -ne 1) { throw 'Expected an incomplete resource-rights review, not blanket permission' }
+          exit 0
+      - name: Measure this runner without claiming inference or GPU support
+        run: python tools/measure_hardware_profile.py --out output/contracts/hardware.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: measured-hardware-inventory-not-inference
+          path: output/contracts/hardware.json
+          retention-days: 7

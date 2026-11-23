@@ -144,3 +144,64 @@ test('корень пайплайна проверяется по коду, а �
 
   fs.rmSync(dataOnly, { recursive: true, force: true });
 });
+
+test('в установщике пайплайн находится в resources/project', () => {
+  const fs = require('node:fs');
+  const os = require('node:os');
+  const { resolvePipelineRoot } = require('../electron/runtime');
+
+  // Так выглядит установленная сборка: `resources/` — корень проекта с данными,
+  // а код пайплайна лежит внутри `project/` (extraResources в package.json).
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'zsmm-installed-'));
+  fs.writeFileSync(path.join(root, 'version.json'), '{}');
+  const project = path.join(root, 'project');
+  fs.mkdirSync(path.join(project, 'app'), { recursive: true });
+  fs.writeFileSync(path.join(project, 'main.py'), '');
+
+  const found = resolvePipelineRoot({ root });
+
+  assert.equal(found.root, project, 'без этого MusicGen/RVC/Ollama недоступны в одной программе');
+
+  fs.rmSync(root, { recursive: true, force: true });
+});
+
+
+test('галочка сети в окне доходит до Python как ZSMM_ONLINE', () => {
+  const { taskEnv } = require('../electron/task-runner');
+
+  assert.equal(taskEnv(true, {}).ZSMM_ONLINE, '1');
+  assert.equal(taskEnv(false, { ZSMM_ONLINE: '1' }).ZSMM_ONLINE, '0');
+  // без сети ничего не «протекает» из окружения оболочки
+  assert.equal(taskEnv(null, {}).ZSMM_ONLINE, '0');
+  // остальное окружение не теряется: python нужен PATH
+  assert.equal(taskEnv(true, { PATH: '/usr/bin' }).PATH, '/usr/bin');
+});
+
+test('packaged Python is found without PATH or system installation', () => {
+  const root = path.resolve('resources/project');
+  const bundled = path.join(root, '.python', 'python.exe');
+  const result = resolvePython({ root, env: {}, platform: 'win32', exists: p => p === bundled });
+  assert.equal(result.python, bundled);
+});
+
+test('bundled Python installs optional packages into writable user data', () => {
+  const { taskEnv } = require('../electron/task-runner');
+  const bundled = path.join('resources', 'project', '.python', 'python.exe');
+  const env = taskEnv(false, { PIP_TARGET: 'readonly', PIP_PREFIX: 'readonly', PYTHONNOUSERSITE: '1' }, bundled, '/user/packages');
+  assert.equal(env.PYTHONUSERBASE, '/user/packages');
+  assert.equal(env.PIP_USER, '1');
+  assert.equal(env.PIP_TARGET, undefined);
+  assert.equal(env.PYTHONNOUSERSITE, undefined);
+  assert.equal(env.ZSMM_ONLINE, '0');
+  assert.equal(taskEnv(true, {}, '/custom/python', '/user/packages').PIP_USER, undefined);
+});
+
+test('desktop offline boundary clears inherited model permission and sets downstream offline modes', () => {
+  const { taskEnv } = require('../electron/task-runner');
+  const env = taskEnv(false, { ZSMM_ONLINE: '1', ZSMM_ALLOW_MODEL_DOWNLOAD: '1', HF_HUB_OFFLINE: '0' });
+  assert.equal(env.ZSMM_ONLINE, '0');
+  assert.equal(env.ZSMM_ALLOW_MODEL_DOWNLOAD, '0');
+  assert.equal(env.HF_HUB_OFFLINE, '1');
+  assert.equal(env.TRANSFORMERS_OFFLINE, '1');
+  assert.equal(taskEnv(true, { ZSMM_ALLOW_MODEL_DOWNLOAD: '1' }).ZSMM_ALLOW_MODEL_DOWNLOAD, '0');
+});

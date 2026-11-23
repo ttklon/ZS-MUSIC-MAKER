@@ -110,5 +110,5 @@ def header() -> None:
     safe_print("=" * 64)
     safe_print(f"ZS Music Maker v{ctx.version} — unified entrypoint")
     safe_print(f"Build: {ctx.build}")
-    safe_print(f"Status: {ctx.status}")
+    safe_print("Status: development engineering entrypoint; product acceptance is not completed")
     safe_print("=" * 64)

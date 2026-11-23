@@ -232,7 +232,8 @@ class TestRunner(unittest.TestCase):
                       optional=True, fallback_fn=True))
         rep = r.run({}).to_dict()
         self.assertTrue(rep["stages"][0]["ok"])
-        self.assertEqual(calls, [None])
+        self.assertEqual(calls, [])  # worker memory is isolated
+        self.assertEqual(r.sink()["y"], "ok")
 
 
 class TestDossier(unittest.TestCase):
@@ -288,8 +289,10 @@ def test_stage_polish_reports_engine_and_falls_back_honestly(monkeypatch, tmp_pa
     import modules
     from app.core import orchestrator
 
+    # сигнатура стадии теперь несёт seed: заглушка должна его принимать,
+    # иначе TypeError уводит вызов на ветку «движок недоступен»
     fake = types.SimpleNamespace(
-        polish_vocal=lambda source, output, preset: {"ok": True, "path": output}
+        polish_vocal=lambda source, output, preset, seed=None: {"ok": True, "path": output}
     )
     monkeypatch.setitem(sys.modules, "modules.anti_neuro", fake)
     monkeypatch.setattr(modules, "anti_neuro", fake, raising=False)
@@ -530,12 +533,12 @@ def test_runner_watchdog_marks_timeout_and_continues() -> None:
 
     runner = SequentialAIRunner(vram_probe=lambda: 0.0)
     runner.add(AIStage("slow", None, lambda _handle, _ctx: time.sleep(0.2), timeout_sec=0.05))
-    runner.add(AIStage("after_timeout", None, lambda _handle, _ctx: {"ok": True}, timeout_sec=0.5))
+    runner.add(AIStage("after_timeout", None, lambda _handle, _ctx: {"ok": True}, timeout_sec=15))
 
     report = runner.run({}).to_dict()
 
     assert report["stages"][0]["ok"] is False
-    assert "timed out after 0.1s" in report["stages"][0]["error"]
+    assert "including model loading" in report["stages"][0]["error"]
     assert report["stages"][0]["timeout_sec"] == 0.05
     assert report["stages"][1]["ok"] is True
     assert report["stages"][1]["vram_before_gb"] == 0.0

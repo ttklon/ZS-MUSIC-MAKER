@@ -94,6 +94,10 @@ _HINTS = {
     "tiktok_hookability": "instant-hook 25 sec slice for TikTok",
     "bpm_dance_fitness": "BPM in dance/trap sweet spot",
     "loudness_lufs": "integrated dBFS ≈ LUFS streaming target",
+    "loudness_lufs:estimate": (
+        "громкость не измерена (pyloudnorm недоступен или упал) — это RMS-оценка, "
+        "а не LUFS: балл за громкость приблизительный"
+    ),
     "stereo_width": "channel correlation 0.6-0.85",
     "low_end_power": "20-80 Hz vs 200-2000 Hz ratio",
     "vocal_presence": "2-5 kHz vocal readability",
@@ -176,7 +180,57 @@ def _hint_for(name: str, metric: dict) -> str:
     )
 
 
-def _build_report(*, path: str, hit_score: float, metrics: dict, slice_info, y, sr, elapsed: float) -> dict:
+def _collect_metrics(path: str, y, sr: int) -> tuple[dict, dict | None, list[str]]:
+    """Собрать метрики в формат отчёта: score/raw/hint + провенанс.
+
+    Вынесено из `score_track` (тот упирался в бюджет 60 строк): здесь только
+    преобразование результатов измерений и проверка их честности, без
+    загрузки файла и записи отчёта.
+    """
+    values = _metric_set(path, y, sr)
+    provenance = values.pop("_provenance")
+    tt_slice = values.pop("_slice")
+    metrics: dict = {}
+    for name, val in values.items():
+        score, raw = val if isinstance(val, tuple) else (val, None)
+        metrics[name] = {
+            "score": round(float(score), 2),
+            "raw": raw,
+            "hint": _HINTS.get(name, ""),
+        }
+    for name, prov in provenance.items():
+        if name in metrics:
+            metrics[name]["provenance"] = prov
+    warnings = _unverified_metric_warnings(metrics)
+    _silence_guard(metrics, y, sr)
+    return metrics, tt_slice, warnings
+
+
+def _unverified_metric_warnings(metrics: dict) -> list[str]:
+    """Предупредить, когда балл стоит на оценке, а не на измерении.
+
+    Громкость — единственная метрика, у которой есть честная замена измерения
+    (`rms_estimate`, когда `pyloudnorm` недоступен или упал). Балл при этом
+    всё равно считается и попадает в `hit_score`, поэтому молчать нельзя:
+    пользователь видит «громкость 75» и не знает, что это оценка «примерно».
+    """
+    warnings: list[str] = []
+    loudness = metrics.get("loudness_lufs") or {}
+    provenance = loudness.get("provenance") or {}
+    engine = str(provenance.get("engine") or "")
+    if engine and engine != "pyloudnorm":
+        reason = provenance.get("error") or provenance.get("status") or "unavailable"
+        warnings.append(
+            f"loudness not measured ({engine}: {reason}); score is an RMS estimate"
+        )
+        loudness["hint"] = _HINTS["loudness_lufs:estimate"]
+    return warnings
+
+
+def _build_report(
+    *, path: str, hit_score: float, metrics: dict, slice_info, y, sr, elapsed: float,
+    warnings: list[str] | None = None,
+) -> dict:
     """Собрать отчёт оценки: баллы, вердикт, подсказки и метаданные прогона."""
     return {
         "hit_score": round(hit_score, 2),
@@ -184,6 +238,7 @@ def _build_report(*, path: str, hit_score: float, metrics: dict, slice_info, y, 
         "metrics": metrics,
         "tiktok_slice": slice_info,
         "actions": _actions(metrics),
+        "warnings": list(warnings or []),
         "meta": {
             "file": path,
             "duration_s": round(len(y) / sr, 2),
@@ -226,22 +281,7 @@ def score_track(master_wav: str, out_json: str | None = None, sr: int = 22050) -
             )
         return report
 
-    metrics = {}
-    values = _metric_set(str(p), y, s)
-    provenance = values.pop("_provenance")
-    tt_slice = values.pop("_slice")
-    for name, val in values.items():
-        score, raw = val if isinstance(val, tuple) else (val, None)
-        metrics[name] = {
-            "score": round(float(score), 2),
-            "raw": raw,
-            "hint": _HINTS.get(name, ""),
-        }
-    for name, prov in provenance.items():
-        if name in metrics:
-            metrics[name]["provenance"] = prov
-
-    _silence_guard(metrics, y, s)
+    metrics, tt_slice, loudness_warnings = _collect_metrics(str(p), y, s)
 
     # weighted total
     total_w = sum(WEIGHTS.values())
@@ -250,6 +290,7 @@ def score_track(master_wav: str, out_json: str | None = None, sr: int = 22050) -
     report = _build_report(
         path=str(p), hit_score=hit_score, metrics=metrics, slice_info=tt_slice,
         y=y, sr=s, elapsed=round(time.time() - t0, 2),
+        warnings=loudness_warnings,
     )
 
     if out_json:

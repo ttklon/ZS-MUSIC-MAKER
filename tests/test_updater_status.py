@@ -94,3 +94,28 @@ def test_stash_user_data_fails_closed_when_preserved_file_cannot_move(tmp_path, 
         userdata._stash_user_data(program, staging)
 
     assert settings.read_text(encoding="utf-8") == '{"theme": "dark"}'
+
+
+def test_cli_update_forwards_online_flag(monkeypatch, tmp_path) -> None:
+    """`--update --online` обязан доходить до апдейтера.
+
+    Регрессия 42.0.12: `commands.run_update()` не принимал аргументов, а
+    `main.py` вызывал его без флага. Итог — `--update --online` всегда
+    возвращал «remote update check requires --online», то есть проверить
+    обновления было невозможно в принципе.
+    """
+    from app.cli import commands
+
+    seen: dict[str, object] = {}
+
+    def fake_status(repo, allow_online=False):
+        seen["allow_online"] = allow_online
+        return {"ok": True, "relation": "up_to_date", "apply_performed": False}
+
+    monkeypatch.setattr("updater.updater.check_git_update_status", fake_status)
+    assert commands.run_update(allow_online=True) == 0
+    assert seen["allow_online"] is True
+
+    seen.clear()
+    assert commands.run_update() == 0
+    assert seen["allow_online"] is False

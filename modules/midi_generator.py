@@ -1,3 +1,4 @@
+from modules.errors import failure_reason
 # -*- coding: utf-8 -*-
 """
 ZS Music Maker — midi_generator.py (GOD MODE)
@@ -111,7 +112,7 @@ class MIDIGenerator:
             midi.save(target)
             return {"ok": True, "status": "REAL_PASS", "path": target, "events": events, "slots": list(events)}
         except Exception as exc:
-            return {"ok": False, "status": "FAILED", "reason": str(exc), "events": events}
+            return {"ok": False, "status": "FAILED", "reason": failure_reason(exc), "events": events}
 
     # ------------------------------------------------------------------ #
     #  DRUM PATTERN

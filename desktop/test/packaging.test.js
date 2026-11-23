@@ -61,7 +61,9 @@ test('данные проекта попадают в resources/project', () => 
   const resources = new Map(pkg.build.extraResources.map((entry) => [entry.from, entry.to]));
 
   assert.equal(resources.get('../version.json'), 'project/version.json');
-  assert.equal(resources.get('../config/genres_100.json'), 'project/config/genres_100.json');
+  assert.equal(resources.get('../config'), 'project/config');
+  const config = pkg.build.extraResources.find(entry => entry.from === '../config');
+  assert.ok(config.filter.includes('**/*.py'), 'config.settings and config.__init__ must ship');
   assert.equal(resources.get('../data/samples'), 'project/data/samples');
   assert.equal(resources.get('../data/desktop'), 'project/data/desktop');
 
@@ -118,7 +120,7 @@ test('версия приложения совпадает с версией п�
 
   // В окне показывается version.json проекта, в свойствах EXE — package.json.
   // Расхождение читается как «приложение старое».
-  assert.equal(pkg.version.split('.')[0], '1', 'мажор package.json — 1.x');
+  assert.equal(pkg.version, version.version, 'версия EXE должна совпадать с версией проекта');
   assert.ok(version.version, 'version.json читается');
 });
 
@@ -170,4 +172,20 @@ test('отчёт smoke попадает и в артефакты, и в рели
   assert.match(artifact, /desktop\/dist\/smoke\.json|smoke\.json/, 'smoke.json не выгружается артефактом');
   const publish = yaml.slice(yaml.indexOf('publish-release:'));
   assert.match(publish, /smoke\.json/, 'smoke.json не попадает в релиз');
+});
+
+test('в установщик попадает код пайплайна, а не только данные', () => {
+  // Без этих записей собранное приложение умеет рисовать бит на JS, но не
+  // может ни сгенерировать текст (Ollama), ни бит MusicGen, ни клон голоса:
+  // «одна программа» превращалась в «окно + отдельный репозиторий».
+  const resources = new Map(pkg.build.extraResources.map((entry) => [entry.from, entry.to]));
+
+  assert.equal(resources.get('../main.py'), 'project/main.py');
+  for (const dir of ['app', 'modules', 'agents', 'tools']) {
+    assert.equal(resources.get(`../${dir}`), `project/${dir}`, `нет ${dir} в поставке`);
+  }
+  assert.equal(resources.get('../requirements.txt'), 'project/requirements.txt');
+  // Питон-исходники — только .py: кэши и тесты в установщике не нужны.
+  const entry = pkg.build.extraResources.find((item) => item.from === '../modules');
+  assert.deepEqual(entry.filter, ['**/*.py']);
 });

@@ -3,11 +3,9 @@
 ZS Music Maker — единая точка входа
 ===================================
 
-Три способа работы, в порядке приоритета:
-
-* Desktop Wizard (PySide6) — `python main.py`, `--desktop`;
-* Web UI (Gradio) — `--gradio`;
-* консольный REPL — `--console` или автоматический откат, если GUI нет.
+Основной пользовательский продукт — установленный Electron.
+Python без флагов показывает инструкцию; PySide/Gradio/console доступны только
+по явному выбору как legacy, не как автоматически выбранная основная студия.
 
 Все неинтерактивные режимы (`--god`, `--ai`, `--smoke`, `--score`,
 `--readiness`, `--update`, …) обслуживает пакет `app.cli`:
@@ -19,7 +17,6 @@ ZS Music Maker — единая точка входа
 
 from __future__ import annotations
 
-import logging
 import multiprocessing
 import sys
 from pathlib import Path
@@ -39,19 +36,50 @@ VERSION = ctx.version
 BUILD = ctx.build
 
 
-def _maybe_silent_bootstrap(args) -> None:
-    """Тихий авто-докач — сам понимает, без вопросов."""
-    try:
-        from tools.readiness.scoring import compute as _rc
-        _pct, _info = _rc()
-        _heavy = _info.get("raw_probes", {}).get("audio_pipeline", {})
-        if any(v == "BLOCKED" for v in _heavy.values()):
-            from app.core.net_policy import network_allowed
-            if network_allowed(allow_online=bool(getattr(args, "online", False))):
-                from app.core.bootstrap import auto_bootstrap as _ab
-                _ab(silent=True, allow_download=True)
-    except Exception as _e:
-        logging.getLogger(__name__).debug(f"silent bootstrap skip: {_e}")
+def _run_info_command(args) -> int | None:
+    """Информация и явно запрошенная подготовка; чтение не вызывает докачку.
+
+    Вынесено из `main()`, чтобы она осталась маршрутизатором, а не таблицей
+    флагов: правило проекта — функция ≤ 60 строк.
+    """
+    dispatch = (
+        (args.version, commands.run_version),
+        (args.list_genres, commands.run_list_genres),
+        (args.list_stages, pipeline_cmds.run_list_stages),
+        (args.smoke, commands.run_smoke),
+        (args.self_diag, commands.run_self_diag),
+        (args.health, commands.run_health),
+        (args.readiness, commands.run_readiness),
+        (args.dashboard, commands.run_dashboard),
+        (args.e2e, commands.run_e2e),
+        (args.onboarding, commands.run_onboarding),
+        (args.update, lambda: commands.run_update(allow_online=bool(getattr(args, "online", False)))),
+    )
+    for enabled, handler in dispatch:
+        if enabled:
+            return handler()
+    if args.entrypoints:
+        from app.cli.probes import entrypoint_snapshot
+        return entrypoint_snapshot()
+    if args.resource_policy:
+        from app.cli.probes import resource_policy_snapshot
+        return resource_policy_snapshot()
+    if args.ollama_status:
+        return commands.run_ollama_status()
+
+    if args.ollama_setup:
+        return commands.run_ollama_setup()
+
+    if args.rvc_setup:
+        return commands.run_rvc_setup()
+    if args.rvc_train:
+        return commands.run_rvc_train(args.rvc_voice, args.rvc_epochs)
+    if args.rvc_fork:
+        return commands.run_rvc_fork(args.rvc_fork)
+    if args.bootstrap or args.auto_bootstrap:
+        return commands.run_bootstrap(allow_online=bool(getattr(args, "online", False)))
+    return None
+
 
 def main() -> int:
     # Собранный PyInstaller-exe должен уметь порождать процессы (мастеринг
@@ -62,32 +90,11 @@ def main() -> int:
     header()
     args = build_parser().parse_args()
 
-    _maybe_silent_bootstrap(args)
+    # Preparation is explicit; read-only/help/default entrypoints never bootstrap.
     # 1) Команды без побочных эффектов на проект.
-    if args.version:
-        return commands.run_version()
-    if args.list_genres:
-        return commands.run_list_genres()
-    if args.list_stages:
-        return pipeline_cmds.run_list_stages()
-    if args.smoke:
-        return commands.run_smoke()
-    if args.self_diag:
-        return commands.run_self_diag()
-    if args.health:
-        return commands.run_health()
-    if args.readiness:
-        return commands.run_readiness()
-    if args.bootstrap or args.auto_bootstrap:
-        return commands.run_bootstrap(allow_online=bool(getattr(args, 'online', False)))
-    if args.dashboard:
-        return commands.run_dashboard()
-    if args.e2e:
-        return commands.run_e2e()
-    if args.onboarding:
-        return commands.run_onboarding()
-    if args.update:
-        return commands.run_update()
+    early = _run_info_command(args)
+    if early is not None:
+        return early
 
     # 2) Пробы и оценка готового мастера.
     if args.score:
@@ -104,6 +111,10 @@ def main() -> int:
         return dossier_cmds.run_dossier_build(args.dossier_artist)
 
     # 4a) HIT FACTORY — автономная фабрика хитов (приоритет выше классики)
+    if getattr(args, "agent_hit", False):
+        from app.cli.agent_task import run_agent_hit
+
+        return run_agent_hit(args)
     if getattr(args, 'hit_factory', False):
         from app.cli.hitfactory import run_hit_factory
         return run_hit_factory(args)
@@ -130,23 +141,25 @@ def main() -> int:
 
     # 5) Интерфейсы.
     if args.console:
+        from app.core.entrypoints import LEGACY_NOTICE
+        from app.cli.env import safe_print
+        safe_print(LEGACY_NOTICE)
         return commands.run_console()
     if args.gradio or args.desktop:
         from app.cli import gui
+        from app.core.entrypoints import LEGACY_NOTICE
+        from app.cli.env import safe_print
+        safe_print(LEGACY_NOTICE)
 
         launched = gui.try_launch_gradio() if args.gradio else gui.try_launch_pyside()
         return 0 if launched else 2
 
-    # 6) Поведение по умолчанию: Desktop → Web → консоль.
-    from app.cli import gui
-    from app.cli.probes import health_snapshot
+    # No silent legacy GUI/network fallback from the Python entrypoint.
+    from app.core.entrypoints import default_instructions
+    from app.cli.env import safe_print
 
-    health_snapshot()
-    if gui.try_launch_pyside():
-        return 0
-    if gui.try_launch_gradio():
-        return 0
-    return commands.run_console()
+    safe_print(default_instructions())
+    return 2
 
 
 def cli_entry() -> int:

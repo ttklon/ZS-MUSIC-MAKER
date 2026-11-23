@@ -70,28 +70,44 @@ jobs:
         with:
           node-version: '22'
 
+      # Python ставится ДО прогона оболочки: часть тестов зовёт `python`
+      # (`readiness`, `--version`) и во всём остальном ведёт себя как на
+      # машине пользователя. Раньше шаг шёл после тестов, и поведение
+      # расходилось с локальным прогоном.
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install minimal Python deps
+        run: |
+          python -m pip install --upgrade pip
+          # Полный requirements.txt с PySide6 (~200 МБ) здесь не нужен: тесты
+          # оболочки и кросс-проверка трогают только `tools.readiness`,
+          # `main.py --version` и снимок готовности.
+          pip install requests filelock pyyaml pytest hypothesis pytest-cov
+
       - name: Syntax check of shell sources
         run: |
           cd desktop
           npm run check
 
       - name: Shell tests (node --test, no GUI needed)
+        # `--test-concurrency=1` обязателен: тесты пишут в общие каталоги
+        # (`output/`, `data/`), и параллельный прогон даёт гонку и таймаут.
+        # Вывод идёт в файл, а упавшие тесты попадают в annotation — иначе
+        # красный шаг говорит только «exit code 1».
         run: |
           cd desktop
-          node --test --test-concurrency=1 test/*.test.js
-
-      - name: Set up Python (only for the readiness snapshot cross-check)
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Install minimal Python deps for snapshot
-        run: |
-          python -m pip install --upgrade pip
-          # Cross-check трогает `tools.readiness` и `main.py --version`;
-          # полный requirements.txt с PySide6 (~200 МБ) здесь не нужен и
-          # делает шаг главным источником падений на раннере.
-          pip install requests filelock pyyaml pytest hypothesis pytest-cov
+          status=0
+          node --test --test-concurrency=1 test/*.test.js > /tmp/shell-tests.log 2>&1 || status=$?
+          tail -60 /tmp/shell-tests.log
+          if [ "$status" -ne 0 ]; then
+            detail=$(grep -E '^not ok|^# fail|Error|expected|AssertionError' /tmp/shell-tests.log \
+              | head -12 | cut -c1-200 | tr '\n' '|')
+            echo "::error title=shell tests::${detail:-см. лог шага}"
+            exit 1
+          fi
 
       # Шаги разделены нарочно: логи job-а из внешней среды не читаются,
       # а имя упавшего шага и его annotation — читаются.
@@ -117,6 +133,11 @@ jobs:
           cat /tmp/snapshot.log
           # `generated_at` меняется от каждого запуска — сравниваем содержимое
           # без него, иначе шаг падал бы всегда.
+          #
+          # Здесь сверка с `HEAD` (режим по умолчанию), и порядок важен: снимок
+          # только что перегенерирован в рабочем дереве, поэтому расхождение с
+          # `HEAD` означает ровно одно — в коммит забыли положить снимок.
+          # Локальный pytest использует `--tree` и ловит то же самое ДО пуша.
           python ../tools/check_snapshot_freshness.py
 
   desktop-windows:
@@ -183,6 +204,12 @@ jobs:
             Write-Output "::error title=npm install::$tail"
             exit 1
           }
+
+      - name: Set up bundled Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          architecture: 'x64'
 
       - name: Shell tests on Windows (no GUI needed)
         working-directory: desktop
@@ -252,6 +279,10 @@ jobs:
           }
           Write-Output "electron $version распакован в $dist"
 
+      - name: Bundle Python and core dependencies for clean Windows installs
+        shell: pwsh
+        run: ./desktop/scripts/bundle-python.ps1
+
       - name: Build NSIS installer and portable EXE
         working-directory: desktop
         shell: pwsh
@@ -283,6 +314,15 @@ jobs:
             Write-Output $output
             exit 1
           }
+
+      - name: Real packaged renderer startup check
+        shell: pwsh
+        run: |
+          $env:ZSMM_WINDOW_CHECK_OUT = Join-Path $env:RUNNER_TEMP 'zsmm-window-startup.json'
+          $process = Start-Process -FilePath 'desktop/dist/win-unpacked/ZS Music Maker.exe' -ArgumentList '--window-check' -PassThru
+          if (-not $process.WaitForExit(60000)) { $process.Kill(); throw 'Window startup hung' }
+          if (Test-Path $env:ZSMM_WINDOW_CHECK_OUT) { Get-Content $env:ZSMM_WINDOW_CHECK_OUT }
+          if ($process.ExitCode -ne 0 -or -not (Test-Path $env:ZSMM_WINDOW_CHECK_OUT)) { throw 'Packaged window startup failed' }
 
       - name: Show what was built
         working-directory: desktop
@@ -405,18 +445,18 @@ jobs:
           retention-days: 30
 
   publish-release:
-    # Публикуем после любой успешной Windows-сборки: иначе установщик живёт
-    # только 30 дней в артефактах CI, куда человеку ещё нужно войти в GitHub,
-    # а прямой ссылки на .exe нет вовсе. Метка релиза зависит от версии
-    # приложения, поэтому повторные сборки перезаписывают те же файлы и
-    # ссылка `releases/latest/download/…` не меняется.
+    # Successful build is necessary, NOT sufficient: product acceptance is mandatory.
     needs: [desktop-windows]
     if: needs.desktop-windows.result == 'success'
+    concurrency: product-release-publication
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v4
+
+      - name: Require product acceptance for this exact source commit
+        run: python3 tools/release_gate.py --commit "$GITHUB_SHA"
 
       - name: Download Electron installer
         uses: actions/download-artifact@v4
@@ -427,17 +467,29 @@ jobs:
       - name: List what will be published
         run: ls -l electron-win
 
-      # Метка берётся из версии приложения: релиз-«последний» перезаписывается,
-      # поэтому ссылка на скачивание не меняется от сборки к сборке.
+      # Published versions are immutable. Use a new version after acceptance.
       - name: Read app version
         id: version
         run: |
           version=$(node -p "require('./desktop/package.json').version")
           echo "value=${version}" >> "$GITHUB_OUTPUT"
 
+      - name: Refuse replacement of an existing release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: desktop-v${{ steps.version.outputs.value }}
+        run: |
+          gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" --jq '.[].tag_name' > /tmp/release-tags
+          if grep -Fx -- "$RELEASE_TAG" /tmp/release-tags; then
+            echo "Existing release is immutable; use a new version. No assets changed."
+            exit 1
+          fi
+
       - name: Publish Windows installer
         uses: softprops/action-gh-release@v2
         with:
+          overwrite_files: false
+          make_latest: false
           tag_name: desktop-v${{ steps.version.outputs.value }}
           name: ZS Music Maker ${{ steps.version.outputs.value }} (Electron, Windows 11)
           body: |
@@ -475,11 +527,25 @@ jobs:
         continue-on-error: true
         run: cd release && zip -r ../ZS-Music-Maker-Windows.zip .
 
+      - name: Refuse replacement of tagged Python release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" --jq '.[].tag_name' > /tmp/release-tags
+          if grep -Fx -- "$RELEASE_TAG" /tmp/release-tags; then
+            echo "Existing release is immutable; use a new version. No assets changed."
+            exit 1
+          fi
+
       - name: Publish tagged release with Python build
         if: startsWith(github.ref, 'refs/tags/v')
         continue-on-error: true
         uses: softprops/action-gh-release@v2
         with:
+          overwrite_files: false
+          make_latest: false
           tag_name: ${{ github.ref_name }}
           generate_release_notes: true
           files: ZS-Music-Maker-Windows.zip
