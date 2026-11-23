@@ -1,4 +1,4 @@
-"""Validate restart coverage and prohibit skipping unfinished fifty-task batches."""
+"""Validate restart coverage and prohibit skipping unfinished ten-task batches."""
 import json
 from pathlib import Path
 
@@ -8,13 +8,15 @@ BASE = ROOT / 'docs/plan'
 
 def validate_restart(data, backlog):
     expected = [t['id'] for t in backlog['tasks']]
-    assert data['schema'] == 1 and data['batch_size'] == 50
+    assert data['schema'] == 1 and data['batch_size'] == 10
     assert [task for batch in data['batches'] for task in batch] == expected, 'Missing, duplicate or reordered task'
-    assert all(len(batch) == 50 for batch in data['batches'])
+    assert all(len(batch) == 10 for batch in data['batches'])
     current = data['current_batch']
     assert type(current) is int and 0 <= current < len(data['batches'])
+    reviewed = data.get('reviewed_through_batch', current)
+    assert type(reviewed) is int and current <= reviewed < len(data['batches'])
     records = data['reviews']
-    assert [r['id'] for r in records] == [task for batch in data['batches'][:current + 1] for task in batch]
+    assert [r['id'] for r in records] == [task for batch in data['batches'][:reviewed + 1] for task in batch]
     for row in records:
         assert row['state'] in ('in_progress', 'complete')
         assert row['evidence'] and all((ROOT / path).is_file() for path in row['evidence'])

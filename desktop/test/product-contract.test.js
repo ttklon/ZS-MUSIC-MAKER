@@ -63,3 +63,45 @@ test('missing or unsupported browser contract shows a recoverable error, never s
     assert.doesNotMatch(host.textContent, /Что действительно работает/);
   }
 });
+
+test('schema rejects empty, duplicated, incomplete or unsupported product scenarios', () => {
+  const clone = () => JSON.parse(JSON.stringify(c));
+  for (const mutate of [x => { x.scenarios = []; }, x => { x.scenarios[1] = x.scenarios[0]; },
+    x => { x.scenarios[0].accepted = 'false'; }, x => { x.scenarios[0].blocker = ''; },
+    x => { x.scenarios[0].accepted = true; }, x => { x.notEquivalent = []; },
+    x => { x.name = ''; }, x => { x.versionSource = '../version.json'; }]) {
+    const bad = clone(); mutate(bad);
+    assert.equal(c.validate(bad), false);
+    assert.throws(() => checkMetadata(bad), /Invalid product contract/);
+  }
+  assert.equal(c.validate(c), true);
+});
+
+test('valid help really renders all scenario names, boundaries and reasons; malformed schema recovers', async () => {
+  const { FakeDocument } = require('./fake-dom');
+  for (const bad of [false, true]) {
+    const doc = new FakeDocument();
+    const host = doc.createElement('div'); host.id = 'help-body'; doc.append(host);
+    const window = { zsmm: {}, ZSMM_SECTIONS: {}, ZSMM_UI: {
+      $: id => doc.getElementById(id), showError: () => {},
+      el: (tag, cls, text) => { const n = doc.createElement(tag); n.className = cls || ''; n.textContent = text || ''; return n; }
+    } };
+    vm.runInNewContext(fs.readFileSync(path.join(ROOT, 'desktop/src/core/product-contract.js'), 'utf8'), { window });
+    if (bad) window.ZSMM_PRODUCT = { ...window.ZSMM_PRODUCT, scenarios: [] };
+    vm.runInNewContext(fs.readFileSync(path.join(ROOT, 'desktop/src/sections/help.js'), 'utf8'), { window, setTimeout: () => 0 });
+    window.ZSMM_SECTIONS.initHelp(); await window.ZSMM_UI.loadHelp();
+    if (bad) assert.match(host.textContent, /Спецификация недоступна/);
+    else for (const s of c.scenarios) for (const text of [s.name, s.result, s.blocker]) assert.ok(host.textContent.includes(text));
+  }
+});
+
+test('packaged probe rejects correct product ID with missing or stale visible contract text', () => {
+  const { verifyProductHelp } = require('../electron/product-help-check');
+  const snapshot = { contract: JSON.parse(JSON.stringify(c)),
+    intro: ['name', 'platform', 'entry', 'state', 'delivery', 'network', 'hardware', 'rights'].map(k => c[k]).join('\n'),
+    scenarios: c.scenarios.map(s => `${s.name} Не принят: ${s.result} ${s.blocker}`).join('\n') };
+  assert.equal(verifyProductHelp(snapshot), true);
+  assert.equal(verifyProductHelp({ ...snapshot, intro: c.id }), false);
+  assert.equal(verifyProductHelp({ ...snapshot, scenarios: '' }), false);
+  assert.equal(verifyProductHelp({ ...snapshot, contract: { id: c.id } }), false);
+});

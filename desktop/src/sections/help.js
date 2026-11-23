@@ -16,7 +16,7 @@ const { $, el, showError } = W;
 /** Contract failure must be visible, never replaced by optimistic capabilities. */
 function productPanels() {
   const c = window.ZSMM_PRODUCT;
-  if (!c || c.schema !== 1 || !Array.isArray(c.scenarios)) {
+  if (typeof window.ZSMM_VALIDATE_PRODUCT !== 'function' || !window.ZSMM_VALIDATE_PRODUCT(c)) {
     return [section('Спецификация недоступна', [['Ошибка', 'Не удалось прочитать контракт продукта. Сохраните ошибки; готовность функций не подтверждена.']])];
   }
   const intro = section('Поддерживаемый продукт', [
@@ -24,6 +24,9 @@ function productPanels() {
     ['Статус', c.state], ['Поставка', c.delivery], ['Сеть', c.network], ['Оборудование', c.hardware], ['Права ресурсов', c.rights]
   ]);
   intro.id = 'product-contract'; intro.setAttribute('data-product-id', c.id);
+  const scenarios = section('Обязательные сценарии — статус приёмки', c.scenarios.map(s => [s.name,
+    (s.accepted ? 'Принят: ' : 'Не принят: ') + s.result + ' ' + s.blocker]));
+  scenarios.id = 'product-scenarios';
   return [intro,
     section('Что действительно работает — границы подтверждения', [
       ['Проверено отдельно', 'Сборка Windows, старт окна и навигация. Реальный Silero CPU проверен отдельным тестом, не как законченная песня.'],
@@ -31,8 +34,7 @@ function productPanels() {
       ['Отмена рендера', 'Процедурный бит отменяется между секциями. Отмена тяжёлых задач проверяется отдельно.'],
       ['Одно окно', 'Повторный запуск активирует существующее окно.']
     ]),
-    section('Обязательные сценарии — статус приёмки', c.scenarios.map(s => [s.name,
-      (s.accepted ? 'Принят: ' : 'Не принят: ') + s.result + ' ' + s.blocker])),
+    scenarios,
     section('Чего здесь нет (честно)', [
       ['Мгновенная отмена', 'Не гарантируется: процедурный рендер ждёт границы секции.'],
       ['Гарантия готовности', c.releaseGate], ['Legacy входы', c.legacy],

@@ -15,10 +15,10 @@ def load():
             json.loads((BASE / 'backlog.json').read_text(encoding='utf-8')))
 
 
-def test_restart_covers_all_1000_and_starts_at_first_fifty():
+def test_restart_covers_all_1000_and_starts_at_first_ten():
     data, backlog = load()
     result = validate_restart(data, backlog)
-    assert (result['active_first'], result['active_last']) == ('T0001', 'T0050')
+    assert (result['active_first'], result['active_last']) == ('T0001', 'T0010')
     assert not result['product_acceptance_verified_by_this_tool']
 
 
@@ -29,7 +29,8 @@ def test_invalid_restart_is_rejected(mutation):
     if mutation == 'omit': data['batches'][0].pop()
     if mutation == 'duplicate': data['batches'][0][1] = 'T0001'
     if mutation == 'reorder': data['batches'][0].reverse()
-    if mutation == 'unearned': data['reviews'][0]['state'] = 'complete'
+    if mutation == 'unearned':
+        data['reviews'][0].update(state='complete', acceptance_met=False)
     with pytest.raises(AssertionError):
         validate_restart(data, backlog)
 
@@ -37,6 +38,6 @@ def test_invalid_restart_is_rejected(mutation):
 def test_cannot_jump_past_unfinished_batch():
     data, backlog = load()
     data['current_batch'] = 1
-    data['reviews'] += [dict(data['reviews'][0], id=task) for task in data['batches'][1]]
+    data['reviews'][0].update(state='in_progress', acceptance_met=False)
     with pytest.raises(AssertionError, match='Cannot skip'):
         validate_restart(data, backlog)

@@ -26,6 +26,26 @@
     "recovery": "При сбое не удаляйте проекты и веса. Сохраните ошибки кнопкой в верхней панели; проверьте журнал в «Модели и загрузки». Не запускайте случайные команды pip.",
     "releaseGate": "Чистая установка, подготовка, настоящая музыка и пение, правка, экспорт, восстановление и прослушивание; без открытых P0/P1 согласованного объёма."
   };
+  function validateProduct(value) {
+    const strings = ['id', 'name', 'platform', 'entry', 'installer', 'versionSource', 'state',
+      'delivery', 'network', 'rights', 'hardware', 'recovery', 'legacy', 'releaseGate'];
+    if (!value || value.schema !== 1 || strings.some(k => typeof value[k] !== 'string' || !value[k].trim())) return false;
+    if (value.versionSource !== 'version.json' || !value.installer.includes('<version>')) return false;
+    if (!Array.isArray(value.notEquivalent) || !value.notEquivalent.length ||
+        value.notEquivalent.some(s => typeof s !== 'string' || !s.trim())) return false;
+    const ids = new Set(['instrumental', 'own-vocal', 'singing', 'revision']);
+    if (!Array.isArray(value.scenarios) || value.scenarios.length !== ids.size) return false;
+    for (const scenario of value.scenarios) {
+      if (!scenario || !ids.delete(scenario.id) || scenario.required !== true || typeof scenario.accepted !== 'boolean') return false;
+      if (['name', 'result'].some(k => typeof scenario[k] !== 'string' || !scenario[k].trim())) return false;
+      if (typeof scenario.blocker !== 'string' || (!scenario.accepted && !scenario.blocker.trim())) return false;
+      if (scenario.accepted && (!Array.isArray(scenario.evidence) || !scenario.evidence.length ||
+          scenario.evidence.some(e => typeof e !== 'string' || !e.trim()))) return false;
+    }
+    return ids.size === 0;
+  }
+  Object.defineProperty(contract, 'validate', { value: validateProduct });
+  if (typeof window !== 'undefined') window.ZSMM_VALIDATE_PRODUCT = validateProduct;
   if (typeof module !== 'undefined' && module.exports) module.exports = contract;
   if (typeof window !== 'undefined') window.ZSMM_PRODUCT = contract;
 })();

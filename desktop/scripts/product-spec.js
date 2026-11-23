@@ -44,6 +44,7 @@ function document(c) {
 }
 
 function checkMetadata(c, root = ROOT) {
+  if (!contract.validate(c)) throw new Error('Invalid product contract');
   const pkg = JSON.parse(fs.readFileSync(path.join(root, 'desktop/package.json'), 'utf8'));
   const version = JSON.parse(fs.readFileSync(path.join(root, c.versionSource), 'utf8')).version;
   if (pkg.version !== version) throw new Error('Product version mismatch');

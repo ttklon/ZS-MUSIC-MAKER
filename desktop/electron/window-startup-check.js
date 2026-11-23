@@ -1,6 +1,7 @@
 'use strict';
 /** Real packaged renderer probe, distinct from the headless data smoke check. */
 const fs = require('node:fs');
+const { verifyProductHelp } = require('./product-help-check');
 function checkWindow(window, app) {
   if (!process.argv.includes('--window-check')) return;
   let finished = false;
@@ -41,13 +42,16 @@ function checkWindow(window, app) {
             while (!window.ZSMM_UI.state.loaded.has(view) && Date.now() < deadline)
               await new Promise(r => setTimeout(r, 50));
             const section = document.getElementById('view-' + view);
-            results.push({ view, ok: !section.classList.contains('is-hidden') &&
+            results.push({ view, ...(view === 'help' ? { product: { contract: window.ZSMM_PRODUCT,
+              intro: document.getElementById('product-contract')?.textContent,
+              scenarios: document.getElementById('product-scenarios')?.textContent } } : {}), ok: !section.classList.contains('is-hidden') &&
               window.ZSMM_UI.state.loaded.has(view) && section.textContent.trim().length > 20 &&
               (view !== 'help' || document.getElementById('product-contract')?.getAttribute('data-product-id') === 'zsmm-windows-studio') });
           }
           return results;
         })()`);
-        report.ok = report.navigation.every(r => r.ok);
+        report.productHelpVerified = verifyProductHelp(report.navigation.find(r => r.view === 'help')?.product);
+        report.ok = report.productHelpVerified && report.navigation.every(r => r.ok);
       }
       finish({ ...report, ok: report.ok && report.creationVisible && errors.length === 0 });
     } catch (error) { finish({ ok: false, error: String(error) }); }
