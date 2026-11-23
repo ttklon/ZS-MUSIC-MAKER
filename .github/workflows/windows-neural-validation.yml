@@ -6,6 +6,8 @@ on:
       - '.github/workflows/windows-neural-validation.yml'
       - 'tools/windows_neural_smoke.py'
       - 'tools/neural_benchmark.py'
+      - 'tools/desktop_render_benchmark.js'
+      - 'desktop/test/hardware-benchmark.test.js'
       - 'app/ai/hardware.py'
       - 'app/ai/profiles.py'
       - 'app/ai/registry.py'
@@ -82,3 +84,27 @@ jobs:
           name: windows-bootstrap-resolver
           path: bootstrap-resolver.log
           retention-days: 3
+
+  real-desktop-dsp:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        seconds: [20, 120]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate benchmark and real worker cancellation/retry
+        run: node --test desktop/test/hardware-benchmark.test.js
+      - name: Render actual instrumental through production worker
+        run: node tools/desktop_render_benchmark.js ${{ matrix.seconds }} output/desktop-dsp-${{ matrix.seconds }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: windows-desktop-dsp-${{ matrix.seconds }}
+          path: output/desktop-dsp-${{ matrix.seconds }}/
+          retention-days: 7
+          if-no-files-found: error
