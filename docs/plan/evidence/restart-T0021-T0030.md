@@ -423,3 +423,27 @@ WAV SHA `fb1df45ac8b19b275c22f789316364cb7b1f2793c130f3f4cfc2db34cfc4632d`.
 Все прежние cancellation/player/control checks пройдены, quality/profile false.
 Локально 46 JS tests + 24 Python plan/product/budget tests passed.
 T0021–T0030 остаётся активным, новая универсальная hardware acceptance не заявлена.
+
+## Негативные вводы после реального GUI render
+
+[Windows 45166373798](https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45166373798),
+source `6d452ce12af5fd367cc99f4fe59f43b0ef41c410`: все пять job SUCCESS.
+[Durable reports](restart-hardware-gui-input-windows-45166373798.json).
+`gui-input-check.js` выполняется после настоящего positive DOM render,
+без подмены IPC/worker/обработчиков. 6 DOM-кликов с ошибочными значениями:
+BPM 0 / 221 / not-a-number; duration 1 / 601 / not-a-number.
+
+Все 6 `ok=true`: сразу после click и через 250 ms Render остаётся доступен,
+Cancel выключен, видна конкретная ошибка диапазона, progress events=0.
+Сохранены **те же ссылки** на finished audio/report/blob URL и прежний
+готовый status; Save/Open остаются доступны и player src прежний.
+Сценарий восстанавливает каждое поле в finally и снимает progress listener.
+Это проверка наблюдаемого поведения DOM/IPC progress, **не OS-аудит отсутствия
+создания процесса**: нулевое число progress за 250 ms само по себе не доказывает
+отсутствия скрытого worker; production handler возвращает до renderBeat
+по собственной синхронной валидации. Ошибки ожидаемого ввода могут попадать
+в локальный reportError log как часть обычного production showError.
+
+Локально 48 JS + 24 Python tests passed. Positive/cancel/retry и measurement
+по-прежнему проходят на той же ревизии. Нет singing/quality/NSIS/GPU приёмки;
+счётчик полного плана остаётся 20, активны T0021–T0030.
