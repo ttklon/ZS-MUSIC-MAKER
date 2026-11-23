@@ -6,6 +6,14 @@
 [архив непроверенных оценок](history/hardware-estimates-unverified.md); использовать
 их как минимальные требования или обещание скорости нельзя.
 
+
+Последняя узкая техническая проверка: [Windows 45158731434](https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45158731434),
+все пять job SUCCESS. Classic procedural instrumental 20.0 s / 27.2780 s wall /
+350265344 bytes sampled RSS; **typed instrumental success** с producer trace
+beat→mix→master. CPU 4 threads/2 cores, RAM 15.99 GiB. `quality_accepted=false`,
+`product_profile_accepted=false`: не singing, не весь продукт и не GPU-профиль.
+[Сохранённый протокол](plan/evidence/restart-hardware-provenance-windows-45158731434.json).
+
 ## Проверяемый контракт
 
 - Инвентарь: `python tools/measure_hardware_profile.py --help`. RAM, свободный

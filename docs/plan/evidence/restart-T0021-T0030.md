@@ -282,3 +282,37 @@ typed result **degraded**, probe exit 1. Одинаковый WAV/hash не ск
 Закрыт execution-scope transport разрыв; всё ещё не приняты полный song/content
 результат, установленный GUI и реальные CUDA/AMD GPU профили. Счётчик принятого
 в повторном проходе остаётся 20, пакет T0021–T0030 активен.
+
+## Первое техническое typed success реального classic instrumental
+
+Source 795c558f09e693ca1f5fde2a00617ec6b4febfd3:
+`prepare_traced_mix` фиксирует identity beat до/после actual mixer и hash mix.
+`attach_instrumental_evidence` в canonical finalization проверяет live stage
+objects, caller scope, actual files/paths/stereo/duration, trace hashes и master
+integrity. Только producer-derived `music_present`; не listening/model test.
+Технический typed success не является новым singing/quality/license профилем.
+
+Негативные tests (fixtures): изменённый beat/mix/master, malformed/null hash,
+missing trace, vocal used, fallback/failed stage, duplicate stage, outside file,
+смена входа во время mixer call. Старый manifest удаляется при провале повторной
+проверки. Никакого изготовления manifest из одного существующего legacy WAV.
+
+[Windows 45158238672](https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45158238672):
+**SUCCESS все пять job**, настоящий classic positive 20.0 s / 22.3108 s wall /
+343875584 bytes sampled RSS; outcome/adapter/typed result **success**.
+[Сохранённые manifests и job metadata](restart-hardware-content-windows-45158238672.json).
+Actual beat/mix/master SHA сохранены в compact summary. Контрольный requested
+texture case остаётся blocked/degraded без manifest, хотя WAV тот же.
+Workflow отдельно assert-ит instrumental kind, hash binding и quality_accepted=false.
+
+Локальный расширенный набор после сохранения компактного hardware identity:
+**318 Python tests passed**. Повторный Windows run 45158731434 (source
+22e22480e85d9266ac47bc5a781c7bff939ee5f1): **SUCCESS все пять job**.
+[Durable summary](restart-hardware-provenance-windows-45158731434.json):
+CPU AMD64 Family 25 Model 1 / 4 threads / 2 cores / RAM 15.99 GiB;
+20.0 s / 27.2780 s wall / 350265344 bytes sampled RSS;
+outcome/adapter/typed **success**, `quality_accepted=false`.
+Контрольный requested-texture case: blocked/degraded, без render_evidence.
+Полный report/WAV — artifact windows-classic-pipeline-diagnostic.
+Полный runtime profile, singing, установленный GUI, CUDA/AMD GPU всё ещё не
+приняты. Новое техническое instrumental content evidence не закрывает весь пакет.

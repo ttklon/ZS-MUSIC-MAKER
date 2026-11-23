@@ -130,3 +130,30 @@ Windows workflow product-plan.yml запускает эти проверки н�
 измеряет runner и отдельно проверяет упакованное окно. Ни один из этих тестов
 не является генерацией песни или прослушиванием. Версии, SHA и ссылка Windows
 фиксируются в `docs/plan/evidence/T0011-T0040.md` после исполнения.
+
+## Узкий live producer инструментала
+
+`app/core/instrumental_evidence.py` выдаёт `render_evidence.kind=instrumental`
+только из canonical finalization для явного procedural / voice off / texture off /
+stems off запроса с успешным caller-scoped outcome. Legacy report автоматически
+не дообогащается; generic validator по-прежнему не доверяет producer request_scope.
+
+Подтверждение — **provenance доверенного исполнителя**, не независимое
+распознавание музыки. Проверяются уникальные успешные live stage outputs,
+structured beat constructor, instrumental mix без вокала с пройденными mix gates,
+master/polish, валидные локальные stereo WAV, согласованная длительность.
+Микшер записывает fingerprint beat до/после обработки и своего выхода; producer
+сверяет их с текущими beat/mix и integrity hash финального master. Подмена файла,
+отсутствующий/некорректный hash, fallback/reuse/ошибка не дают нового manifest.
+При повторной неуспешной проверке старый manifest этого producer удаляется.
+
+В manifest: engine `classic_procedural_instrumental`, revision
+`classic-procedural-chain-v1`, `checks={music_present:true}`, master SHA и
+SHA-256 трёх assets. Запрошенный процедурный синтез — настоящий результат
+синтезатора, не заглушка neural backend. Он не получает vocal_method/singing
+checks. `quality_accepted=false` сохраняется, включая случай рекомендаций QA
+по доработке музыки. Нет заявления о лицензии, качестве, пении или GPU.
+
+Хеши не являются подписью и не защищают от недоверенного производителя,
+вредоносного изменения кода или враждебных одновременных замен файлов.
+Независимая аттестация/изоляция — отдельная работа.
