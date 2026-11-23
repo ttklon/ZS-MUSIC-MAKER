@@ -216,3 +216,17 @@ WAV stereo 44100 Hz / PCM16 / 3528044 bytes проверен целиком и �
 не agent/song wizard и не NSIS install. Системные Save/Open dialogs, фактическое
 воспроизведение аудиоустройством, качество, общий Electron RSS, singing и GPU
 этим не проверены. `product_profile_accepted=false` сохраняется.
+
+### Память Electron в настоящем GUI render/cancel/retry
+
+[Windows 45163408228](https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45163408228),
+все 5 job SUCCESS: **85 samples / 50 ms**, baseline 334012416 bytes,
+peak **508076032 bytes (~484.54 MiB)**, delta 174063616 bytes.
+Это сумма одновременно наблюдавшихся working sets Browser/Tab/GPU/Utility
+через app.getAppMetrics, с shared pages. Не unique RAM/private bytes/VRAM,
+не lifetime max и не OS-wide process-tree audit. Worker threads включены
+в owning process; Chromium GPU process не доказывает GPU inference.
+Окно: navigation + actual DOM cancel/retry + WAV transfer, без startup/install
+и Python-render. Короткие пики между samples могут быть пропущены.
+20 s JS worker audio готов за 4.4314 s, quality/profile false.
+[Протокол](plan/evidence/restart-hardware-gui-memory-windows-45163408228.json).

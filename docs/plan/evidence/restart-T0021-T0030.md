@@ -395,3 +395,31 @@ bundled Python, не NSIS/ACL install. Включение Save/Open провер
 диалог сохранения/плеер не запускались. Звук не прослушан человеком, общий
 RSS всех Electron процессов не измерен. quality/profile accepted=false.
 CUDA/AMD GPU и full singing/song не приняты; T0021–T0030 остаётся активным.
+
+## Измерение памяти настоящего packaged GUI
+
+[Windows 45163408228](https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45163408228),
+source `f71468f114936bdbf5ff1ce779f4e262f0e61642`: все пять job SUCCESS.
+[Durable report](restart-hardware-gui-memory-windows-45163408228.json).
+Добавлен `process-memory-check.js`: app.getAppMetrics sampled каждые 50 ms,
+суммируются **одновременные** working sets всех перечисленных Electron процессов,
+обязательны Browser и Tab, дубликат PID/невалидный metric отклоняется. Worker
+threads уже входят в память owning process, отдельно не складываются.
+Sampler освобождается в finally и не выдаёт недоступные метрики за нулевые.
+
+В реальном DOM click/cancel/retry прогоне: 85 samples за 4.599137 s.
+Baseline 334012416 bytes; sampled peak **508076032 bytes** (~484.54 MiB),
+peak-minus-baseline 174063616 bytes (~166.0 MiB). Состав в момент общего peak:
+Browser 279941120, Tab 109989888, GPU process 68382720, Utility 49762304 bytes.
+Это сумма working sets, **включает shared pages**, не unique physical RAM,
+не private bytes, не VRAM и не сумма lifetime maxima отдельных процессов.
+Тип GPU означает Chromium GPU-process, **не neural GPU inference**.
+Окно измерения включает GUI navigation/cancel/retry/передачу WAV до native
+валидации и записи файла, не startup/install/full Python render. Sampling
+может пропустить короткие пики. Нет утверждения об OS-wide всех потомках.
+
+20 s повторный worker render: 4.4314 s; вся GUI-проверка 4.633 s,
+WAV SHA `fb1df45ac8b19b275c22f789316364cb7b1f2793c130f3f4cfc2db34cfc4632d`.
+Все прежние cancellation/player/control checks пройдены, quality/profile false.
+Локально 46 JS tests + 24 Python plan/product/budget tests passed.
+T0021–T0030 остаётся активным, новая универсальная hardware acceptance не заявлена.
