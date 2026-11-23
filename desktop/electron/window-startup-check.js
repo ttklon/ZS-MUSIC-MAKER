@@ -67,7 +67,7 @@ function checkWindow(window, app) {
         report.ok = report.liveInstrumental.ok === true;
       }
       if (report.ok && report.resultContractVerified && process.env.ZSMM_GUI_BEAT_CHECK === '1') {
-        report.guiBeat = await checkGuiBeat(window, path.dirname(process.env.ZSMM_WINDOW_CHECK_OUT));
+        report.guiBeat = await checkGuiBeat(window, path.dirname(process.env.ZSMM_WINDOW_CHECK_OUT), app);
         report.ok = report.guiBeat.ok === true;
       }
       finish({ ...report, ok: report.ok && report.resultContractVerified && report.creationVisible && errors.length === 0 });

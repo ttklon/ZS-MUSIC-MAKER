@@ -1,6 +1,7 @@
 'use strict';
 /** Real DOM click -> preload IPC -> production worker. No model/voice certification. */
 const fs = require('node:fs');
+const { startProcessMemory } = require('./process-memory-check');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const { parseWavHeader } = require('../src/core/audio/wav-decode');
@@ -83,13 +84,16 @@ function verifyGuiBeat(result) {
     bytes: wav.length, sha256: crypto.createHash('sha256').update(wav).digest('hex') } };
 }
 
-async function checkGuiBeat(window, outputDirectory) {
+async function checkGuiBeat(window, outputDirectory, app) {
   const start = Date.now();
-  const result = await window.webContents.executeJavaScript(`(${guiBeatScenario.toString()})()`);
+  const sampler = startProcessMemory(app);
+  let result, memory;
+  try { result = await window.webContents.executeJavaScript(`(${guiBeatScenario.toString()})()`); }
+  finally { memory = sampler.stop(); }
   const { wav, audio } = verifyGuiBeat(result);
   fs.writeFileSync(path.join(outputDirectory, 'gui-click-instrumental.wav'), wav, { flag: 'wx' });
   return { ok: true, kind: 'real_packaged_dom_ipc_worker_instrumental_not_singing',
-    source: process.env.GITHUB_SHA || null, audio, cancellation: result.cancellation,
+    source: process.env.GITHUB_SHA || null, audio, memory, cancellation: result.cancellation,
     controls: result.controls, renderer: result.report.renderer,
     render_wall_seconds: result.render_wall_seconds, gui_end_to_end_seconds: (Date.now() - start) / 1000,
     quality_accepted: false, product_profile_accepted: false };
