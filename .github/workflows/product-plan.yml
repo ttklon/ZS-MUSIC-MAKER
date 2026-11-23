@@ -173,6 +173,12 @@ jobs:
         run: |
           npm install --ignore-scripts --no-audit --no-fund
           node node_modules/electron/install.js
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Bundle relocatable core Python for clean installer checks
+        shell: pwsh
+        run: ./desktop/scripts/bundle-python.ps1
       - name: Package development application (no release publication)
         working-directory: desktop
         run: npm run dist:dir

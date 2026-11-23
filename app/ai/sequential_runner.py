@@ -252,7 +252,8 @@ class SequentialAIRunner:
         return output, device, skipped_reason
 
     def run(self, context: Optional[Dict[str, Any]] = None, progress: Any = None) -> RunReport:
-        context = context or {}
+        if context is None:
+            context = {}
         context["sink"] = self._sink
         report = RunReport()
         t0 = time.time()

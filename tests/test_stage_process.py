@@ -52,3 +52,15 @@ def test_worker_failure_is_reported_without_context_commit():
     assert not report.stages[0].ok
     assert 'deliberate' in report.stages[0].error
     assert 'bad' not in context
+
+
+def test_empty_caller_context_receives_successful_changes():
+    def change(h, ctx):
+        ctx['committed'] = True
+        return 'ok'
+    context = {}
+    runner = SequentialAIRunner(vram_probe=lambda: 0)
+    runner.add(AIStage('change', None, change, timeout_sec=20))
+    assert runner.run(context).stages[0].ok
+    assert context['committed'] is True
+    assert context['sink']['change'] == 'ok'

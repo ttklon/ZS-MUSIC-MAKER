@@ -10,6 +10,6 @@ New-Item $target -ItemType Directory -Force | Out-Null
 if ($LASTEXITCODE -ne 0) { throw 'Core dependencies installation failed' }
 Copy-Item "$source/*" $target -Recurse -Force
 # Verify relocation rather than merely checking that python.exe exists.
-& "$target/python.exe" -I -c "import sys, pip, numpy, soundfile, scipy, requests; assert sys.version_info[:2] == (3, 11); print(sys.executable)"
+& "$target/python.exe" -I -c "import sys, pip, numpy, soundfile, scipy, requests, cloudpickle; assert sys.version_info[:2] == (3, 11); print(sys.executable)"
 if ($LASTEXITCODE -ne 0) { throw 'Relocated Python failed its import smoke test' }
 "ZSMM_BUNDLE_PYTHON=1" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8

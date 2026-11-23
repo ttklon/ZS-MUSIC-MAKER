@@ -2,7 +2,7 @@ param([Parameter(Mandatory=$true)][string]$Installer, [Parameter(Mandatory=$true
 $ErrorActionPreference = 'Stop'
 $target = Join-Path $env:LOCALAPPDATA ('ZSMM-install-check-' + [guid]::NewGuid().ToString('N'))
 $workspace = Join-Path $env:RUNNER_TEMP ('ZSMM-user-data-' + [guid]::NewGuid().ToString('N'))
-$result = @{ ok=$false; scope='clean-current-user-NSIS-no-models'; install=$target; acl=@(); checks=@() }
+$result = @{ ok=$false; scope='clean-current-user-NSIS-bundled-core-no-models'; install=$target; acl=@(); checks=@() }
 function Wait-Checked($p, $label) {
     if (-not $p.WaitForExit(120000)) { $p.Kill(); throw "$label timed out" }
     if ($p.ExitCode -ne 0) { throw "$label exit $($p.ExitCode)" }
@@ -39,6 +39,24 @@ try {
     $window = Get-Content $env:ZSMM_WINDOW_CHECK_OUT -Raw | ConvertFrom-Json
     if (-not $window.ok) { throw 'Installed window failed' }
     $result.checks += 'installed-window'
+    $project = Join-Path $target 'resources/project'
+    $python = Join-Path $project '.python/python.exe'
+    if (-not (Test-Path $python)) { throw 'Installed bundled Python missing' }
+    $code = @'
+import sys
+sys.path.insert(0, sys.argv[1])
+import cloudpickle, numpy, soundfile, scipy, requests
+from app.ai.sequential_runner import SequentialAIRunner, AIStage
+runner = SequentialAIRunner(vram_probe=lambda: 0)
+runner.add(AIStage('installed', None, lambda h,c: {'ok': True}, timeout_sec=30))
+report = runner.run()
+assert report.stages[0].ok, report.to_dict()
+assert runner.sink()['installed']['ok']
+print('Installed bundled Python isolated stage PASS; no model inference claimed')
+'@
+    & $python -I -c $code $project
+    if ($LASTEXITCODE -ne 0) { throw 'Installed bundled runtime or isolated stage failed' }
+    $result.checks += 'installed-relocated-python-and-isolated-stage'
     $uninstaller = Get-ChildItem $target -Filter '*Uninstall*.exe' | Select-Object -First 1
     if (-not $uninstaller) { throw 'Uninstaller missing' }
     $p = Start-Process -FilePath $uninstaller.FullName -ArgumentList @('/S', "_?=$target") -PassThru
