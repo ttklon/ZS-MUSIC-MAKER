@@ -94,6 +94,20 @@ def summary_for(report):
                        for stage in result.get('stages', [])]}
 
 
+def measurement_summary(report):
+    summary = {key: report.get(key) for key in ('ok', 'kind', 'source', 'measurements', 'diagnostic_audio')}
+    summary['product_profile_accepted'] = False
+    summary['render_evidence'] = (report.get('pipeline') or {}).get('render_evidence')
+    summary['adapter_status'] = (report.get('adapter_outcome') or {}).get('status')
+    summary['typed_result_status'] = (report.get('typed_result') or {}).get('status')
+    summary['outcome_status'] = (report.get('pipeline', {}).get('outcome') or {}).get('status')
+    system = (report.get('hardware') or {}).get('system') or {}
+    summary['hardware'] = {k: system.get(k) for k in ('cpu_name', 'cpu_threads', 'cpu_cores', 'ram_total_gib', 'ram_available_gib', 'default_backend')}
+    summary['quality_accepted'] = (report.get('typed_result') or {}).get('quality_accepted', False)
+    return summary
+
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--duration', type=int, choices=(20, 120), default=20)
@@ -102,13 +116,7 @@ def main():
     args = parser.parse_args()
     report = probe(args.duration, args.out, without_texture=args.without_texture)
     print(json.dumps(summary_for(report), ensure_ascii=True, indent=2))
-    summary = {key: report.get(key) for key in ('ok', 'kind', 'source', 'measurements', 'diagnostic_audio')}
-    summary['product_profile_accepted'] = False
-    summary['render_evidence'] = (report.get('pipeline') or {}).get('render_evidence')
-    summary['adapter_status'] = (report.get('adapter_outcome') or {}).get('status')
-    summary['typed_result_status'] = (report.get('typed_result') or {}).get('status')
-    summary['outcome_status'] = (report.get('pipeline', {}).get('outcome') or {}).get('status')
-    print('::notice title=Classic pipeline diagnostic::' + json.dumps(summary, ensure_ascii=True))
+    print('::notice title=Classic pipeline diagnostic::' + json.dumps(measurement_summary(report), ensure_ascii=True))
     return 0 if report['ok'] else 1
 
 

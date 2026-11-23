@@ -41,3 +41,16 @@ def test_probe_refuses_to_reuse_existing_directory(tmp_path):
     with pytest.raises(FileExistsError):
         probe(20, tmp_path)
     assert json.loads(previous.read_text()) == {'previous': True}
+
+
+def test_compact_summary_keeps_hardware_and_quality_boundary():
+    from tools.pipeline_hardware_probe import measurement_summary
+    report = {'hardware': {'system': {'cpu_name': 'test fixture CPU', 'ram_total_gib': 16, 'cpu_threads': 4}},
+              'typed_result': {'status': 'success', 'quality_accepted': False},
+              'pipeline': {'outcome': {'status': 'success'}, 'render_evidence': {
+                  'assets': {name: 'a' * 64 for name in ('beat', 'mix', 'master')}}}}
+    summary = measurement_summary(report)
+    assert summary['hardware']['cpu_name'] == 'test fixture CPU'
+    assert summary['hardware']['ram_total_gib'] == 16
+    assert summary['quality_accepted'] is False
+    assert len(json.dumps(summary, ensure_ascii=True)) < 3800
