@@ -1,0 +1,274 @@
+{
+  "run": 45143489947,
+  "source": "201d933d39a6703fe8932af9a6da6cbf1914c6c7",
+  "status": "completed",
+  "conclusion": "success",
+  "jobs": [
+    {
+      "completedAt": "2026-11-23T09:03:56Z",
+      "conclusion": "success",
+      "databaseId": 137586957584,
+      "name": "bootstrap-compatibility",
+      "startedAt": "2026-11-23T09:02:26Z",
+      "status": "completed",
+      "steps": [
+        {
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Run actions/checkout@v4",
+          "number": 2,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Run actions/setup-python@v5",
+          "number": 3,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Verify product refuses shared environment mutation",
+          "number": 4,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Verify resolver rejects the known incompatible combination",
+          "number": 5,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Run actions/upload-artifact@v4",
+          "number": 6,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Post Run actions/setup-python@v5",
+          "number": 11,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@v4",
+          "number": 12,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 13,
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45143489947/job/137586957584"
+    },
+    {
+      "completedAt": "2026-11-23T09:03:56Z",
+      "conclusion": "success",
+      "databaseId": 137586958202,
+      "name": "real-silero",
+      "startedAt": "2026-11-23T09:02:26Z",
+      "status": "completed",
+      "steps": [
+        {
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Run actions/checkout@v4",
+          "number": 2,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Run actions/setup-python@v5",
+          "number": 3,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Install actual CPU inference runtime",
+          "number": 4,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Verify hardware and offline contracts on Windows (mocked model tests, not inference)",
+          "number": 5,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Download real Silero weights and synthesize online and offline",
+          "number": 6,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Preserve measured report and generated speech",
+          "number": 7,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Post Run actions/setup-python@v5",
+          "number": 13,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@v4",
+          "number": 14,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 15,
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45143489947/job/137586958202"
+    }
+  ],
+  "report": {
+    "ok": true,
+    "platform": "Windows-10-10.0.26100-SP0",
+    "python": "3.11.9 (tags/v3.11.9:de54cf5, Apr  2 2024, 10:12:12) [MSC v.1938 64 bit (AMD64)]",
+    "kind": "real_neural_draft_speech_not_singing",
+    "renders": [
+      {
+        "online_allowed": true,
+        "backend": "silero_cpu",
+        "network_guard": "none",
+        "wall_seconds": 12.590865699999995,
+        "rss_baseline_bytes": 184168448,
+        "rss_peak_sampled_bytes": 846761984,
+        "rss_sample_interval_seconds": 0.02,
+        "rss_sample_count": 535,
+        "file": "online.wav",
+        "seconds": 3.875,
+        "sample_rate": 48000,
+        "peak": 0.9315725564956665,
+        "sha256": "235237d90acb67ef40b9b3e965a775e379fae1f37be3486545c8a54420c9782d",
+        "network_attempts": [],
+        "real_time_factor": 3.2492556645161277
+      },
+      {
+        "online_allowed": false,
+        "backend": "silero_cpu",
+        "network_guard": "python_socket_only_not_os_firewall",
+        "wall_seconds": 6.231496300000003,
+        "rss_baseline_bytes": 625717248,
+        "rss_peak_sampled_bytes": 1049825280,
+        "rss_sample_interval_seconds": 0.02,
+        "rss_sample_count": 238,
+        "file": "offline.wav",
+        "seconds": 4.6875,
+        "sample_rate": 48000,
+        "peak": 0.8999481797218323,
+        "sha256": "e02e5a1c62dbbefb53b6d923feef20161a92941bb8c1e74d677822e1f43ff636",
+        "network_attempts": [],
+        "real_time_factor": 1.329385877333334
+      }
+    ],
+    "torch": "2.5.1+cpu",
+    "hardware": {
+      "schema": 1,
+      "os": "Windows",
+      "os_release": "10",
+      "architecture": "AMD64",
+      "measurements": {
+        "cpu_threads": 4,
+        "ram_total_gib": 15.99,
+        "ram_available_gib": 12.32,
+        "disk_free_gib": 219.82,
+        "gpu": {
+          "adapters": [
+            {
+              "name": "Microsoft Basic Render Driver",
+              "vendor": "unknown",
+              "source": "dxgi",
+              "total_vram_gib": null
+            },
+            {
+              "name": "Microsoft Hyper-V Video",
+              "vendor": "unknown",
+              "source": "windows_cim"
+            }
+          ],
+          "pytorch_device": null,
+          "directml_devices": [],
+          "inference_verified": false
+        }
+      },
+      "errors": [],
+      "system": {
+        "os": "Windows",
+        "os_version": "10",
+        "architecture": "AMD64",
+        "cpu_name": "AMD64 Family 26 Model 2 Stepping 1, AuthenticAMD",
+        "cpu_threads": 4,
+        "cpu_cores": 2,
+        "ram_total_gib": 15.99,
+        "ram_available_gib": 12.32,
+        "disk_free_gib": 219.82,
+        "gpus": [
+          {
+            "name": "Microsoft Basic Render Driver",
+            "vendor": "unknown",
+            "source": "dxgi",
+            "total_vram_gib": null
+          },
+          {
+            "name": "Microsoft Hyper-V Video",
+            "vendor": "unknown",
+            "source": "windows_cim"
+          }
+        ],
+        "pytorch_device": null,
+        "directml_devices": [],
+        "default_backend": "cpu",
+        "notice": "Hardware detection does not verify model weights, compatibility or inference."
+      },
+      "kind": "inventory_only",
+      "inference_verified": false,
+      "product_profile_accepted": false,
+      "profiles": [
+        {
+          "id": "windows_cpu",
+          "status": "unverified",
+          "evidence": []
+        },
+        {
+          "id": "windows_cuda",
+          "status": "unverified",
+          "evidence": []
+        },
+        {
+          "id": "windows_amd",
+          "status": "unverified",
+          "evidence": []
+        }
+      ],
+      "warning": "Ресурсы измерены для диагностики, не для обещания скорости, пения или поддержки GPU."
+    },
+    "upstream_revision": "e382298387332f2bf461fe6eadfde99104611b0c",
+    "model_packages": [
+      {
+        "path": "C:\\Users\\runneradmin\\.cache\\torch\\hub\\snakers4_silero-models_e382298387332f2bf461fe6eadfde99104611b0c\\src\\silero\\model\\v3_1_ru.pt",
+        "sha256": "cf60b47ec8a9c31046021d2d14b962ea56b8a5bf7061c98accaaaca428522f85"
+      }
+    ]
+  }
+}

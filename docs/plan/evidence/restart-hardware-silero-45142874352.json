@@ -1,0 +1,92 @@
+{
+  "run": 45142874352,
+  "job": 137584922710,
+  "source": "57907020318c2ed7d8bc95f898d77df90df3cbbf",
+  "job_conclusion": "success",
+  "workflow_conclusion": "failure",
+  "report": {
+    "ok": true,
+    "platform": "Windows-10-10.0.26100-SP0",
+    "python": "3.11.9 (tags/v3.11.9:de54cf5, Apr  2 2024, 10:12:12) [MSC v.1938 64 bit (AMD64)]",
+    "kind": "real_neural_draft_speech_not_singing",
+    "renders": [
+      {
+        "online_allowed": true,
+        "backend": "silero_cpu",
+        "network_guard": "none",
+        "wall_seconds": 12.534256800000009,
+        "rss_baseline_bytes": 186241024,
+        "rss_peak_sampled_bytes": 773193728,
+        "rss_sample_interval_seconds": 0.02,
+        "rss_sample_count": 434,
+        "file": "online.wav",
+        "seconds": 3.875,
+        "sample_rate": 48000,
+        "peak": 0.9315677285194397,
+        "sha256": "fabf4b12d6824cae6dd28d17ab401e7d25943d830a6ca344b1c82a83a0558196",
+        "network_attempts": [],
+        "real_time_factor": 3.2346469161290345
+      },
+      {
+        "online_allowed": false,
+        "backend": "silero_cpu",
+        "network_guard": "python_socket_only_not_os_firewall",
+        "wall_seconds": 8.990533999999997,
+        "rss_baseline_bytes": 513982464,
+        "rss_peak_sampled_bytes": 990769152,
+        "rss_sample_interval_seconds": 0.02,
+        "rss_sample_count": 332,
+        "file": "offline.wav",
+        "seconds": 4.6875,
+        "sample_rate": 48000,
+        "peak": 0.8999496102333069,
+        "sha256": "22d10eaf0edce59de8c255a52fabc6f39b074daa46b6728ea8cc2c5a6d27a96a",
+        "network_attempts": [],
+        "real_time_factor": 1.917980586666666
+      }
+    ],
+    "torch": "2.5.1+cpu",
+    "hardware": {
+      "schema": 1,
+      "os": "Windows",
+      "os_release": "10",
+      "architecture": "AMD64",
+      "measurements": {
+        "cpu_threads": 4,
+        "ram_total_gib": 15.99,
+        "ram_available_gib": 12.49,
+        "disk_free_gib": 146.96,
+        "gpu": "not_measured"
+      },
+      "errors": [],
+      "kind": "inventory_only",
+      "inference_verified": false,
+      "product_profile_accepted": false,
+      "profiles": [
+        {
+          "id": "windows_cpu",
+          "status": "unverified",
+          "evidence": []
+        },
+        {
+          "id": "windows_cuda",
+          "status": "unverified",
+          "evidence": []
+        },
+        {
+          "id": "windows_amd",
+          "status": "unverified",
+          "evidence": []
+        }
+      ],
+      "warning": "Ресурсы измерены для диагностики, не для обещания скорости, пения или поддержки GPU."
+    },
+    "upstream_revision": "e382298387332f2bf461fe6eadfde99104611b0c",
+    "model_packages": [
+      {
+        "path": "C:\\Users\\runneradmin\\.cache\\torch\\hub\\snakers4_silero-models_e382298387332f2bf461fe6eadfde99104611b0c\\src\\silero\\model\\v3_1_ru.pt",
+        "sha256": "cf60b47ec8a9c31046021d2d14b962ea56b8a5bf7061c98accaaaca428522f85"
+      }
+    ]
+  }
+}
