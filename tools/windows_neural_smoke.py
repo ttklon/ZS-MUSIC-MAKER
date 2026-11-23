@@ -48,6 +48,13 @@ def render_measured(online, text):
     return metrics
 
 
+def publish_report(report):
+    (OUT / "report.json").write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+    # Windows redirected stdout can use a legacy codepage: JSON must remain printable.
+    print(json.dumps(report, ensure_ascii=True, indent=2))
+    print("::notice title=Measured inference report::" + json.dumps(report, ensure_ascii=True))
+
+
 def main() -> int:
     OUT.mkdir(parents=True, exist_ok=True)
     report = {"ok": False, "platform": platform.platform(), "python": sys.version,
@@ -72,8 +79,7 @@ def main() -> int:
         print("::notice title=Real neural speech passed::" + metrics)
     except Exception:
         report["error"] = traceback.format_exc()
-    (OUT / "report.json").write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
-    print(json.dumps(report, ensure_ascii=False, indent=2))
+    publish_report(report)
     return 0 if report["ok"] else 1
 
 

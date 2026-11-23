@@ -32,3 +32,15 @@ def test_metrics_and_hash(tmp_path):
     file = tmp_path / 'bytes'
     file.write_bytes(b'abc')
     assert sha256(file) == 'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad'
+
+
+def test_report_publishes_on_legacy_windows_codepage(tmp_path, monkeypatch):
+    import io
+    import json
+    from tools import windows_neural_smoke as smoke
+    stream = io.TextIOWrapper(io.BytesIO(), encoding='cp1252', errors='strict')
+    monkeypatch.setattr(smoke, 'OUT', tmp_path)
+    monkeypatch.setattr('sys.stdout', stream)
+    smoke.publish_report({'ok': True, 'warning': 'Ресурсы не означают приёмку'})
+    stream.flush()
+    assert json.loads((tmp_path / 'report.json').read_text(encoding='utf-8'))['ok']

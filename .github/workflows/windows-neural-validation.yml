@@ -5,6 +5,9 @@ on:
     paths:
       - '.github/workflows/windows-neural-validation.yml'
       - 'tools/windows_neural_smoke.py'
+      - 'tools/neural_benchmark.py'
+      - 'app/ai/hardware.py'
+      - 'app/ai/registry.py'
       - 'modules/silero_loader.py'
   workflow_dispatch:
 permissions:
@@ -24,7 +27,12 @@ jobs:
           pip install torch==2.5.1 torchaudio==2.5.1 --index-url https://download.pytorch.org/whl/cpu
           pip install numpy==1.26.4 soundfile omegaconf pyyaml requests psutil
       - name: Download real Silero weights and synthesize online and offline
-        run: python tools/windows_neural_smoke.py
+        shell: pwsh
+        run: |
+          python tools/windows_neural_smoke.py 2>&1 | Tee-Object -FilePath neural-console.log
+          $code = $LASTEXITCODE
+          if ($code -ne 0) { $detail = ((Get-Content neural-console.log | Select-Object -Last 15) -join ' | ') -replace '%','%25'; Write-Output "::error title=neural benchmark failure::$detail" }
+          exit $code
       - name: Preserve measured report and generated speech
         if: always()
         uses: actions/upload-artifact@v4
@@ -41,14 +49,20 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Check the bootstrap package combination without modifying the machine
+      - name: Verify product refuses shared environment mutation
+        run: |
+          pip install pytest
+          python -m pytest tests/test_bootstrap_results.py tests/test_dependency_profiles.py -q
+      - name: Verify resolver rejects the known incompatible combination
         shell: pwsh
         run: |
           python -m pip install --upgrade pip
           python -m pip install --dry-run torch==2.5.1 torchaudio==2.5.1 audiocraft==1.3.0 2>&1 | Tee-Object -FilePath bootstrap-resolver.log
           $code = $LASTEXITCODE
           Get-Content bootstrap-resolver.log -Tail 30 | ForEach-Object { Write-Output $_ }
-          if ($code -ne 0) { $detail = ((Get-Content bootstrap-resolver.log | Select-String 'ERROR:|requires|depends on|torch==|av==' | Select-Object -Last 8) -join ' | ') -replace '%','%25' -replace '\r?\n','%0A'; Write-Output "::error title=bootstrap dependency conflict::$detail"; exit $code }
+          $log = Get-Content bootstrap-resolver.log -Raw
+          if ($code -eq 0 -or $log -notmatch 'ResolutionImpossible' -or $log -notmatch 'audiocraft 1.3.0 depends on torch==2.1.0') { Write-Output '::error::Expected specific AudioCraft/Torch resolver rejection was not observed'; exit 1 }
+          Write-Output '::notice title=Expected dependency rejection::Incompatible shared installation rejected; this is NOT a successful AudioCraft installation.' 
       - uses: actions/upload-artifact@v4
         if: always()
         with:
