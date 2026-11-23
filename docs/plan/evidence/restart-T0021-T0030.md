@@ -196,3 +196,49 @@ MusicGen texture, voice off, stems off. Не меняли required contract и �
 Открытая работа теперь подтверждена исполнением: classic full-success ещё не
 получен, не только не измерен; CUDA/AMD GPU физически не испытаны. В повторном
 проходе T0021–T0030 не закрыт и счётчик 20 не повышен.
+
+## Явно ограниченный CPU-запрос: первый classic canonical success
+
+Код `b14321da6ae05cefe787eb42077d1cfc74b4d323` исправляет false-negative
+для явно отключённых caller-ом стадий. `not_requested_names` передаётся
+нормализованным caller recipe, а не берётся из worker output. Только BLOCKED
+может стать canonical `not_requested`; FAILED/CANCELED/UNKNOWN/FALLBACK не
+скрываются. `required_names` имеет приоритет; пропавший обязательный master
+остаётся blocked. Пустой обязательный scope не даёт success. Raw stage status
+не переписывается в OK, явно отключённая стадия остаётся видимой в отчёте.
+
+`use_texture` по умолчанию true; только литерал false отключает texture.
+Таким образом недостающая запрошенная MusicGen остаётся блокером, а не
+автоматически выключается по hardware. Voice off и stems false учитываются
+как явные границы запроса. Частичный `only` и dry run всё ещё не success.
+Generic `outcome_from_report` намеренно не доверяет producer request_scope и
+не повышает результат на его основании: такая граница по умолчанию остаётся
+консервативной. В этой итерации подтверждён direct classic Python API / probe,
+не вся цепочка typed-result adapters и не установленный GUI.
+
+В процессе настоящего запуска найден локальный ACE-Step discovery connect
+на 127.0.0.1:8001. Не разрешали его через socket guard. Добавлен явный runtime
+opt-out `ZSMM_PROBE_LOCAL_SERVICES=0` (default discovery вне probe сохранён).
+Сокет закрывается context manager-ом и при ошибке. Probe задаёт opt-out перед
+production импортами. Это конфигурация реального запуска, не mock функции.
+
+[Windows 45151624994](https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45151624994):
+**SUCCESS все пять job**, source b14321d. Реальные сценарии на одном classic
+runner в отдельных Python-процессах:
+
+| Запрос | Probe exit / outcome | Wall s | Sampled RSS bytes |
+|---|---|---:|---:|
+| texture requested (default), voice/stems off | 1 / blocked | 56.4760 | 466980864 |
+| texture explicitly off, voice/stems off | 0 / success | 27.5456 | 356839424 |
+
+В обоих случаях WAV 20.0 s, SHA
+`ef1018be785fee33aadca425ae2adb47908ac643d9a8c55118f2ec3887ed45cf`:
+одинаковый файл НЕ означает одинаковую полноту запроса. Это и проверяется.
+[Сохранённые job metadata и summaries](restart-hardware-scope-windows-45151624994.json).
+Подробные reports/WAV/request_scope — artifact windows-classic-pipeline-diagnostic.
+Локальная регрессия: **191 passed** (outcomes, recipe/transport, vocal chain,
+hardware/backend/offline, plan/product, function budgets).
+
+Теперь получен canonical success ограниченного CPU-инструментального запроса.
+Не получены full song/singing, универсальный CPU profile, CUDA/AMD GPU и полная
+adapter/installed-GUI приёмка. T0021–T0030 остаётся активным; счётчик 20.

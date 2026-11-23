@@ -139,3 +139,24 @@ python tools/pipeline_hardware_probe.py --duration 20 --out output/new-classic-h
 успешно проверил именно этот отрицательный контракт и реальные OK стадии
 mix/master/QA/release. Это не успешная полная приёмка classic pipeline.
 [Протокол](plan/evidence/restart-hardware-classic-windows-45149932663.json).
+
+### Успешный classic CPU-запрос без необязательной текстуры
+
+```
+python tools/pipeline_hardware_probe.py --duration 20 --without-texture --out output/new-requested-instrumental
+```
+
+Новый флаг задаёт в caller recipe `use_texture=false` (по умолчанию true).
+С voice off / stems off это ограниченный процедурный инструментальный запрос,
+а не обещание выполнения neural стадий. Только явно не запрошенные BLOCKED
+стадии учитываются как canonical `not_requested`; ошибки исполнения, QA,
+обязательные стадии, dry/partial run не исключаются. Raw статусы не меняются
+на OK. Generic adapters не доверяют исключениям из producer report: текущая
+приёмка относится к direct classic Python API/probe, не ко всему GUI/result API.
+
+[Windows 45151624994](https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45151624994):
+20.0 s master / **27.5456 s wall** / sampled RSS **356839424 bytes**,
+probe exit **0**, canonical outcome **success**. С запрошенной, но недоступной
+texture тот же WAV по-прежнему даёт blocked/exit 1. Это не GPU-профиль,
+не пение и не полная сертификация продукта.
+[Протокол](plan/evidence/restart-hardware-scope-windows-45151624994.json).
