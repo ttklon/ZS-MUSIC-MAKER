@@ -95,10 +95,23 @@ def test_plan_marks_rvc_only_for_a_real_file() -> None:
     assert file_plan["use_rvc"] is True and file_plan["own_vocal_wav"] == "C:/take.wav"
 
 
+def _allow_unverified_preflight(monkeypatch, runner):
+    adaptive = {"level": 0, "use_acestep": False, "use_musicgen": False,
+                "use_texture": False, "gpu": {}}
+    record = {"schema": 1, "status": "inventory_only", "decision": "continue_unverified",
+              "can_attempt": True, "selected_backend": "procedural_dsp",
+              "resource_budget_status": "not_established",
+              "texture_route": {"selected_backend": "disabled", "inference_verified": False},
+              "reasons": [], "inference_verified": False, "product_profile_accepted": False}
+    monkeypatch.setattr(runner, "_hardware_preflight", lambda recipe, root: (record, adaptive))
+    return adaptive
+
+
 def test_run_reports_blocked_lyrics_and_voice_without_engines(monkeypatch, tmp_path) -> None:
     """Без LLM и без записи трек собирается, но честно говорит, чего нет."""
     from modules.agent_guide import runner
 
+    _allow_unverified_preflight(monkeypatch, runner)
     monkeypatch.setattr(runner, "_trend", lambda _theme: {"ok": True, "hype_words": []})
     monkeypatch.setattr(runner, "_references", lambda _paths: {"ok": False, "reason": "не заданы"})
     monkeypatch.setattr(runner, "_dossier", lambda _artist: {"ok": False, "reason": "нет"})
@@ -127,6 +140,7 @@ def test_run_reports_blocked_lyrics_and_voice_without_engines(monkeypatch, tmp_p
 def test_run_is_failed_when_pipeline_gives_no_master(monkeypatch, tmp_path) -> None:
     from modules.agent_guide import runner
 
+    _allow_unverified_preflight(monkeypatch, runner)
     monkeypatch.setattr(runner, "_lyrics", lambda *_a: {"ok": False, "reason": "нет"})
     monkeypatch.setattr(runner, "_run_pipeline", lambda *_a: {"error": "движок упал"})
 
@@ -137,9 +151,62 @@ def test_run_is_failed_when_pipeline_gives_no_master(monkeypatch, tmp_path) -> N
     assert "не собрался" in narrate(report)
 
 
+def test_preflight_refusal_stops_every_generation_stage(monkeypatch, tmp_path):
+    from modules.agent_guide import runner
+
+    record = {"schema": 1, "status": "blocked", "decision": "refuse", "can_attempt": False,
+              "reasons": ["missing measured disk space"], "inference_verified": False,
+              "product_profile_accepted": False}
+    monkeypatch.setattr(runner, "_hardware_preflight", lambda *_a: (record, {}))
+    for name in ("_trend", "_references", "_dossier", "_samples", "_lyrics", "_voice", "_run_pipeline"):
+        monkeypatch.setattr(runner, name, lambda *_a, _name=name, **_kw: pytest.fail(f"{_name} must not run"))
+    output_root = tmp_path / "not-created"
+    report = run_conversation_hit({"mood": "ночь"}, output_root=str(output_root))
+
+    assert report["master_path"] is None and report["ok"] is False
+    assert report["hardware_preflight"]["decision"] == "refuse"
+    assert report["blocked"][0]["stage"] == "hardware_preflight"
+    assert "missing measured disk space" in report["blocked"][0]["reason"]
+    assert not output_root.exists()
+
+
+def test_malformed_preflight_record_is_visible_refusal(monkeypatch, tmp_path):
+    from modules.agent_guide import runner
+
+    monkeypatch.setattr(runner, "_hardware_preflight", lambda *_a: None)
+    monkeypatch.setattr(runner, "_trend", lambda *_a: pytest.fail("no stages before a valid preflight"))
+    report = run_conversation_hit({}, output_root=str(tmp_path / "not-created"))
+
+    assert report["hardware_preflight"]["decision"] == "refuse"
+    assert any("hardware preflight failed" in reason
+               for reason in report["hardware_preflight"]["reasons"])
+
+
+def test_agent_passes_preflight_route_to_pipeline(monkeypatch, tmp_path):
+    from modules.agent_guide import runner
+
+    adaptive = _allow_unverified_preflight(monkeypatch, runner)
+    events = []
+    monkeypatch.setattr(runner, "_trend", lambda _theme: events.append("trend") or {"ok": True})
+    monkeypatch.setattr(runner, "_references", lambda _paths: {"ok": False})
+    monkeypatch.setattr(runner, "_dossier", lambda _artist: {"ok": False})
+    monkeypatch.setattr(runner, "_samples", lambda _genre: {"ok": False})
+    monkeypatch.setattr(runner, "_lyrics", lambda *_a: {"ok": False, "reason": "no LLM"})
+    monkeypatch.setattr(runner, "_run_pipeline", lambda _plan, _root, _progress, cfg:
+                        events.append("pipeline") or (pytest.fail("route changed") if cfg is not adaptive else {
+                            "master_path": None, "error": "test only"}))
+
+    report = run_conversation_hit({}, output_root=str(tmp_path))
+
+    assert events == ["trend", "pipeline"]
+    assert report["hardware_preflight"]["decision"] == "continue_unverified"
+    assert report["ok"] is False
+
+
 def test_verdict_hit_requires_master_lyrics_and_voice(monkeypatch, tmp_path) -> None:
     from modules.agent_guide import runner
 
+    _allow_unverified_preflight(monkeypatch, runner)
     monkeypatch.setattr(runner, "_lyrics", lambda *_a: {"ok": True, "text": "текст", "source": "ollama"})
     monkeypatch.setattr(runner, "_voice", lambda *_a: {"ok": True, "source": "rvc", "path": "v.wav"})
     monkeypatch.setattr(runner, "_samples", lambda _genre: {"ok": True, "count": 1})

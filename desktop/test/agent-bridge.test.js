@@ -18,6 +18,9 @@ const path = require('node:path');
 
 const { registerAgentIpc, parseMasterPath, masterExists } = require('../electron/agent-service');
 const { buildCommand, sanitizeOptions, TaskError } = require('../electron/tasks');
+const { parseLog, reportText } = require('../src/core/agent-report');
+const { parseEvent } = require('../src/core/task-events');
+const { refusalOutcome, preservesSnapshot, unchangedSnapshot } = require('../electron/agent-preflight-check');
 
 function harness({ startAgent = null, exists = () => true, openPath = async () => null } = {}) {
   const handlers = new Map();
@@ -53,6 +56,26 @@ test('ошибка запуска отдаётся строкой, а не ис�
   assert.match(reply.error, /Python не найден/);
 });
 
+test('installed preflight harness accepts an explicit refusal, not a successful render', () => {
+  const run = { done: { ok: false, report: {
+    result: { succeeded: false, status: 'failed' },
+    hardware_preflight: { status: 'blocked', decision: 'refuse', can_attempt: false,
+      selected_backend: 'procedural_dsp', inference_verified: false,
+      product_profile_accepted: false, reasons: ['ram_available_gib: unknown'] },
+  } }, events: [{ type: 'protocol', event: { type: 'progress', message: 'preflight' } }] };
+  assert.equal(refusalOutcome(run, 'ram_available_gib').ok, true);
+  run.events.push({ type: 'protocol', event: { type: 'progress', message: 'HitFactory: rendering' } });
+  assert.equal(refusalOutcome(run, 'ram_available_gib').ok, false);
+});
+
+test('hardware denial snapshot allows no writes; retry may add files but preserves prior hashes', () => {
+  const before = { 'previous.wav': 'abc', 'note.txt': 'def' };
+  assert.equal(unchangedSnapshot(before, { ...before }), true);
+  assert.equal(unchangedSnapshot(before, { ...before, 'new.wav': 'ghi' }), false);
+  assert.equal(preservesSnapshot(before, { ...before, 'new.wav': 'ghi' }), true);
+  assert.equal(preservesSnapshot(before, { ...before, 'previous.wav': 'changed' }), false);
+});
+
 test('мастер читается из отчёта Python, а не из последней строки', () => {
   const lines = [
     '[agent-hit] Агент понял: тема=ночь',
@@ -68,6 +91,35 @@ test('отчёт с verdict=FAILED не выдаёт себя за готовы�
   const result = parseMasterPath([JSON.stringify({ schema: 'zsmm.task', version: 1, task_id: 'test', seq: 1, type: 'done', ok: false, report: { verdict: 'FAILED', master_path: null } })]);
   assert.equal(result.masterPath, null);
   assert.equal(result.verdict, 'FAILED');
+});
+
+test('инвентаризация и DSP master не обозначаются проверенным inference или принятым профилем', () => {
+  const line = JSON.stringify({ schema: 'zsmm.task', version: 1, task_id: 'test', seq: 1,
+    type: 'done', ok: false, report: { verdict: 'PARTIAL', master_path: 'C:/hits/master.wav',
+      blocked: [{ stage: 'lyrics', reason: 'Ollama unavailable' }],
+      hardware_preflight: { status: 'inventory_only', selected_backend: 'procedural_dsp',
+        inference_verified: false, product_profile_accepted: false } } });
+  const result = parseLog([line], parseEvent);
+  const text = reportText(result);
+  assert.match(text, /промежуточный мастер-артефакт/);
+  assert.match(text, /inventory_only/);
+  assert.match(text, /backend procedural_dsp/);
+  assert.match(text, /Inference не подтверждён; профиль продукта не принят/);
+  assert.match(text, /не подтверждает модельный inference/);
+  assert.doesNotMatch(text, /Готовый трек:/);
+});
+
+test('preflight refusal is shown explicitly and without a success label', () => {
+  const line = JSON.stringify({ schema: 'zsmm.task', version: 1, task_id: 'test', seq: 1,
+    type: 'done', ok: false, report: { verdict: 'FAILED', master_path: null,
+      blocked: [{ stage: 'hardware_preflight', reason: 'ram_available_gib unknown' }],
+      hardware_preflight: { status: 'blocked', decision: 'refuse', selected_backend: 'musicgen',
+        inference_verified: false, product_profile_accepted: false } } });
+  const text = reportText(parseLog([line], parseEvent));
+  assert.match(text, /Мастер-файл не создан/);
+  assert.match(text, /hardware_preflight: ram_available_gib unknown/);
+  assert.match(text, /backend musicgen/);
+  assert.doesNotMatch(text, /Готовый трек|Результат принят/);
 });
 
 test('открытие мастера проверяет файл на диске', async () => {

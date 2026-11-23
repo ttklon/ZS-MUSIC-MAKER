@@ -98,6 +98,48 @@ def test_explicit_model_and_index_are_used_and_missing_index_is_not_ignored(tmp_
     assert sf.info(source).frames == len(waveform)
 
 
+@pytest.mark.parametrize(("free_vram", "expected"), [
+    (None, "unknown or invalid"), (2.0, "below the 4 GiB safety floor"),
+])
+def test_rvc_gpu_preflight_refuses_unknown_or_insufficient_vram(tmp_path, monkeypatch, free_vram, expected):
+    module = importlib.import_module("modules.rvc_manager.infer")
+    monkeypatch.delenv("ZSMM_RVC_PYTHON", raising=False)
+    monkeypatch.setenv("ZSMM_RVC_DEVICE", "auto")
+    monkeypatch.setattr(module, "detect_backend", lambda: pytest.fail("must use measured device snapshot"))
+    monkeypatch.setattr(module, "_check_rvc_runtime", lambda *_args: None)
+    weights = tmp_path / "voice.pth"
+    weights.write_bytes(b"test-only weights")
+    system = {"ram_available_gib": 8.0,
+              "pytorch_device": {"backend": "cuda", "free_vram_gib": free_vram}}
+
+    record = module.preflight_rvc_inference(model_path=str(weights), system=system)
+
+    assert record["allowed"] is False
+    assert record["device"] == "cpu:0"  # not a fallback: `allowed` remains false
+    assert any(expected in reason for reason in record["reasons"])
+    assert record["inference_verified"] is False
+
+
+def test_rvc_preflight_uses_the_supplied_hardware_snapshot(tmp_path, monkeypatch):
+    module = importlib.import_module("modules.rvc_manager.infer")
+    monkeypatch.delenv("ZSMM_RVC_PYTHON", raising=False)
+    monkeypatch.setenv("ZSMM_RVC_DEVICE", "auto")
+    monkeypatch.setattr(module, "detect_backend", lambda: pytest.fail("must use measured device snapshot"))
+    monkeypatch.setattr("app.ai.hardware.available_memory_gib", lambda: pytest.fail("must use measured RAM snapshot"))
+    monkeypatch.setattr(module, "require_base_assets", lambda: None)
+    monkeypatch.setitem(sys.modules, "rvc_python", ModuleType("rvc_python"))
+    weights = tmp_path / "voice.pth"
+    weights.write_bytes(b"test-only weights")
+    system = {"ram_available_gib": 8.0,
+              "pytorch_device": {"backend": "cuda", "free_vram_gib": 5.0}}
+
+    record = module.preflight_rvc_inference(model_path=str(weights), system=system)
+
+    assert record["allowed"] is True
+    assert record["device"] == "cuda:0" and record["free_vram_gib"] == 5.0
+    assert record["minimum_ram_gib"] == 2.0 and record["inference_verified"] is False
+
+
 def test_explicit_model_and_index_reach_vocal_chain(tmp_path, monkeypatch):
     from app.core.recipe import build_recipe
     from app.core.stages import vocal_chain
@@ -167,6 +209,10 @@ def test_rvc_selects_gpu_only_with_measured_headroom(tmp_path, monkeypatch):
     monkeypatch.setattr(module, "detect_backend", lambda: SimpleNamespace(kind="cuda", vram_free_gb=5))
     module.infer(str(source), model_path=str(model))
     monkeypatch.setattr(module, "detect_backend", lambda: SimpleNamespace(kind="cuda", vram_free_gb=2))
+    with pytest.raises(RuntimeError, match="free VRAM"):
+        module.infer(str(source), model_path=str(model))
+    assert calls == ["cuda:0"]
+    monkeypatch.setenv("ZSMM_RVC_DEVICE", "cpu")
     module.infer(str(source), model_path=str(model))
     assert calls == ["cuda:0", "cpu:0"]
     monkeypatch.setattr("app.ai.hardware.available_memory_gib", lambda: 3.0)

@@ -149,7 +149,8 @@ def build_plan(answers: dict[str, Any], trend: dict[str, Any] | None = None,
         "references": list(answers.get("refs") or []),
         "bpm_override": int(bpm) if isinstance(bpm, (int, float)) and bpm else None,
         "duration_sec": 90,
-        "voice_mode": "pro",
+        "voice_mode": "pro" if voice.get("mode") == "file" and voice.get("path") else "off",
+        "use_texture": False,
         "use_rvc": voice.get("mode") == "file",
         "own_vocal_wav": voice.get("path") or "",
         "bilingual": True,
@@ -216,13 +217,15 @@ def _voice(plan: dict[str, Any], work_dir: Path) -> dict[str, Any]:
 
 
 def _run_pipeline(plan: dict[str, Any], output_root: str,
-                  progress: Callable[[str], None] | None) -> dict[str, Any]:
+                  progress: Callable[[str], None] | None,
+                  adaptive_config: dict[str, Any] | None = None) -> dict[str, Any]:
     """Единственный прогон `HitFactory`: бит, микс, мастер, релиз — всё внутри."""
     from modules.hit_factory.generator import HitFactory
 
     factory = HitFactory(
         output_root=output_root, min_score=68.0, evolve=True,
         duration_sec=int(plan.get("duration_sec") or 90), verbose=False,
+        adaptive_config=adaptive_config,
     )
     if progress:
         progress("HitFactory: бит → микс → мастер → релиз")
@@ -232,20 +235,17 @@ def _run_pipeline(plan: dict[str, Any], output_root: str,
     return hit if isinstance(hit, dict) else {}
 
 
-def run_conversation_hit(payload: dict[str, Any] | None = None,
-                         output_root: str = "output/hits",
-                         progress: Callable[[str], None] | None = None) -> dict[str, Any]:
-    """Полный прогон агентика. Возвращает отчёт, а не «магический» bool.
+def _hardware_preflight(recipe: dict[str, Any], output_root: str):
+    """Shared Python preflight; the renderer never computes hardware budgets."""
+    from app.ai.agent_preflight import preflight_agent_hardware
 
-    Ключ `master_path` есть всегда, когда трек получился; `blocked` перечисляет
-    ступени, которые честно не смогли работать, и `agent_failed` — когда нет
-    даже мастера (тогда UI показывает причину, а не пустой экран).
-    """
-    started = time.time()
-    answers = parse_answers(payload)
-    say = progress or (lambda _message: None)
-    say(f"Агентик понял: {answer_summary(answers)}")
+    return preflight_agent_hardware(recipe, output_root)
 
+
+def _agent_stages(answers: dict[str, Any], preflight: dict[str, Any],
+                  adaptive_config: dict[str, Any], output_root: str, started: float,
+                  say: Callable[[str], None]) -> dict[str, Any]:
+    """Run non-preflight agent stages after the safe route has been established."""
     trend = _trend(answers.get("mood") or "")
     style = _references(answers.get("refs") or [])
     plan = build_plan(answers, trend, style)
@@ -254,40 +254,67 @@ def run_conversation_hit(payload: dict[str, Any] | None = None,
     samples = _samples(plan["genre"])
     lyrics = _lyrics(plan, dossier)
     if lyrics.get("ok"):
-        plan["reference_lyrics"] = lyrics["text"]
-        plan["user_lyrics_lines"] = str(lyrics["text"]).splitlines()
-        plan["theme"] = plan["theme"] or str(lyrics["text"].splitlines()[0])[:60]
+        lyrics_text = str(lyrics["text"])
+        plan["reference_lyrics"] = lyrics_text
+        plan["user_lyrics_lines"] = lyrics_text.splitlines()
+        plan["theme"] = plan["theme"] or lyrics_text.splitlines()[0][:60]
     voice = _voice(plan, Path(output_root))
-    hit = _run_pipeline(plan, output_root, say)
+    hit = _run_pipeline(plan, output_root, say, adaptive_config)
+    report = _build_agent_report(answers, plan, preflight, started, trend, style,
+                                 dossier, samples, lyrics, voice, hit, output_root)
+    say(f"Прогон завершён за {report['elapsed_sec']} с: {report['master_path'] or report['agent_failed']}; статус {report['result']['status']}")
+    return report
+
+
+def _build_agent_report(answers, plan, preflight, started, trend, style,
+                        dossier, samples, lyrics, voice, hit, output_root) -> dict[str, Any]:
+    """Assess stage outputs and preserve the unverified preflight record."""
+    from app.pipeline.result import assess_result
 
     blocked = _blocked_stages(lyrics, voice, samples, style, trend)
     report = {
-        "master_reported": bool(hit.get("master_path")),
-        "answers": answers,
-        "plan": plan,
-        "trend": trend,
-        "style": style,
-        "dossier": dossier,
-        "samples": samples,
-        "lyrics": lyrics,
-        "voice": voice,
-        "hit": hit,
-        "master_path": hit.get("master_path"),
-        "hit_score": hit.get("hit_score"),
-        "verdict": hit.get("verdict"),
-        "blocked": blocked,
+        "master_reported": bool(hit.get("master_path")), "answers": answers, "plan": plan,
+        "trend": trend, "style": style, "dossier": dossier, "samples": samples,
+        "lyrics": lyrics, "voice": voice, "hit": hit,
+        "master_path": hit.get("master_path"), "hit_score": hit.get("hit_score"),
+        "verdict": hit.get("verdict"), "blocked": blocked,
+        "hardware_preflight": preflight,
         "elapsed_sec": round(time.time() - started, 1),
         "output_root": str(Path(hit.get("out_root") or output_root)),
         "agent_failed": "" if hit.get("master_path") else "пайплайн не отдал мастер — смотри hit.error",
     }
-    from app.pipeline.result import assess_result
     report["result"] = assess_result(report, requested_kind="generated_singing")
     report["ok"] = report["result"]["succeeded"]
     report["artifact_available"] = report["result"]["artifact"]["valid"]
     if not report["master_reported"]:
         _LOG.warning("conversation hit failed: %s", report["agent_failed"])
-    say(f"Прогон завершён за {report['elapsed_sec']} с: {report['master_path'] or report['agent_failed']}; статус {report['result']['status']}")
     return report
+
+
+def run_conversation_hit(payload: dict[str, Any] | None = None,
+                         output_root: str = "output/hits",
+                         progress: Callable[[str], None] | None = None) -> dict[str, Any]:
+    """Полный прогон агентика: recipe → hardware preflight → Python stages → typed result."""
+    started = time.time()
+    answers = parse_answers(payload)
+    say = progress or (lambda _message: None)
+    say(f"Агентик понял: {answer_summary(answers)}")
+
+    # Нормализуем все четыре пользовательских ответа до проверки оборудования.
+    # Сеть, анализ референсов, LLM, RVC и HitFactory запускаются только после неё.
+    request_recipe = build_plan(answers)
+    error = None
+    try:
+        result = _hardware_preflight(request_recipe, output_root)
+    except Exception as exc:  # noqa: BLE001 — preflight failure must stop heavy work
+        result, error = None, exc
+    from modules.agent_guide.preflight_report import preflight_refusal_report, validate_preflight_result
+
+    preflight, adaptive_config, may_attempt = validate_preflight_result(result, error)
+    if not may_attempt:
+        return preflight_refusal_report(answers, request_recipe, preflight, output_root, started, say)
+
+    return _agent_stages(answers, preflight, adaptive_config, output_root, started, say)
 
 
 def _blocked_stages(lyrics: dict[str, Any], voice: dict[str, Any], samples: dict[str, Any],

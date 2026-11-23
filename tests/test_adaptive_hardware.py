@@ -244,6 +244,36 @@ def test_ram_detection_survives_cpu_affinity_failure(monkeypatch):
     assert found["ram_gb"] == 16 and found["cpu_threads"] >= 1
 
 
+def test_adaptive_empty_inventory_keeps_torch_fallback(monkeypatch):
+    from modules.hit_factory import adaptive
+    gib = 1024 ** 3
+    cuda = SimpleNamespace(is_available=lambda: True, get_device_name=lambda _: "NVIDIA fixture",
+                           get_device_properties=lambda _: SimpleNamespace(total_memory=8 * gib),
+                           mem_get_info=lambda _: (6 * gib, 8 * gib))
+    monkeypatch.setattr(hardware, "detect_system", lambda: {
+        "pytorch_device": None, "gpus": [], "directml_devices": []})
+    monkeypatch.setitem(sys.modules, "torch", SimpleNamespace(cuda=cuda, version=SimpleNamespace(hip=None)))
+    assert adaptive._detect_gpu()["backend"] == "cuda"
+
+    cuda.is_available = lambda: False
+    directml = ModuleType("torch_directml")
+    directml.device_count = lambda: 1
+    directml.device_name = lambda _: "AMD DirectML fixture"
+    monkeypatch.setitem(sys.modules, "torch_directml", directml)
+    assert adaptive._detect_gpu()["backend"] == "directml"
+
+
+def test_adaptive_snapshot_does_not_reprobe_missing_gpu(monkeypatch):
+    from modules.hit_factory import adaptive
+    monkeypatch.setattr(adaptive, "_detect_gpu", lambda: pytest.fail("injected snapshot must be authoritative"))
+    monkeypatch.setattr(adaptive, "_local_ace_available", lambda: False)
+    monkeypatch.setattr(adaptive, "_musicgen_usable", lambda _has_torch: False)
+    monkeypatch.setitem(sys.modules, "torch", SimpleNamespace(cuda=SimpleNamespace(is_available=lambda: False)))
+    config = adaptive.get_adaptive_config(system={"ram_total_gib": 16, "ram_available_gib": 8,
+                                                 "pytorch_device": None, "gpus": []})
+    assert config["gpu"]["backend"] == "cpu" and config["gpu"]["name"] == "CPU"
+
+
 def test_missing_model_without_optin_is_blocked_not_template(monkeypatch):
     """Шаблонный текст без явного флага не появляется."""
     from modules.llm import ollama_adaptive, router

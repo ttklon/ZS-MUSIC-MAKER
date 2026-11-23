@@ -29,6 +29,7 @@ def _enhance_master(master: str | Path, wizard_state: dict[str, Any]) -> None:
         str(master),
         int(wizard_state.get("adaptive_level", 0) or 0),
         bool(wizard_state.get("enhanced_dsp", True)),
+        beat_engine=wizard_state.get("beat_engine"),
     )
     if res.get("applied"):
         _LOG.info(f"[adaptive] enhanced DSP applied to {master} (in pipeline)")

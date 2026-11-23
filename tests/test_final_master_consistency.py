@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+import pytest
 import soundfile as sf
 
 from app.core import pipeline_blocks
@@ -74,14 +75,17 @@ def test_stems_and_hit_score_read_polished_master(tmp_path, monkeypatch):
     ]
 
 
-def test_adaptive_enhance_is_disabled_for_neural_engines(tmp_path):
-    """Если бит считала нейросеть, ручной DSP не должен «дорисовывать» мастер."""
+def test_adaptive_enhance_is_disabled_for_neural_engines(tmp_path, monkeypatch):
+    """Reuse the selected engine; finishing the master must not redetect hardware."""
     from app.core.stages.master import apply_adaptive_enhance
+    from modules.hit_factory import adaptive
 
+    monkeypatch.setattr(adaptive, "get_adaptive_config", lambda **_kwargs: pytest.fail("must reuse recipe route"))
     master = _wav(tmp_path / "m.wav", value=0.5)
     before = Path(master).read_bytes()
-    result = apply_adaptive_enhance(master, adaptive_level=2, enhanced_dsp=True)
-    assert result["applied"] is False
+    result = apply_adaptive_enhance(master, adaptive_level=0, enhanced_dsp=True,
+                                    beat_engine="musicgen")
+    assert result["applied"] is False and "neural engine" in result["reason"]
     assert Path(master).read_bytes() == before
 
 

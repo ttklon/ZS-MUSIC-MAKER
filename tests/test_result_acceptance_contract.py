@@ -90,7 +90,6 @@ def test_agent_cli_nonzero_when_only_a_master_exists(audio, monkeypatch):
     from app.cli import agent_task
     import modules.agent_guide as guide
 
-    monkeypatch.setattr(agent_task, '_prepare', lambda *_: {})
     monkeypatch.setattr(guide, 'run_conversation_hit', lambda *a, **kw: {'master_path': audio})
     args = SimpleNamespace(online=False)
     assert agent_task.run_agent_hit(args) == 1
@@ -155,7 +154,6 @@ def test_agent_cli_rejects_producer_request_downgrade(audio, monkeypatch):
     from types import SimpleNamespace
     from app.cli import agent_task
     import modules.agent_guide as guide
-    monkeypatch.setattr(agent_task, '_prepare', lambda *_: {})
     monkeypatch.setattr(guide, 'run_conversation_hit', lambda *a, **kw: {
         'master_path': audio, 'render_evidence': evidence(audio, 'instrumental'), 'requested_kind': 'instrumental'})
     assert agent_task.run_agent_hit(SimpleNamespace(online=False)) == 1
@@ -166,7 +164,6 @@ def test_agent_cli_handles_malformed_producer_report(monkeypatch, capsys):
     from types import SimpleNamespace
     from app.cli import agent_task
     import modules.agent_guide as guide
-    monkeypatch.setattr(agent_task, '_prepare', lambda *_: {})
     monkeypatch.setattr(guide, 'run_conversation_hit', lambda *a, **kw: None)
     assert agent_task.run_agent_hit(SimpleNamespace(online=False)) == 2
     rows = [json.loads(line) for line in capsys.readouterr().out.splitlines() if line.startswith('{')]
