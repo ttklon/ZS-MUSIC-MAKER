@@ -242,3 +242,43 @@ hardware/backend/offline, plan/product, function budgets).
 Теперь получен canonical success ограниченного CPU-инструментального запроса.
 Не получены full song/singing, универсальный CPU profile, CUDA/AMD GPU и полная
 adapter/installed-GUI приёмка. T0021–T0030 остаётся активным; счётчик 20.
+
+## Доверенный scope через адаптеры и typed result boundary
+
+Source `b2fd280d3c571701da2378127d215ac9e04cc68b`:
+`classic_execution_contract`, `classic_outcome`, `classic_result` в
+`app/core/stage_request.py`. Новый caller-supplied contract явно передаётся
+в outcome/result validators; default generic validator остаётся строгим и
+не читает разрешения из report.request_scope/report.recipe.
+God/async адаптеры фиксируют contract **до** вызова исполнителя: изменение
+переданного state изнутри executor не может задним числом выключить стадии.
+
+Дополнительно найден и закрыт bypass: при переданном caller required contract
+producer мог не возвращать outcome/stages вообще. Теперь такая пустая
+execution envelope проверяется на отсутствующие обязательные стадии даже
+при существующем WAV и формально подходящем content manifest.
+Scope не обходит missing master, FAILED/CANCELED, QA, dry/partial, привязку
+content evidence к хешу и caller requested kind.
+
+Тест async с фиктивными только beat/master раньше ожидал completed: исправлен
+на partial/blocked, поскольку остальные caller-required стадии отсутствуют.
+Отдельные позитивные doubles предоставляют весь stage contract, а не снижают
+требования ради теста. Эти God/async тесты не являются model/GUI inference.
+Локальная расширенная регрессия **285 passed**.
+
+[Windows 45153740505](https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45153740505):
+**SUCCESS все пять job**. [Сохранённые результаты](restart-hardware-adapters-windows-45153740505.json).
+Настоящий classic CPU probe со scope, без texture:
+20.0 s / 26.7133 s wall / sampled RSS 329687040 bytes,
+producer outcome **success**, caller adapter **success**, typed result
+**degraded**. Последнее ожидаемо: execution scope не подделывает недостающее
+подтверждение состава аудио. Для этого прогона не изготовляли фиктивный
+`music_present` manifest, чтобы насильно получить typed success.
+
+С texture requested: producer outcome **blocked**, caller adapter **blocked**,
+typed result **degraded**, probe exit 1. Одинаковый WAV/hash не скрыл различие
+в выполнении запросов. Full reports/typed reasons — workflow artifact.
+
+Закрыт execution-scope transport разрыв; всё ещё не приняты полный song/content
+результат, установленный GUI и реальные CUDA/AMD GPU профили. Счётчик принятого
+в повторном проходе остаётся 20, пакет T0021–T0030 активен.

@@ -160,3 +160,21 @@ probe exit **0**, canonical outcome **success**. С запрошенной, но
 texture тот же WAV по-прежнему даёт blocked/exit 1. Это не GPU-профиль,
 не пение и не полная сертификация продукта.
 [Протокол](plan/evidence/restart-hardware-scope-windows-45151624994.json).
+
+### Граница адаптера и граница состава аудио
+
+При вызове Python API используйте **исходный доверенный запрос**, например
+`classic_outcome(report, original_wizard_state)` или
+`classic_result(report, original_wizard_state, requested_kind='instrumental')`
+из `app.core.stage_request`. Не передавайте в качестве исходного запроса
+`report.recipe`, полученный от непроверенного исполнителя. God/async adapters
+фиксируют договорённости до вызова pipeline. Generic validators по умолчанию
+не доверяют исключениям из report и остаются консервативными.
+
+[Windows 45153740505](https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45153740505),
+все пять job SUCCESS: classic instrumental 20.0 s / 26.7133 s wall /
+329687040 bytes sampled RSS; producer и caller adapter — success.
+**Typed content result остаётся degraded**: корректное исполнение само по себе
+не создаёт отсутствующее подтверждение состава аудио. Это не singing/song/GPU
+приёмка и не доказательство установленного GUI.
+[Протокол](plan/evidence/restart-hardware-adapters-windows-45153740505.json).
