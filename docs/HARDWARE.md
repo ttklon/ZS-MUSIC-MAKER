@@ -45,3 +45,34 @@ Offline: 4.6875 s речи за 6.2315 s wall (включая загрузку �
 RTF 1.3294, sampled RSS 1049825280 bytes; перехваченных Python-сетевых
 обращений 0. [Машиночитаемый протокол](plan/evidence/restart-hardware-windows-45143489947.json).
 Это единичный замер, не гарантированная скорость и не минимальные требования.
+
+## Воспроизводимый музыкальный DSP benchmark
+
+```
+node tools/desktop_render_benchmark.js 20 output/hardware-dsp-20
+node tools/desktop_render_benchmark.js 120 output/hardware-dsp-120
+```
+
+Это production desktop worker без Electron GUI: phonk, BPM 140, seed 7,
+синтезированный инструментал без sample bank и вокала. Проверяются отмена
+реального worker по progress и повтор, затем WAV целиком (формат, длительность,
+не тишина, запас пика), записываются SHA-256, время и process lifetime maxRSS.
+Wall time включает запуск worker и передачу результата. maxRSS включает
+отмену, рендер и проверку, но не GPU/другие процессы. Отдельный Node-процесс
+для каждой длительности не смешивает 20-секундный и 120-секундный пики.
+`report.json` и WAV — выходы; короткая CI summary не заменяет полный engine
+report в artifact. Benchmark не сертифицирует музыкальное качество, нейронную
+генерацию, приложение с GUI, минимальную память или отсутствие сетевого трафика.
+
+[Windows 45146340788 — все четыре job SUCCESS](https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45146340788),
+source `0df0f88f5d5c03a1001c47615ea7c2689567b4b9`:
+
+| Процедурный инструментал | Wall time | Process lifetime maxRSS |
+|---|---:|---:|
+| 20 s | 5.8763 s | 262434816 bytes |
+| 120 s | 17.2189 s | 895328256 bytes |
+
+Runner CPU различаются (EPYC 7763 и EPYC 9V45, по 4 logical CPUs/16 GiB RAM),
+поэтому это не тест линейного масштабирования. Реальная Silero CPU-речь также
+прошла в отдельном job; AMD **CPU** не является проверкой AMD **GPU**.
+[Полный протокол с источником и хешами](plan/evidence/restart-hardware-windows-45146340788.json).

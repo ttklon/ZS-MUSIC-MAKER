@@ -1412,7 +1412,9 @@
       "evidence": [
         "docs/plan/evidence/restart-T0021-T0030.md",
         "docs/plan/evidence/restart-hardware-silero-45142874352.json",
-        "docs/plan/evidence/restart-hardware-windows-45143489947.json"
+        "docs/plan/evidence/restart-hardware-windows-45143489947.json",
+        "docs/plan/evidence/restart-hardware-dsp-windows-45146015331.json",
+        "docs/plan/evidence/restart-hardware-windows-45146340788.json"
       ],
       "remaining": [
         "Windows regression/inference SUCCESS; повторная приёмка всего пакета требует протоколов полных заявляемых CPU/CUDA/AMD профилей."
@@ -1425,7 +1427,9 @@
       "evidence": [
         "docs/plan/evidence/restart-T0021-T0030.md",
         "docs/plan/evidence/restart-hardware-silero-45142874352.json",
-        "docs/plan/evidence/restart-hardware-windows-45143489947.json"
+        "docs/plan/evidence/restart-hardware-windows-45143489947.json",
+        "docs/plan/evidence/restart-hardware-dsp-windows-45146015331.json",
+        "docs/plan/evidence/restart-hardware-windows-45146340788.json"
       ],
       "remaining": [
         "Windows regression/inference SUCCESS; повторная приёмка всего пакета требует протоколов полных заявляемых CPU/CUDA/AMD профилей."
@@ -1438,7 +1442,9 @@
       "evidence": [
         "docs/plan/evidence/restart-T0021-T0030.md",
         "docs/plan/evidence/restart-hardware-silero-45142874352.json",
-        "docs/plan/evidence/restart-hardware-windows-45143489947.json"
+        "docs/plan/evidence/restart-hardware-windows-45143489947.json",
+        "docs/plan/evidence/restart-hardware-dsp-windows-45146015331.json",
+        "docs/plan/evidence/restart-hardware-windows-45146340788.json"
       ],
       "remaining": [
         "Windows regression/inference SUCCESS; повторная приёмка всего пакета требует протоколов полных заявляемых CPU/CUDA/AMD профилей."
@@ -1451,7 +1457,9 @@
       "evidence": [
         "docs/plan/evidence/restart-T0021-T0030.md",
         "docs/plan/evidence/restart-hardware-silero-45142874352.json",
-        "docs/plan/evidence/restart-hardware-windows-45143489947.json"
+        "docs/plan/evidence/restart-hardware-windows-45143489947.json",
+        "docs/plan/evidence/restart-hardware-dsp-windows-45146015331.json",
+        "docs/plan/evidence/restart-hardware-windows-45146340788.json"
       ],
       "remaining": [
         "Windows regression/inference SUCCESS; повторная приёмка всего пакета требует протоколов полных заявляемых CPU/CUDA/AMD профилей."
@@ -1464,7 +1472,9 @@
       "evidence": [
         "docs/plan/evidence/restart-T0021-T0030.md",
         "docs/plan/evidence/restart-hardware-silero-45142874352.json",
-        "docs/plan/evidence/restart-hardware-windows-45143489947.json"
+        "docs/plan/evidence/restart-hardware-windows-45143489947.json",
+        "docs/plan/evidence/restart-hardware-dsp-windows-45146015331.json",
+        "docs/plan/evidence/restart-hardware-windows-45146340788.json"
       ],
       "remaining": [
         "Windows regression/inference SUCCESS; повторная приёмка всего пакета требует протоколов полных заявляемых CPU/CUDA/AMD профилей."
@@ -1477,7 +1487,9 @@
       "evidence": [
         "docs/plan/evidence/restart-T0021-T0030.md",
         "docs/plan/evidence/restart-hardware-silero-45142874352.json",
-        "docs/plan/evidence/restart-hardware-windows-45143489947.json"
+        "docs/plan/evidence/restart-hardware-windows-45143489947.json",
+        "docs/plan/evidence/restart-hardware-dsp-windows-45146015331.json",
+        "docs/plan/evidence/restart-hardware-windows-45146340788.json"
       ],
       "remaining": [
         "Windows regression/inference SUCCESS; повторная приёмка всего пакета требует протоколов полных заявляемых CPU/CUDA/AMD профилей."
@@ -1490,7 +1502,9 @@
       "evidence": [
         "docs/plan/evidence/restart-T0021-T0030.md",
         "docs/plan/evidence/restart-hardware-silero-45142874352.json",
-        "docs/plan/evidence/restart-hardware-windows-45143489947.json"
+        "docs/plan/evidence/restart-hardware-windows-45143489947.json",
+        "docs/plan/evidence/restart-hardware-dsp-windows-45146015331.json",
+        "docs/plan/evidence/restart-hardware-windows-45146340788.json"
       ],
       "remaining": [
         "Windows regression/inference SUCCESS; повторная приёмка всего пакета требует протоколов полных заявляемых CPU/CUDA/AMD профилей."
@@ -1503,7 +1517,9 @@
       "evidence": [
         "docs/plan/evidence/restart-T0021-T0030.md",
         "docs/plan/evidence/restart-hardware-silero-45142874352.json",
-        "docs/plan/evidence/restart-hardware-windows-45143489947.json"
+        "docs/plan/evidence/restart-hardware-windows-45143489947.json",
+        "docs/plan/evidence/restart-hardware-dsp-windows-45146015331.json",
+        "docs/plan/evidence/restart-hardware-windows-45146340788.json"
       ],
       "remaining": [
         "Windows regression/inference SUCCESS; повторная приёмка всего пакета требует протоколов полных заявляемых CPU/CUDA/AMD профилей."
@@ -1516,10 +1532,12 @@
       "evidence": [
         "docs/plan/evidence/restart-T0021-T0030.md",
         "docs/plan/evidence/restart-hardware-silero-45142874352.json",
-        "docs/plan/evidence/restart-hardware-windows-45143489947.json"
+        "docs/plan/evidence/restart-hardware-windows-45143489947.json",
+        "docs/plan/evidence/restart-hardware-dsp-windows-45146015331.json",
+        "docs/plan/evidence/restart-hardware-windows-45146340788.json"
       ],
       "remaining": [
-        "Silero CPU речь измерена; полные продуктовые CPU/CUDA/AMD сценарии ещё не испытаны."
+        "Silero CPU речь и desktop procedural instrumental 20/120 s измерены; полный путь песни и CUDA/AMD inference ещё не испытаны."
       ]
     },
     {
@@ -1529,10 +1547,12 @@
       "evidence": [
         "docs/plan/evidence/restart-T0021-T0030.md",
         "docs/plan/evidence/restart-hardware-silero-45142874352.json",
-        "docs/plan/evidence/restart-hardware-windows-45143489947.json"
+        "docs/plan/evidence/restart-hardware-windows-45143489947.json",
+        "docs/plan/evidence/restart-hardware-dsp-windows-45146015331.json",
+        "docs/plan/evidence/restart-hardware-windows-45146340788.json"
       ],
       "remaining": [
-        "Silero CPU речь измерена; полные продуктовые CPU/CUDA/AMD сценарии ещё не испытаны."
+        "Silero CPU речь и desktop procedural instrumental 20/120 s измерены; полный путь песни и CUDA/AMD inference ещё не испытаны."
       ]
     },
     {

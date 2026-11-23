@@ -60,3 +60,66 @@ Python socket guard не заменяет независимый OS-level сет
 
 Открытая предметная работа: реальные полные продуктовые сценарии, CUDA и AMD
 на физически доступном оборудовании. Hosted CPU runner не подменяет их.
+
+## Настоящий музыкальный CPU-render (продолжение)
+
+Добавлен `tools/desktop_render_benchmark.js`: использует production
+`desktop/electron/render-host.js` → настоящий worker → `pipeline.js`, без
+подмены рендера. Вход: phonk / A minor / BPM 140 / seed 7 / 20 или 120 s,
+`useBank=false`, вокал `none`: явно запрошенный процедурный инструментал,
+НЕ нейронная генерация, пение или полный путь создания песни.
+
+До замера выполняется настоящая отмена по progress и повтор. После рендера
+проверяются RIFF/data length, PCM16 stereo 44100 Hz, точная длительность,
+peak/RMS, SHA-256. Wall time включает worker startup/передачу WAV, не запись
+на диск. maxRSS — lifetime всего Node-процесса с worker threads, отменой и
+проверкой WAV, не отдельный GPU-пик и не минимум RAM для пользователя.
+
+Локально Linux: 20 s / 7.0004 s wall / 261029888 bytes maxRSS;
+120 s / 33.9766 s wall / 877973504 bytes maxRSS. Сеть этими тестами не
+аудируется (`network_verified=false`). Локальные регрессии: 41 JS passed,
+29 Python passed; тест summary отдельно 2 passed.
+
+Windows 45145659002, source 209c0a4f5d42fc4980cd10c2ecdde2fb1701e1c1:
+**SUCCESS все четыре job**, включая реальные 20 s и 120 s DSP renders,
+Silero и bootstrap negative guard. Полный DSP JSON находится в artifacts;
+GitHub annotation обрезала большой engine report, поэтому вместо попытки
+выдать неполный JSON за доказательство добавлена компактная summary с
+регрессией длины <3800 символов. Повторный прогон 45146015331 (source
+6ebbfa4117976e97cdd3e331caef1c4b78c335f4): DSP **оба job success**,
+bootstrap success, но Silero failed до inference с HTTP403 rate limit exceeded.
+Этот workflow целиком не зелёный. Сохранённый протокол:
+`restart-hardware-dsp-windows-45146015331.json`.
+
+| Windows procedural workload | Wall s | Process lifetime maxRSS MiB | CPU runner |
+|---|---:|---:|---|
+| 20 s | 6.4104 | 267.5625 | Xeon Platinum 8370C, 4 logical CPUs |
+| 120 s | 27.5845 | 852.0391 | AMD EPYC 7763, 4 logical CPUs |
+
+Оба runner RAM ~16 GiB; это **разные CPU**, не сравнение масштабирования
+на одной машине. Hash 20 s совпал с локальным Linux WAV. Это байтовая
+воспроизводимость этого входа, не гарантия для всех движков/версий.
+
+Silero Torch hub выполнял API discovery даже для закреплённой ревизии.
+В 0df0f88 добавлен skip_validation=True только к константному reviewed SHA;
+ветка/произвольный ref не принимаются как параметры. Это исключает branch/fork
+API enumeration, но не сетевые ошибки скачивания. Отдельный digest пакета
+по-прежнему записывается; это не allowlist доверенных весов.
+Прогон после исправления: **45146340788 SUCCESS все четыре job**,
+source 0df0f88f5d5c03a1001c47615ea7c2689567b4b9.
+[Сохранённый JSON](restart-hardware-windows-45146340788.json).
+Windows hardware contracts: 76 passed; DSP validation/cancel/retry: 2 passed
+на каждом matrix runner (реальные workers).
+
+| Финальный Windows procedural workload | Wall s | Process lifetime maxRSS bytes |
+|---|---:|---:|
+| 20 s (EPYC 7763 / 4 logical CPUs) | 5.8763 | 262434816 |
+| 120 s (EPYC 9V45 / 4 logical CPUs) | 17.2189 | 895328256 |
+
+Узкий CPU-инструментал измерен; полная песня/GPU-профили не сертифицированы.
+Счётчик повторно принятых остаётся 20; следующий пакет не перескакиваем.
+
+Попытка получить список self-hosted runners через GitHub API вернула HTTP403
+`Resource not accessible by integration`. Это ограничение видимости, а не
+доказательство отсутствия GPU runners. Доступного NVIDIA/AMD inference
+этими прогонами не получено; статусы GPU не повышались.
