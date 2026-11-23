@@ -2,6 +2,7 @@
 /** Real packaged renderer probe, distinct from the headless data smoke check. */
 const fs = require('node:fs');
 const path = require('node:path');
+const { checkGuiInputs } = require('./gui-input-check');
 const { checkGuiBeat } = require('./gui-beat-check');
 const { verifyProductHelp } = require('./product-help-check');
 const { checkResultContract } = require('./result-contract-check');
@@ -68,7 +69,8 @@ function checkWindow(window, app) {
       }
       if (report.ok && report.resultContractVerified && process.env.ZSMM_GUI_BEAT_CHECK === '1') {
         report.guiBeat = await checkGuiBeat(window, path.dirname(process.env.ZSMM_WINDOW_CHECK_OUT), app);
-        report.ok = report.guiBeat.ok === true;
+        report.guiInputs = await checkGuiInputs(window);
+        report.ok = report.guiBeat.ok === true && report.guiInputs.ok === true;
       }
       finish({ ...report, ok: report.ok && report.resultContractVerified && report.creationVisible && errors.length === 0 });
     } catch (error) { finish({ ok: false, error: String(error) }); }
