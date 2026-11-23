@@ -8,6 +8,7 @@ const crypto = require('node:crypto');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const { fileURLToPath } = require('node:url');
 
 const INJECTOR = String.raw`import os, sys
 root = os.getcwd()
@@ -62,6 +63,12 @@ function sha256File(file) {
 
 function samePath(left, right) {
   return typeof left === 'string' && path.resolve(left) === path.resolve(right);
+}
+
+function isWithinPath(candidate, root) {
+  if (typeof candidate !== 'string' || typeof root !== 'string' || !candidate || !root) return false;
+  const relative = path.relative(path.resolve(root), path.resolve(candidate));
+  return relative === '' || (relative !== '..' && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative));
 }
 
 function snapshotFiles(root) {
@@ -148,6 +155,11 @@ async function runDenialCase({ window, scenario, name, expectedReason, voicePath
   process.env.ZSMM_AGENT_TEST_SCENARIO = scenario;
   const run = await runAgentFromInstalledUi(window, `acceptance probe: ${name}`, voicePath || '');
   const result = refusalOutcome(run, expectedReason);
+  result.runError = run?.error || null;
+  result.taskError = run?.done?.error || null;
+  result.protocolError = run?.done?.protocolError || null;
+  result.reportKeys = Object.keys(run?.done?.report || {});
+  result.reportError = run?.done?.report?.error || null;
   const after = snapshotFiles(hits);
   result.filesUnchanged = unchangedSnapshot(before, after);
   result.sentinelSha256 = sha256File(sentinel);
@@ -197,17 +209,45 @@ async function checkAgentPreflight(window, app) {
   try {
     const environmentReply = await window.webContents.executeJavaScript("window.zsmm.environment()");
     const environment = environmentReply?.data || {};
+    const rendererUrl = window.webContents.getURL();
+    const appPath = app.getAppPath();
+    let rendererProtocol = null;
+    let rendererPath = null;
+    try {
+      const parsedUrl = new URL(rendererUrl);
+      rendererProtocol = parsedUrl.protocol;
+      if (rendererProtocol === 'file:') rendererPath = fileURLToPath(parsedUrl);
+    } catch { /* invalid renderer URL is reported as a failed runtime path */ }
+    const rendererRelativePath = rendererPath ? path.relative(appPath, rendererPath) : null;
+    const rendererInsideApp = rendererRelativePath === '' || (typeof rendererRelativePath === 'string'
+      && rendererRelativePath !== '..' && !rendererRelativePath.startsWith(`..${path.sep}`)
+      && !path.isAbsolute(rendererRelativePath));
+    const noDevServer = environment.packaged === true && rendererProtocol === 'file:' && rendererInsideApp;
+    const checkoutRoot = process.env.GITHUB_WORKSPACE || process.env.RUNNER_WORKSPACE || '';
+    const checkoutPathEntries = String(process.env.PATH || '').split(path.delimiter)
+      .filter((entry) => isWithinPath(entry, checkoutRoot));
+    const pythonPathEntries = String(process.env.PYTHONPATH || '').split(path.delimiter).filter(Boolean);
+    const pythonPathContainsCheckout = pythonPathEntries.some((entry) => isWithinPath(entry, checkoutRoot));
     const runtimeCheck = {
       ok: environmentReply?.ok === true && environment.packaged === true
         && samePath(environment.root, project) && samePath(environment.pipeline_root, project)
-        && samePath(environment.python, python),
+        && samePath(environment.python, python) && noDevServer
+        && checkoutPathEntries.length === 0 && !pythonPathContainsCheckout,
       packaged: environment.packaged === true,
       root: environment.root || null,
       pipelineRoot: environment.pipeline_root || null,
       python: environment.python || null,
       expectedProject: project,
       expectedBundledPython: python,
-      noDevServer: environment.packaged === true,
+      rendererUrl,
+      rendererProtocol,
+      rendererPath,
+      appPath,
+      noDevServer,
+      checkoutRoot: checkoutRoot || null,
+      checkoutPathEntries,
+      pythonPathPresentBeforeInstrumentation: Boolean(process.env.PYTHONPATH),
+      pythonPathContainsCheckout,
     };
     report.checks.canonicalRuntimePath = runtimeCheck;
     if (!runtimeCheck.ok) throw new Error('Installed UI runtime did not resolve to resources/project and its bundled Python');
@@ -255,6 +295,11 @@ async function checkAgentPreflight(window, app) {
     const retryReport = {
       taskDone: Boolean(terminal),
       taskOk: terminal?.ok === true,
+      taskError: terminal?.error || null,
+      protocolError: terminal?.protocolError || null,
+      runError: retryRun.error || null,
+      reportError: retry?.error || null,
+      reportKeys: Object.keys(retry || {}),
       resultStatus: retry?.result?.status || null,
       resultSucceeded: retry?.result?.succeeded === true,
       qualityAccepted: retry?.result?.quality_accepted === true,
