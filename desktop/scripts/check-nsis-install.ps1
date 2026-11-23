@@ -117,8 +117,40 @@ print('Installed bundled Python isolated stage PASS; no model inference claimed'
 } finally {
     $json = $result | ConvertTo-Json -Depth 14 -Compress
     $json | Set-Content -Encoding utf8 $Report
-    $annotation = $json.Replace('%','%25').Replace("`r",'%0D').Replace("`n",'%0A')
-    Write-Output "::notice title=NSIS installed-check report::$annotation"
+    $window = $result.windowCheck
+    $agent = $result.agentPreflight
+    $agentFailures = @()
+    $runtime = $null
+    $retry = $null
+    if ($agent -and $agent.checks) {
+        $runtime = $agent.checks.canonicalRuntimePath
+        foreach ($name in @('unknownRamDenial','insufficientRamDenial','unknownDiskDenial','insufficientDiskDenial','unknownVramDenial','insufficientVramDenial','unbudgetedHeavyEngineDenial','measuredRetry')) {
+            $check = $agent.checks.$name
+            if ($check -and $check.ok -ne $true) {
+                $agentFailures += @{ name=$name; reasons=@($check.reasons | Select-Object -First 2); error=$check.error; backend=$check.selectedBackend; filesUnchanged=$check.filesUnchanged; noHeavyStages=$check.noHeavyStages }
+            }
+        }
+        $retry = $agent.checks.measuredRetry
+    }
+    $contractFailures = @()
+    if ($window.resultContract.checks) {
+        $contractFailures = @($window.resultContract.checks | Where-Object { $_.ok -ne $true } | ForEach-Object { $_.name })
+    }
+    $summary = @{
+        ok=$result.ok; error=$result.error; installerSha256=$result.installerSha256
+        installedVersion=$result.installedVersion; installedExeSha256=$result.installedExeSha256
+        installedPythonSha256=$result.installedPythonSha256
+        windowOk=$window.ok; windowError=$window.error; resultContractOk=$window.resultContractVerified
+        resultContractFailures=$contractFailures; agentPreflightOk=$agent.ok; agentPreflightError=$agent.error
+        agentPreflightFailures=$agentFailures; canonicalRuntimePath=$runtime
+        retry=$(if ($retry) { @{ ok=$retry.ok; backend=$retry.backend; preflightStatus=$retry.preflightStatus; preflightDecision=$retry.preflightDecision; previousFilesPreserved=$retry.previousFilesPreserved; masterSha256=$retry.masterSha256 } } else { $null })
+    }
+    $summaryJson = $summary | ConvertTo-Json -Depth 8 -Compress
+    $annotation = $summaryJson.Replace('%','%25').Replace("`r",'%0D').Replace("`n",'%0A')
+    Write-Output "::notice title=NSIS installed-check summary::$annotation"
+    if ($env:GITHUB_STEP_SUMMARY) {
+        @('### NSIS installed-check report','```json',$json,'```') | Add-Content -Encoding utf8 $env:GITHUB_STEP_SUMMARY
+    }
     Remove-Item Env:ZSMM_AGENT_PREFLIGHT_CHECK, Env:ZSMM_ONLINE, Env:ZSMM_PROBE_LOCAL_SERVICES, Env:ZSMM_WINDOW_CHECK_OUT -ErrorAction SilentlyContinue
     if ($null -ne $originalWindowReport) { [Environment]::SetEnvironmentVariable('ZSMM_WINDOW_CHECK_OUT', $originalWindowReport, 'Process') }
     foreach ($name in $runtimeOverrideNames) {
