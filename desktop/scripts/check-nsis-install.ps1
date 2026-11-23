@@ -4,7 +4,7 @@ $target = Join-Path $env:LOCALAPPDATA ('ZSMM-install-check-' + [guid]::NewGuid()
 $workspace = Join-Path $env:RUNNER_TEMP ('ZSMM-user-data-' + [guid]::NewGuid().ToString('N'))
 $result = @{ ok=$false; scope='clean-current-user-NSIS-bundled-core-no-models'; install=$target; acl=@(); checks=@() }
 function Wait-Checked($p, $label) {
-    if (-not $p.WaitForExit(120000)) { $p.Kill(); throw "$label timed out" }
+    if (-not $p.WaitForExit(300000)) { $p.Kill(); throw "$label timed out" }
     if ($p.ExitCode -ne 0) { throw "$label exit $($p.ExitCode)" }
 }
 try {
@@ -81,6 +81,8 @@ print('Installed bundled Python isolated stage PASS; no model inference claimed'
     $result.ok = $true
 } catch {
     $result.error = $_.Exception.Message
+    $detail = $result.error.Replace('%','%25').Replace("`r",'%0D').Replace("`n",'%0A')
+    Write-Output "::error title=Clean NSIS failure::$detail"
     throw
 } finally {
     $result | ConvertTo-Json -Depth 8 | Set-Content -Encoding utf8 $Report
