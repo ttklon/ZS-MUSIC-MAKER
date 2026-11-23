@@ -161,7 +161,7 @@ class TestAiPipeline:
         def fake(run_id, workspace, dry_run=False, terminal_progress=False):
             if raises:
                 raise raises
-            return result or {"report": {"stages": {"a": "ok"}}, "artefacts": {"m": "x.wav"}}
+            return result or {"report": {"stages": [{"name": "a", "status": "OK"}]}, "artefacts": {"m": "x.wav"}}
 
         monkeypatch.setattr(oa, "run_ai_pipeline", fake)
         return backups
@@ -171,12 +171,12 @@ class TestAiPipeline:
         assert pipeline_cmds.run_ai(make_args()) == 0
         assert backups == ["ai"]
         payload = json.loads("\n".join(printed))
-        assert payload["stages"] == {"a": "ok"}
+        assert payload["stages"] == [{"name": "a", "status": "OK"}]
         assert payload["artefacts"] == {"m": "x.wav"}
 
     def test_dry_run_has_no_artefacts(self, monkeypatch, printed) -> None:
         backups = self._patched(monkeypatch)
-        assert pipeline_cmds.run_ai_dry_run(make_args()) == 0
+        assert pipeline_cmds.run_ai_dry_run(make_args()) == 1
         assert backups == ["ai_dry_run"]
         payload = json.loads("\n".join(printed))
         assert "artefacts" not in payload
@@ -224,11 +224,11 @@ class TestRunGod:
         monkeypatch.setattr(
             og,
             "run_god_pipeline",
-            lambda rid, ws: {"elapsed_sec": 12.5, "master_path": "out/god.wav"},
+            lambda rid, ws: {"elapsed_sec": 12.5, "master_path": "out/god.wav", "stages": [{"name": "mix", "status": "OK"}]},
         )
         assert pipeline_cmds.run_god(make_args()) == 0
         text = "\n".join(printed)
-        assert "GOD MODE COMPLETED" in text
+        assert "GOD MODE SUCCESS" in text
         assert "out/god.wav" in text
         assert backups == ["god"]
 
@@ -257,7 +257,7 @@ class TestRunGod:
                 "blocked": ["_stage_voice_synth", "_stage_stems"],
             },
         )
-        assert pipeline_cmds.run_god(make_args()) == 0
+        assert pipeline_cmds.run_god(make_args()) == 1
         text = "\n".join(printed)
         assert "master=None" not in text, "нет мастера — так и надо писать, а не None"
         assert "частично" in text.lower()
@@ -294,8 +294,8 @@ class TestRunGod:
             return real_import(name, *a, **k)
 
         monkeypatch.setattr(builtins, "__import__", guard)
-        assert pipeline_cmds.run_god(make_args()) == 0
-        assert "GOD MODE COMPLETED" in "\n".join(printed)
+        assert pipeline_cmds.run_god(make_args()) == 1
+        assert "GOD MODE BLOCKED" in "\n".join(printed)
 
 
 class TestRunAsync:
@@ -307,7 +307,7 @@ class TestRunAsync:
                 self.out = out
 
             async def run_pipeline(self, ws):
-                return {"status": "done"}
+                return {"status": "completed", "stages": [{"name": "mix", "status": "OK"}]}
 
         monkeypatch.setattr(oa, "AsyncOrchestrator", Fake)
         assert pipeline_cmds.run_async(make_args()) == 0
@@ -340,7 +340,7 @@ class TestRunAsync:
         assert pipeline_cmds.run_async(make_args()) == 1
         assert "PIPELINE FAILED" in "\n".join(printed)
 
-    def test_non_dict_result_is_not_a_failure(self, monkeypatch) -> None:
+    def test_non_dict_result_is_a_failure(self, monkeypatch) -> None:
         import app.core.orchestrator_async as oa
 
         class Fake:
@@ -351,7 +351,7 @@ class TestRunAsync:
                 return None
 
         monkeypatch.setattr(oa, "AsyncOrchestrator", Fake)
-        assert pipeline_cmds.run_async(make_args()) == 0
+        assert pipeline_cmds.run_async(make_args()) == 1
 
 
 class TestDossier:

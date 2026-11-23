@@ -92,7 +92,9 @@ def finalize_report(
     if rebuild_info is not None:
         report["rebuild"] = rebuild_info
     from app.pipeline.outcome import report_outcome
-    report["outcome"] = report_outcome(stages, quality_failures=quality_failures, dry_run=dry_run, only=only)
+    from app.core.pipeline_runtime import STAGE_RECORDS
+    report["outcome"] = report_outcome(stages, quality_failures=quality_failures, dry_run=dry_run,
+                                       only=only, required_names=STAGE_RECORDS)
     return report
 
 

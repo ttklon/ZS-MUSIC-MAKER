@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional
 
 from app.ai.registry import MODEL_REGISTRY, registry
-from app.pipeline import StageStatus
+from app.pipeline import StageStatus, classify
 
 logger = logging.getLogger("SequentialAIRunner")
 if not logger.handlers:
@@ -54,6 +54,7 @@ class StageReport:
     error: Optional[str] = None
     skipped_reason: Optional[str] = None
     status: StageStatus = StageStatus.OK
+    required: bool = True
 
     def __post_init__(self) -> None:
         """Статус выводится из факта запуска: ошибка → FAILED, пропуск → BLOCKED."""
@@ -61,8 +62,7 @@ class StageReport:
             self.status = StageStatus.FAILED
         elif self.skipped_reason:
             self.status = StageStatus.BLOCKED
-        else:
-            self.status = StageStatus.OK
+        self.ok = self.ok and self.status not in (StageStatus.FAILED, StageStatus.CANCELED)
 
 
 @dataclass
@@ -71,13 +71,15 @@ class RunReport:
     total_sec: float = 0.0
 
     def to_dict(self) -> Dict[str, Any]:
-        return {
+        report = {
             "total_sec": round(self.total_sec, 2),
             "stages": [
                 {
                     "name": stage.name,
                     "ok": stage.ok,
                     "status": stage.status.value,
+                    "required": stage.required,
+                    "reason": stage.error or stage.skipped_reason,
                     "used_model": stage.used_model,
                     "device": stage.device,
                     "duration_sec": round(stage.duration_sec, 2),
@@ -91,6 +93,9 @@ class RunReport:
                 for stage in self.stages
             ],
         }
+        from app.pipeline.outcome import stage_outcome
+        report['outcome'] = stage_outcome(report['stages'])
+        return report
 
 
 def _default_vram_probe() -> float:
@@ -218,6 +223,8 @@ class SequentialAIRunner:
                 output_summary=_summarize(output),
                 error=error,
                 skipped_reason=skipped_reason,
+                required=not stage.optional,
+                status=classify(output).status if isinstance(output, dict) else StageStatus.OK,
             )
             report.stages.append(stage_report)
             self._notify_progress(progress, "stage_finish", index, stage_report)

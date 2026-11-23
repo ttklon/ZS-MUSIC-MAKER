@@ -25,3 +25,8 @@ def test_preflight_requires_explicit_budget_and_available_measurements():
     assert not preflight_resources({}, ram_gib=1, disk_gib=1)['allowed']
     for invalid in [float('nan'), float('inf'), -1, True, '4']:
         assert not preflight_resources(profile, ram_gib=invalid, disk_gib=1)['allowed']
+
+
+def test_malformed_inventory_never_becomes_enough_resources():
+    for invalid in (None, [], 'ready', {'measurements': None}, {'measurements': []}):
+        assert not preflight_resources(invalid, ram_gib=1, disk_gib=1)['allowed']

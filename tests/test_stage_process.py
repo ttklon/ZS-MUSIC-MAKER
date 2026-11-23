@@ -100,3 +100,11 @@ def test_real_dossier_local_closures_survive_process_boundary(tmp_path, monkeypa
     assert len(stages) == 5
     assert all(s['ok'] for s in stages), stages
     assert all(not s['error'] for s in stages)
+
+
+def test_ai_report_has_canonical_outcome_for_failed_payload():
+    runner = SequentialAIRunner(vram_probe=lambda: 0)
+    runner.add(AIStage('voice', None, lambda h, c: {'ok': False, 'reason': 'no voice'}, timeout_sec=20))
+    report = runner.run().to_dict()
+    assert report['outcome']['status'] == 'failed'
+    assert not report['outcome']['succeeded']

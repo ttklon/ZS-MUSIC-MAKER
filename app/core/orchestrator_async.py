@@ -90,12 +90,13 @@ class AsyncOrchestrator:
             self.stages = [stage]
 
         report = stage.output if isinstance(stage.output, dict) else {}
+        from app.pipeline.outcome import outcome_from_report
+        outcome = outcome_from_report(report)
         verdict = report.get("verdict")
         result = {
             "project_id": self.project_id,
-            "status": "completed"
-            if verdict in {"PASS", "PASS_WITH_FALLBACK", "PASS_BLOCKED", "BLOCKED_SIMULATION"}
-            else "partial",
+            "status": "completed" if outcome["succeeded"] else "partial",
+            "outcome": outcome,
             "verdict": verdict,
             "error": stage.reason,
             "duration_sec": round(time.time() - started, 2),

@@ -33,7 +33,9 @@ def measure_profile(directory) -> dict:
 def preflight_resources(profile: dict, *, ram_gib=None, disk_gib=None) -> dict:
     """Only explicit per-engine estimates may be checked. Unknown never means enough."""
     reasons = []
-    measured = profile.get("measurements", {})
+    measured = profile.get("measurements", {}) if isinstance(profile, dict) else {}
+    if not isinstance(measured, dict):
+        measured = {}
     for key, needed in (("ram_available_gib", ram_gib), ("disk_free_gib", disk_gib)):
         if needed is None:
             reasons.append(f"{key}: нет утверждённого бюджета backend")

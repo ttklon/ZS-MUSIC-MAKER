@@ -84,11 +84,12 @@ def test_god_pipeline_sets_full_track_duration_and_maps_report(monkeypatch: pyte
 
     assert captured["state"]["duration_sec"] == orchestrator_god.GOD_DURATION_SEC
     assert captured["state"]["genre"] == "drift_phonk"
-    assert result["status"] == "completed"
-    assert result["master_path"] == str(tmp_path / "master.wav")
+    assert result["status"] == "partial"
+    assert result["outcome"]["status"] == "blocked"
+    assert result["master_path"] is None
     assert result["vocal_status"] == "BLOCKED"
     assert result["vocal_reason"] == "no TTS"
-    assert result["stages"][0]["ok"] is True  # ok = «не FAILED», как раньше
+    assert result["stages"][0]["ok"] is False  # blocked is not completed
     assert (tmp_path / "project_meta.json").exists()
 
 
@@ -111,7 +112,8 @@ def test_async_orchestrator_runs_shared_pipeline(monkeypatch: pytest.MonkeyPatch
     def fake_pipeline(project_id, state, dry_run=False, out_root=None, on_stage=None, **kwargs):
         for index, name in enumerate(("_stage_beat", "_stage_mastering"), start=1):
             on_stage(name, "OK", index, 2)
-        return {"verdict": "PASS", "master_path": str(tmp_path / "master.wav")}
+        return {"verdict": "PASS", "master_path": str(tmp_path / "master.wav"),
+                "stages": [{"name": name, "status": "OK"} for name in ("_stage_beat", "_stage_mastering")]}
 
     monkeypatch.setattr(orchestrator, "run_full_pipeline", fake_pipeline)
     orch = orchestrator_async.AsyncOrchestrator("probe", tmp_path)
@@ -133,3 +135,14 @@ def test_async_orchestrator_reports_error_instead_of_lying(monkeypatch: pytest.M
     result = asyncio.run(orchestrator_async.AsyncOrchestrator("probe", tmp_path).run_pipeline({}))
     assert result["status"] == "partial"
     assert "disk full" in (result["error"] or "")
+
+
+@pytest.mark.parametrize('verdict', ['PASS', 'PASS_BLOCKED', 'PASS_WITH_FALLBACK', 'BLOCKED_SIMULATION'])
+def test_legacy_adapters_cannot_promote_verdict_without_stage_results(verdict, tmp_path, monkeypatch):
+    from app.core import orchestrator, orchestrator_async, orchestrator_god
+    monkeypatch.setattr(orchestrator, 'run_full_pipeline', lambda *a, **kw: {'verdict': verdict})
+    god = orchestrator_god.run_god_pipeline('probe', out_root=tmp_path / 'god')
+    async_result = asyncio.run(orchestrator_async.AsyncOrchestrator('probe', tmp_path / 'async').run_pipeline({}))
+    for result in (god, async_result):
+        assert result['status'] == 'partial'
+        assert not result['outcome']['succeeded']

@@ -21,14 +21,6 @@ from typing import Any
 
 GOD_DURATION_SEC = 120  # «God Mode» = полноценный трек, а не фрагмент
 
-# Вердикты общего пайплайна → статус в терминах старого отчёта God Mode
-_COMPLETED_VERDICTS = {"PASS", "PASS_WITH_FALLBACK", "PASS_BLOCKED", "BLOCKED_SIMULATION"}
-
-
-def _status_from_verdict(verdict: str | None) -> str:
-    return "completed" if (verdict or "") in _COMPLETED_VERDICTS else "partial"
-
-
 def _vocal_report(stages: list[dict[str, Any]]) -> tuple[str, str | None]:
     """Честный статус вокала из стадий: OK / FALLBACK / BLOCKED / FAILED."""
     vocal = [s for s in stages if s.get("name") in
@@ -69,7 +61,7 @@ def run_god_pipeline(
     stages = [
         {
             "name": stage.get("name"),
-            "ok": stage.get("status") != "FAILED",
+            "ok": stage.get("status") in {"OK", "FALLBACK"},
             "status": stage.get("status"),
             "duration_sec": stage.get("duration_sec", 0.0),
             "output": stage.get("output"),
@@ -78,11 +70,14 @@ def run_god_pipeline(
         for stage in report.get("stages", [])
     ]
     vocal_status, vocal_reason = _vocal_report(stages)
-    status = _status_from_verdict(report.get("verdict"))
+    from app.pipeline.outcome import outcome_from_report
+    outcome = outcome_from_report(report)
+    status = "completed" if outcome["succeeded"] else "partial"
     result = {
         "project_id": project_id,
         "god_mode": True,
         "status": status,
+        "outcome": outcome,
         "verdict": report.get("verdict"),
         "percent": report.get("percent"),
         "elapsed_sec": report.get("duration_sec"),

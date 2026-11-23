@@ -49,7 +49,6 @@ LONG_FUNCTIONS: dict[tuple[str, str], int] = {
     ("app/gui/wizard/steps_run.py", "show_result"): 71,
     ("app/gui/wizard/steps_tuning.py", "__init__"): 63,
     ("app/gui/wizard/steps_voice.py", "__init__"): 91,
-    ("app/pipeline/stage.py", "summarize"): 73,
     ("app/runtime_orchestrator.py", "_process"): 61,
     ("main.py", "main"): 90,
     ("modules/hit_factory/_runner.py", "_postprocess"): 72,

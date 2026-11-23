@@ -56,3 +56,67 @@ def test_missing_required_stage_is_explicitly_blocked():
 def test_qa_failure_or_partial_run_never_gives_complete_success(kwargs):
     from app.pipeline.outcome import report_outcome
     assert not report_outcome([{'name': 'music', 'status': 'OK'}], **kwargs)['succeeded']
+
+
+@pytest.mark.parametrize('dry_run', [False, True])
+def test_empty_legacy_summary_never_claims_pass(dry_run):
+    summary = summarize([], dry_run=dry_run)
+    assert summary['verdict'] == 'BLOCKED'
+    assert summary['percent'] == 0
+    assert not summary['outcome']['succeeded']
+
+
+@pytest.mark.parametrize('state', ['FAILED', 'CANCELED', 'UNKNOWN'])
+def test_misleading_legacy_ok_cannot_override_failure(state):
+    summary = summarize([{'name': 'voice', 'status': state, 'ok': True}])
+    assert summary['verdict'] == 'PARTIAL'
+    assert summary['percent'] == 0
+    assert not summary['outcome']['succeeded']
+
+
+def test_executor_cannot_downgrade_caller_required_stage():
+    result = stage_outcome([{'name': 'music', 'status': 'BLOCKED', 'required': False},
+                            {'name': 'mix', 'status': 'OK'}], required_names=['music', 'mix'])
+    assert result['status'] == 'blocked'
+    assert result['stages'][0]['required'] is True
+
+
+@pytest.mark.parametrize('bad', [None, 7, {'name': []}, {'name': 'voice', 'status': []},
+    {'name': 'voice', 'status': 'OK', 'ok': False}, {'name': 'voice', 'status': 'OK', 'required': 'false'}])
+def test_malformed_stage_fails_closed_without_crashing(bad):
+    assert stage_outcome([bad])['status'] == 'failed'
+
+
+def test_duplicate_stage_cannot_hide_conflicting_output():
+    result = stage_outcome([{'name': 'voice', 'status': 'OK'},
+                            {'name': 'voice', 'status': 'BLOCKED', 'required': False}])
+    assert result['status'] == 'failed'
+
+
+def test_report_propagates_required_stage_contract():
+    from app.pipeline.outcome import report_outcome
+    assert report_outcome([{'name': 'mix', 'status': 'OK'}], required_names=['mix', 'voice'])['status'] == 'blocked'
+
+
+@pytest.mark.parametrize('row', [{'name': 'voice', 'ok': True},
+    {'name': 'voice', 'status': 'OK', 'ok': False}])
+def test_legacy_and_canonical_summary_both_reject_incomplete_or_conflicting_status(row):
+    result = summarize([row])
+    assert result['verdict'] == 'PARTIAL'
+    assert not result['outcome']['succeeded']
+
+
+def test_adapter_preserves_stricter_producer_outcome_and_quality_gate():
+    from app.pipeline.outcome import outcome_from_report
+    report = {'stages': [{'name': 'mix', 'status': 'OK'}],
+              'outcome': {'status': 'blocked', 'reasons': ['required voice absent']}}
+    assert outcome_from_report(report)['status'] == 'blocked'
+    report['quality_gate_failures'] = ['bad peak']
+    assert outcome_from_report(report)['status'] == 'failed'
+
+
+def test_adapter_rejects_contradictory_declared_canonical_success():
+    from app.pipeline.outcome import outcome_from_report
+    result = outcome_from_report({'stages': [{'name': 'mix', 'status': 'OK'}],
+                                  'outcome': {'status': 'success', 'succeeded': False}})
+    assert result['status'] == 'failed'
