@@ -32,6 +32,10 @@ def network_allowed(
     settings_path: "str | Path | None" = None,
 ) -> bool:
     """Разрешён ли удалённый запрос прямо сейчас."""
+    boundary = os.environ.get("ZSMM_ONLINE", "").strip()
+    # An explicit desktop off-boundary cannot be resurrected by stale settings/flags.
+    if boundary == "0":
+        return False
     if allow_online is True:
         return True
     # Явное согласие окна: только литерал "1", как и у настроек — только `True`.

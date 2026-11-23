@@ -14,6 +14,7 @@ let audioUrl = null;
 let audioRequest = 0;
 let player = null;
 let storage = null;
+let catalog = null;
 let storageLoading = false;
 function releaseAudio() {
   audioRequest++;
@@ -263,6 +264,10 @@ function loadModelsScreen() {
 function renderStorage(host) {
   const panel = el('div', 'panel'); panel.append(el('h3', null, 'Файлы моделей на диске'));
   panel.append(el('p', 'muted', 'Наличие файла не подтверждает исправность модели. Список ограничен известными каталогами; сторонние кэши могут быть не показаны.'));
+  if (catalog?.available) {
+    for (const role of catalog.roles) panel.append(el('p', 'studio-path',
+      `${role.id}: ${role.role} · ${role.profile || 'профиль не принят'} · ${role.expected_size_bytes ? (role.expected_size_bytes / 1073741824).toFixed(2) + ' ГБ' : 'объём неизвестен'} · inference не проверен`));
+  } else panel.append(el('p', 'muted', 'Каталог моделей не получен; файлы ниже не означают принятую модель.'));
   for (const location of storage || []) {
     panel.append(el('p', 'studio-path', location.directory));
     if (!location.files.length) panel.append(el('p', 'muted', 'Файлы весов не найдены в проверенной части каталога.'));
@@ -281,6 +286,7 @@ async function refreshStorage() {
     const reply = await window.zsmm.environment();
     if (!reply?.ok) throw new Error(reply?.error || 'Не удалось прочитать каталоги моделей');
     storage = reply.data.model_storage || [];
+    catalog = reply.data.model_catalog || null;
   } catch (err) { storage = []; session.error = err.message; }
   finally { storageLoading = false; if (W.state?.view === 'models') loadModelsScreen(); }
 }

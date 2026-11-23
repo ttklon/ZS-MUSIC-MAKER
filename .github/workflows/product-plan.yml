@@ -4,14 +4,39 @@ on:
     branches: ['arena/bbed83d1-zs-music-maker']
     paths:
       - 'docs/plan/**'
+      - 'docs/ENGINE_PREFLIGHT.md'
+      - 'tests/test_engine_preflight_contract.py'
+      - 'tests/test_ai_model_pull.py'
+      - 'app/ai/engine_profiles.py'
+      - 'app/ai/worker*.py'
+      - 'app/ai/weights.py'
+      - 'app/ai/model_catalog.py'
+      - 'app/core/net_policy.py'
+      - 'app/core/download_budget.py'
+      - 'app/core/bootstrap.py'
+      - 'tools/pull_ai_models.py'
+      - 'tools/export_model_catalog.py'
+      - 'tools/probe_engine_worker.py'
+      - 'data/desktop/model-catalog.json'
+      - 'desktop/electron/model-storage.js'
+      - 'desktop/electron/shell-service.js'
+      - 'requirements*.txt'
       - 'docs/TASK_LIFECYCLE.md'
       - 'tests/test_runtime_lifecycle.py'
+      - 'tests/test_windows_job_host.py'
+      - 'app/cli/windows_job.py'
+      - 'app/cli/managed_task_host.py'
+      - 'desktop/electron/diagnostic-export.js'
+      - 'tools/audit_diagnostic_export.py'
       - 'app/core/logger.py'
       - 'app/core/security_utils.py'
       - 'app/core/bootstrap_report.py'
       - 'app/cli/commands.py'
       - 'app/ai/activity.py'
       - 'app/ai/sequential_runner.py'
+      - 'app/ai/stage_process.py'
+      - 'tests/test_stage_process.py'
+      - 'desktop/scripts/check-nsis-install.ps1'
       - 'desktop/electron/process-control.js'
       - 'desktop/electron/startup-diagnostics.js'
       - 'desktop/electron/diagnostic-redaction.js'
@@ -82,7 +107,11 @@ jobs:
       - name: Check 1000 tasks and dependency graph (not application readiness)
         run: python tools/build_product_plan.py --check
       - name: Install plan test dependency
-        run: python -m pip install pytest numpy soundfile requests psutil
+        run: python -m pip install pytest numpy soundfile requests psutil cloudpickle==3.1.2
+      - name: Canonical model catalogue projection and real stdlib worker handshake
+        run: |
+          python tools/export_model_catalog.py --check
+          python tools/probe_engine_worker.py
       - name: Observe closed publication gate without publishing
         env:
           PYTHONIOENCODING: utf-8
@@ -100,7 +129,7 @@ jobs:
           path: ${{ runner.temp }}/release-gate.json
           retention-days: 7
       - name: Plan and publication contract regression tests only
-        run: python -m pytest tests/test_product_plan.py tests/test_release_gate.py tests/test_recipe_transport.py tests/test_runtime_lifecycle.py tests/test_bootstrap_results.py tests/test_logger_and_crash.py -q
+        run: python -m pytest tests/test_stage_process.py tests/test_windows_job_host.py tests/test_product_plan.py tests/test_release_gate.py tests/test_recipe_transport.py tests/test_runtime_lifecycle.py tests/test_bootstrap_results.py tests/test_logger_and_crash.py tests/test_engine_preflight_contract.py tests/test_ai_model_pull.py tests/test_model_loading_offline.py tests/test_net_online_bridge.py -q
 
   packaged-product-specification:
     runs-on: windows-latest
@@ -116,7 +145,7 @@ jobs:
           $PSNativeCommandUseErrorActionPreference = $false
           node desktop/scripts/product-spec.js --check
           if ($LASTEXITCODE -ne 0) { throw 'Product specification mismatch' }
-          $output = & node --test desktop/test/product-contract.test.js desktop/test/render.test.js desktop/test/ui-contract.test.js desktop/test/updater.test.js desktop/test/creation.test.js desktop/test/task-stream.test.js desktop/test/task-runner.test.js desktop/test/tasks.test.js desktop/test/agent-bridge.test.js desktop/test/task-lifecycle.test.js desktop/test/pipeline-workspace.test.js desktop/test/startup-diagnostics.test.js 2>&1
+          $output = & node --test desktop/test/product-contract.test.js desktop/test/render.test.js desktop/test/ui-contract.test.js desktop/test/updater.test.js desktop/test/creation.test.js desktop/test/task-stream.test.js desktop/test/task-runner.test.js desktop/test/tasks.test.js desktop/test/agent-bridge.test.js desktop/test/task-lifecycle.test.js desktop/test/pipeline-workspace.test.js desktop/test/startup-diagnostics.test.js desktop/test/runtime.test.js desktop/test/model-storage.test.js 2>&1
           $code = $LASTEXITCODE
           $output | Write-Output
           if ($code -ne 0) {
@@ -146,6 +175,21 @@ jobs:
           $r = Get-Content $env:ZSMM_WINDOW_CHECK_OUT -Raw | ConvertFrom-Json
           if ($p.ExitCode -ne 0 -or -not $r.ok) { throw 'Packaged specification check failed' }
           Write-Output '::notice title=Product specification verified::Real packaged Electron: models, settings, help contract and creation. NOT song generation or clean NSIS installation.'
+      - name: Build NSIS without publishing
+        working-directory: desktop
+        run: npm run dist
+      - name: Clean NSIS install, actual installed window, ACL and uninstall
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem desktop/dist -Filter '*Setup*.exe' | Select-Object -First 1
+          if (-not $installer) { throw 'NSIS installer missing' }
+          ./desktop/scripts/check-nsis-install.ps1 -Installer $installer.FullName -Report "$env:RUNNER_TEMP/nsis-install-check.json"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: nsis-install-check
+          path: ${{ runner.temp }}/nsis-install-check.json
+          retention-days: 7
       - uses: actions/upload-artifact@v4
         if: always()
         with:

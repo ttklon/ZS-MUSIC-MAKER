@@ -35,3 +35,13 @@ test('registered environment IPC includes packaged workspace models', () => {
   assert.equal(report.packaged, true);
   assert.ok(report.model_storage.some(l => l.directory === path.join(report.user_data, 'workspace', 'models')));
 });
+
+test('desktop catalogue reads canonical projected IDs and fails visibly if absent', () => {
+  const { modelCatalog } = require('../electron/model-storage');
+  const data = modelCatalog(path.resolve(__dirname, '../..'));
+  assert.equal(data.available, true);
+  assert.equal(data.roles.length, 13);
+  assert.ok(data.roles.some(r => r.id === 'music_generation' && r.profile === 'audiocraft'));
+  assert.equal(data.roles.every(r => r.inference_verified === false), true);
+  assert.equal(modelCatalog('/not-a-real-catalogue').available, false);
+});

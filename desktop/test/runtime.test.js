@@ -170,9 +170,9 @@ test('галочка сети в окне доходит до Python как ZSMM
   const { taskEnv } = require('../electron/task-runner');
 
   assert.equal(taskEnv(true, {}).ZSMM_ONLINE, '1');
-  assert.equal(taskEnv(false, { ZSMM_ONLINE: '1' }).ZSMM_ONLINE, undefined);
+  assert.equal(taskEnv(false, { ZSMM_ONLINE: '1' }).ZSMM_ONLINE, '0');
   // без сети ничего не «протекает» из окружения оболочки
-  assert.equal(taskEnv(null, {}).ZSMM_ONLINE, undefined);
+  assert.equal(taskEnv(null, {}).ZSMM_ONLINE, '0');
   // остальное окружение не теряется: python нужен PATH
   assert.equal(taskEnv(true, { PATH: '/usr/bin' }).PATH, '/usr/bin');
 });
@@ -192,6 +192,16 @@ test('bundled Python installs optional packages into writable user data', () => 
   assert.equal(env.PIP_USER, '1');
   assert.equal(env.PIP_TARGET, undefined);
   assert.equal(env.PYTHONNOUSERSITE, undefined);
-  assert.equal(env.ZSMM_ONLINE, undefined);
+  assert.equal(env.ZSMM_ONLINE, '0');
   assert.equal(taskEnv(true, {}, '/custom/python', '/user/packages').PIP_USER, undefined);
+});
+
+test('desktop offline boundary clears inherited model permission and sets downstream offline modes', () => {
+  const { taskEnv } = require('../electron/task-runner');
+  const env = taskEnv(false, { ZSMM_ONLINE: '1', ZSMM_ALLOW_MODEL_DOWNLOAD: '1', HF_HUB_OFFLINE: '0' });
+  assert.equal(env.ZSMM_ONLINE, '0');
+  assert.equal(env.ZSMM_ALLOW_MODEL_DOWNLOAD, '0');
+  assert.equal(env.HF_HUB_OFFLINE, '1');
+  assert.equal(env.TRANSFORMERS_OFFLINE, '1');
+  assert.equal(taskEnv(true, { ZSMM_ALLOW_MODEL_DOWNLOAD: '1' }).ZSMM_ALLOW_MODEL_DOWNLOAD, '0');
 });

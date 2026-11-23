@@ -161,7 +161,9 @@ def _stage_watchdog(timeout_sec: float, stage_name: str) -> Iterator[None]:
 
 class SequentialAIRunner:
     def __init__(self, *, vram_budget_gb: Optional[float] = None,
-                 vram_probe: Optional[Callable[[], float]] = None):
+                 vram_probe: Optional[Callable[[], float]] = None,
+                 isolate_stages: bool = True):
+        self.isolate_stages = isolate_stages
         self.stages: List[AIStage] = []
         self._sink: Dict[str, Any] = {}
         self.vram_budget_gb = float(
@@ -218,6 +220,38 @@ class SequentialAIRunner:
         except Exception as exc:
             logger.warning("terminal progress callback failed: %s", exc)
 
+    def _execute_inline(self, stage, context, timeout_sec):
+        """Compatibility mode for explicitly opted-in in-process embedders."""
+        device, skipped_reason, error = None, None, None
+        output = None
+        if stage.model is None:
+            logger.info("-> stage '%s' (pure DSP, timeout=%.1fs, VRAM=%.3f GB)",
+                        stage.name, timeout_sec, vram_before)
+            output = self._invoke(stage, None, context, timeout_sec)
+        elif stage.model not in MODEL_REGISTRY:
+            raise KeyError(f"Model role '{stage.model}' not in registry")
+        elif not registry.is_available(stage.model):
+            reason = f"{stage.model} unavailable (deps/weights missing)"
+            if stage.optional and stage.fallback_fn:
+                logger.warning("-> stage '%s' FALLBACK (%s)", stage.name, reason)
+                skipped_reason = reason + " -> fallback_fn ran"
+                output = self._invoke(stage, None, context, timeout_sec)
+            elif stage.optional:
+                skipped_reason = reason
+            else:
+                ok = False
+                error = reason
+        else:
+            logger.info("-> stage '%s' loading '%s' (timeout=%.1fs)",
+                        stage.name, stage.model, timeout_sec)
+            loaded = registry.load(stage.model)
+            device = loaded.device
+            self._check_vram(stage.name, "after model load")
+            output = self._invoke(stage, loaded.handle, context, timeout_sec)
+        if error:
+            raise RuntimeError(error)
+        return output, device, skipped_reason
+
     def run(self, context: Optional[Dict[str, Any]] = None, progress: Any = None) -> RunReport:
         context = context or {}
         context["sink"] = self._sink
@@ -236,31 +270,15 @@ class SequentialAIRunner:
             self._notify_progress(progress, "stage_start", index, stage.name, vram_before)
             try:
                 self._check_vram(stage.name, "before stage")
-                if stage.model is None:
-                    logger.info("-> stage '%s' (pure DSP, timeout=%.1fs, VRAM=%.3f GB)",
-                                stage.name, timeout_sec, vram_before)
-                    output = self._invoke(stage, None, context, timeout_sec)
-                elif stage.model not in MODEL_REGISTRY:
-                    raise KeyError(f"Model role '{stage.model}' not in registry")
-                elif not registry.is_available(stage.model):
-                    reason = f"{stage.model} unavailable (deps/weights missing)"
-                    if stage.optional and stage.fallback_fn:
-                        logger.warning("-> stage '%s' FALLBACK (%s)", stage.name, reason)
-                        skipped_reason = reason + " -> fallback_fn ran"
-                        output = self._invoke(stage, None, context, timeout_sec)
-                    elif stage.optional:
-                        skipped_reason = reason
-                    else:
-                        ok = False
-                        error = reason
+                if self.isolate_stages:
+                    from app.ai.stage_process import execute
+                    result = execute(stage, context, timeout_sec, self.vram_budget_gb)
+                    self._sink = context['sink']
+                    output, device = result['output'], result['device']
+                    skipped_reason = result['skipped']
                 else:
-                    logger.info("-> stage '%s' loading '%s' (timeout=%.1fs)",
-                                stage.name, stage.model, timeout_sec)
-                    loaded = registry.load(stage.model)
-                    device = loaded.device
-                    self._check_vram(stage.name, "after model load")
-                    output = self._invoke(stage, loaded.handle, context, timeout_sec)
-            except StageTimeoutError as exc:
+                    output, device, skipped_reason = self._execute_inline(stage, context, timeout_sec)
+            except TimeoutError as exc:
                 ok = False
                 error = str(exc)
                 logger.error("x %s", error)

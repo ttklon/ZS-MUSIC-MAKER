@@ -122,7 +122,12 @@ def verify(key: str) -> bool:
         if not records and manifest.get("status") != "pip_only":
             raise ValueError("no model files recorded; external or user-supplied weights not verified")
         for record in records:
-            path = target_dir / str(record["path"])
+            relative = Path(str(record["path"]))
+            if relative.is_absolute() or ".." in relative.parts:
+                raise ValueError("unsafe manifest path")
+            path = target_dir / relative
+            if path.is_symlink() or not path.resolve().is_relative_to(target_dir.resolve()):
+                raise ValueError("manifest link escapes model directory")
             if not path.is_file():
                 raise FileNotFoundError(path)
             actual_size = path.stat().st_size
@@ -142,10 +147,21 @@ def verify(key: str) -> bool:
         return False
 
 
-def _pull_gguf(key: str) -> bool:
+def _download_preflight(key: str, allow_online: bool = False) -> bool:
+    from app.core.net_policy import network_allowed
+    from app.core.download_budget import space_plan
+    if not network_allowed(allow_online=allow_online):
+        print(f"[blocked] {key}: network consent missing or explicitly off")
+        return False
+    plan = space_plan(MODEL_REGISTRY[key].get('expected_size_bytes'), _role_dir(key))
+    if not plan['allowed']:
+        print(f"[blocked] {key}: {plan['reason']}")
+    return plan['allowed']
+
+
+def _pull_gguf(key: str, allow_online: bool = False) -> bool:
     spec = MODEL_REGISTRY[key]
     target_dir = _role_dir(key)
-    target_dir.mkdir(parents=True, exist_ok=True)
     target = target_dir / spec["file"]
     expected_sha256 = spec.get("sha256")
     expected_size_bytes = spec.get("expected_size_bytes")
@@ -159,6 +175,9 @@ def _pull_gguf(key: str) -> bool:
             note="Existing local GGUF was indexed; use --verify to recheck it.",
         )
         return verify(key)
+    if not _download_preflight(key, allow_online):
+        return False
+    target_dir.mkdir(parents=True, exist_ok=True)
     try:
         from huggingface_hub import hf_hub_download
     except Exception as exc:
@@ -188,12 +207,14 @@ def _pull_gguf(key: str) -> bool:
         return False
 
 
-def _pull_hf_snapshot(key: str) -> bool:
+def _pull_hf_snapshot(key: str, allow_online: bool = False) -> bool:
     spec = MODEL_REGISTRY[key]
     repo = spec.get("hf_repo")
     if not repo:
         return False
     target_dir = _role_dir(key)
+    if not _download_preflight(key, allow_online):
+        return False
     target_dir.mkdir(parents=True, exist_ok=True)
     try:
         from huggingface_hub import snapshot_download
@@ -217,9 +238,11 @@ def _pull_hf_snapshot(key: str) -> bool:
         return False
 
 
-def _pull_demucs(key: str) -> bool:
+def _pull_demucs(key: str, allow_online: bool = False) -> bool:
     spec = MODEL_REGISTRY[key]
     target_dir = _role_dir(key)
+    if not _download_preflight(key, allow_online):
+        return False
     target_dir.mkdir(parents=True, exist_ok=True)
     try:
         from demucs.pretrained import get_model
@@ -253,18 +276,18 @@ def _record_non_download_role(key: str, status: str, note: str) -> bool:
     return True
 
 
-def pull(key: str) -> bool:
+def pull(key: str, allow_online: bool = False) -> bool:
     if key not in MODEL_REGISTRY:
         print(f"[err] unknown model role: {key}")
         return False
     spec = MODEL_REGISTRY[key]
     engine = spec["engine"]
     if engine == "llama_cpp":
-        return _pull_gguf(key)
+        return _pull_gguf(key, allow_online)
     if engine == "demucs":
-        return _pull_demucs(key)
+        return _pull_demucs(key, allow_online)
     if engine in {"audiocraft_musicgen", "xtts_v2", "faster_whisper", "clap", "diffusers"}:
-        return _pull_hf_snapshot(key)
+        return _pull_hf_snapshot(key, allow_online)
     if engine == "rvc":
         note = ("Provide a licensed user-trained model at models/rvc/my_voice/my_voice.pth; "
                 "this downloader does not install or verify user voice models.")
@@ -294,6 +317,7 @@ def main(argv: list[str] | None = None) -> int:
     group.add_argument("--role", "--model", dest="role", help="AI role from app.ai.registry")
     group.add_argument("--all", action="store_true", help="Pull or record every registered role")
     group.add_argument("--list", action="store_true", help="List all roles and manifest state")
+    parser.add_argument("--online", action="store_true", help="Explicit download consent; desktop off boundary still denies")
     parser.add_argument("--verify", action="store_true", help="Verify existing manifest instead of downloading")
     args = parser.parse_args(argv)
 
@@ -307,7 +331,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.verify:
         results = [verify(key) if key in MODEL_REGISTRY else False for key in keys]
         return 0 if all(results) else 1
-    results = [pull(key) for key in keys]
+    results = [pull(key, allow_online=args.online) for key in keys]
     return 0 if all(results) else 1
 
 

@@ -1,3 +1,4 @@
+# Legacy optional inputs, NOT an isolated/verified release lock; do not bulk-install into app runtime.
 # Opt-in local speech recognition only. Model weights are downloaded separately.
 # Incompatible RVC, AudioCraft and DirectML stacks must not be installed together
 # into the main environment; see INSTALL.md for the isolated RVC adapter.

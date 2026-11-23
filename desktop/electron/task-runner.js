@@ -47,7 +47,10 @@ const { resolvePython, resolvePipelineRoot } = require('./runtime');
 function taskEnv(networkOnline, base = process.env, python = null, userBase = null) {
   const env = { ...base };
   if (networkOnline === true) env.ZSMM_ONLINE = '1';
-  else delete env.ZSMM_ONLINE;
+  else env.ZSMM_ONLINE = '0';
+  env.ZSMM_ALLOW_MODEL_DOWNLOAD = '0'; // network consent is not implicit weight loading
+  env.HF_HUB_OFFLINE = networkOnline === true ? '0' : '1';
+  env.TRANSFORMERS_OFFLINE = networkOnline === true ? '0' : '1';
   if (python && userBase && path.basename(path.dirname(python)) === '.python') {
     env.PYTHONUSERBASE = userBase;
     env.PIP_USER = '1';

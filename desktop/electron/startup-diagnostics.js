@@ -30,7 +30,12 @@ function createDiagnostics(dir) {
   }
   return { file, record, task };
 }
-function redactExport(text) { return text.split('\n').map(line => redact(line)).join('\n'); }
+function exportDiagnostics(diagnostics) {
+  const text = [diagnostics.file + '.previous', diagnostics.file]
+    .filter(f => fs.existsSync(f) && !fs.lstatSync(f).isSymbolicLink())
+    .map(f => fs.readFileSync(f, 'utf8').slice(-1100000)).join('\n');
+  return require('./diagnostic-export').safeExport(text);
+}
 function registerDiagnostics({ ipcMain, diagnostics, dialog }) {
   ipcMain.handle('zsmm:report-error', (_event, message) => {
     const text = typeof message === 'string' ? message : message?.message;
@@ -39,14 +44,11 @@ function registerDiagnostics({ ipcMain, diagnostics, dialog }) {
   });
   ipcMain.handle('zsmm:export-errors', async () => {
     try {
-      const choice = await dialog.showSaveDialog({ title: 'Сохранить ошибки запуска (могут содержать локальные пути)', defaultPath: 'ZS-Music-Maker-errors.log' });
+      const choice = await dialog.showSaveDialog({ title: 'Сохранить коды диагностики (без текстов ошибок и путей)', defaultPath: 'ZS-Music-Maker-diagnostics.json' });
       if (choice.canceled || !choice.filePath) return { ok: true, canceled: true };
-      const text = [diagnostics.file + '.previous', diagnostics.file]
-        .filter(f => fs.existsSync(f) && !fs.lstatSync(f).isSymbolicLink())
-        .map(f => redactExport(fs.readFileSync(f, 'utf8').slice(-1100000))).join('');
-      fs.writeFileSync(choice.filePath, text || 'Ошибки пока не зарегистрированы.\n');
+      fs.writeFileSync(choice.filePath, JSON.stringify(exportDiagnostics(diagnostics), null, 2));
       return { ok: true };
     } catch (err) { return { ok: false, error: err.message }; }
   });
 }
-module.exports = { createDiagnostics, registerDiagnostics };
+module.exports = { createDiagnostics, registerDiagnostics, exportDiagnostics };

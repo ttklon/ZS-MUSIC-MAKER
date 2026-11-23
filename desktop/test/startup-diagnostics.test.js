@@ -24,7 +24,9 @@ test('exports only after save dialog and cancellation does not write a file', as
   registerDiagnostics({ ipcMain: { handle: (k, fn) => { handlers[k] = fn; } }, diagnostics,
     dialog: { showSaveDialog: async () => ({ filePath: path.join(dir, 'export.log') }) } });
   assert.equal((await handlers['zsmm:export-errors']()).ok, true);
-  assert.match(fs.readFileSync(path.join(dir, 'export.log'), 'utf8'), /visible error/);
+  const exported = JSON.parse(fs.readFileSync(path.join(dir, 'export.log'), 'utf8'));
+  assert.equal(exported.schema, 2); assert.equal(exported.entries[0].source, 'renderer');
+  assert.doesNotMatch(JSON.stringify(exported), /visible error/);
   assert.equal(handlers['zsmm:report-error'](null, {}).ok, false);
 });
 
@@ -46,4 +48,17 @@ test('canceling diagnostic export does not create a file', async t => {
     dialog: { showSaveDialog: async () => ({ canceled: true, filePath: path.join(dir, 'must-not-exist') }) } });
   assert.equal((await handlers['zsmm:export-errors']()).canceled, true);
   assert.equal(fs.existsSync(path.join(dir, 'must-not-exist')), false);
+});
+
+test('independent export consumer: unknown private text and task identifiers cannot cross allowlist', t => {
+  const { diagnostics } = fixture(t);
+  const secret = require('node:crypto').randomBytes(24).toString('hex');
+  diagnostics.record('renderer', 'unknown creative text ' + secret, secret);
+  diagnostics.record('python', 'unrecognized credential ' + secret, secret);
+  diagnostics.task(secret, 'agent-hit', { type: 'exit', code: 2 });
+  const out = require('../electron/startup-diagnostics').exportDiagnostics(diagnostics);
+  assert.equal(JSON.stringify(out).includes(secret), false);
+  assert.equal(out.entries.length, 3);
+  assert.ok(out.entries.every(e => e.task === 1));
+  for (const entry of out.entries) assert.ok(Object.keys(entry).every(k => ['source', 'task', 'event', 'code', 'ok', 'canceled', 'timedOut', 'cleanupConfirmed'].includes(k)));
 });

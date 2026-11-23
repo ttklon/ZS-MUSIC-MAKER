@@ -101,6 +101,7 @@ function environmentReport({
     // Пайплайн — отдельная вещь от интерпретатора: «Python есть» не значит
     // «задачи раздела „Запуск“ заработают».
     pipeline_root: pipeline.root,
+    model_catalog: require('./model-storage').modelCatalog(root),
     model_storage: require('./model-storage').modelStorage({ root, pipelineRoot: pipeline.root, userData: getUserData() }),
     pipeline_error: pipeline.error,
     platform,

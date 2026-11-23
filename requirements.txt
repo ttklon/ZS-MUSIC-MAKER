@@ -1,3 +1,4 @@
+# Development compatibility inputs, NOT a resolved release lock. See docs/ENGINE_PREFLIGHT.md.
 # ================================================================
 #  ZS Music Maker — базовые зависимости
 #  v36: убран устаревший заголовок «v10 Chart Killer Pro» и упоминание
@@ -89,3 +90,6 @@ cryptography>=42.0.0
 audiomentations>=0.33.0
 moviepy>=1.0.3,<2.0.0
 lyricsgenius>=3.0.1
+
+# Trusted local stage serialization, including artist dossier closures.
+cloudpickle==3.1.2

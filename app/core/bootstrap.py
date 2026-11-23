@@ -66,26 +66,19 @@ def missing_heavy() -> list[str]:
 
 def _pip_install(spec: str, silent: bool = True) -> bool:
     """pip install spec (может содержать --index-url). Возвращает успех."""
-    try:
-        cmd = [sys.executable, "-m", "pip", "install", "--quiet"] + spec.split()
-        _LOG.info(f"[bootstrap] pip install {' '.join(cmd[4:6])}...")
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
-        if result.returncode == 0:
-            _LOG.info(f"[bootstrap] pip ok: {spec.split()[0]}")
-            return True
-        _LOG.warning(f"[bootstrap] pip fail {spec.split()[0]}: {result.stderr[:500]}")
+    from app.ai.engine_profiles import shared_install_allowed
+    if not shared_install_allowed(spec):
+        _LOG.warning('[bootstrap] shared pip BLOCKED: isolated locked worker profile required')
         return False
-    except Exception as e:
-        _LOG.warning(f"[bootstrap] pip exception {spec}: {e}")
-        return False
+    return False  # no reviewed isolated installer is enabled yet
 
 def ensure_heavy_engines(silent: bool = True, allow_download: bool | None = None) -> dict:
     """
     Тихая установка тяжёлых pip-пакетов если сеть разрешена.
     Возвращает {installed:[], skipped:[], failed:[]}
     """
-    if allow_download is None:
-        allow_download = _network_allowed()
+    from app.core.net_policy import network_allowed
+    allow_download = network_allowed(allow_online=allow_download is True) if allow_download is not False else False
     if not allow_download:
         _LOG.info("[bootstrap] network not allowed — skip heavy pip")
         return {"installed": [], "skipped": missing_heavy(), "failed": []}
@@ -154,7 +147,7 @@ def _pull_missing_roles() -> tuple[list[str], list[str]]:
                 _LOG.debug(f"[bootstrap] is_available skip {role}: {_e}")
             _LOG.info(f"[bootstrap] pull {role}...")
             try:
-                if pull_one(role):
+                if pull_one(role, allow_online=True):
                     pulled.append(role)
                 else:
                     failed.append(role)
@@ -204,8 +197,8 @@ def _ensure_ollama_qwen(allow_download: bool | None = None) -> list[str]:
 
 def ensure_models(silent: bool = True, allow_download: bool | None = None) -> dict:
     """Тихая докачка моделей через tools/pull_ai_models --all + RVC base."""
-    if allow_download is None:
-        allow_download = _network_allowed()
+    from app.core.net_policy import network_allowed
+    allow_download = network_allowed(allow_online=allow_download is True) if allow_download is not False else False
     if not allow_download:
         _LOG.info("[bootstrap] network not allowed — skip model pull")
         return {"pulled": [], "skipped": missing_models(), "failed": []}
@@ -262,8 +255,8 @@ def ensure_rvc_default_voice(silent: bool = True, allow_download: bool | None = 
     генератор, на котором работает инференс (для клона нужна своя модель —
     её обучает пользователь, см. `modules/rvc_manager/trainer.py`).
     """
-    if allow_download is None:
-        allow_download = _network_allowed()
+    from app.core.net_policy import network_allowed
+    allow_download = network_allowed(allow_online=allow_download is True) if allow_download is not False else False
     rvc_dir = ROOT / "models" / "rvc"
     if any(rvc_dir.rglob("*.pth")) if rvc_dir.exists() else False:
         return {"present": True, "downloaded": [], "source": "user"}
@@ -299,8 +292,8 @@ def ensure_rvc_trainer(silent: bool = True, allow_download: bool | None = None) 
     """
     from modules.rvc_manager.config import AMD_FORKS, FORKS_DIR
 
-    if allow_download is None:
-        allow_download = _network_allowed()
+    from app.core.net_policy import network_allowed
+    allow_download = network_allowed(allow_online=allow_download is True) if allow_download is not False else False
     forks = [path for name in AMD_FORKS if (path := FORKS_DIR / name).joinpath(".git").exists()]
     if forks:
         return {"present": True, "downloaded": [], "forks": [p.name for p in forks]}
@@ -329,8 +322,8 @@ def auto_bootstrap(silent: bool = True, allow_download: bool | None = None) -> d
     Главный тихий авто-докач: железо → heavy pip → модели → RVC.
     Ничего не показывает, сам понимает. Вызывать при старте если heavy BLOCKED.
     """
-    if allow_download is None:
-        allow_download = _network_allowed()
+    from app.core.net_policy import network_allowed
+    allow_download = network_allowed(allow_online=allow_download is True) if allow_download is not False else False
     res: dict = {"hardware": {}, "heavy": {}, "models": {}, "rvc": {}, "rvc_trainer": {}, "rvc_env": {},
                  "readiness_before": None, "readiness_after": None}
     try:
@@ -368,6 +361,8 @@ def auto_bootstrap(silent: bool = True, allow_download: bool | None = None) -> d
     except Exception as e:
         _LOG.debug(f"[bootstrap] readiness after fail: {e}")
 
+    from app.ai.worker_client import probe_worker
+    res['worker_protocol'] = probe_worker(Path(sys.executable), 'core')
     from app.core.bootstrap_report import summarize_setup
     res.update(summarize_setup(res))
     return res

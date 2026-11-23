@@ -267,7 +267,10 @@ function runTask({ key, options = {}, python, root, env = process.env, onEvent =
 
   let timedOut = false, canceled = false, termination = null, terminationFailed = false;
   let settled = false;
-  const child = spawn(python, [script, ...argv], {
+  const installedHost = path.join(root, 'app', 'cli', 'managed_task_host.py');
+  const host = require('node:fs').existsSync(installedHost) ? installedHost
+    : path.resolve(__dirname, '../../app/cli/managed_task_host.py');
+  const child = spawn(python, [host, script, ...argv], {
     cwd: root, detached: process.platform !== 'win32', windowsHide: true,
     env: { ...env, ZSMM_TASK_ID: taskId, PYTHONUNBUFFERED: '1', PYTHONIOENCODING: 'utf-8' },
     stdio: ['ignore', 'pipe', 'pipe'],
