@@ -4,26 +4,30 @@ from __future__ import annotations
 import math
 import os
 import platform
-import shutil
 
 
 def measure_profile(directory) -> dict:
+    from app.ai.hardware import detect_system
     measurements = {"cpu_threads": os.cpu_count(), "ram_total_gib": None, "ram_available_gib": None,
                     "disk_free_gib": None, "gpu": "not_measured"}
     errors = []
+    system = {}
     try:
-        import psutil
-        memory = psutil.virtual_memory()
-        measurements.update(ram_total_gib=round(memory.total / 2**30, 2),
-                            ram_available_gib=round(memory.available / 2**30, 2))
+        system = detect_system(directory)
+        for key in ("cpu_threads", "ram_total_gib", "ram_available_gib", "disk_free_gib"):
+            measurements[key] = system.get(key)
+        measurements["gpu"] = {"adapters": system.get("gpus", []),
+                               "pytorch_device": system.get("pytorch_device"),
+                               "directml_devices": system.get("directml_devices", []),
+                               "inference_verified": False}
+        for key in ("ram_available_gib", "disk_free_gib"):
+            if measurements[key] is None:
+                errors.append(f"{key}: unavailable")
     except Exception as exc:
-        errors.append(f"RAM: {type(exc).__name__}: {exc}")
-    try:
-        measurements["disk_free_gib"] = round(shutil.disk_usage(directory).free / 2**30, 2)
-    except Exception as exc:
-        errors.append(f"disk: {type(exc).__name__}: {exc}")
+        errors.append(f"inventory: {type(exc).__name__}: {exc}")
     return {"schema": 1, "os": platform.system(), "os_release": platform.release(),
             "architecture": platform.machine(), "measurements": measurements, "errors": errors,
+            "system": system,
             "kind": "inventory_only", "inference_verified": False, "product_profile_accepted": False,
             "profiles": [{"id": name, "status": "unverified", "evidence": []}
                          for name in ("windows_cpu", "windows_cuda", "windows_amd")],
