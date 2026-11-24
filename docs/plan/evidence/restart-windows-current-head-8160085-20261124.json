@@ -1,0 +1,115 @@
+{
+  "schema": 1,
+  "observed_at_utc": "2026-11-24T02:15:48Z",
+  "source_commit": "8160085c9b362112ac14ff47323ddeb27bd00a60",
+  "workflows": [
+    {
+      "name": "Product plan integrity - Windows",
+      "run_id": 45310945889,
+      "url": "https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45310945889",
+      "created_at_utc": "2026-11-24T02:14:47Z",
+      "conclusion": "success",
+      "jobs": {
+        "result-outcome-hardware-contracts": "success",
+        "packaged-product-specification": "success",
+        "validate-plan-not-product": "success"
+      },
+      "scope": "Windows contract tests, packaged Electron/clean NSIS install and plan/publication checks. No generated-song acceptance."
+    },
+    {
+      "name": "Windows - real neural validation",
+      "run_id": 45310945817,
+      "url": "https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45310945817",
+      "created_at_utc": "2026-11-24T02:14:47Z",
+      "conclusion": "success",
+      "jobs": {
+        "real-silero": "success",
+        "classic-pipeline-diagnostic": "success",
+        "real-desktop-dsp (20)": "success",
+        "real-desktop-dsp (120)": "success",
+        "bootstrap-compatibility": "success"
+      },
+      "scope": "Windows CPU speech and procedural CPU diagnostics; CUDA/ROCm/AMD-GPU inference not tested."
+    }
+  ],
+  "windows_measurements": {
+    "inventory": {
+      "os": "Windows",
+      "architecture": "AMD64",
+      "cpu_reported": "AMD64 Family 25 Model 17 Stepping 1, AuthenticAMD",
+      "cpu_cores": 2,
+      "cpu_threads": 4,
+      "ram_total_gib": 15.99,
+      "ram_available_gib": 12.43,
+      "disk_free_gib": 219.82,
+      "pytorch_device": null,
+      "directml_devices": [],
+      "reported_display_adapters": [
+        "Microsoft Basic Render Driver",
+        "Microsoft Hyper-V Video"
+      ],
+      "inference_verified_by_inventory": false
+    },
+    "strict_silero_cpu_draft_speech": {
+      "job": "real-silero",
+      "model": "Silero v3_1_ru",
+      "torch": "2.5.1+cpu",
+      "backend": "cpu",
+      "inference_verified": true,
+      "product_profile_accepted": false,
+      "audio_seconds": 5.775,
+      "wall_seconds": 10.9842261,
+      "real_time_factor": 1.9020304935064936,
+      "rss_baseline_bytes": 186023936,
+      "rss_peak_sampled_bytes": 1017782272,
+      "rss_sampling_interval_seconds": 0.02,
+      "rss_samples": 460,
+      "audio_sample_rate": 48000,
+      "audio_peak": 0.9236469864845276,
+      "audio_sha256": "5ddb03873ef19c05ae1d386f5622648a8cd419e81796be47a23ae59a23137939",
+      "model_sha256": "cf60b47ec8a9c31046021d2d14b962ea56b8a5bf7061c98accaaaca428522f85",
+      "network_attempts": [],
+      "claim_limit": "Real CPU speech inference only; not singing, MusicGen/RVC, full musical render or GPU support."
+    },
+    "classic_procedural_cpu_instrumental": {
+      "job": "classic-pipeline-diagnostic",
+      "kind": "procedural_instrumental_not_neural",
+      "audio_seconds": 20.0,
+      "wall_seconds": 22.4063261,
+      "rss_peak_sampled_bytes": 343298048,
+      "sample_rate": 44100,
+      "audio_sha256": "ef1018be785fee33aadca425ae2adb47908ac643d9a8c55118f2ec3887ed45cf",
+      "typed_result_status": "success",
+      "outcome_status": "success",
+      "quality_accepted": false,
+      "product_profile_accepted": false,
+      "claim_limit": "Procedural CPU instrumental diagnostic only; must not substitute for neural-model/profile measurements."
+    }
+  },
+  "windows_contract_test": {
+    "job": "real-silero",
+    "modules": [
+      "tests/test_ai_hardware_detection.py",
+      "tests/test_adaptive_hardware.py",
+      "tests/test_ai_registry.py",
+      "tests/test_hardware_profiles_contract.py",
+      "tests/test_neural_benchmark.py",
+      "tests/test_silero_offline.py",
+      "tests/test_local_model_benchmark.py",
+      "tests/test_agent_preflight.py",
+      "tests/test_rvc_infer_imports.py"
+    ],
+    "passed": 120,
+    "failed": 0,
+    "duration_seconds": 8.08
+  },
+  "acceptance": {
+    "T0038_windows_target_check_met": true,
+    "full_cpu_cuda_amd_product_matrix_accepted": false,
+    "nvidia_cuda_inference_verified": false,
+    "amd_gpu_inference_verified": false,
+    "T0029_met": false,
+    "T0030_met": false
+  },
+  "provenance": "Measurements summarized from GitHub Actions run/check-run annotations for the exact source commit. Full Actions logs/artifacts were not used as the sole evidence."
+}

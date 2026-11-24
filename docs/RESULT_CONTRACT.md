@@ -230,9 +230,16 @@ node --test desktop/test/creation.test.js
 ```
 
 Windows workflow product-plan.yml запускает эти проверки на настоящих PCM WAV,
-измеряет runner и отдельно проверяет упакованное окно. Ни один из этих тестов
-не является генерацией песни или прослушиванием. Версии, SHA и ссылка Windows
-фиксируются в `docs/plan/evidence/T0011-T0040.md` после исполнения.
+измеряет runner и отдельно проверяет упакованное окно. На текущем source
+`8160085c9b362112ac14ff47323ddeb27bd00a60` Product plan run
+[45310945889](https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45310945889)
+завершился SUCCESS всеми 3 jobs (включая clean NSIS install и
+`result-outcome-hardware-contracts`); [Windows neural run
+45310945817](https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45310945817)
+тоже завершился SUCCESS, 120 hardware/preflight/RVC tests passed. Ни один из этих
+тестов не является генерацией песни или прослушиванием и они не принимают полный
+CPU/CUDA/AMD product profile. Измерения и границы зафиксированы в
+`docs/plan/evidence/restart-windows-current-head-8160085-20261124.json`.
 
 ## Узкий live producer инструментала
 

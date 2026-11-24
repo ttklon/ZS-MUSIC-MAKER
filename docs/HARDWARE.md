@@ -257,3 +257,33 @@ peak **508076032 bytes (~484.54 MiB)**, delta 174063616 bytes.
 и Python-render. Короткие пики между samples могут быть пропущены.
 20 s JS worker audio готов за 4.4314 s, quality/profile false.
 [Протокол](plan/evidence/restart-hardware-gui-memory-windows-45163408228.json).
+
+## Текущий Windows HEAD: свежая проверка CPU и границы профиля
+
+Оба workflow прошли на source commit `8160085c9b362112ac14ff47323ddeb27bd00a60`:
+[Product plan integrity 45310945889](https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45310945889)
+(contracts, packaged product, clean NSIS install, plan gate; все 3 jobs SUCCESS) и
+[Windows real neural validation 45310945817](https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45310945817)
+(все 5 jobs SUCCESS). Windows hardware/agent/RVC contract step: **120 passed**.
+
+Настоящий strict Silero v3_1_ru CPU draft-speech на `torch 2.5.1+cpu`:
+5.775 s речи за 10.9842 s wall, RTF 1.9020, sampled process RSS peak
+1,017,782,272 bytes (20 ms), WAV SHA-256
+`5ddb03873ef19c05ae1d386f5622648a8cd419e81796be47a23ae59a23137939`.
+Это actual CPU inference на текущем source, но **не** singing, MusicGen/RVC,
+полная нейромузыкальная генерация или проверка качества.
+
+Тот же Windows inventory: AMD-family CPU, 2 cores/4 threads, RAM 15.99 GiB
+(12.43 GiB available), disk 219.82 GiB free; PyTorch GPU device отсутствует,
+DirectML devices пусты. Microsoft Basic Render Driver / Hyper-V Video в этом
+runner не являются подтверждёнными CUDA/ROCm устройствами.
+
+Отдельно прошёл настоящий 20 s procedural CPU instrumental diagnostic:
+22.4063 s wall, sampled RSS 343,298,048 bytes, typed result/outcome `success`,
+но `quality_accepted=false` и `product_profile_accepted=false`. Это отдельный
+procedural результат, **не** подмена neural model inference. NVIDIA CUDA/AMD GPU,
+полный CPU music profile, singing, GPU VRAM/time и принятые минимальные требования
+этим run не проверены.
+
+Машиночитаемая выписка check-run annotations:
+[протокол current HEAD](plan/evidence/restart-windows-current-head-8160085-20261124.json).

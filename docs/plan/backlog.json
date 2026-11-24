@@ -2791,6 +2791,11 @@
           "run_url": "https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45034836350",
           "artifact": "docs/plan/evidence/T0011-T0040.md",
           "observed": "Проверены изменения соответствующего раздела протокола; result/outcome/hardware contracts и packaged Windows job прошли. Это не генерация песни."
+        },
+        {
+          "kind": "current_head_windows_validation",
+          "artifact": "docs/plan/evidence/restart-windows-current-head-8160085-20261124.json",
+          "observed": "Current HEAD Windows run includes a strict real Silero CPU draft-speech measurement. It does not establish a full supported music profile or CUDA/AMD profile; backlog remains verified, strict restart remains open."
         }
       ],
       "completion_rule": "Изменение + проверка + сохранённое доказательство; наличие файла или зелёный import недостаточны."
@@ -2883,6 +2888,11 @@
           "run_url": "https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45034836350",
           "artifact": "docs/plan/evidence/T0011-T0040.md",
           "observed": "Проверены изменения соответствующего раздела протокола; result/outcome/hardware contracts и packaged Windows job прошли. Это не генерация песни."
+        },
+        {
+          "kind": "current_head_windows_validation",
+          "artifact": "docs/plan/evidence/restart-windows-current-head-8160085-20261124.json",
+          "observed": "Fresh Windows CPU inference and separate procedural CPU instrumental are recorded, with explicit claim limits. No full neural CPU music or GPU profile acceptance; backlog status unchanged."
         }
       ],
       "completion_rule": "Изменение + проверка + сохранённое доказательство; наличие файла или зелёный import недостаточны."
@@ -3034,6 +3044,11 @@
           "run_url": "https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45207868772",
           "artifact": "docs/plan/evidence/restart-hardware-installed-path-windows-45207868772.json",
           "observed": "Clean Windows NSIS installed check passed through the active creation UI, agent IPC/shared runner and bundled Python. Unknown/insufficient RAM, disk and VRAM plus unbudgeted MusicGen denial; file preservation and measured inventory-only DSP retry asserted. Synthetic denial values and setup-unlock fixture are not physical-resource or setup acceptance; no CUDA/AMD inference or quality acceptance."
+        },
+        {
+          "kind": "current_head_windows_validation",
+          "artifact": "docs/plan/evidence/restart-windows-current-head-8160085-20261124.json",
+          "observed": "Both Windows workflows passed on current source 8160085; includes Windows contract regression, actual packaged NSIS install and hardware inventory. GPU/profile acceptance is separate."
         }
       ],
       "completion_rule": "Изменение + проверка + сохранённое доказательство; наличие файла или зелёный import недостаточны."
@@ -3063,6 +3078,11 @@
           "run_url": "https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45034836350",
           "artifact": "docs/plan/evidence/T0011-T0040.md",
           "observed": "Нужны реальные inference/полный рендер и измерения времени/RAM/VRAM на принимаемых CPU/CUDA/AMD профилях."
+        },
+        {
+          "kind": "current_head_windows_validation",
+          "artifact": "docs/plan/evidence/restart-windows-current-head-8160085-20261124.json",
+          "observed": "Current-head evidence adds real Silero CPU draft-speech and procedural CPU data only. It does not satisfy full CPU/CUDA/AMD model/render matrix; keep blocked."
         }
       ],
       "completion_rule": "Изменение + проверка + сохранённое доказательство; наличие файла или зелёный import недостаточны.",
@@ -3093,6 +3113,11 @@
           "run_url": "https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45034836350",
           "artifact": "docs/plan/evidence/T0011-T0040.md",
           "observed": "Зависит от T0029: нельзя закрыть профиль продукта по inventory-only измерению."
+        },
+        {
+          "kind": "current_head_windows_validation",
+          "artifact": "docs/plan/evidence/restart-windows-current-head-8160085-20261124.json",
+          "observed": "Current Windows validation does not resolve T0029 or produce an agreed support matrix; keep blocked."
         }
       ],
       "completion_rule": "Изменение + проверка + сохранённое доказательство; наличие файла или зелёный import недостаточны.",
@@ -3359,6 +3384,11 @@
           "run_url": "https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45034836350",
           "artifact": "docs/plan/evidence/T0011-T0040.md",
           "observed": "Проверены изменения соответствующего раздела протокола; result/outcome/hardware contracts и packaged Windows job прошли. Это не генерация песни."
+        },
+        {
+          "kind": "current_head_windows_validation",
+          "artifact": "docs/plan/evidence/restart-windows-current-head-8160085-20261124.json",
+          "observed": "Fresh Windows workflows on source 8160085 passed, including outcome/hardware contracts and installed NSIS path. Strict restart acceptance is tracked separately."
         }
       ],
       "completion_rule": "Изменение + проверка + сохранённое доказательство; наличие файла или зелёный import недостаточны."

@@ -77,3 +77,24 @@ T0026 в строгой restart-переоценке закрыт; backlog statu
 NSIS/пение/quality относятся к конкретному заявляемому продуктовому пути:
 не делать из каждого глобального требования новый несвязанный мини-проект
 внутри каждого hardware ID. Но установленный путь прямо требовался T0025.
+
+## Follow-up: current branch reached Windows runners — 2026-11-24
+
+Push current source `8160085c9b362112ac14ff47323ddeb27bd00a60` запустил оба
+Windows workflow, и оба завершились SUCCESS:
+[45310945889](https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45310945889)
+(Product plan, including result/outcome contracts and clean NSIS install) и
+[45310945817](https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45310945817)
+(real Silero CPU + procedural diagnostics). Это устраняет прежний пробел «нет
+текущего Windows run», но **не** проблему отсутствующей GPU машины.
+
+Актуальный Windows CPU speech run: Silero v3_1_ru, 5.775 s за 10.9842 s,
+RTF 1.9020, sampled RSS 1,017,782,272 bytes. Runner: AMD-family CPU, 2 cores /
+4 threads, RAM 15.99 GiB, no PyTorch GPU/DirectML. Узкий CPU speech и отдельный
+procedural instrumental не составляют полного neural music profile.
+`product_profile_accepted=false`; CUDA/ROCm/AMD-GPU inference, full MusicGen/RVC
+и singing не проверены. Исходные annotations и границы сохранены в
+`restart-windows-current-head-8160085-20261124.json`.
+
+Таким образом, T0038 Windows validation закрывается, но T0021/T0024/T0029/T0030
+остаются открытыми до реальных профильных измерений и согласования поддержки.

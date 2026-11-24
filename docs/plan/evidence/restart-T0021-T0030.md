@@ -571,8 +571,32 @@ fixtures. Настоящего model/RVC inference, CUDA/ROCm исполнени
 Windows run и не hardware-profile acceptance; строгие статусы и счётчик не
 изменены.
 
-Чтобы будущая текущая ветка действительно использовала Windows runner, добавил
+Чтобы текущая ветка действительно использовала Windows runner, добавил
 `arena/ab25115c-zs-music-maker` в push filter `windows-neural-validation.yml` и
 включил эти preflight/RVC tests в его Windows contract step. YAML syntax и wiring
-проверены локально. Пока это изменение не попало в push, оно не запускает новый
-CI job; ручной dispatch по-прежнему ограничен ответом GitHub 403.
+проверялись локально.
+
+## Свежая Windows-проверка текущего source — 2026-11-24
+
+После push commit `8160085c9b362112ac14ff47323ddeb27bd00a60` успешно завершились
+оба workflow на **том же source**: Product plan integrity [45310945889](https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45310945889)
+(3/3 jobs, включая настоящий packaged NSIS install и outcome/hardware contract) и
+Windows real neural validation [45310945817](https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45310945817)
+(5/5 jobs). В hardware/preflight/RVC Windows regression — **120 passed, 0 failed**.
+Машиночитаемая выписка всех relevant check-run annotations сохранена в
+`restart-windows-current-head-8160085-20261124.json`.
+
+На `windows-latest`: AMD-family CPU, 2 cores/4 threads, 15.99 GiB total RAM,
+12.43 GiB available, 219.82 GiB free disk. PyTorch GPU отсутствует; Microsoft
+Basic Render Driver / Hyper-V Video не являются подтверждением CUDA/ROCm.
+Настоящий strict Silero v3_1_ru CPU draft-speech: 5.775 s / 10.9842 s, RTF 1.9020,
+sampled RSS peak 1,017,782,272 bytes (20 ms). Отдельный 20 s procedural CPU
+instrumental: 22.4063 s wall / 343,298,048 bytes sampled RSS; это не замена
+модельному inference. У обоих результатов `product_profile_accepted=false`.
+
+Статус T0038 Windows-target check теперь complete; строгий счёт обновлён до
+**32/50**. Hardware profile всё ещё открыт: T0021/T0024 не приняты по полному
+критерию, T0029 остаётся `acceptance_met=false` и blocked в backlog, T0030 зависит
+от T0029. Ни CUDA/ROCm/AMD-GPU inference, ни полный MusicGen/RVC/поющее исполнение
+этими workflow не проверены. Счёт backlog остаётся 152/1000 verified и не
+складывается со строгой restart; A-задачи остаются 0/30 accepted.

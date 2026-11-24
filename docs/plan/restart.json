@@ -1428,10 +1428,11 @@
         "docs/plan/evidence/restart-hardware-closeout-audit.md",
         "docs/plan/evidence/restart-hardware-sandbox-inventory-20261123.json",
         "docs/plan/evidence/restart-hardware-strict-windows-45166373798.json",
-        "docs/plan/evidence/restart-hardware-contract-tests-linux-20261123.json"
+        "docs/plan/evidence/restart-hardware-contract-tests-linux-20261123.json",
+        "docs/plan/evidence/restart-windows-current-head-8160085-20261124.json"
       ],
       "remaining": [
-        "Свести заявляемые конфигурации с реальными протоколами и точными границами; полный CPU/GPU критерий не принят."
+        "Current-head Windows CPU Silero speech protocol added; still lacks full supported CPU music profile and every GPU profile, so the matrix acceptance criterion is not met."
       ]
     },
     {
@@ -1512,10 +1513,11 @@
         "docs/plan/evidence/restart-hardware-closeout-audit.md",
         "docs/plan/evidence/restart-hardware-sandbox-inventory-20261123.json",
         "docs/plan/evidence/restart-hardware-strict-windows-45166373798.json",
-        "docs/plan/evidence/restart-hardware-contract-tests-linux-20261123.json"
+        "docs/plan/evidence/restart-hardware-contract-tests-linux-20261123.json",
+        "docs/plan/evidence/restart-windows-current-head-8160085-20261124.json"
       ],
       "remaining": [
-        "Измеренная матрица всех заявляемых CPU/GPU конфигураций ещё неполна; guards и оценки не заменяют inference."
+        "Current-head Windows CPU speech plus procedural instrumentation are measured but do not establish the full neural CPU profile or CUDA/AMD GPU inference; estimates/guards remain distinct from acceptance."
       ]
     },
     {
@@ -1615,7 +1617,8 @@
         "docs/plan/evidence/restart-hardware-gui-memory-windows-45163408228.json",
         "docs/plan/evidence/restart-hardware-gui-input-windows-45166373798.json",
         "docs/plan/evidence/restart-hardware-closeout-audit.md",
-        "docs/plan/evidence/restart-hardware-installed-path-windows-45207868772.json"
+        "docs/plan/evidence/restart-hardware-installed-path-windows-45207868772.json",
+        "docs/plan/evidence/restart-windows-current-head-8160085-20261124.json"
       ],
       "remaining": []
     },
@@ -1641,10 +1644,11 @@
         "docs/plan/evidence/restart-hardware-gui-input-windows-45166373798.json",
         "docs/plan/evidence/restart-hardware-closeout-audit.md",
         "docs/plan/evidence/restart-hardware-sandbox-inventory-20261123.json",
-        "docs/plan/evidence/restart-hardware-strict-windows-45166373798.json"
+        "docs/plan/evidence/restart-hardware-strict-windows-45166373798.json",
+        "docs/plan/evidence/restart-windows-current-head-8160085-20261124.json"
       ],
       "remaining": [
-        "Реальные полные заявляемые CPU/CUDA/AMD профили с backend/временем/RAM/VRAM; наличие доступного GPU runner не установлено."
+        "Fresh current-head run confirms only Silero CPU draft-speech and a separate procedural CPU instrumental. Full CPU model/music render and CUDA/AMD GPU time/RAM/VRAM protocols remain absent."
       ]
     },
     {
@@ -1669,10 +1673,11 @@
         "docs/plan/evidence/restart-hardware-gui-input-windows-45166373798.json",
         "docs/plan/evidence/restart-hardware-closeout-audit.md",
         "docs/plan/evidence/restart-hardware-sandbox-inventory-20261123.json",
-        "docs/plan/evidence/restart-hardware-strict-windows-45166373798.json"
+        "docs/plan/evidence/restart-hardware-strict-windows-45166373798.json",
+        "docs/plan/evidence/restart-windows-current-head-8160085-20261124.json"
       ],
       "remaining": [
-        "Закрытие после T0029, согласованная матрица поддержки без открытого остатка."
+        "Still depends on T0029; no agreed full supported-profile matrix exists. Current Windows CPU checks do not close the open GPU/full-render remainder."
       ]
     },
     {
@@ -1761,15 +1766,14 @@
     },
     {
       "id": "T0038",
-      "state": "in_progress",
-      "acceptance_met": false,
+      "state": "complete",
+      "acceptance_met": true,
       "evidence": [
         "docs/plan/evidence/restart-T0001-T0050.md",
-        ".github/workflows/product-plan.yml"
+        ".github/workflows/product-plan.yml",
+        "docs/plan/evidence/restart-windows-current-head-8160085-20261124.json"
       ],
-      "remaining": [
-        "Требуется свежий Windows run на текущем source после push; Linux 337-test regression и старый Windows run 45034836350 не заменяют эту проверку."
-      ]
+      "remaining": []
     },
     {
       "id": "T0039",
