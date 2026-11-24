@@ -1,0 +1,39 @@
+{
+  "schema": 1,
+  "task": "T0035",
+  "date": "2026-11-23",
+  "source_head": "1fc65ffa58686cfd838d19dfb8c46009ee1bc4bb",
+  "working_tree_includes_uncommitted_changes": true,
+  "python": "3.11.2",
+  "integration_paths": [
+    "app/core/orchestrator.py -> app/core/report_finalize.py -> app/core/stage_request.py::attach_request_outcome",
+    "app/cli/pipeline.py: canonical outcome controls exit code; PASS_BLOCKED without outcome is nonzero",
+    "app/cli/agent_task.py -> app/pipeline/result.py::assess_result: a master path alone is not success",
+    "app/core/orchestrator_god.py and app/core/orchestrator_async.py: shared typed outcome adapters"
+  ],
+  "caller_contract_observation": {
+    "missing_required_stage": "_stage_analyze",
+    "status": "blocked",
+    "succeeded": false,
+    "reasons": [
+      "_stage_analyze: Обязательная стадия не выполнена"
+    ]
+  },
+  "test": {
+    "command": "PYTHONPATH=/tmp/arena-hardware-tests-deps python3 -m pytest tests/test_task_outcome_contract.py tests/test_pipeline_stage_contract.py tests/test_classic_request_scope.py tests/test_orchestrator_adapters.py tests/test_cli_pipeline_handlers.py tests/test_result_acceptance_contract.py tests/test_agent_guide.py tests/test_runtime_orchestrator_result_summary.py -q --tb=short",
+    "passed": 217,
+    "failed": 0,
+    "duration_seconds": 0.67
+  },
+  "acceptance_met": true,
+  "scope": "Integration contract and mocked entrypoint regression only. No real model inference, product render, Windows installer click-through, or migration-completeness claim.",
+  "desktop_contract_tests": {
+    "command": "cd desktop && npm run verify",
+    "passed": 604,
+    "failed": 0,
+    "skipped": 1,
+    "duration_seconds": 174.643,
+    "scope": "Desktop syntax checks and Node contract/UI tests; no live Electron installer or model render."
+  },
+  "revalidation_after_T0036_hardening": true
+}

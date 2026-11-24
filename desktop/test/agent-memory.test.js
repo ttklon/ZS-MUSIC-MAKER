@@ -5,6 +5,8 @@ const vm = require('node:vm');
 const fs = require('node:fs');
 const path = require('node:path');
 const { FakeDocument } = require('./fake-dom');
+const ZSMM_AGENT_REPORT = require('../src/core/agent-report');
+const ZSMM_TASK_EVENTS = require('../src/core/task-events');
 const source = fs.readFileSync(path.join(__dirname, '../src/sections/agent.js'), 'utf8');
 
 function fixture(bridge) {
@@ -14,7 +16,7 @@ function fixture(bridge) {
   const el = (tag, cls, text) => {
     const node = document.createElement(tag); node.className = cls || ''; node.textContent = text || ''; return node;
   };
-  const window = { zsmm: bridge, ZSMM_SECTIONS: {}, ZSMM_UI: { $, el, switchView() {}, showError() {} } };
+  const window = { zsmm: bridge, ZSMM_AGENT_REPORT, ZSMM_TASK_EVENTS, ZSMM_SECTIONS: {}, ZSMM_UI: { $, el, switchView() {}, showError() {} } };
   vm.runInNewContext(source, { window });
   return { $, root, load: () => window.ZSMM_UI.loadAgent() };
 }
@@ -58,4 +60,31 @@ test('failed persistence reports an error instead of saved status', async () => 
   await f.load();
   f.$('agent-remember').dispatch('click'); await flush();
   assert.match(f.root.textContent, /Не сохранено: disk full/);
+});
+
+test('agent UI parses typed preflight completion with the strict task-event parser', async () => {
+  const listeners = {};
+  const bridge = {
+    agentHit: async () => ({ ok: true, data: { command: ['bundled-python', 'main.py'] } }),
+    onTaskEvent: callback => { listeners.event = callback; return () => { listeners.event = null; }; },
+    onTaskDone: callback => { listeners.done = callback; return () => { listeners.done = null; }; },
+  };
+  const f = fixture(bridge);
+  await f.load();
+  f.$('agent-go').dispatch('click');
+  await flush();
+  listeners.done({ taskId: 'installed-preflight-test', ok: false, report: {
+    verdict: 'FAILED', master_path: null,
+    result: { status: 'failed', succeeded: false },
+    blocked: [{ stage: 'hardware_preflight', reason: 'ram_available_gib is below the safety floor' }],
+    hardware_preflight: { status: 'blocked', decision: 'refuse', can_attempt: false,
+      selected_backend: 'procedural_dsp', reasons: ['ram_available_gib is below the safety floor'],
+      inference_verified: false, product_profile_accepted: false },
+  } });
+
+  assert.match(f.$('agent-status').textContent, /Аппаратный preflight: blocked/);
+  assert.match(f.$('agent-status').textContent, /backend procedural_dsp/);
+  assert.match(f.$('agent-status').textContent, /hardware_preflight: ram_available_gib/);
+  assert.match(f.$('agent-status').textContent, /Inference не подтверждён; профиль продукта не принят/);
+  assert.doesNotMatch(f.$('agent-status').textContent, /Готовый трек:|Результат принят/);
 });

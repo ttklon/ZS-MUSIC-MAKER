@@ -42,6 +42,16 @@ def test_required_blocker_overrides_legacy_percent():
     assert summary['percent_kind'] == 'legacy_stage_accounting_not_product_readiness'
 
 
+def test_baseline_legacy_blocked_fields_are_pass_like_but_canonical_outcome_blocks():
+    blocked = StageResult('voice', StageStatus.BLOCKED, reason='model missing')
+    summary = summarize([blocked])
+    assert blocked.ok is True  # compatibility projection: not failed/canceled
+    assert blocked.succeeded is False
+    assert summary['verdict'] == 'PASS_BLOCKED'  # legacy display field
+    assert summary['outcome']['status'] == 'blocked'
+    assert summary['outcome']['succeeded'] is False
+
+
 def test_successful_placeholder_cannot_give_canonical_success():
     assert stage_outcome([{'name': 'vocal', 'status': 'OK', 'output': {'placeholder': True}}])['status'] == 'degraded'
 
@@ -93,6 +103,27 @@ def test_duplicate_stage_cannot_hide_conflicting_output():
     assert result['status'] == 'failed'
 
 
+@pytest.mark.parametrize('kwargs', [
+    {'required_names': 'voice'},
+    {'required_names': ['voice', '']},
+    {'required_names': ['voice', []]},
+    {'not_requested_names': None},
+    {'not_requested_names': {'voice': True}},
+    {'not_requested_names': 3},
+])
+def test_malformed_stage_name_contract_fails_closed(kwargs):
+    result = stage_outcome([{'name': 'music', 'status': 'OK'}], **kwargs)
+    assert result['status'] == 'failed'
+    assert not result['succeeded']
+    assert result['reasons']
+
+
+def test_malformed_stage_collection_fails_closed():
+    result = stage_outcome(None)
+    assert result['status'] == 'failed'
+    assert not result['succeeded']
+
+
 def test_report_propagates_required_stage_contract():
     from app.pipeline.outcome import report_outcome
     assert report_outcome([{'name': 'mix', 'status': 'OK'}], required_names=['mix', 'voice'])['status'] == 'blocked'
@@ -120,6 +151,27 @@ def test_adapter_rejects_contradictory_declared_canonical_success():
     result = outcome_from_report({'stages': [{'name': 'mix', 'status': 'OK'}],
                                   'outcome': {'status': 'success', 'succeeded': False}})
     assert result['status'] == 'failed'
+
+
+@pytest.mark.parametrize('reasons', ['bad-shape', 7, ['valid', 3], None])
+def test_adapter_malformed_declared_reasons_fail_closed(reasons):
+    from app.pipeline.outcome import outcome_from_report
+    result = outcome_from_report({'stages': [{'name': 'mix', 'status': 'OK'}],
+                                  'outcome': {'status': 'blocked', 'reasons': reasons}})
+    assert result['status'] == 'failed'
+    assert not result['succeeded']
+
+
+def test_canceled_retry_does_not_mutate_previous_successful_records():
+    prior_stages = [{'name': 'music', 'status': 'OK'}]
+    prior_snapshot = [dict(row) for row in prior_stages]
+    prior = stage_outcome(prior_stages, required_names=['music'])
+    retry = stage_outcome([{'name': 'music', 'status': 'CANCELED', 'reason': 'user stopped'}],
+                          required_names=['music', 'voice'])
+    assert prior['status'] == 'success' and prior['succeeded'] is True
+    assert prior_stages == prior_snapshot
+    assert retry['status'] == 'canceled' and retry['succeeded'] is False
+    assert any('user stopped' in reason for reason in retry['reasons'])
 
 
 def test_only_caller_can_authorize_not_requested_blocked_stages():

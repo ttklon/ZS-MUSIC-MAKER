@@ -1,0 +1,120 @@
+{
+  "schema": 1,
+  "observed_at_utc": "2026-11-23",
+  "source": {
+    "branch": "arena/ab25115c-zs-music-maker",
+    "head": "1fc65ffa58686cfd838d19dfb8c46009ee1bc4bb",
+    "scope": "Ephemeral Arena Linux workspace VM/container; not a physical product machine or a statement about other runners."
+  },
+  "inventory": {
+    "command": "python3 -m pip install --target /tmp/arena-hardware-profile-deps psutil==7.2.2; PYTHONPATH=/tmp/arena-hardware-profile-deps python3 tools/measure_hardware_profile.py --out output/local-hardware-inventory.json",
+    "collector": "tools/measure_hardware_profile.py (inventory only)",
+    "temporary_dependency": "psutil 7.2.2 installed outside the repository solely to obtain RAM measurements; Torch/model dependencies were not installed.",
+    "report": {
+      "schema": 1,
+      "os": "Linux",
+      "os_release": "6.1.158+",
+      "architecture": "x86_64",
+      "measurements": {
+        "cpu_threads": 2,
+        "ram_total_gib": 3.85,
+        "ram_available_gib": 3.59,
+        "disk_free_gib": 19.23,
+        "gpu": {
+          "adapters": [],
+          "pytorch_device": null,
+          "directml_devices": [],
+          "inference_verified": false
+        }
+      },
+      "errors": [],
+      "system": {
+        "cpu_name": "unknown to platform.processor()",
+        "cpu_threads": 2,
+        "cpu_cores": 1,
+        "ram_total_gib": 3.85,
+        "ram_available_gib": 3.59,
+        "disk_free_gib": 19.23,
+        "gpus": [],
+        "pytorch_device": null,
+        "directml_devices": [],
+        "default_backend": "cpu"
+      },
+      "kind": "inventory_only",
+      "inference_verified": false,
+      "product_profile_accepted": false,
+      "profiles": [
+        {"id": "windows_cpu", "status": "unverified", "evidence": []},
+        {"id": "windows_cuda", "status": "unverified", "evidence": []},
+        {"id": "windows_amd", "status": "unverified", "evidence": []}
+      ]
+    },
+    "independent_os_observations": {
+      "cpu_model_from_lscpu": "Intel(R) Xeon(R) Processor @ 2.60GHz",
+      "logical_cpus": 2,
+      "cores_per_socket": 1,
+      "threads_per_core": 2,
+      "hypervisor": "KVM",
+      "meminfo_total_kib": 4034452,
+      "meminfo_available_kib": 3761168,
+      "filesystem_available_gib_rounded_by_df": 20
+    }
+  },
+  "accelerator_access": {
+    "inventory_adapters": [],
+    "commands_not_installed": ["nvidia-smi", "rocm-smi", "rocminfo", "clinfo"],
+    "device_nodes_not_present": ["/dev/nvidia*", "/dev/kfd", "/dev/dri/renderD*"],
+    "scope_note": "No accelerator was exposed to this workspace. This does not prove that a physical host or a separate CI runner has no GPU."
+  },
+  "inference_attempt": {
+    "command": "python3 tools/windows_neural_smoke.py",
+    "exit_code": 1,
+    "ok": false,
+    "renders": [],
+    "error": "ModuleNotFoundError: No module named 'torch'",
+    "python": "3.11.2 (main, Apr 8 2026, 01:58:00) [GCC 12.2.0]",
+    "installed_runtime_packages_in_base_environment": {
+      "torch": false,
+      "torchaudio": false,
+      "numpy": false,
+      "soundfile": false,
+      "psutil": false
+    },
+    "model_asset_search": {
+      "repository_search": "No .pt, .pth, .onnx, .safetensors or .bin model files found by the workspace search (max depth 5).",
+      "silero_package_search": "No v3_1_ru.pt or v4_ru.pt found under /home/user (max depth 4)."
+    },
+    "outcome": "The smoke script stopped before model loading, download, inference, audio generation or timing/RSS measurements."
+  },
+  "task_status_snapshot": {
+    "restart": {
+      "T0021": {"state": "in_progress", "acceptance_met": false},
+      "T0024": {"state": "in_progress", "acceptance_met": false},
+      "T0029": {"state": "in_progress", "acceptance_met": false},
+      "T0030": {"state": "in_progress", "acceptance_met": false},
+      "complete_count": "24/50"
+    },
+    "backlog": {
+      "T0021": "verified",
+      "T0024": "verified",
+      "T0029": "blocked",
+      "T0030": "blocked",
+      "T_verified_count": "152/1000"
+    },
+    "statuses_changed_by_this_probe": false
+  },
+  "acceptance": {
+    "kind": "measured_sandbox_inventory_and_blocked_inference_attempt",
+    "inference_verified": false,
+    "cpu_profile_accepted": false,
+    "cuda_profile_accepted": false,
+    "amd_profile_accepted": false,
+    "product_profile_accepted": false
+  },
+  "limitations": [
+    "The available VM CPU and RAM inventory is not an inference benchmark or a supported product profile.",
+    "No wall-time, process RSS, VRAM, model output or full-render result was measured because the smoke attempt failed before importing Torch.",
+    "The workspace's lack of exposed GPU devices is local to this ephemeral environment and does not establish whether a GPU runner is available elsewhere.",
+    "Previously recorded Windows CPU Silero speech results remain narrow speech measurements; they do not establish a full-song profile, CUDA/ROCm support or quality acceptance."
+  ]
+}

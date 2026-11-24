@@ -8,7 +8,11 @@ Windows inference: https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/4514104
 - T0022: воспроизводимые негативные случаи: NaN/Infinity/отрицательная оценка,
   bool/строка, нулевая свободная VRAM при нулевой оценке.
 - T0023: fail-closed проверки, фактическая свободная VRAM плюс резерв; отдельно
-  инвентарь, разрешение ресурсов и измеренный inference.
+  инвентарь, разрешение ресурсов и измеренный inference. Дополнительно описаны
+  варианты решения, backend-совместимость и безопасный откат в
+  [техническом решении T0023](restart-hardware-design-T0023-20261123.md).
+  Design-output подготовлен, но строгий hardware-критерий задачи остаётся
+  непринятым; статус очереди не повышается.
 - T0024: checked_gib, HardwareBudget validation, RAM guards и VRAM reserve.
 - T0025: проверки подключены к существующим ModelRegistry и ASR/LLM guards.
 - T0026–T0028: локальный набор hardware/registry/Silero/benchmark/length:
@@ -445,5 +449,130 @@ Cancel выключен, видна конкретная ошибка диапа
 в локальный reportError log как часть обычного production showError.
 
 Локально 48 JS + 24 Python tests passed. Positive/cancel/retry и measurement
-по-прежнему проходят на той же ревизии. Нет singing/quality/NSIS/GPU приёмки;
-счётчик полного плана остаётся 20, активны T0021–T0030.
+по-прежнему проходят на той же ревизии. На тот момент не было NSIS/GPU приёмки.
+
+## Последняя проверка — Windows installed path, 2026-11-23
+
+[Run 45207868772](https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45207868772),
+source `405cd6bd52ea070b4a51decf09d5f39f3891ed98`: workflow и чистая x64 NSIS
+installed-check завершились успешно. Машиночитаемая сводка и ссылка на workflow
+artifact `nsis-install-check` находятся в
+`restart-hardware-installed-path-windows-45207868772.json`.
+
+- Повторная приёмка: T0025, T0027, T0028 complete; T0026 остаётся in_progress
+  только из-за отсутствующей наблюдаемой model-worker cancellation проверки.
+- Deny/retry на установленном UI/shared runner/bundled Python прошёл: RAM,
+  свободный диск, VRAM и unbudgeted MusicGen; прежний файл сохранён; measured
+  retry остался inventory-only/procedural DSP, без inference/profile/quality claims.
+  Denial measurements синтетические, setup-unlock ответ синтетический.
+- A0003/A0004 технически прошли в CI report, но не приняты: независимый reviewer
+  не назначен. G0–G9 остаются false.
+- Официальный backlog: **152 verified / 1000 T-задач** (820 planned, 28 blocked).
+  В дополнении **0 / 30 A-задач приняты**; строгий суммарный счёт — **152 / 1030
+  (14.8%)**. Restart-переоценка: **23 / 50 complete**; она не складывается
+  повторно с каноническими backlog status.
+- Остаток T0021/T0024/T0029 — реальная измеренная матрица заявляемых CPU/CUDA/AMD
+  профилей; этот Windows CPU/DSP run не сертифицирует GPU inference или полную песню.
+
+## Follow-up — установленная отмена stage worker, 2026-11-23
+
+[Run 45217099122](https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45217099122),
+source `089d819053fe7552d5477d815345f1594b87334c`: все jobs прошли, включая
+clean x64 NSIS install / installed window / ACL / uninstall. Новый evidence-файл:
+`restart-hardware-installed-cancel-windows-45217099122.json`.
+
+- В установленном приложении запущен agent-hit через текущий creation UI и общий
+  task runner. Тест дождался реального изолированного `SequentialAIRunner`
+  stage-worker, нажал видимую кнопку «Остановить», получил подтверждённый
+  cancellation/exit и проверил отсутствие worker/task process и повторное
+  получение удерживаемого файлового lock bundled Python.
+- Это process-lifecycle fixture: stage function тестовая (`model=None`); не было
+  model loading/inference. Значит подтверждено завершение фактического
+  stage-worker пути, но не CUDA/AMD, качество песни или продуктовый профиль.
+- Установленный check успешен только если `modelWorkerCancellation.ok` и все
+  прочие `agentPreflight` checks истинны. Артефакт `nsis-install-check` доступен
+  по метаданным (ID `14838169314`, 19,906 bytes), но payload не удалось скачать:
+  GitHub перенаправляет на artifact storage host, вне доступного sandbox egress.
+  Поэтому ephemeral PIDs не скопированы; факт pass следует из зелёного gated
+  installed-check, а не из предположительных значений отчёта.
+- Restart-переоценка: **24 / 50 complete**; T0025–T0028 закрыты в этом проходе.
+  Официальный backlog остаётся **152 verified / 1000 T-задач**; статусы не
+  менялись. A-задачи: **0 / 30 приняты**, G0–G9 остаются false.
+- Открытый остаток hardware-матрицы — T0021/T0024/T0029 и зависящий T0030:
+  реальные измерения заявляемых CPU/CUDA/AMD профилей, затем согласование списка
+  поддержки. Отдельный Windows neural run с реальным Silero CPU speech приведён
+  ниже; hosted Windows run здесь — CPU/procedural DSP, не GPU acceptance.
+
+## Проба доступной Arena-среды — 2026-11-23
+
+`restart-hardware-sandbox-inventory-20261123.json` фиксирует измерение текущей
+временной Linux VM, а не тест поддерживаемого продукта: Linux 6.1.158+ / x86_64,
+KVM, видны 2 логических CPU (1 ядро / 2 потока), Intel(R) Xeon(R) Processor @
+2.60 GHz, RAM 3.85 GiB всего / 3.59 GiB доступно, диск 19.23 GiB свободен.
+Инвентарь обнаружил ноль GPU-адаптеров;
+`nvidia-smi`, `rocm-smi`, `rocminfo`, `clinfo` и соответствующие device nodes
+отсутствуют в этой среде. Это не доказывает отсутствие GPU на физическом host или
+других runners.
+
+`python3 tools/windows_neural_smoke.py` завершился exit 1 до загрузки модели:
+`ModuleNotFoundError: No module named 'torch'`, `renders=[]`. В базовой среде нет
+Torch/torchaudio/NumPy/soundfile и локальные Silero package weights не найдены;
+временный `psutil 7.2.2` ставился вне repo исключительно для RAM-инвентаря.
+Inference, audio, wall time, RSS и VRAM этим запуском **не измерены**. Это
+воспроизводимая запись ограничения/неудачного preflight, не CPU inference PASS.
+
+Статусы не повышены: строгая restart остаётся **24/50 complete**; T0021/T0024/
+T0029/T0030 — `in_progress`, `acceptance_met=false`. Канонический backlog остаётся
+**152/1000 T-задач verified** (820 planned, 28 blocked); в нём T0021/T0024
+`verified`, T0029/T0030 `blocked`. Это различие реестров сохранено. Критерий
+T0029 по полным inference/render профилям CPU/CUDA/AMD и последующий T0030 остаются
+открытыми.
+
+## Сверка с доступным Windows runner — 2026-11-23
+
+Проверил успешный [Windows neural run 45166373798](https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45166373798)
+через GitHub Actions job и Check Runs annotations. Job `real-silero` выполнился
+на `windows-latest` (runner `GitHub Actions 1000013074`); исходный код — commit
+`6d452ce12af5fd367cc99f4fe59f43b0ef41c410` ветки
+`arena/bbed83d1-zs-music-maker`, **не** текущий workspace HEAD.
+
+- Torch `2.5.1+cpu`, backend/device `cpu`; Silero v3_1_ru, зафиксирована SHA
+  наблюдавшегося model package. Strict offline inference: 5.775 s русской речи,
+  wall 9.9374 s, RTF 1.7208, sampled process RSS peak 910569472 bytes
+  (интервал 20 ms), WAV 48 kHz с сохранённым SHA-256.
+- В том же job inventory: AMD-family CPU (по platform identifier), 4 threads / 2 cores, RAM
+  15.99 GiB total / 12.44 GiB available, disk 146.96 GiB free. PyTorch GPU device
+  отсутствует; DXGI/CIM display adapters не являются CUDA/ROCm inference.
+- Это настоящий, но узкий **CPU Silero draft-speech** результат. Пение/качество,
+  полный музыкальный render, MusicGen/RVC, CUDA и AMD GPU этим не проверялись.
+  `product_profile_accepted=false`; полный протокол и online/offline renders:
+  `restart-hardware-strict-windows-45166373798.json`.
+- Новую проверку на текущем HEAD запустить не удалось: manual dispatch вернул
+  HTTP 403 `Resource not accessible by integration`; rerun старого workflow
+  отклонён GitHub как недоступный для повторного запуска. Поэтому этот результат
+  получен из ранее успешного Windows run, а не выдан за новый run текущего кода.
+
+Это добавляет воспроизводимую точку замера Windows CPU речи, но не закрывает
+T0021/T0024/T0029: критерий полного профиля CPU/CUDA/AMD и зависящий T0030
+остаётся открытым. Число строгих complete не меняется: **24/50**.
+
+## Регрессия аппаратных контрактов текущего workspace — 2026-11-23
+
+На текущем workspace локально выполнен тот же набор из 9 hardware/resource/
+preflight contract modules, добавленный в Windows workflow: **120 passed, 0 failed**
+за 0.71 s. Это Linux regression, не запуск workflow на Windows. Протокол с точной
+командой и временными зависимостями в `/tmp` сохранён как
+`restart-hardware-contract-tests-linux-20261123.json`.
+
+Он проверяет fail-closed бюджеты ресурсов, backend identity, запрет скрытого
+CUDA/ROCm→CPU fallback, agent preflight floors и RVC VRAM preflight на mocked
+fixtures. Настоящего model/RVC inference, CUDA/ROCm исполнения, полного render
+или оценки качества нет. Это regression-pass кода в локальном workspace, не
+Windows run и не hardware-profile acceptance; строгие статусы и счётчик не
+изменены.
+
+Чтобы будущая текущая ветка действительно использовала Windows runner, добавил
+`arena/ab25115c-zs-music-maker` в push filter `windows-neural-validation.yml` и
+включил эти preflight/RVC tests в его Windows contract step. YAML syntax и wiring
+проверены локально. Пока это изменение не попало в push, оно не запускает новый
+CI job; ручной dispatch по-прежнему ограничен ответом GitHub 403.

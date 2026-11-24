@@ -1,0 +1,33 @@
+{
+  "schema": 1,
+  "task": "T0032",
+  "date": "2026-11-23",
+  "source_head": "1fc65ffa58686cfd838d19dfb8c46009ee1bc4bb",
+  "working_tree_includes_uncommitted_changes": true,
+  "python": "3.11.2",
+  "baseline_input": {
+    "name": "voice",
+    "status": "BLOCKED",
+    "reason": "model missing"
+  },
+  "observed": {
+    "legacy_ok": true,
+    "stage_succeeded": false,
+    "legacy_verdict": "PASS_BLOCKED",
+    "legacy_percent": 50,
+    "canonical_status": "blocked",
+    "canonical_succeeded": false,
+    "canonical_reasons": [
+      "voice: model missing"
+    ]
+  },
+  "test": {
+    "command": "PYTHONPATH=/tmp/arena-hardware-tests-deps python3 -m pytest tests/test_task_outcome_contract.py tests/test_pipeline_stage_contract.py -q --tb=short",
+    "passed": 52,
+    "failed": 0,
+    "duration_seconds": 0.09,
+    "regression": "test_baseline_legacy_blocked_fields_are_pass_like_but_canonical_outcome_blocks"
+  },
+  "acceptance_met": true,
+  "limitation": "StageResult.ok remains true for BLOCKED and legacy verdict is PASS_BLOCKED for compatibility. A consumer must use canonical outcome, not the legacy projection; this record does not assert every entrypoint has migrated."
+}

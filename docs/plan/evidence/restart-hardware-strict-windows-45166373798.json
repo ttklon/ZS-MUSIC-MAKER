@@ -1,0 +1,143 @@
+{
+  "schema": 1,
+  "run_id": 45166373798,
+  "url": "https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45166373798",
+  "workflow": "Windows - real neural validation",
+  "workflow_conclusion": "success",
+  "source": {
+    "branch": "arena/bbed83d1-zs-music-maker",
+    "commit": "6d452ce12af5fd367cc99f4fe59f43b0ef41c410",
+    "is_current_workspace_head": false,
+    "current_workspace_head_at_recording": "1fc65ffa58686cfd838d19dfb8c46009ee1bc4bb"
+  },
+  "job": {
+    "name": "real-silero",
+    "job_id": 137664263702,
+    "conclusion": "success",
+    "runner_name": "GitHub Actions 1000013074",
+    "labels": ["windows-latest"],
+    "runner_started_at": "2026-11-23T11:34:12Z",
+    "runner_completed_at": "2026-11-23T11:36:51Z",
+    "steps": {
+      "install_actual_cpu_inference_runtime": "success",
+      "hardware_offline_contracts": "success",
+      "online_and_offline_silero_inference": "success",
+      "strict_offline_explicit_cpu_inference": "success",
+      "upload_measurement_artifact": "success"
+    },
+    "artifact": {
+      "id": 14814684392,
+      "name": "windows-real-silero",
+      "size_bytes": 2560259,
+      "expired": false
+    },
+    "measurement_source": "GitHub Check Runs annotations from the real-silero job; the Actions log/artifact payload was not downloaded in this sandbox."
+  },
+  "runtime": {
+    "os": "Windows-10-10.0.26100-SP0",
+    "architecture": "AMD64",
+    "python": "3.11.9 (tags/v3.11.9:de54cf5, Apr 2 2024, 10:12:12) [MSC v.1938 64 bit (AMD64)]",
+    "torch": "2.5.1+cpu",
+    "backend": "cpu",
+    "device": "cpu",
+    "upstream_revision": "e382298387332f2bf461fe6eadfde99104611b0c",
+    "model_id": "v3_1_ru",
+    "observed_model_package_sha256": "cf60b47ec8a9c31046021d2d14b962ea56b8a5bf7061c98accaaaca428522f85",
+    "note": "The package SHA identifies the observed file; this run does not independently establish model-package provenance or license."
+  },
+  "hardware_inventory": {
+    "kind": "inventory_only",
+    "cpu_name": "AMD64 Family 25 Model 1 Stepping 1, AuthenticAMD",
+    "cpu_threads": 4,
+    "cpu_cores": 2,
+    "ram_total_gib": 15.99,
+    "ram_available_gib": 12.44,
+    "disk_free_gib": 146.96,
+    "reported_adapters": [
+      {"name": "Microsoft Basic Render Driver", "vendor": "unknown", "source": "dxgi", "total_vram_gib": null},
+      {"name": "Microsoft Hyper-V Video", "vendor": "unknown", "source": "windows_cim"}
+    ],
+    "pytorch_device": null,
+    "directml_devices": [],
+    "warning": "These virtual/display adapters are not evidence of an available CUDA/ROCm inference device."
+  },
+  "strict_cpu_measurement": {
+    "kind": "real_silero_draft_speech_not_singing",
+    "inference_verified": true,
+    "product_profile_accepted": false,
+    "requested_backend": "cpu",
+    "device": "cpu",
+    "torch": "2.5.1+cpu",
+    "input_text": "Это проверка настоящей голосовой модели на явно выбранном устройстве без скачивания весов.",
+    "wall_seconds": 9.937406799999962,
+    "wall_scope": "Local package load, CPU inference, conversion and WAV write; fixed short Russian draft-speech input, not a full song render.",
+    "rss_baseline_bytes": 185872384,
+    "rss_peak_sampled_bytes": 910569472,
+    "rss_sample_interval_seconds": 0.02,
+    "rss_sample_count": 389,
+    "output_file": "speech.wav",
+    "output_seconds": 5.775,
+    "sample_rate": 48000,
+    "peak": 0.9236462712287903,
+    "wav_sha256": "f3a7837c42f91bb571d381c71bc2ee399596c167c965ea13c62ca4b70fb9a725",
+    "model_package_sha256": "cf60b47ec8a9c31046021d2d14b962ea56b8a5bf7061c98accaaaca428522f85",
+    "python_network_attempts": 0,
+    "network_guard": "python_socket_only_not_os_firewall",
+    "real_time_factor": 1.7207630822510755
+  },
+  "same_job_smoke_renders": [
+    {
+      "file": "online.wav",
+      "backend": "silero_cpu",
+      "online_allowed": true,
+      "wall_seconds": 12.507620099999997,
+      "rss_baseline_bytes": 184324096,
+      "rss_peak_sampled_bytes": 777039872,
+      "rss_sample_interval_seconds": 0.02,
+      "rss_sample_count": 424,
+      "seconds": 3.875,
+      "sample_rate": 48000,
+      "peak": 0.9315677285194397,
+      "sha256": "fabf4b12d6824cae6dd28d17ab401e7d25943d830a6ca344b1c82a83a0558196",
+      "real_time_factor": 3.227772929032257,
+      "network_guard": "none; this render allows the model download path"
+    },
+    {
+      "file": "offline.wav",
+      "backend": "silero_cpu",
+      "online_allowed": false,
+      "wall_seconds": 8.85995440000005,
+      "rss_baseline_bytes": 514371584,
+      "rss_peak_sampled_bytes": 987860992,
+      "rss_sample_interval_seconds": 0.02,
+      "rss_sample_count": 337,
+      "seconds": 4.6875,
+      "sample_rate": 48000,
+      "peak": 0.8999496102333069,
+      "sha256": "22d10eaf0edce59de8c255a52fabc6f39b074daa46b6728ea8cc2c5a6d27a96a",
+      "real_time_factor": 1.890123605333344,
+      "python_network_attempts": 0,
+      "network_guard": "python_socket_only_not_os_firewall"
+    }
+  ],
+  "explicit_nonclaims": {
+    "singing_or_song_quality": false,
+    "full_song_render": false,
+    "musicgen_or_rvc_inference": false,
+    "nvidia_cuda_inference": false,
+    "amd_rocm_inference": false,
+    "product_profile_accepted": false,
+    "product_hardware_profiles": {
+      "windows_cpu": "unverified",
+      "windows_cuda": "unverified",
+      "windows_amd": "unverified"
+    }
+  },
+  "limitations": [
+    "This is a real CPU Silero draft-speech measurement on a hosted Windows runner, not a full ZS Music Maker song-generation profile.",
+    "Sampled RSS is process RSS sampled every 20 ms; short peaks and other processes may be missed.",
+    "The runner reports an AMD-family CPU identifier, but no PyTorch GPU device or DirectML device; this is not AMD GPU validation.",
+    "The evidence run is from commit 6d452ce12af5fd367cc99f4fe59f43b0ef41c410 on arena/bbed83d1-zs-music-maker, not the current workspace HEAD.",
+    "The separate Windows workflow dispatch from the current integration was denied with HTTP 403, so this report is a retrieved successful run, not a newly launched run on current HEAD."
+  ]
+}

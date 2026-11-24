@@ -85,12 +85,115 @@ Renderer не декодирует и не прослушивает файл н�
 - пустой список не даёт success;
 - required_names позволяет явно перечислить ожидаемые стадии: пропущенная становится blocked;
 - placeholder/synthetic/dry_run не становятся каноническим success;
+- `required_names`/`not_requested_names` и контейнер стадий проверяются как входной
+  контракт: повреждённый список или пустое/нестроковое имя даёт `failed`, а не
+  исключение или успех;
+- malformed declared outcome/reason list также fail-closed; отменённая повторная
+  попытка получает `canceled`, не читает stale master и сохраняет предыдущий файл;
+  повторный stage outcome также не мутирует предыдущую запись стадий;
 - QA failure делает report outcome failed, частичный/пробный прогон — degraded.
 
 Legacy StageResult.ok означает «не FAILED и не CANCELED»; BLOCKED может иметь ok=true.
 Потребитель не должен трактовать это как готовый продукт. Сохраняется старый percent
 с меткой percent_kind=legacy_stage_accounting_not_product_readiness и старый verdict
 для совместимости. Канонический outcome добавлен в summarize и finalize_report.
+
+### Вход/выход и пример обязательной стадии (T0031)
+
+Вход `stage_outcome(stages, required_names=..., not_requested_names=...)` — список
+результатов с именем, статусом исполнителя и необязательными `required`/`reason`;
+список `required_names` задаёт ожидания вызывающей стороны и сильнее флага стадии.
+Выход schema 1 — типизированный общий статус, `succeeded`, причины и нормализованный
+список стадий. Пропущенное имя из `required_names` создаётся как `blocked`; пустой
+список не даёт успеха. Это stage contract, а не доказательство наличия или качества
+песни.
+
+```python
+from app.pipeline.outcome import stage_outcome
+
+result = stage_outcome(
+    [{"name": "music", "status": "OK"}],
+    required_names=["music", "voice"],
+)
+# result['status'] == 'blocked'; result['succeeded'] is False
+# result['stages'] содержит music: success и voice: blocked.
+```
+
+Канонический фрагмент результата:
+
+```json
+{
+  "schema": 1,
+  "status": "blocked",
+  "succeeded": false,
+  "reasons": ["voice: Обязательная стадия не выполнена"],
+  "stages": [
+    {"name": "music", "status": "success", "required": true, "reason": ""},
+    {"name": "voice", "status": "blocked", "required": true,
+     "reason": "Обязательная стадия не выполнена"}
+  ],
+  "song_verified": false
+}
+```
+
+Старый `ok`/`verdict`/`percent` продолжает сериализоваться для миграции потребителей,
+но не может повысить этот результат до успеха. Проверка автоматизируется в
+`tests/test_task_outcome_contract.py::test_missing_required_stage_is_explicitly_blocked`.
+
+### Решение и откат (T0033)
+
+**Выбор:** schema-1 `outcome` добавляется как канонический результат рядом со
+старыми полями. Он строится из явных статусов стадий; список `required_names`
+принадлежит вызывающему сценарию и не может быть ослаблен исполнителем. Legacy
+`ok`/`verdict`/`percent` сохраняются только как совместимые projections.
+
+Рассмотренные альтернативы:
+
+- Переопределить старое `StageResult.ok`, чтобы `BLOCKED` стал `False`: не выбрано,
+  потому что `ok` исторически означает отсутствие аварийного завершения и его
+  потребляют legacy-клиенты; это смешало бы «не упало» с «результат готов».
+- Решать готовность по `verdict` или `percent`: отклонено — `PASS_BLOCKED` остаётся
+  legacy-меткой, а процент отражает выполненные стадии, не готовность продукта.
+- Создать отдельный второй формат результата в CLI и UI: отклонено — копии
+  разойдутся; все новые потребители должны читать общий typed outcome.
+- Автоматически делать отсутствующую стадию необязательной: отклонено — ожидания
+  сценария задаёт `required_names`, неизвестность или пропуск не дают успеха.
+
+**Совместимость и зависимости:** формат аддитивный; старые поля и verdict пока
+сериализуются. Основные точки интеграции — `app/pipeline/stage.py`,
+`app/pipeline/outcome.py`, `app/core/report_finalize.py` и публичные CLI/UI
+адаптеры. Миграция всех legacy AI/God/async entrypoints остаётся отдельным
+приёмочным остатком T0039–T0040; наличие общей функции не значит, что все клиенты
+уже используют её.
+
+**План отката:** если новый сериализатор ломает конкретный старый потребитель,
+откатывать только его адаптер на совместимые поля и сохранять typed outcome в
+отчёте. Пока потребитель не мигрирован, он не может объявлять полный продукт по
+`ok`, `PASS_BLOCKED` или проценту; при конфликте/неизвестном outcome новый путь
+должен вернуть failed/blocked, а не успешный результат. Не удалять required-stage
+guards и отрицательную регрессию; повторно включать адаптер только после теста
+пропущенной обязательной стадии и его Windows проверки.
+
+### Интеграция в общие входы (T0035)
+
+- Classic runner: `app/core/orchestrator.py` собирает общий `summarize`; финализация
+  добавляет `outcome` через `app/core/stage_request.py::attach_request_outcome`,
+  где `required_names`/`not_requested_names` выводятся из нормализованного recipe,
+  а не из отчёта исполнителя.
+- Classic CLI: `app/cli/pipeline.py` принимает код возврата только из канонического
+  `outcome.succeeded`; при старом `PASS_BLOCKED` или отсутствующем вердикте без
+  outcome возвращается ненулевой код.
+- Agent CLI: `app/cli/agent_task.py` применяет `assess_result` к исходному запросу,
+  публикует typed `done.ok` и возвращает 0 только для принятого результата; одного
+  `master_path` недостаточно.
+- God/async adapters формируют общий outcome; их полная миграция и аудит остальных
+  публичных путей всё ещё проверяются T0039–T0040.
+
+Регрессия без model claims:
+`tests/test_classic_request_scope.py`, `tests/test_cli_pipeline_handlers.py`,
+`tests/test_orchestrator_adapters.py`, `tests/test_result_acceptance_contract.py`,
+`tests/test_agent_guide.py` и `tests/test_runtime_orchestrator_result_summary.py`.
+Фикстуры проверяют статус/код возврата, а не настоящий render или Windows installer.
 
 ### Незавершённая миграция
 

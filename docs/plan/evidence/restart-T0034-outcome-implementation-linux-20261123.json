@@ -1,0 +1,47 @@
+{
+  "schema": 1,
+  "task": "T0034",
+  "date": "2026-11-23",
+  "source_head": "1fc65ffa58686cfd838d19dfb8c46009ee1bc4bb",
+  "working_tree_includes_uncommitted_changes": true,
+  "python": "3.11.2",
+  "implementation": "app/pipeline/outcome.py",
+  "behavior": {
+    "missing_required_stage": {
+      "status": "blocked",
+      "succeeded": false
+    },
+    "malformed_required_names": {
+      "status": "failed",
+      "succeeded": false,
+      "reasons": [
+        "required_names contains an invalid stage name"
+      ]
+    },
+    "malformed_stage_collection": {
+      "status": "failed",
+      "succeeded": false,
+      "reasons": [
+        "stages could not be read: TypeError"
+      ]
+    }
+  },
+  "test": {
+    "command": "PYTHONPATH=/tmp/arena-hardware-tests-deps python3 -m pytest tests/test_task_outcome_contract.py tests/test_pipeline_stage_contract.py -q --tb=short",
+    "passed": 59,
+    "failed": 0,
+    "duration_seconds": 0.08
+  },
+  "acceptance_met": true,
+  "scope": "Unit/contract validation only; target-platform Windows regression remains T0038 and migration completeness remains T0039-T0040.",
+  "revalidation_after_T0036_hardening": {
+    "command": "PYTHONPATH=/tmp/arena-hardware-tests-deps python3 -m pytest tests/test_task_outcome_contract.py tests/test_pipeline_stage_contract.py tests/test_classic_request_scope.py tests/test_orchestrator_adapters.py tests/test_cli_pipeline_handlers.py tests/test_result_acceptance_contract.py tests/test_agent_guide.py tests/test_runtime_orchestrator_result_summary.py -q --tb=short",
+    "passed": 217,
+    "failed": 0,
+    "duration_seconds": 0.67,
+    "source_files_sha256": {
+      "app/pipeline/outcome.py": "1a34358360d70327c860f8648cfc20560b80a03c603f9510111e4985465e1e83",
+      "tests/test_task_outcome_contract.py": "d41b296c6c58be4c8af699ec89d18b87657d818e5baaf493ec9d4bded2ea71a2"
+    }
+  }
+}

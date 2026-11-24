@@ -1,0 +1,35 @@
+{
+  "schema": 1,
+  "task": "T0036",
+  "date": "2026-11-23",
+  "source_head": "1fc65ffa58686cfd838d19dfb8c46009ee1bc4bb",
+  "working_tree_includes_uncommitted_changes": true,
+  "python": "3.11.2",
+  "failure_and_recovery": {
+    "malformed_declared_reasons": {
+      "status": "failed",
+      "succeeded": false,
+      "reasons": [
+        "Некорректный канонический outcome исполнителя"
+      ]
+    },
+    "canceled_retry": {
+      "status": "canceled",
+      "succeeded": false,
+      "reasons": [
+        "music: user stopped",
+        "voice: Обязательная стадия не выполнена"
+      ]
+    },
+    "prior_stage_records_preserved": true,
+    "stale_audio": "test_canceled_retry_preserves_previous_file_and_never_reads_it verifies cancellation passes None to audio inspector and leaves pre-existing file bytes unchanged"
+  },
+  "test": {
+    "command": "PYTHONPATH=/tmp/arena-hardware-tests-deps python3 -m pytest tests/test_task_outcome_contract.py tests/test_pipeline_stage_contract.py tests/test_result_acceptance_contract.py -q --tb=short",
+    "passed": 136,
+    "failed": 0,
+    "duration_seconds": 0.36
+  },
+  "acceptance_met": true,
+  "scope": "Contract-level cancellation/retry and preservation checks; not a live worker-tree cancellation test or a full render."
+}

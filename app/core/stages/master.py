@@ -201,7 +201,8 @@ def _stage_stems(master_wav: str, out_dir: Path) -> dict[str, Any]:
 
 
 
-def apply_adaptive_enhance(master_wav: str, adaptive_level: int, enhanced_dsp: bool) -> dict[str, Any]:
+def apply_adaptive_enhance(master_wav: str, adaptive_level: int, enhanced_dsp: bool,
+                           beat_engine: str | None = None) -> dict[str, Any]:
     """Лёгкая сатурация + расширение для ultra_light без нейросетей.
 
     Живёт в пайплайне, а не после него: раньше хит-фабрика вызывала этот шаг
@@ -209,17 +210,14 @@ def apply_adaptive_enhance(master_wav: str, adaptive_level: int, enhanced_dsp: b
     `artifact_integrity` описывали один мастер, а на диске лежал другой.
     Теперь обработка — часть стадии `_stage_polish`, до всех измерений.
     """
+    if beat_engine in ("ace_step", "musicgen"):
+        return {"ok": True, "applied": False, "reason": "neural engine owns the master"}
     if not enhanced_dsp or int(adaptive_level or 0) != 0:
         return {"ok": True, "applied": False, "reason": "adaptive DSP disabled for this level"}
     try:
         import numpy as np
         import soundfile as sf
 
-        from modules.hit_factory.adaptive import get_adaptive_config
-
-        cfg = get_adaptive_config()
-        if cfg.get("use_acestep") or cfg.get("use_musicgen"):
-            return {"ok": True, "applied": False, "reason": "neural engine owns the master"}
         data, sr = sf.read(str(master_wav))
         if data.ndim == 1:
             data = np.stack([data, data], axis=1)

@@ -104,7 +104,6 @@ def test_cli_produces_terminal_after_progress_and_marks_partial(monkeypatch, cap
     from app.cli import agent_task
     import modules.agent_guide as guide
     monkeypatch.setenv('ZSMM_TASK_ID', 'cli-fixture')
-    monkeypatch.setattr(agent_task, '_prepare', lambda online: {})
     monkeypatch.setattr(guide, 'run_conversation_hit', lambda *a, **kw: {'master_path': None})
     monkeypatch.setattr(guide, 'narrate', lambda report: 'plain trailing noise')
     code = agent_task.run_agent_hit(SimpleNamespace(online=False))
@@ -124,7 +123,6 @@ def test_cli_exception_has_error_and_terminal(monkeypatch, capsys):
     from types import SimpleNamespace
     from app.cli import agent_task
     import modules.agent_guide as guide
-    monkeypatch.setattr(agent_task, '_prepare', lambda online: {})
     def fail(*a, **kw):
         raise RuntimeError('fixture failure\nmultiline')
     monkeypatch.setattr(guide, 'run_conversation_hit', fail)

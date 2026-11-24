@@ -1,0 +1,45 @@
+{
+  "schema": 1,
+  "task": "T0037",
+  "date": "2026-11-23",
+  "source_head": "1fc65ffa58686cfd838d19dfb8c46009ee1bc4bb",
+  "working_tree_includes_uncommitted_changes": true,
+  "python": "3.11.2",
+  "test_layer": "Pure typed-outcome contract and result acceptance; test cases are explicit fixtures, no backend or hardware double claims are made.",
+  "observed_cases": {
+    "success": {
+      "status": "success",
+      "succeeded": true,
+      "reasons": []
+    },
+    "missing_required": {
+      "status": "blocked",
+      "succeeded": false,
+      "reasons": [
+        "voice: Обязательная стадия не выполнена"
+      ]
+    },
+    "canceled": {
+      "status": "canceled",
+      "succeeded": false,
+      "reasons": [
+        "music: stopped"
+      ]
+    },
+    "malformed": {
+      "status": "failed",
+      "succeeded": false,
+      "reasons": [
+        "music: Некорректный или противоречивый результат стадии"
+      ]
+    }
+  },
+  "test": {
+    "command": "PYTHONPATH=/tmp/arena-hardware-tests-deps python3 -m pytest tests/test_task_outcome_contract.py tests/test_pipeline_stage_contract.py tests/test_result_acceptance_contract.py -q --tb=short",
+    "passed": 136,
+    "failed": 0,
+    "duration_seconds": 0.36
+  },
+  "acceptance_met": true,
+  "scope": "Automated regression of result contents and statuses. No live rendering/inference or Windows runner result claimed."
+}

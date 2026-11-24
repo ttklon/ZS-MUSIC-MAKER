@@ -204,7 +204,7 @@ function wireAgentIpc(taskIpc) {
     fsApi: fs,
     audioRoots: [ROOT && path.join(ROOT, 'output', 'hits'),
       app.isPackaged && path.join(app.getPath('userData'), 'workspace', 'output', 'hits')].filter(Boolean),
-    startAgent: (options) => taskIpc.start('agent-hit', options),
+    startAgent: (options, sender) => taskIpc.start('agent-hit', options, sender),
     openPath: shellOpen,
   });
 }

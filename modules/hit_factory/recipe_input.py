@@ -34,7 +34,7 @@ def validate_recipe_input(state: dict) -> None:
         if key in state and (not isinstance(state[key], list) or
                              any(not isinstance(v, str) for v in state[key])):
             raise ValueError(f'{key} must be a list of strings')
-    for key in ('use_rvc', 'bilingual'):
+    for key in ('use_rvc', 'use_texture', 'bilingual'):
         if key in state and type(state[key]) is not bool:
             raise ValueError(f'{key} must be boolean')
     if 'style_vector' in state and not isinstance(state['style_vector'], dict):

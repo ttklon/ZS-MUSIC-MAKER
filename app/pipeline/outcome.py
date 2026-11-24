@@ -31,8 +31,38 @@ def _normalize(stage, index, required_names, not_requested_names=()):
             "reason": str(reason) if reason else ("" if status == "success" else "Причина не предоставлена исполнителем")}
 
 
+def _checked_name_set(values, field):
+    """Validate caller-owned stage-name lists before using them as sets."""
+    if values is None or isinstance(values, (str, bytes, dict)):
+        return None, f"{field} must be an iterable of non-empty stage-name strings"
+    try:
+        names = list(values)
+    except Exception as exc:  # noqa: BLE001 — malformed contract fails closed
+        return None, f"{field} could not be read: {type(exc).__name__}"
+    if any(not isinstance(name, str) or not name.strip() for name in names):
+        return None, f"{field} contains an invalid stage name"
+    try:
+        return set(names), None
+    except Exception as exc:  # noqa: BLE001 — exotic malformed strings fail closed
+        return None, f"{field} could not be validated: {type(exc).__name__}"
+
+
+def _contract_failure(reason):
+    return {"schema": 1, "status": "failed", "succeeded": False,
+            "reasons": [reason], "stages": [], "song_verified": False}
+
+
 def stage_outcome(stages, *, required_names=(), not_requested_names=()) -> dict:
-    required_names = set(required_names)
+    required_names, error = _checked_name_set(required_names, "required_names")
+    if error:
+        return _contract_failure(error)
+    not_requested_names, error = _checked_name_set(not_requested_names, "not_requested_names")
+    if error:
+        return _contract_failure(error)
+    try:
+        stages = list(stages)
+    except Exception as exc:  # noqa: BLE001 — malformed result list fails closed
+        return _contract_failure(f"stages could not be read: {type(exc).__name__}")
     reasons, normalized, present = [], [], set()
     for index, stage in enumerate(stages, 1):
         row = _normalize(stage, index, required_names, set(not_requested_names))
@@ -76,11 +106,17 @@ def outcome_from_report(report, *, required_names=(), not_requested_names=()) ->
     declared = report.get('outcome')
     if declared is not None:
         order = ('failed', 'canceled', 'blocked', 'degraded', 'success')
+        declared_reasons = declared.get('reasons', []) if isinstance(declared, dict) else None
+        if declared_reasons is None and isinstance(declared, dict) and 'reasons' not in declared:
+            declared_reasons = []
+        malformed_reasons = (not isinstance(declared_reasons, (list, tuple))
+                             or any(not isinstance(item, str) for item in declared_reasons))
         if (not isinstance(declared, dict) or declared.get('status') not in order
-                or ('succeeded' in declared and declared['succeeded'] is not (declared.get('status') == 'success'))):
+                or ('succeeded' in declared and declared['succeeded'] is not (declared.get('status') == 'success'))
+                or malformed_reasons):
             outcome.update(status='failed', succeeded=False)
             outcome['reasons'].append('Некорректный канонический outcome исполнителя')
         elif order.index(declared['status']) < order.index(outcome['status']):
             outcome.update(status=declared['status'], succeeded=False)
-            outcome['reasons'].extend(declared.get('reasons') or [])
+            outcome['reasons'].extend(declared_reasons)
     return outcome

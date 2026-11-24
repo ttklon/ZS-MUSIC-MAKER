@@ -90,7 +90,6 @@ def test_agent_cli_nonzero_when_only_a_master_exists(audio, monkeypatch):
     from app.cli import agent_task
     import modules.agent_guide as guide
 
-    monkeypatch.setattr(agent_task, '_prepare', lambda *_: {})
     monkeypatch.setattr(guide, 'run_conversation_hit', lambda *a, **kw: {'master_path': audio})
     args = SimpleNamespace(online=False)
     assert agent_task.run_agent_hit(args) == 1
@@ -155,7 +154,6 @@ def test_agent_cli_rejects_producer_request_downgrade(audio, monkeypatch):
     from types import SimpleNamespace
     from app.cli import agent_task
     import modules.agent_guide as guide
-    monkeypatch.setattr(agent_task, '_prepare', lambda *_: {})
     monkeypatch.setattr(guide, 'run_conversation_hit', lambda *a, **kw: {
         'master_path': audio, 'render_evidence': evidence(audio, 'instrumental'), 'requested_kind': 'instrumental'})
     assert agent_task.run_agent_hit(SimpleNamespace(online=False)) == 1
@@ -166,7 +164,6 @@ def test_agent_cli_handles_malformed_producer_report(monkeypatch, capsys):
     from types import SimpleNamespace
     from app.cli import agent_task
     import modules.agent_guide as guide
-    monkeypatch.setattr(agent_task, '_prepare', lambda *_: {})
     monkeypatch.setattr(guide, 'run_conversation_hit', lambda *a, **kw: None)
     assert agent_task.run_agent_hit(SimpleNamespace(online=False)) == 2
     rows = [json.loads(line) for line in capsys.readouterr().out.splitlines() if line.startswith('{')]
@@ -198,6 +195,19 @@ def test_cancellation_never_opens_stale_audio(monkeypatch):
     monkeypatch.setattr(results, 'inspect_audio', lambda filename: seen.append(filename) or {'valid': False})
     assert results.assess_result({'master_path': 'stale.wav', 'canceled': True})['status'] == 'canceled'
     assert seen == [None]
+
+
+def test_canceled_retry_preserves_previous_file_and_never_reads_it(monkeypatch, tmp_path):
+    import app.pipeline.result as results
+    previous = tmp_path / 'previous-master.wav'
+    original_bytes = b'previous accepted artifact'
+    previous.write_bytes(original_bytes)
+    seen = []
+    monkeypatch.setattr(results, 'inspect_audio', lambda filename: seen.append(filename) or {'valid': False})
+    result = results.assess_result({'master_path': str(previous), 'canceled': True})
+    assert result['status'] == 'canceled' and not result['succeeded']
+    assert seen == [None]
+    assert previous.read_bytes() == original_bytes
 
 
 @pytest.mark.parametrize('method', [None, 'tts', 'speech', 'silero', 'xtts', 'rvc', 'singing'])

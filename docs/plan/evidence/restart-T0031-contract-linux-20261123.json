@@ -1,0 +1,59 @@
+{
+  "schema": 1,
+  "task": "T0031",
+  "date": "2026-11-23",
+  "source_head": "1fc65ffa58686cfd838d19dfb8c46009ee1bc4bb",
+  "working_tree_includes_uncommitted_changes": true,
+  "python": "3.11.2",
+  "contract": {
+    "input": {
+      "stages": [
+        {
+          "name": "music",
+          "status": "OK"
+        }
+      ],
+      "required_names": [
+        "music",
+        "voice"
+      ]
+    },
+    "observed": {
+      "schema": 1,
+      "status": "blocked",
+      "succeeded": false,
+      "reasons": [
+        "voice: Обязательная стадия не выполнена"
+      ],
+      "stages": [
+        {
+          "name": "music",
+          "status": "success",
+          "required": true,
+          "reason": ""
+        },
+        {
+          "name": "voice",
+          "status": "blocked",
+          "required": true,
+          "reason": "Обязательная стадия не выполнена"
+        }
+      ],
+      "song_verified": false
+    },
+    "assertions": {
+      "missing_required_voice_is_blocked": true,
+      "overall_success_is_false": true,
+      "missing_voice_reason_is_present": true
+    }
+  },
+  "test": {
+    "command": "PYTHONPATH=/tmp/arena-hardware-tests-deps python3 -m pytest tests/test_task_outcome_contract.py -q --tb=short",
+    "passed": 35,
+    "failed": 0,
+    "duration_seconds": 0.06
+  },
+  "acceptance_met": true,
+  "scope": "Stage outcome contract only. Not a song/content/quality acceptance, not Windows integration, and not proof that all consumers are migrated.",
+  "queue_note": "T0031 has no task dependency; performed as the first available independent graph node while T0029/T0030 remain hardware-blocked. Current hardware batch pointer was not advanced."
+}

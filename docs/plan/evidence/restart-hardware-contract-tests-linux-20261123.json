@@ -1,0 +1,49 @@
+{
+  "schema": 1,
+  "observed_at_utc": "2026-11-23",
+  "source": {
+    "branch": "arena/ab25115c-zs-music-maker",
+    "head": "1fc65ffa58686cfd838d19dfb8c46009ee1bc4bb",
+    "workspace_changes_included": true,
+    "scope": "Current local workspace regression; not a committed revision or Windows runner result."
+  },
+  "command": "PYTHONPATH=/tmp/arena-hardware-tests-deps python3 -m pytest tests/test_ai_hardware_detection.py tests/test_adaptive_hardware.py tests/test_ai_registry.py tests/test_hardware_profiles_contract.py tests/test_neural_benchmark.py tests/test_silero_offline.py tests/test_local_model_benchmark.py tests/test_agent_preflight.py tests/test_rvc_infer_imports.py -q --tb=short",
+  "runtime": {
+    "python": "3.11.2",
+    "os": "Linux 6.1.158+ x86_64",
+    "temporary_test_dependencies": {
+      "pytest": "9.2.0",
+      "numpy": "1.26.4",
+      "soundfile": "0.14.0",
+      "psutil": "7.2.2",
+      "requests": "2.34.2",
+      "PyYAML": "6.0.4",
+      "cloudpickle": "3.1.3"
+    },
+    "dependency_location": "/tmp/arena-hardware-tests-deps (outside the repository)"
+  },
+  "result": {
+    "passed": 120,
+    "failed": 0,
+    "duration_seconds": 0.71,
+    "exit_code": 0
+  },
+  "covered_contracts": [
+    "Conservative hardware inventory and resource-budget checks",
+    "Adaptive backend identity and no false GPU inference claim",
+    "Explicit CUDA/ROCm selection and refusal to silently fall back to CPU",
+    "Python socket guard and sampled-RSS measurement helper contracts",
+    "Agent hardware preflight fail-closed, resource-floor and unbudgeted-engine cases",
+    "Model registry and offline Silero package-loading contracts using fixtures",
+    "RVC backend and VRAM preflight with fake inference backend/output fixtures"
+  ],
+  "acceptance_boundary": {
+    "real_model_inference_performed": false,
+    "full_song_render_performed": false,
+    "real_cuda_or_rocm_inference_performed": false,
+    "real_rvc_inference_performed": false,
+    "product_profile_accepted": false,
+    "note": "These are contract/regression tests. Fixtures and mocked backends are not hardware inference or music-quality evidence."
+  },
+  "plan_status_changed": false
+}

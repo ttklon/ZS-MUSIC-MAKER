@@ -7,6 +7,7 @@ const { checkGuiBeat } = require('./gui-beat-check');
 const { verifyProductHelp } = require('./product-help-check');
 const { checkResultContract } = require('./result-contract-check');
 const { checkLiveInstrumental } = require('./live-result-check');
+const { checkAgentPreflight } = require('./agent-preflight-check');
 function checkWindow(window, app) {
   if (!process.argv.includes('--window-check')) return;
   let finished = false;
@@ -19,8 +20,9 @@ function checkWindow(window, app) {
     catch { app.exit(1); return; }
     app.exit(result.ok ? 0 : 1);
   }
-  const timer = setTimeout(() => finish({ ok: false, error: 'Renderer check timed out' }),
-    process.env.ZSMM_GUI_BEAT_CHECK === '1' ? 180000 : 30000);
+  const checkTimeout = process.env.ZSMM_AGENT_PREFLIGHT_CHECK === '1' ? 10 * 60_000
+    : process.env.ZSMM_GUI_BEAT_CHECK === '1' ? 180_000 : 30_000;
+  const timer = setTimeout(() => finish({ ok: false, error: 'Renderer check timed out' }), checkTimeout);
   window.webContents.on('preload-error', (_event, _file, error) => errors.push(String(error)));
   window.webContents.on('did-finish-load', async () => {
     try {
@@ -71,6 +73,10 @@ function checkWindow(window, app) {
         report.guiBeat = await checkGuiBeat(window, path.dirname(process.env.ZSMM_WINDOW_CHECK_OUT), app);
         report.guiInputs = await checkGuiInputs(window);
         report.ok = report.guiBeat.ok === true && report.guiInputs.ok === true;
+      }
+      if (report.ok && report.resultContractVerified && process.env.ZSMM_AGENT_PREFLIGHT_CHECK === '1') {
+        report.agentPreflight = await checkAgentPreflight(window, app);
+        report.ok = report.agentPreflight.ok === true;
       }
       finish({ ...report, ok: report.ok && report.resultContractVerified && report.creationVisible && errors.length === 0 });
     } catch (error) { finish({ ok: false, error: String(error) }); }

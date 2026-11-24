@@ -18,7 +18,7 @@ RECIPE_KEYS = frozenset({
     "bpm_override", "aggression", "duration_sec", "user_lyrics_lines",
     "reference_lyrics", "transcribe_references", "trend_notes", "voice_mode",
     "stands", "n_verses", "quality_mode", "user_extra_prompt", "seed",
-    "own_vocal_wav", "vocal_wav", "use_rvc", "rvc_model_path", "rvc_index_path",
+    "own_vocal_wav", "vocal_wav", "use_rvc", "use_texture", "rvc_model_path", "rvc_index_path",
     "rvc_pitch_shift", "vocal_offset_ms", "use_vocal_fx", "tune", "export_stems",
     "bilingual", "only", "variant",
     # Настройки адаптивного DSP: они меняют готовый мастер (`_enhance_master`

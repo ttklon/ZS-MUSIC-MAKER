@@ -1,12 +1,11 @@
 # -*- coding: utf-8 -*-
 """
-app/cli/agent_task.py — «Сделать хит» из окна: тихая докачка, прогон, отчёт.
+app/cli/agent_task.py — «Сделать хит» из окна: hardware preflight, прогон, отчёт.
 
 Почему отдельная задача, а не `--hit-factory`: окну нужен не список треков,
-а один результат в версионированном NDJSON и отдельный обычный лог. Плюс первый запуск обязан сам
-себя подготовить: `--agent-hit` сначала молча проверяет тяжёлые движки и,
-если сеть разрешена, докачивает их — иначе человек нажимает кнопку и получает
-«heavy engines unavailable» вместо трека.
+а один результат в версионированном NDJSON и отдельный обычный лог. Подготовка
+движков запускается отдельной пользовательской задачей (`--bootstrap`); этот
+путь сначала выполняет preflight и не скачивает модели перед проверкой.
 
 Флаги повторяют чек-лист агентика (4 вопроса), а не настройки пайплайна:
 
@@ -15,6 +14,8 @@ app/cli/agent_task.py — «Сделать хит» из окна: тихая д
 """
 
 from __future__ import annotations
+
+import os
 
 from app.cli.env import safe_print
 
@@ -29,27 +30,16 @@ def build_payload(args) -> dict:
     }
 
 
-def _prepare(allow_online: bool) -> dict:
-    """Тихая подготовка: тяжесть и модели только при разрешённой сети."""
-    try:
-        from app.core.bootstrap import auto_bootstrap
-
-        return auto_bootstrap(silent=True, allow_download=allow_online)
-    except Exception as exc:  # noqa: BLE001 — подготовка не должна ронять прогон
-        safe_print(f"[agent-hit] подготовка пропущена: {type(exc).__name__}: {exc}")
-        return {"error": f"{type(exc).__name__}: {exc}"}
-
-
 def run_agent_hit(args) -> int:
     """Код 0 — контракт результата принят, 1 — неполный/ошибочный результат, 2 — сбой."""
-    from app.core.net_policy import network_allowed
-
     from app.cli.task_events import TaskEvents
 
     events = TaskEvents()
-    allow_online = bool(getattr(args, "online", False)) or network_allowed()
-    events.progress("Проверяю окружение и движки…")
-    _prepare(allow_online)
+    events.progress("Проверяю оборудование до запуска тяжёлых стадий…")
+    previous_online = os.environ.get("ZSMM_ONLINE")
+    enable_cli_online = getattr(args, "online", False) is True and previous_online != "0"
+    if enable_cli_online:
+        os.environ["ZSMM_ONLINE"] = "1"
 
     try:
         from modules.agent_guide import narrate, run_conversation_hit
@@ -63,6 +53,12 @@ def run_agent_hit(args) -> int:
         events.emit("error", message=f"{type(exc).__name__}: {exc}")
         events.emit("done", ok=False, report={"error": str(exc)})
         return 2
+    finally:
+        if enable_cli_online:
+            if previous_online is None:
+                os.environ.pop("ZSMM_ONLINE", None)
+            else:
+                os.environ["ZSMM_ONLINE"] = previous_online
 
     from app.pipeline.result import assess_result
     if not isinstance(report, dict):
@@ -74,6 +70,7 @@ def run_agent_hit(args) -> int:
         "verdict": "COMPLETE" if result["succeeded"] else ("FAILED" if result["status"] in ("failed", "canceled") else "PARTIAL"),
         "result": result, "master_path": report.get("master_path"),
         "hit_score": report.get("hit_score"), "blocked": report.get("blocked"),
+        "hardware_preflight": report.get("hardware_preflight"),
         "elapsed_sec": report.get("elapsed_sec"),
     }
     if report.get("master_path"):

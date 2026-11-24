@@ -7,7 +7,7 @@
 их как минимальные требования или обещание скорости нельзя.
 
 
-Последняя узкая техническая проверка: [Windows 45158731434](https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45158731434),
+Один из узких технических результатов: [Windows 45158731434](https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45158731434),
 все пять job SUCCESS. Classic procedural instrumental 20.0 s / 27.2780 s wall /
 350265344 bytes sampled RSS; **typed instrumental success** с producer trace
 beat→mix→master. CPU 4 threads/2 cores, RAM 15.99 GiB. `quality_accepted=false`,
@@ -20,6 +20,15 @@ beat→mix→master. CPU 4 threads/2 cores, RAM 15.99 GiB. `quality_accepted=fal
   диск и CPU — диагностические измерения, не разрешение на любую модель.
 - `preflight_resources` требует явных положительных бюджетов RAM/диска.
   Неизвестное значение, NaN, Infinity, строка и bool не означают «хватает».
+- Канонический preflight агентика дополнительно отказывает до backend selection,
+  если свободная RAM неизвестна/ниже 2 GiB или свободный диск неизвестен/ниже
+  1 GiB. Это явные operational stop floors, не бюджет модели, гарантия запуска
+  или принятый продуктовый профиль; модельные ветви остаются заблокированы без
+  собственных проверенных бюджетов.
+- Запрошенный RVC на выбранном CUDA/ROCm backend отказывает при неизвестной
+  свободной VRAM или ниже существующего 4 GiB safety floor. Автоматическое
+  скрытое переключение на CPU при таком отказе запрещено; CPU можно выбрать
+  явно, после отдельной RAM-проверки.
 - Registry проверяет бюджет VRAM, фактически свободную память backend и запас
   1 GiB. Нулевая оценка модели не разрешает запуск при нулевой свободной VRAM.
 - CPU ASR/LLM проверяют свободную RAM перед загрузкой. Оценки модели должны быть
@@ -127,6 +136,24 @@ NVIDIA CUDA. DirectML этим инструментом не поддержив�
 Strict CPU: 5.775 s речи за 9.2548 s wall, sampled RSS 909131776 bytes,
 RTF 1.6026, Python network attempts 0. GPU-ветки этим прогоном **не испытаны**.
 [Сохранённая compact summary](plan/evidence/restart-hardware-strict-windows-45148490225.json).
+
+### Более поздний реальный Windows CPU inference, всё ещё только речь
+
+[Run 45166373798](https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45166373798),
+job `real-silero` SUCCESS на `windows-latest`; source `6d452ce12af5fd367cc99f4fe59f43b0ef41c410`
+(ветка `arena/bbed83d1-zs-music-maker`, не текущий workspace HEAD).
+PyTorch `2.5.1+cpu`; строгая offline Silero v3_1_ru CPU-проверка: 5.775 s речи /
+9.9374 s wall, RTF 1.7208, sampled process RSS peak 910569472 bytes (20 ms
+sampling), WAV SHA-256 `f3a7837c42f91bb571d381c71bc2ee399596c167c965ea13c62ca4b70fb9a725`.
+Runner inventory: AMD-family CPU (platform-reported), 4 threads / 2 cores, RAM 15.99 GiB
+(12.44 GiB available), no PyTorch GPU or DirectML device. Reported Microsoft Basic
+Render Driver / Hyper-V Video are not CUDA/ROCm inference devices. Точная сводка
+из check-run annotations сохранена в
+[протоколе](plan/evidence/restart-hardware-strict-windows-45166373798.json).
+
+Это подтверждённый **узкий CPU speech inference**, не полная песня, не singing,
+не MusicGen/RVC и не CUDA/AMD GPU профиль. Измерение также относится к старому
+source commit, не к текущему `HEAD`; `product_profile_accepted=false`.
 
 ## Диагностика классического Python-пайплайна
 

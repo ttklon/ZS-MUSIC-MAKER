@@ -49,28 +49,43 @@ def _has_internet() -> bool:
     except Exception:
         return False
 
+def _gpu_from_system(sysinfo: dict) -> dict:
+    """Build adaptive routing from one measured inventory snapshot."""
+    if not isinstance(sysinfo, dict):
+        sysinfo = {}
+    torch_dev = sysinfo.get("pytorch_device")
+    if not isinstance(torch_dev, dict):
+        torch_dev = {}
+    gpus = sysinfo.get("gpus")
+    if not isinstance(gpus, list):
+        gpus = []
+    if torch_dev:
+        return {
+            "backend": torch_dev.get("backend", "cpu"),
+            "vendor": torch_dev.get("vendor") or "unknown",
+            "vram_total": torch_dev.get("total_vram_gib"),
+            "vram_free": torch_dev.get("free_vram_gib"),
+            "name": torch_dev.get("name", ""),
+            "gpus": gpus,
+        }
+    first_gpu = next((item for item in gpus if isinstance(item, dict)), None)
+    if first_gpu:
+        name = first_gpu.get("name", "")
+        vendor = first_gpu.get("vendor", "unknown")
+        return {"backend": "directml" if vendor == "amd" else "cpu", "vendor": vendor,
+                "name": name, "gpus": gpus}
+    return {"backend": "cpu", "vendor": "unknown", "name": "CPU", "gpus": []}
+
+
 def _detect_gpu() -> dict:
     """Возвращает {backend, vendor, vram_total, vram_free, name} или {}."""
     try:
         from app.ai.hardware import detect_system
         sysinfo = detect_system()
-        torch_dev = sysinfo.get("pytorch_device") or {}
-        gpus = sysinfo.get("gpus") or []
-        vendor = "unknown"
-        if torch_dev:
-            vendor = torch_dev.get("vendor") or "unknown"
-            return {
-                "backend": torch_dev.get("backend", "cpu"),
-                "vendor": vendor,
-                "vram_total": torch_dev.get("total_vram_gib"),
-                "vram_free": torch_dev.get("free_vram_gib"),
-                "name": torch_dev.get("name", ""),
-                "gpus": gpus,
-            }
-        if gpus:
-            name = gpus[0].get("name", "")
-            vendor = gpus[0].get("vendor", "unknown")
-            return {"backend": "directml" if vendor == "amd" else "cpu", "vendor": vendor, "name": name, "gpus": gpus}
+        # A positive inventory wins. An empty inventory keeps the historical
+        # Torch/DirectML probes below; the injected-snapshot path never reprobes.
+        if isinstance(sysinfo, dict) and (sysinfo.get("pytorch_device") or sysinfo.get("gpus")):
+            return _gpu_from_system(sysinfo)
     except Exception as e:
         _LOG.debug(f"hardware detect failed: {e}")
     try:
@@ -158,15 +173,35 @@ def _local_ace_available():
         return False
 
 
-def get_adaptive_config(overrides: dict | None = None) -> dict:
+def _resources_from_system(system: dict) -> tuple[float, float | None, dict]:
+    """Normalize measurements from an already captured system inventory."""
+    system = system if isinstance(system, dict) else {}
+    ram = system.get("ram_total_gib")
+    free_ram = system.get("ram_available_gib")
+    try:
+        ram = float(ram) if ram is not None else 0.0
+    except (TypeError, ValueError):
+        ram = 0.0
+    try:
+        free_ram = float(free_ram) if free_ram is not None else None
+    except (TypeError, ValueError):
+        free_ram = None
+    return ram, free_ram, _gpu_from_system(system)
+
+
+def get_adaptive_config(overrides: dict | None = None, *, system: dict | None = None) -> dict:
     """
     Возвращает адаптивный конфиг для HitFactory под текущее железо.
-    Можно передать overrides для форса (например, для тестов).
+    Можно передать overrides для форса (например, для тестов) или уже измеренный
+    `system`: тогда выбор бэкенда использует тот же снимок, что и preflight.
     breakthrough=True / ZSMM_BREAKTHROUGH=1 — форсит медленный но рабочий режим на любом PC (ротатор, CPU, чанки).
     """
-    ram = _get_ram()
-    free_ram = _get_free_ram()
-    gpu = _detect_gpu()
+    if system is None:
+        ram = _get_ram()
+        free_ram = _get_free_ram()
+        gpu = _detect_gpu()
+    else:
+        ram, free_ram, gpu = _resources_from_system(system)
     backend = gpu.get("backend", "cpu")
     vendor = gpu.get("vendor", "unknown")
     vram_total = gpu.get("vram_total") or 0

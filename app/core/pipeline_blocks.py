@@ -242,7 +242,8 @@ def _run_post_master_stages(
             final_master = str(path)
             if recipe.get("enhanced_dsp", True):
                 dsp = apply_adaptive_enhance(
-                    final_master, recipe.get("adaptive_level", 0), True
+                    final_master, recipe.get("adaptive_level", 0), True,
+                    beat_engine=recipe.get("beat_engine"),
                 )
                 result["adaptive_dsp"] = dsp
         return result

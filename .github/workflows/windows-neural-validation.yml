@@ -1,7 +1,7 @@
 name: Windows - real neural validation
 on:
   push:
-    branches: ['arena/bbed83d1-zs-music-maker']
+    branches: ['arena/bbed83d1-zs-music-maker', 'arena/ab25115c-zs-music-maker']
     paths:
       - '.github/workflows/windows-neural-validation.yml'
       - 'tools/windows_neural_smoke.py'
@@ -35,9 +35,18 @@ on:
       - 'app/ai/hardware.py'
       - 'app/ai/profiles.py'
       - 'app/ai/registry.py'
+      - 'app/ai/agent_preflight.py'
+      - 'app/cli/agent_task.py'
+      - 'app/core/bootstrap.py'
+      - 'modules/agent_guide/preflight_report.py'
+      - 'modules/agent_guide/runner.py'
+      - 'modules/hit_factory/adaptive.py'
+      - 'modules/rvc_manager/infer.py'
       - 'tests/test_ai_registry.py'
       - 'tests/test_ai_hardware_detection.py'
       - 'tests/test_hardware_profiles_contract.py'
+      - 'tests/test_agent_preflight.py'
+      - 'tests/test_rvc_infer_imports.py'
       - 'modules/silero_loader.py'
   workflow_dispatch:
 permissions:
@@ -55,11 +64,11 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install torch==2.5.1 torchaudio==2.5.1 --index-url https://download.pytorch.org/whl/cpu
-          pip install numpy==1.26.4 soundfile omegaconf pyyaml requests psutil pytest
-      - name: Verify hardware and offline contracts on Windows (mocked model tests, not inference)
+          pip install numpy==1.26.4 soundfile omegaconf pyyaml requests psutil cloudpickle==3.1.2 pytest
+      - name: Verify hardware, installed preflight and offline contracts (mocks are not inference)
         shell: pwsh
         run: |
-          python -m pytest tests/test_ai_hardware_detection.py tests/test_adaptive_hardware.py tests/test_ai_registry.py tests/test_hardware_profiles_contract.py tests/test_neural_benchmark.py tests/test_silero_offline.py tests/test_local_model_benchmark.py -q --junitxml=output/windows-neural-smoke/contracts.xml 2>&1 | Tee-Object -FilePath hardware-contracts.log
+          python -m pytest tests/test_ai_hardware_detection.py tests/test_adaptive_hardware.py tests/test_ai_registry.py tests/test_hardware_profiles_contract.py tests/test_neural_benchmark.py tests/test_silero_offline.py tests/test_local_model_benchmark.py tests/test_agent_preflight.py tests/test_rvc_infer_imports.py -q --junitxml=output/windows-neural-smoke/contracts.xml 2>&1 | Tee-Object -FilePath hardware-contracts.log
           $code = $LASTEXITCODE
           $detail = ((Get-Content hardware-contracts.log | Select-Object -Last 15) -join ' | ') -replace '%','%25'
           if ($code -ne 0) { Write-Output "::error title=Hardware regression::$detail" } else { Write-Output "::notice title=Hardware regression::$detail" }

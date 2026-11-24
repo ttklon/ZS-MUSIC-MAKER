@@ -1,0 +1,32 @@
+{
+  "schema": 1,
+  "task": "T0033",
+  "date": "2026-11-23",
+  "source_head": "1fc65ffa58686cfd838d19dfb8c46009ee1bc4bb",
+  "working_tree_includes_uncommitted_changes": true,
+  "python": "3.11.2",
+  "design_artifact": "docs/RESULT_CONTRACT.md",
+  "decision": "Additive canonical schema-1 outcome; retain legacy ok/verdict/percent as compatibility projections; caller owns required_names; missing required stage is blocked.",
+  "alternatives_considered": [
+    "Changing legacy StageResult.ok semantics",
+    "Using verdict/percent as readiness",
+    "Duplicating outcome formats in CLI/UI",
+    "Auto-downgrading absent stages to optional"
+  ],
+  "rollback": "Revert only the affected consumer adapter while retaining the typed outcome; unknown/conflicting outcome fails closed; never remove required-stage guard.",
+  "observed_contract": {
+    "status": "blocked",
+    "succeeded": false,
+    "reasons": [
+      "voice: Обязательная стадия не выполнена"
+    ]
+  },
+  "test": {
+    "command": "PYTHONPATH=/tmp/arena-hardware-tests-deps python3 -m pytest tests/test_task_outcome_contract.py tests/test_pipeline_stage_contract.py -q --tb=short",
+    "passed": 52,
+    "failed": 0,
+    "duration_seconds": 0.07
+  },
+  "acceptance_met": true,
+  "scope": "Technical decision is accepted for the stage-result model; it does not certify full migration across all public entrypoints or song quality."
+}

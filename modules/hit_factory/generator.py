@@ -33,10 +33,9 @@ from modules.hit_factory.readiness import attempt_readiness
 from modules.hit_factory.retry import stop_for_environment
 
 try:
-    from modules.hit_factory.adaptive import get_adaptive_config, log_adaptive
+    from modules.hit_factory.adaptive import get_adaptive_config
 except Exception:
-    get_adaptive_config = lambda overrides=None: {"level": 0, "level_name": "ultra_light (DSP only)", "duration_sec": 30, "max_attempts": 2, "human_preset": "light", "use_acestep": False, "use_musicgen": False, "use_silero": False, "ram_gb": 0, "gpu": {}}
-    log_adaptive = lambda: {}
+    get_adaptive_config = lambda overrides=None, **kwargs: {"level": 0, "level_name": "ultra_light (DSP only)", "duration_sec": 30, "max_attempts": 2, "human_preset": "light", "use_acestep": False, "use_musicgen": False, "use_silero": False, "ram_gb": 0, "gpu": {}}
 
 
 def _maybe_auto_genre(genre: str | None, theme: str | None) -> str | None:
@@ -142,12 +141,16 @@ class HitFactory:
         human_preset: str | None = None,
         verbose: bool = True,
         adaptive: bool = True,
+        adaptive_config: dict[str, Any] | None = None,
     ):
         self.output_root = Path(output_root)
         self.output_root.mkdir(parents=True, exist_ok=True)
-        self.adaptive_cfg = get_adaptive_config() if adaptive else {}
-        if adaptive and self.adaptive_cfg:
-            log_adaptive()
+        if adaptive_config is not None and not isinstance(adaptive_config, dict):
+            raise TypeError("adaptive_config must be an object")
+        if adaptive_config is not None and not adaptive:
+            raise ValueError("adaptive_config requires adaptive=True")
+        self.adaptive_cfg = (dict(adaptive_config) if adaptive_config is not None
+                             else get_adaptive_config() if adaptive else {})
         self.min_score = float(min_score)
         self.evolve = bool(evolve)
         if max_attempts is None:

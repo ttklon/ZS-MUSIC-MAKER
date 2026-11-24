@@ -93,42 +93,7 @@ function summary(answers) {
     + `референсы=${refCount} · голос=${voice}`;
 }
 
-/**
- * Разобрать лог задачи на прогресс и результат.
- *
- * Возвращает `{masterPath, verdict, blocked, steps}`. Строки с `[agent-hit]`
- * становятся шагами агента, остальные — обычным выводом Python: прятать их
- * нельзя, именно там видна причина отказа ступени.
- */
-function parseLog(lines) {
-  const result = { masterPath: null, verdict: null, blocked: [], steps: [] };
-  for (const raw of lines) {
-    const line = String(raw || '');
-    const event = window.ZSMM_TASK_EVENTS?.parseEvent(line);
-    if (event?.type === 'done') {
-      const payload = event.report;
-      result.masterPath = payload.master_path || null;
-      result.verdict = payload.verdict || null;
-      result.blocked = Array.isArray(payload.blocked) ? payload.blocked : [];
-      continue;
-    }
-    if (line.includes(REPORT_MARK)) result.steps.push(line.split(REPORT_MARK)[1].trim());
-    else if (line.trim()) result.steps.push(line.trim());
-  }
-  return result;
-}
-
-/** Итог прогона человеческим языком. */
-function reportText(result) {
-  const lines = [];
-  if (result.verdict) lines.push(`Вердикт: ${result.verdict}`);
-  lines.push(result.masterPath
-    ? `Готовый трек: ${result.masterPath}`
-    : 'Готового мастера нет — причина ниже.');
-  for (const item of result.blocked) lines.push(`· ${item.stage}: ${item.reason}`);
-  if (result.masterPath) lines.push('Плеер откроет тот же файл, что собрал пайплайн.');
-  return lines.join('\n');
-}
+const { parseLog, reportText } = window.ZSMM_AGENT_REPORT;
 
 /** Кнопка «открыть в плеере» живёт в разметке раздела и включается по факту. */
 function wireOpenButton() {
@@ -149,9 +114,10 @@ async function loadAgent() {
   root.append(el(
     'p',
     'muted',
-    'Агент ведёт сам: ответь на 4 вопроса и нажми «Сделать хит». Жанр, тренды, досье, текст, '
-    + 'голос, бит, микс и мастеринг он делает без тебя. Первый запуск может занять время: '
-    + 'тяжёлые движки докачиваются один раз и дальше работают офлайн.',
+    'Ответь на 4 вопроса и нажми «Сделать хит». Перед запуском агент проверит доступные ресурсы; '
+    + 'подготовка движков и моделей — отдельная задача. Генерация не докачивает модели автоматически, '
+    + 'а инвентаризация и процедурный DSP-рендер сами по себе не подтверждают модельный inference '
+    + 'или принятый профиль продукта.',
   ));
   for (const question of QUESTIONS) root.append(questionPanel(question));
   const memory = el('p', 'muted', 'Тема и артист сохраняются только по кнопке. Файлы голоса и референсов не сохраняются.');
@@ -179,7 +145,7 @@ async function loadAgent() {
   refs.status.style.whiteSpace = 'pre-wrap';
   refs.status.style.marginTop = '8px';
   refs.log = el('pre', 'output', '');
-  refs.open = el('button', 'ghost', 'Открыть трек в плеере');
+  refs.open = el('button', 'ghost', 'Открыть WAV-артефакт');
   refs.open.disabled = true;
   refs.openNote = el('p', 'muted', '');
   const openRow = el('div', null);
@@ -267,7 +233,7 @@ async function runHit(btnHit) {
   refs.open.disabled = true;
   refs.open.dataset.master = '';
   refs.openNote.textContent = '';
-  refs.status.textContent = `${summary(answers)}\nЗапускаю: докачка (если нужна) → текст → голос → бит → мастер…`;
+  refs.status.textContent = `${summary(answers)}\nЗапускаю аппаратный preflight, затем доступные стадии генерации…`;
 
   const onEvent = (event) => {
     if (!event) return;
@@ -288,7 +254,7 @@ async function runHit(btnHit) {
     unsubscribe();
     if (done?.report) collected.push(JSON.stringify({ schema: 'zsmm.task', version: 1,
       task_id: done.taskId, seq: 1, type: 'done', ok: done.ok, report: done.report }));
-    const result = parseLog(collected);
+    const result = parseLog(collected, window.ZSMM_TASK_EVENTS?.parseEvent);
     refs.status.textContent = reportText(result);
     refs.open.disabled = !result.masterPath;
     refs.open.dataset.master = result.masterPath || '';

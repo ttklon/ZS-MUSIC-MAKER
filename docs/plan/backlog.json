@@ -2849,6 +2849,11 @@
           "run_url": "https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45034836350",
           "artifact": "docs/plan/evidence/T0011-T0040.md",
           "observed": "Проверены изменения соответствующего раздела протокола; result/outcome/hardware contracts и packaged Windows job прошли. Это не генерация песни."
+        },
+        {
+          "kind": "technical_decision_and_rollback",
+          "artifact": "docs/plan/evidence/restart-hardware-design-T0023-20261123.md",
+          "observed": "Решение, отвергнутые альтернативы, backend-границы и rollback сохранены. Это design-output, не реальные inference measurements; strict restart acceptance остаётся открытой."
         }
       ],
       "completion_rule": "Изменение + проверка + сохранённое доказательство; наличие файла или зелёный import недостаточны."
@@ -2907,6 +2912,13 @@
           "run_url": "https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45034836350",
           "artifact": "docs/plan/evidence/T0011-T0040.md",
           "observed": "Проверены изменения соответствующего раздела протокола; result/outcome/hardware contracts и packaged Windows job прошли. Это не генерация песни."
+        },
+        {
+          "kind": "installed_nsis_hardware_preflight_integration",
+          "commit": "405cd6bd52ea070b4a51decf09d5f39f3891ed98",
+          "run_url": "https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45207868772",
+          "artifact": "docs/plan/evidence/restart-hardware-installed-path-windows-45207868772.json",
+          "observed": "Clean Windows NSIS installed check passed through the active creation UI, agent IPC/shared runner and bundled Python. Unknown/insufficient RAM, disk and VRAM plus unbudgeted MusicGen denial; file preservation and measured inventory-only DSP retry asserted. Synthetic denial values and setup-unlock fixture are not physical-resource or setup acceptance; no CUDA/AMD inference or quality acceptance."
         }
       ],
       "completion_rule": "Изменение + проверка + сохранённое доказательство; наличие файла или зелёный import недостаточны."
@@ -2936,6 +2948,20 @@
           "run_url": "https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45034836350",
           "artifact": "docs/plan/evidence/T0011-T0040.md",
           "observed": "Проверены изменения соответствующего раздела протокола; result/outcome/hardware contracts и packaged Windows job прошли. Это не генерация песни."
+        },
+        {
+          "kind": "installed_nsis_hardware_preflight_integration",
+          "commit": "405cd6bd52ea070b4a51decf09d5f39f3891ed98",
+          "run_url": "https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45207868772",
+          "artifact": "docs/plan/evidence/restart-hardware-installed-path-windows-45207868772.json",
+          "observed": "Clean Windows NSIS installed check passed through the active creation UI, agent IPC/shared runner and bundled Python. Unknown/insufficient RAM, disk and VRAM plus unbudgeted MusicGen denial; file preservation and measured inventory-only DSP retry asserted. Synthetic denial values and setup-unlock fixture are not physical-resource or setup acceptance; no CUDA/AMD inference or quality acceptance."
+        },
+        {
+          "kind": "installed_nsis_model_worker_cancellation",
+          "commit": "089d819053fe7552d5477d815345f1594b87334c",
+          "run_url": "https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45217099122",
+          "artifact": "docs/plan/evidence/restart-hardware-installed-cancel-windows-45217099122.json",
+          "observed": "The clean installed UI/shared-runner/bundled-Python check passed its gated cancellation scenario: visible Stop action, confirmed termination, exited worker/task and lock reacquisition. The stage function was test-only with model=None, so no model loading/inference or product acceptance is claimed; report payload is unavailable from sandbox artifact storage."
         }
       ],
       "completion_rule": "Изменение + проверка + сохранённое доказательство; наличие файла или зелёный import недостаточны."
@@ -2965,6 +2991,13 @@
           "run_url": "https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45034836350",
           "artifact": "docs/plan/evidence/T0011-T0040.md",
           "observed": "Проверены изменения соответствующего раздела протокола; result/outcome/hardware contracts и packaged Windows job прошли. Это не генерация песни."
+        },
+        {
+          "kind": "installed_nsis_hardware_preflight_integration",
+          "commit": "405cd6bd52ea070b4a51decf09d5f39f3891ed98",
+          "run_url": "https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45207868772",
+          "artifact": "docs/plan/evidence/restart-hardware-installed-path-windows-45207868772.json",
+          "observed": "Clean Windows NSIS installed check passed through the active creation UI, agent IPC/shared runner and bundled Python. Unknown/insufficient RAM, disk and VRAM plus unbudgeted MusicGen denial; file preservation and measured inventory-only DSP retry asserted. Synthetic denial values and setup-unlock fixture are not physical-resource or setup acceptance; no CUDA/AMD inference or quality acceptance."
         }
       ],
       "completion_rule": "Изменение + проверка + сохранённое доказательство; наличие файла или зелёный import недостаточны."
@@ -2994,6 +3027,13 @@
           "run_url": "https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45034836350",
           "artifact": "docs/plan/evidence/T0011-T0040.md",
           "observed": "Проверены изменения соответствующего раздела протокола; result/outcome/hardware contracts и packaged Windows job прошли. Это не генерация песни."
+        },
+        {
+          "kind": "installed_nsis_hardware_preflight_integration",
+          "commit": "405cd6bd52ea070b4a51decf09d5f39f3891ed98",
+          "run_url": "https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45207868772",
+          "artifact": "docs/plan/evidence/restart-hardware-installed-path-windows-45207868772.json",
+          "observed": "Clean Windows NSIS installed check passed through the active creation UI, agent IPC/shared runner and bundled Python. Unknown/insufficient RAM, disk and VRAM plus unbudgeted MusicGen denial; file preservation and measured inventory-only DSP retry asserted. Synthetic denial values and setup-unlock fixture are not physical-resource or setup acceptance; no CUDA/AMD inference or quality acceptance."
         }
       ],
       "completion_rule": "Изменение + проверка + сохранённое доказательство; наличие файла или зелёный import недостаточны."
@@ -3081,6 +3121,11 @@
           "run_url": "https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45034836350",
           "artifact": "docs/plan/evidence/T0011-T0040.md",
           "observed": "Проверены изменения соответствующего раздела протокола; result/outcome/hardware contracts и packaged Windows job прошли. Это не генерация песни."
+        },
+        {
+          "kind": "required_stage_contract_spec_and_test",
+          "artifact": "docs/plan/evidence/restart-T0031-contract-linux-20261123.json",
+          "observed": "Missing required voice remains blocked when music reports OK; contract example and dedicated regression pass. Existing backlog status retained; strict restart acceptance is tracked separately."
         }
       ],
       "completion_rule": "Изменение + проверка + сохранённое доказательство; наличие файла или зелёный import недостаточны."
@@ -3110,6 +3155,11 @@
           "run_url": "https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45034836350",
           "artifact": "docs/plan/evidence/T0011-T0040.md",
           "observed": "Проверены изменения соответствующего раздела протокола; result/outcome/hardware contracts и packaged Windows job прошли. Это не генерация песни."
+        },
+        {
+          "kind": "legacy_stage_status_baseline",
+          "artifact": "docs/plan/evidence/restart-T0032-baseline-linux-20261123.json",
+          "observed": "Reproduced the legacy pass-like BLOCKED fields alongside canonical blocked/non-success; added an explicit regression documenting the compatibility boundary."
         }
       ],
       "completion_rule": "Изменение + проверка + сохранённое доказательство; наличие файла или зелёный import недостаточны."
@@ -3139,6 +3189,11 @@
           "run_url": "https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45034836350",
           "artifact": "docs/plan/evidence/T0011-T0040.md",
           "observed": "Проверены изменения соответствующего раздела протокола; result/outcome/hardware contracts и packaged Windows job прошли. Это не генерация песни."
+        },
+        {
+          "kind": "typed_outcome_decision_and_rollback",
+          "artifact": "docs/plan/evidence/restart-T0033-outcome-design-linux-20261123.json",
+          "observed": "Documented additive schema decision, rejected alternatives, compatibility boundary and fail-closed rollback; missing required stage remains blocked in regression."
         }
       ],
       "completion_rule": "Изменение + проверка + сохранённое доказательство; наличие файла или зелёный import недостаточны."
@@ -3168,6 +3223,11 @@
           "run_url": "https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45034836350",
           "artifact": "docs/plan/evidence/T0011-T0040.md",
           "observed": "Проверены изменения соответствующего раздела протокола; result/outcome/hardware contracts и packaged Windows job прошли. Это не генерация песни."
+        },
+        {
+          "kind": "canonical_outcome_implementation_and_regression",
+          "artifact": "docs/plan/evidence/restart-T0034-outcome-implementation-linux-20261123.json",
+          "observed": "Canonical outcome emits blocked for a missing required stage and fails closed on malformed caller-owned stage-name/collection inputs; 59 targeted contract tests passed."
         }
       ],
       "completion_rule": "Изменение + проверка + сохранённое доказательство; наличие файла или зелёный import недостаточны."
@@ -3197,6 +3257,11 @@
           "run_url": "https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45034836350",
           "artifact": "docs/plan/evidence/T0011-T0040.md",
           "observed": "Проверены изменения соответствующего раздела протокола; result/outcome/hardware contracts и packaged Windows job прошли. Это не генерация песни."
+        },
+        {
+          "kind": "shared_outcome_entrypoint_integration",
+          "artifact": "docs/plan/evidence/restart-T0035-entrypoints-linux-20261123.json",
+          "observed": "Classic and agent result paths use caller-owned required stages and typed outcome for exit status; God/async adapters are wired. Selected contract/integration suite passed; not a model render."
         }
       ],
       "completion_rule": "Изменение + проверка + сохранённое доказательство; наличие файла или зелёный import недостаточны."
@@ -3226,6 +3291,11 @@
           "run_url": "https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45034836350",
           "artifact": "docs/plan/evidence/T0011-T0040.md",
           "observed": "Проверены изменения соответствующего раздела протокола; result/outcome/hardware contracts и packaged Windows job прошли. Это не генерация песни."
+        },
+        {
+          "kind": "outcome_failure_cancellation_and_retry",
+          "artifact": "docs/plan/evidence/restart-T0036-recovery-linux-20261123.json",
+          "observed": "Malformed declared reasons fail closed; canceled retry preserves previous stage state, avoids stale audio inspection, and does not change prior file bytes. Contract tests pass; no live model worker claim."
         }
       ],
       "completion_rule": "Изменение + проверка + сохранённое доказательство; наличие файла или зелёный import недостаточны."
@@ -3255,6 +3325,11 @@
           "run_url": "https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45034836350",
           "artifact": "docs/plan/evidence/T0011-T0040.md",
           "observed": "Проверены изменения соответствующего раздела протокола; result/outcome/hardware contracts и packaged Windows job прошли. Это не генерация песни."
+        },
+        {
+          "kind": "typed_outcome_positive_negative_regression",
+          "artifact": "docs/plan/evidence/restart-T0037-outcome-regression-linux-20261123.json",
+          "observed": "Outcome tests assert exact success, required-stage blocked, canceled, malformed-stage failure and result acceptance. Fixture contract tests do not claim model/backend inference."
         }
       ],
       "completion_rule": "Изменение + проверка + сохранённое доказательство; наличие файла или зелёный import недостаточны."

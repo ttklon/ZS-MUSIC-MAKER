@@ -71,6 +71,16 @@ def test_hit_factory_import():
     assert HitFactory is not None
     assert quick_hit is not None
 
+def test_hit_factory_accepts_preflight_config_without_redetecting(monkeypatch, tmp_path):
+    import pytest
+    from modules.hit_factory import generator
+
+    monkeypatch.setattr(generator, "get_adaptive_config", lambda **_kwargs: pytest.fail("must reuse preflight"))
+    selected = {"level": 0, "use_acestep": False, "use_musicgen": False}
+    factory = generator.HitFactory(output_root=tmp_path / "hits", adaptive_config=selected, verbose=False)
+
+    assert factory.adaptive_cfg == selected and factory.adaptive_cfg is not selected
+
 def test_hit_factory_config_weights_sum():
     from modules.hit_factory.config import HIT_GENRE_WEIGHTS
     # все веса >0

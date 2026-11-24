@@ -1,0 +1,54 @@
+{
+  "schema": 1,
+  "run": 45207868772,
+  "source": "405cd6bd52ea070b4a51decf09d5f39f3891ed98",
+  "workflow": "Product plan integrity - Windows",
+  "display_title": "Drive installed preflight through creation UI",
+  "conclusion": "success",
+  "url": "https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45207868772",
+  "installed_check": {
+    "job": "packaged-product-specification",
+    "job_id": 137808383247,
+    "job_url": "https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45207868772/job/137808383247",
+    "step": "Clean NSIS install, actual installed window, ACL and uninstall",
+    "step_conclusion": "success",
+    "nsis_report_artifact": {
+      "name": "nsis-install-check",
+      "id": 14836040687,
+      "expired": false,
+      "size_bytes": 18728,
+      "created_at": "2026-11-23T15:52:19Z"
+    }
+  },
+  "other_jobs": [
+    {
+      "name": "validate-plan-not-product",
+      "id": 137808383781,
+      "conclusion": "success",
+      "url": "https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45207868772/job/137808383781"
+    },
+    {
+      "name": "result-outcome-hardware-contracts",
+      "id": 137808384138,
+      "conclusion": "success",
+      "url": "https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45207868772/job/137808384138"
+    }
+  ],
+  "verified_scope": [
+    "Clean x64 NSIS installation and the installed packaged window completed successfully.",
+    "The installed preflight script can return success only when canonical runtime isolation, the synthetic UI-unlock check, every denial case, measured retry, and file-preservation checks all pass.",
+    "The active creation screen is driven through its prepare UI and agent-hit UI; agent-hit uses the installed task IPC/shared runner and bundled Python.",
+    "Denial cases cover unknown/insufficient RAM, disk and VRAM, plus unbudgeted MusicGen; synthetic resource values are used to exercise fail-closed branches.",
+    "Measured retry uses the Windows runner inventory and stays explicitly inventory-only/procedural DSP; inference and product quality are not accepted."
+  ],
+  "acceptance_records": {
+    "A0003": "technical_pass_pending_independent_owner_acceptance",
+    "A0004": "technical_pass_pending_independent_owner_acceptance",
+    "independent_owner": "not assigned"
+  },
+  "limitations": [
+    "Bootstrap response is test-only and only unlocks the generation action; no engine/model installation or setup acceptance is claimed.",
+    "Synthetic denial measurements prove enforcement on the installed path, not behavior on a physically low-memory/low-VRAM machine.",
+    "No CUDA/AMD model inference or song-quality acceptance is established by this run."
+  ]
+}

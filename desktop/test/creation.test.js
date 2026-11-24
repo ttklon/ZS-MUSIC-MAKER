@@ -42,14 +42,25 @@ test('one window connects idea, preparation, generation and partial result', asy
   const f = fixture(); await f.load();
   f.document.getElementById('creation-mood').value = 'ночной город';
   f.document.getElementById('creation-mood').dispatch('input');
+  f.document.getElementById('creation-artist').value = 'Артист';
+  f.document.getElementById('creation-artist').dispatch('input');
+  f.document.getElementById('creation-refs').value = 'reference.wav';
+  f.document.getElementById('creation-refs').dispatch('input');
+  f.document.getElementById('creation-voice').value = 'C:\\Users\\Test\\own.wav';
+  f.document.getElementById('creation-voice').dispatch('input');
   await f.click('Далее — подготовить студию');
   await f.click('Проверить и подготовить автоматически');
   assert.equal(f.calls.find(c => c[0] === 'task')[1], 'bootstrap');
   assert.equal(f.calls.find(c => c[1]?.networkOnline !== undefined)[1].networkOnline, false);
   f.done({ ok: true });
   await f.click('Создать трек');
-  assert.equal(f.calls.find(c => c[0] === 'create')[1].mood, 'ночной город');
-  assert.deepEqual(f.calls.find(c => c[0] === 'argv')[1], ['--agent-hit', '--agent-mood', 'ночной город']);
+  assert.equal(JSON.stringify(f.calls.find(c => c[0] === 'create')[1]), JSON.stringify({
+    mood: 'ночной город', artist: 'Артист', refs: 'reference.wav', voice: 'C:\\Users\\Test\\own.wav',
+  }));
+  assert.deepEqual(f.calls.find(c => c[0] === 'argv')[1], [
+    '--agent-hit', '--agent-mood', 'ночной город', '--agent-refs', 'reference.wav',
+    '--agent-voice', 'C:\\Users\\Test\\own.wav', '--agent-artist', 'Артист',
+  ]);
   f.event({ type: 'protocol', event: { type: 'done', report: { master_path: '/music/draft.wav', verdict: 'PARTIAL', blocked: [{ stage: 'voice', reason: 'нет вокала' }] } } });
   f.done({ ok: true });
   assert.match(f.root.textContent, /неполный результат/);
@@ -121,6 +132,24 @@ test('settings persist network consent and show actual environment paths', async
   assert.match(host.textContent, /disk full/);
 });
 
+test('current creation UI exposes hardware preflight reasons and unverified status', async () => {
+  const f = fixture(); await f.load();
+  await f.click('Далее — подготовить студию');
+  await f.click('Проверить и подготовить автоматически'); f.done({ ok: true });
+  await f.click('Создать трек');
+  const reason = 'ram_available_gib is below the safety floor';
+  f.done({ ok: false, report: {
+    master_path: null,
+    result: { label: 'Аудиочерновик: состав не подтверждён', status: 'failed', reasons: [reason] },
+    hardware_preflight: { status: 'blocked', decision: 'refuse', selected_backend: 'not_selected',
+      reasons: [reason], inference_verified: false, product_profile_accepted: false },
+    blocked: [{ stage: 'hardware_preflight', reason }],
+  } });
+  assert.match(f.root.textContent, /Аппаратный preflight: blocked · refuse/);
+  assert.match(f.root.textContent, /Inference не подтверждён; профиль продукта не принят/);
+  assert.match(f.root.textContent, /ram_available_gib is below the safety floor/);
+});
+
 test('legacy HIT flag cannot label a draft as a complete result', async () => {
   const f = fixture(); await f.load(); await f.click('Далее — подготовить студию');
   await f.click('Проверить и подготовить автоматически'); f.done({ ok: true });
@@ -137,7 +166,7 @@ test('legacy HIT flag cannot label a draft as a complete result', async () => {
 test('guide explains actual action and incomplete recipe instead of a false workflow promise', async () => {
   const f = fixture(); await f.load();
   assert.match(f.root.textContent, /Сначала — замысел/);
-  assert.match(f.root.textContent, /Полный рецепт/);
+  assert.match(f.root.textContent, /передаются в общий Python-рецепт/);
   assert.match(f.root.textContent, /Открыть настройки/);
   await f.click('Далее — подготовить студию');
   assert.match(f.root.textContent, /Затем — подготовка/);

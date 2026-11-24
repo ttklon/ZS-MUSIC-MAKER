@@ -1425,7 +1425,10 @@
         "docs/plan/evidence/restart-hardware-gui-windows-45161164359.json",
         "docs/plan/evidence/restart-hardware-gui-memory-windows-45163408228.json",
         "docs/plan/evidence/restart-hardware-gui-input-windows-45166373798.json",
-        "docs/plan/evidence/restart-hardware-closeout-audit.md"
+        "docs/plan/evidence/restart-hardware-closeout-audit.md",
+        "docs/plan/evidence/restart-hardware-sandbox-inventory-20261123.json",
+        "docs/plan/evidence/restart-hardware-strict-windows-45166373798.json",
+        "docs/plan/evidence/restart-hardware-contract-tests-linux-20261123.json"
       ],
       "remaining": [
         "Свести заявляемые конфигурации с реальными протоколами и точными границами; полный CPU/GPU критерий не принят."
@@ -1451,7 +1454,8 @@
         "docs/plan/evidence/restart-hardware-gui-windows-45161164359.json",
         "docs/plan/evidence/restart-hardware-gui-memory-windows-45163408228.json",
         "docs/plan/evidence/restart-hardware-gui-input-windows-45166373798.json",
-        "docs/plan/evidence/restart-hardware-closeout-audit.md"
+        "docs/plan/evidence/restart-hardware-closeout-audit.md",
+        "docs/plan/evidence/restart-hardware-contract-tests-linux-20261123.json"
       ],
       "remaining": [
         "Baseline и негативное воспроизведение есть; новый GUI input тест не требуется. Общая hardware приёмка пакета не выполнена."
@@ -1477,10 +1481,12 @@
         "docs/plan/evidence/restart-hardware-gui-windows-45161164359.json",
         "docs/plan/evidence/restart-hardware-gui-memory-windows-45163408228.json",
         "docs/plan/evidence/restart-hardware-gui-input-windows-45166373798.json",
-        "docs/plan/evidence/restart-hardware-closeout-audit.md"
+        "docs/plan/evidence/restart-hardware-closeout-audit.md",
+        "docs/plan/evidence/restart-hardware-contract-tests-linux-20261123.json",
+        "docs/plan/evidence/restart-hardware-design-T0023-20261123.md"
       ],
       "remaining": [
-        "Зафиксировать альтернативы/rollback канонической installed recipe hardware-интеграции; не отдельного JS beat."
+        "Технический выбор, альтернативы и rollback описаны; строгий пакетный критерий по измеренным CPU/CUDA/AMD-профилям не выполнен."
       ]
     },
     {
@@ -1503,7 +1509,10 @@
         "docs/plan/evidence/restart-hardware-gui-windows-45161164359.json",
         "docs/plan/evidence/restart-hardware-gui-memory-windows-45163408228.json",
         "docs/plan/evidence/restart-hardware-gui-input-windows-45166373798.json",
-        "docs/plan/evidence/restart-hardware-closeout-audit.md"
+        "docs/plan/evidence/restart-hardware-closeout-audit.md",
+        "docs/plan/evidence/restart-hardware-sandbox-inventory-20261123.json",
+        "docs/plan/evidence/restart-hardware-strict-windows-45166373798.json",
+        "docs/plan/evidence/restart-hardware-contract-tests-linux-20261123.json"
       ],
       "remaining": [
         "Измеренная матрица всех заявляемых CPU/GPU конфигураций ещё неполна; guards и оценки не заменяют inference."
@@ -1511,8 +1520,8 @@
     },
     {
       "id": "T0025",
-      "state": "in_progress",
-      "acceptance_met": false,
+      "state": "complete",
+      "acceptance_met": true,
       "evidence": [
         "docs/plan/evidence/restart-T0021-T0030.md",
         "docs/plan/evidence/restart-hardware-silero-45142874352.json",
@@ -1529,16 +1538,15 @@
         "docs/plan/evidence/restart-hardware-gui-windows-45161164359.json",
         "docs/plan/evidence/restart-hardware-gui-memory-windows-45163408228.json",
         "docs/plan/evidence/restart-hardware-gui-input-windows-45166373798.json",
-        "docs/plan/evidence/restart-hardware-closeout-audit.md"
+        "docs/plan/evidence/restart-hardware-closeout-audit.md",
+        "docs/plan/evidence/restart-hardware-installed-path-windows-45207868772.json"
       ],
-      "remaining": [
-        "Установленное приложение → общий рецепт → hardware preflight → Python pipeline: реальный наблюдаемый результат/отказ."
-      ]
+      "remaining": []
     },
     {
       "id": "T0026",
-      "state": "in_progress",
-      "acceptance_met": false,
+      "state": "complete",
+      "acceptance_met": true,
       "evidence": [
         "docs/plan/evidence/restart-T0021-T0030.md",
         "docs/plan/evidence/restart-hardware-silero-45142874352.json",
@@ -1555,16 +1563,16 @@
         "docs/plan/evidence/restart-hardware-gui-windows-45161164359.json",
         "docs/plan/evidence/restart-hardware-gui-memory-windows-45163408228.json",
         "docs/plan/evidence/restart-hardware-gui-input-windows-45166373798.json",
-        "docs/plan/evidence/restart-hardware-closeout-audit.md"
+        "docs/plan/evidence/restart-hardware-closeout-audit.md",
+        "docs/plan/evidence/restart-hardware-installed-path-windows-45207868772.json",
+        "docs/plan/evidence/restart-hardware-installed-cancel-windows-45217099122.json"
       ],
-      "remaining": [
-        "Hardware deny/retry через installed/shared-recipe путь T0025; JS GUI cancel не заменяет model-worker cancellation."
-      ]
+      "remaining": []
     },
     {
       "id": "T0027",
-      "state": "in_progress",
-      "acceptance_met": false,
+      "state": "complete",
+      "acceptance_met": true,
       "evidence": [
         "docs/plan/evidence/restart-T0021-T0030.md",
         "docs/plan/evidence/restart-hardware-silero-45142874352.json",
@@ -1581,16 +1589,15 @@
         "docs/plan/evidence/restart-hardware-gui-windows-45161164359.json",
         "docs/plan/evidence/restart-hardware-gui-memory-windows-45163408228.json",
         "docs/plan/evidence/restart-hardware-gui-input-windows-45166373798.json",
-        "docs/plan/evidence/restart-hardware-closeout-audit.md"
+        "docs/plan/evidence/restart-hardware-closeout-audit.md",
+        "docs/plan/evidence/restart-hardware-installed-path-windows-45207868772.json"
       ],
-      "remaining": [
-        "Регрессия недостающей installed hardware-интеграции после T0025/T0026; CPU contract/probe suite уже есть."
-      ]
+      "remaining": []
     },
     {
       "id": "T0028",
-      "state": "in_progress",
-      "acceptance_met": false,
+      "state": "complete",
+      "acceptance_met": true,
       "evidence": [
         "docs/plan/evidence/restart-T0021-T0030.md",
         "docs/plan/evidence/restart-hardware-silero-45142874352.json",
@@ -1607,11 +1614,10 @@
         "docs/plan/evidence/restart-hardware-gui-windows-45161164359.json",
         "docs/plan/evidence/restart-hardware-gui-memory-windows-45163408228.json",
         "docs/plan/evidence/restart-hardware-gui-input-windows-45166373798.json",
-        "docs/plan/evidence/restart-hardware-closeout-audit.md"
+        "docs/plan/evidence/restart-hardware-closeout-audit.md",
+        "docs/plan/evidence/restart-hardware-installed-path-windows-45207868772.json"
       ],
-      "remaining": [
-        "Windows installed/shared-recipe протокол; CUDA/AMD trials отдельно остаются непроведёнными."
-      ]
+      "remaining": []
     },
     {
       "id": "T0029",
@@ -1633,7 +1639,9 @@
         "docs/plan/evidence/restart-hardware-gui-windows-45161164359.json",
         "docs/plan/evidence/restart-hardware-gui-memory-windows-45163408228.json",
         "docs/plan/evidence/restart-hardware-gui-input-windows-45166373798.json",
-        "docs/plan/evidence/restart-hardware-closeout-audit.md"
+        "docs/plan/evidence/restart-hardware-closeout-audit.md",
+        "docs/plan/evidence/restart-hardware-sandbox-inventory-20261123.json",
+        "docs/plan/evidence/restart-hardware-strict-windows-45166373798.json"
       ],
       "remaining": [
         "Реальные полные заявляемые CPU/CUDA/AMD профили с backend/временем/RAM/VRAM; наличие доступного GPU runner не установлено."
@@ -1659,7 +1667,9 @@
         "docs/plan/evidence/restart-hardware-gui-windows-45161164359.json",
         "docs/plan/evidence/restart-hardware-gui-memory-windows-45163408228.json",
         "docs/plan/evidence/restart-hardware-gui-input-windows-45166373798.json",
-        "docs/plan/evidence/restart-hardware-closeout-audit.md"
+        "docs/plan/evidence/restart-hardware-closeout-audit.md",
+        "docs/plan/evidence/restart-hardware-sandbox-inventory-20261123.json",
+        "docs/plan/evidence/restart-hardware-strict-windows-45166373798.json"
       ],
       "remaining": [
         "Закрытие после T0029, согласованная матрица поддержки без открытого остатка."
@@ -1667,90 +1677,98 @@
     },
     {
       "id": "T0031",
-      "state": "in_progress",
-      "acceptance_met": false,
+      "state": "complete",
+      "acceptance_met": true,
       "evidence": [
-        "docs/plan/evidence/restart-T0001-T0050.md"
+        "docs/plan/evidence/restart-T0001-T0050.md",
+        "docs/RESULT_CONTRACT.md",
+        "docs/plan/evidence/restart-T0031-contract-linux-20261123.json"
       ],
-      "remaining": [
-        "Повторная предметная приёмка этого ID не завершена; не переносить как выполненный."
-      ]
+      "remaining": []
     },
     {
       "id": "T0032",
-      "state": "in_progress",
-      "acceptance_met": false,
+      "state": "complete",
+      "acceptance_met": true,
       "evidence": [
-        "docs/plan/evidence/restart-T0001-T0050.md"
+        "docs/plan/evidence/restart-T0001-T0050.md",
+        "docs/plan/evidence/T0011-T0040.md",
+        "docs/plan/evidence/restart-T0032-baseline-linux-20261123.json"
       ],
-      "remaining": [
-        "Повторная предметная приёмка этого ID не завершена; не переносить как выполненный."
-      ]
+      "remaining": []
     },
     {
       "id": "T0033",
-      "state": "in_progress",
-      "acceptance_met": false,
+      "state": "complete",
+      "acceptance_met": true,
       "evidence": [
-        "docs/plan/evidence/restart-T0001-T0050.md"
+        "docs/plan/evidence/restart-T0001-T0050.md",
+        "docs/RESULT_CONTRACT.md",
+        "docs/plan/evidence/restart-T0033-outcome-design-linux-20261123.json"
       ],
-      "remaining": [
-        "Повторная предметная приёмка этого ID не завершена; не переносить как выполненный."
-      ]
+      "remaining": []
     },
     {
       "id": "T0034",
-      "state": "in_progress",
-      "acceptance_met": false,
+      "state": "complete",
+      "acceptance_met": true,
       "evidence": [
-        "docs/plan/evidence/restart-T0001-T0050.md"
+        "docs/plan/evidence/restart-T0001-T0050.md",
+        "app/pipeline/outcome.py",
+        "tests/test_task_outcome_contract.py",
+        "docs/plan/evidence/restart-T0034-outcome-implementation-linux-20261123.json"
       ],
-      "remaining": [
-        "Повторная предметная приёмка этого ID не завершена; не переносить как выполненный."
-      ]
+      "remaining": []
     },
     {
       "id": "T0035",
-      "state": "in_progress",
-      "acceptance_met": false,
+      "state": "complete",
+      "acceptance_met": true,
       "evidence": [
-        "docs/plan/evidence/restart-T0001-T0050.md"
+        "docs/plan/evidence/restart-T0001-T0050.md",
+        "docs/RESULT_CONTRACT.md",
+        "app/core/stage_request.py",
+        "app/cli/pipeline.py",
+        "app/cli/agent_task.py",
+        "docs/plan/evidence/restart-T0035-entrypoints-linux-20261123.json"
       ],
-      "remaining": [
-        "Повторная предметная приёмка этого ID не завершена; не переносить как выполненный."
-      ]
+      "remaining": []
     },
     {
       "id": "T0036",
-      "state": "in_progress",
-      "acceptance_met": false,
+      "state": "complete",
+      "acceptance_met": true,
       "evidence": [
-        "docs/plan/evidence/restart-T0001-T0050.md"
+        "docs/plan/evidence/restart-T0001-T0050.md",
+        "tests/test_task_outcome_contract.py",
+        "tests/test_result_acceptance_contract.py",
+        "docs/RESULT_CONTRACT.md",
+        "docs/plan/evidence/restart-T0036-recovery-linux-20261123.json"
       ],
-      "remaining": [
-        "Повторная предметная приёмка этого ID не завершена; не переносить как выполненный."
-      ]
+      "remaining": []
     },
     {
       "id": "T0037",
-      "state": "in_progress",
-      "acceptance_met": false,
+      "state": "complete",
+      "acceptance_met": true,
       "evidence": [
-        "docs/plan/evidence/restart-T0001-T0050.md"
+        "docs/plan/evidence/restart-T0001-T0050.md",
+        "tests/test_task_outcome_contract.py",
+        "tests/test_result_acceptance_contract.py",
+        "docs/plan/evidence/restart-T0037-outcome-regression-linux-20261123.json"
       ],
-      "remaining": [
-        "Повторная предметная приёмка этого ID не завершена; не переносить как выполненный."
-      ]
+      "remaining": []
     },
     {
       "id": "T0038",
       "state": "in_progress",
       "acceptance_met": false,
       "evidence": [
-        "docs/plan/evidence/restart-T0001-T0050.md"
+        "docs/plan/evidence/restart-T0001-T0050.md",
+        ".github/workflows/product-plan.yml"
       ],
       "remaining": [
-        "Повторная предметная приёмка этого ID не завершена; не переносить как выполненный."
+        "Требуется свежий Windows run на текущем source после push; Linux 337-test regression и старый Windows run 45034836350 не заменяют эту проверку."
       ]
     },
     {
@@ -1887,11 +1905,11 @@
     }
   ],
   "latest_regression": {
-    "code_revision": "9982c3c5da5cb73410182ce5d93f4d9cb55910ac",
-    "windows_run": "https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45138708988",
+    "code_revision": "089d819053fe7552d5477d815345f1594b87334c",
+    "windows_run": "https://github.com/ttklon/ZS-MUSIC-MAKER/actions/runs/45217099122",
     "conclusion": "success",
-    "evidence": "docs/plan/evidence/restart-result-windows-45138708988.json",
-    "scope": "T0011-T0020 typed content contract, real PCM fixtures, CLI/UI boundaries; no model inference or listening acceptance"
+    "evidence": "docs/plan/evidence/restart-hardware-installed-cancel-windows-45217099122.json",
+    "scope": "Clean NSIS installed creation UI → agent-hit IPC/shared runner/bundled Python; hardware denial/retry and test-only SequentialAIRunner stage-worker cancellation with lock release; no model loading/inference or song-quality acceptance."
   },
   "reviewed_through_batch": 4
 }
