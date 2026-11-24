@@ -31,19 +31,30 @@ def _stage_ai_beat(recipe: dict[str, Any], plan: Any, out_dir: Path,
             prefix = "recorded backing: " if expected else ""
             return {"ok": False, "engine": "user_instrumental", "reason": f"{prefix}{type(exc).__name__}: {exc}"}
     if recipe.get("beat_engine") == "musicgen":
-        # Настоящая генерация MusicGen (small/medium) — CPU чанками по 30 с.
-        # Не удалось (нет весов/движка) — честный отказ, а не подмена.
+        # Dry runs never load a model; explicit MusicGen requests are not
+        # silently replaced with a procedural beat.
+        if dry_run:
+            return {"ok": True, "blocked": True, "engine": "musicgen",
+                    "reason": "MusicGen skipped in dry run"}
         from modules.beat_gen_musicgen import render_musicgen_beat
 
         prompt = f"{(recipe.get('genre') or 'trap')} instrumental, {recipe.get('theme') or ''}, " \
                  f"{(style or {}).get('target_bpm') or 0} bpm, no vocals, club ready"
-        return render_musicgen_beat(
+        result = render_musicgen_beat(
             prompt,
             str(out_dir / "beat.wav"),
             duration_sec=int((plan or {}).get("duration_sec") or 90),
             model_name=str(recipe.get("musicgen_model") or "facebook/musicgen-small"),
             device=str(recipe.get("musicgen_device") or "cpu"),
         )
+        if not isinstance(result, dict):
+            return {"ok": False, "engine": "musicgen", "reason": "MusicGen returned a malformed result"}
+        if result.get("ok"):
+            path = result.get("path") or result.get("beat_path")
+            if not isinstance(path, str) or not path:
+                return {"ok": False, "engine": "musicgen", "reason": "MusicGen returned no audio path"}
+            return {**result, "path": path}
+        return result
     if recipe.get("beat_engine") != "ace_step":
         return {"ok": False, "reason": f"unknown beat engine: {recipe.get('beat_engine')}"}
     if dry_run:

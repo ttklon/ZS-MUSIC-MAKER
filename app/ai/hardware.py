@@ -173,14 +173,15 @@ def _torch_device() -> dict:
         if torch.cuda.is_available():
             name = torch.cuda.get_device_name(0)
             rocm = bool(getattr(getattr(torch, "version", None), "hip", None))
-            total = torch.cuda.get_device_properties(0).total_memory / (1024 ** 3)
+            total_bytes = int(torch.cuda.get_device_properties(0).total_memory)
             try:
-                free = torch.cuda.mem_get_info(0)[0] / (1024 ** 3)
+                free_bytes = int(torch.cuda.mem_get_info(0)[0])
             except Exception:
-                free = None
+                free_bytes = None
             return {"name": name, "vendor": _vendor(name), "backend": "rocm" if rocm else "cuda",
-                    "total_vram_gib": round(total, 2),
-                    "free_vram_gib": round(free, 2) if free is not None else None,
+                    "total_vram_gib": round(total_bytes / (1024 ** 3), 2),
+                    "free_vram_gib": round(free_bytes / (1024 ** 3), 2) if free_bytes is not None else None,
+                    "total_vram_bytes": total_bytes, "free_vram_bytes": free_bytes,
                     "source": "pytorch", "index": 0}
     except Exception:
         logging.getLogger(__name__).debug("PyTorch GPU unavailable", exc_info=True)
@@ -197,13 +198,19 @@ def _directml_devices() -> list[dict]:
         return []
 
 
-def available_memory_gib() -> float | None:
+def available_memory_bytes() -> int | None:
+    """Exact available host RAM for admission checks; rounded GiB is display-only."""
     try:
         import psutil
-        return round(psutil.virtual_memory().available / (1024 ** 3), 2)
+        return int(psutil.virtual_memory().available)
     except Exception:
         logging.getLogger(__name__).debug("free RAM unavailable", exc_info=True)
         return None
+
+
+def available_memory_gib() -> float | None:
+    value = available_memory_bytes()
+    return round(value / (1024 ** 3), 2) if value is not None else None
 
 
 def detect_system(disk_path=None) -> dict:
@@ -225,15 +232,19 @@ def detect_system(disk_path=None) -> dict:
         if not any(a["name"] == item["name"] for a in adapters):
             adapters.append({k: item[k] for k in ("name", "vendor", "source")})
     try:
-        disk = round(shutil.disk_usage(str(disk_path or Path(__file__).resolve().parents[2])).free / (1024 ** 3), 2)
+        disk_bytes = int(shutil.disk_usage(str(disk_path or Path(__file__).resolve().parents[2])).free)
+        disk = round(disk_bytes / (1024 ** 3), 2)
     except Exception:
         logging.getLogger(__name__).debug("free disk unavailable", exc_info=True)
-        disk = None
+        disk_bytes, disk = None, None
+    ram_bytes = available_memory_bytes()
     return {
         "os": platform.system(), "os_version": platform.release(), "architecture": platform.machine(),
         "cpu_name": platform.processor() or "unknown", "cpu_threads": budget["cpu_threads"],
         "cpu_cores": budget["cpu_cores"], "ram_total_gib": budget["ram_gb"],
-        "ram_available_gib": available_memory_gib(), "disk_free_gib": disk,
+        "ram_available_gib": round(ram_bytes / (1024 ** 3), 2) if ram_bytes is not None else None,
+        "ram_available_bytes": ram_bytes,
+        "disk_free_gib": disk, "disk_free_bytes": disk_bytes,
         "gpus": adapters, "pytorch_device": torch_device or None, "directml_devices": directml,
         "default_backend": torch_device.get("backend", "cpu"),
         "notice": "Hardware detection does not verify model weights, compatibility or inference.",

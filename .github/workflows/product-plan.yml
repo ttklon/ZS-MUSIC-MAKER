@@ -75,6 +75,12 @@ on:
       - 'tests/test_product_maps.py'
       - 'app/pipeline/**'
       - 'app/ai/profiles.py'
+      - 'app/core/hardware_preflight.py'
+      - 'app/core/orchestrator.py'
+      - 'app/core/stages/beat.py'
+      - 'tests/test_hardware_preflight.py'
+      - 'tests/test_pipeline_hardware_preflight.py'
+      - 'tools/windows_installed_hardware_preflight.py'
       - 'app/cli/agent_task.py'
       - 'modules/agent_guide/narration.py'
       - 'desktop/src/sections/creation.js'
@@ -198,7 +204,7 @@ jobs:
       - name: Build NSIS without publishing
         working-directory: desktop
         run: npm run dist
-      - name: Clean NSIS install, actual installed window, ACL and uninstall
+      - name: Clean NSIS install, shared-recipe preflight, worker cancellation, ACL and uninstall
         shell: pwsh
         run: |
           $installer = Get-ChildItem desktop/dist -Filter '*Setup*.exe' | Select-Object -First 1
@@ -208,7 +214,9 @@ jobs:
         if: always()
         with:
           name: nsis-install-check
-          path: ${{ runner.temp }}/nsis-install-check.json
+          path: |
+            ${{ runner.temp }}/nsis-install-check.json
+            ${{ runner.temp }}/ZSMM-user-data-*/hardware-preflight-installed.json
           retention-days: 7
       - uses: actions/upload-artifact@v4
         if: always()

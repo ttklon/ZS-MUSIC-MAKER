@@ -130,7 +130,8 @@ def test_cli_exception_has_error_and_terminal(monkeypatch, capsys):
     monkeypatch.setattr(guide, 'run_conversation_hit', fail)
     assert agent_task.run_agent_hit(SimpleNamespace(online=False)) == 2
     records = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
-    assert [r['type'] for r in records] == ['progress', 'error', 'done']
+    assert [r['type'] for r in records] == ['progress', 'progress', 'error', 'done']
+    assert 'неполная' in records[1]['message']
     assert records[-1]['ok'] is False
 
 

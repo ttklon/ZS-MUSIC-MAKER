@@ -157,6 +157,26 @@ function result(panel) {
     panel.append(el('p', 'creation-status', report.result.label + ' · ' + report.result.status));
     for (const reason of Array.isArray(report.result.reasons) ? report.result.reasons : []) panel.append(el('p', 'creation-error', reason));
   }
+  const preparation = report?.preparation;
+  if (preparation && typeof preparation === 'object') {
+    panel.append(el('p', 'creation-status', preparation.ok === true
+      ? 'Подготовка завершена; inference не проверялся.'
+      : 'Подготовка неполная; это не подтверждение inference.'));
+    for (const blocker of Array.isArray(preparation.blockers) ? preparation.blockers.slice(0, 8) : []) {
+      panel.append(el('p', 'creation-error', String(blocker)));
+    }
+  }
+  const preflight = report?.hardware_preflight;
+  if (preflight && typeof preflight === 'object') {
+    const labels = { allowed: 'RAM/VRAM и место для WAV достаточны по оценке', blocked: 'Запуск остановлен до модели',
+      external_unmeasured: 'Внешний движок не измерен — запуск не допущен', not_required: 'Для выбранного маршрута проверка модели не требуется' };
+    panel.append(el('p', 'creation-status', 'Проверка выбранного движка: ' + (labels[preflight.status] || 'результат не подтверждён')));
+    for (const reason of Array.isArray(preflight.reasons) ? preflight.reasons : []) panel.append(el('p', 'creation-error', reason));
+    if (preflight.request?.checkpoint_cache_size_known === false) {
+      panel.append(el('p', 'muted', 'Размер checkpoint/cache неизвестен и не входит в проверку места на диске.'));
+    }
+    panel.append(el('p', 'muted', 'Ресурсная оценка не подтверждает успешный inference, качество трека или поддержку GPU.'));
+  }
   for (const block of Array.isArray(report?.blocked) ? report.blocked.filter(b => b && typeof b === 'object') : []) panel.append(el('p', 'creation-error', `${block.stage}: ${block.reason}`));
   if (report?.master_path) {
     const audio = el('div', 'creation-audio');

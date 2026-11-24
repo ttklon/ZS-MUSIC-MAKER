@@ -101,7 +101,7 @@ def test_recipe_propagates_opt_in_and_server_unavailable_is_failed(tmp_path, mon
     assert _stage_ai_beat(recipe, {}, tmp_path, {}, dry_run=True)["blocked"] is True
 
 
-def test_pipeline_routes_selected_model_to_mix(fake_server, tmp_path, monkeypatch):
+def test_pipeline_fails_closed_for_unmeasured_external_service(fake_server, tmp_path, monkeypatch):
     from app.core.orchestrator import run_full_pipeline
     state, url = fake_server
     monkeypatch.setenv("ZSMM_ACESTEP_URL", url)
@@ -110,8 +110,9 @@ def test_pipeline_routes_selected_model_to_mix(fake_server, tmp_path, monkeypatc
         "duration_sec": 10, "voice_mode": "off", "export_stems": False,
     }, out_root=tmp_path, only={"beat", "mix"})
     stages = {item["name"]: item for item in result["stages"]}
-    assert stages["_stage_beat"]["status"] == "OK"
-    assert stages["_stage_beat"]["output"]["engine"] == "ace_step_1_5_api"
-    assert stages["_stage_mix_and_sidechain"]["status"] == "OK"
-    assert (tmp_path / "beat.wav").is_file()
-    assert state["payloads"][0][1]["audio_duration"] == 10
+    assert result["hardware_preflight"]["status"] == "blocked"
+    assert result["hardware_preflight"]["request"]["resource_profile"] == "external_unmeasured"
+    assert stages["_stage_beat"]["status"] == "BLOCKED"
+    assert stages["_stage_mix_and_sidechain"]["status"] == "BLOCKED"
+    assert not (tmp_path / "beat.wav").exists()
+    assert state["payloads"] == []  # no request reaches the server without a reviewed budget

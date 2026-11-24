@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.core.hardware_preflight import canonical_musicgen_model
 from app.core.pipeline_runtime import STAGE_KEYS
 
 QUALITY_PROFILES: dict[str, dict[str, int]] = {
@@ -89,6 +90,12 @@ def build_recipe(wizard_state: dict[str, Any] | None) -> dict[str, Any]:
     всегда список. Свободный промпт пользователя подмешивается в тему.
     """
     state = dict(wizard_state or {})
+    beat_engine = state.get("beat_engine") if state.get("beat_engine") is not None else "procedural"
+    raw_duration = state.get("duration_sec")
+    # Keep malformed explicit MusicGen durations intact for the resource gate;
+    # `_as_int` is intentionally permissive for legacy DSP recipes.
+    duration_sec = (raw_duration if beat_engine == "musicgen" and raw_duration is not None
+                    and type(raw_duration) is not int else _as_int(raw_duration))
     preset_key = state.get("preset")
     preset_sv = _preset_style_vector(preset_key)
     theme = str(state.get("theme") or "лето, тачки, движ")
@@ -125,7 +132,13 @@ def build_recipe(wizard_state: dict[str, Any] | None) -> dict[str, Any]:
         "theme": theme,
         # MusicGen как бит-движок: `wizard_state` ставит `beat_engine=musicgen`,
         # когда adaptive видит audiocraft+torch (в т.ч. на CPU чанками 30 с).
-        "beat_engine": str(state.get("beat_engine") or "procedural"),
+        # Defaults apply only to absent/None values; explicit malformed values
+        # must survive normalization so hardware preflight can refuse them.
+        "beat_engine": beat_engine,
+        "musicgen_model": canonical_musicgen_model(
+            state.get("musicgen_model") if state.get("musicgen_model") is not None else "facebook/musicgen-small"
+        ),
+        "musicgen_device": state.get("musicgen_device") if state.get("musicgen_device") is not None else "cpu",
         "beat_input_path": str(state.get("beat_input_path") or ""),
         "recorded_backing_sha256": str(state.get("recorded_backing_sha256") or ""),
         "recorded_vocal_sha256": str(state.get("recorded_vocal_sha256") or ""),
@@ -137,7 +150,7 @@ def build_recipe(wizard_state: dict[str, Any] | None) -> dict[str, Any]:
         "style_vector": dict(state.get("style_vector") or {}),
         "bpm_override": _as_int(state.get("bpm_override")),
         "aggression": aggression,
-        "duration_sec": _as_int(state.get("duration_sec")),
+        "duration_sec": duration_sec,
         "user_lyrics_lines": user_lines,
         "reference_lyrics": str(state.get("reference_lyrics") or ""),
         "transcribe_references": bool(state.get("transcribe_references", False)),
