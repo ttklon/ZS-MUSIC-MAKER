@@ -1529,12 +1529,19 @@
         "docs/plan/evidence/restart-hardware-gui-windows-45161164359.json",
         "docs/plan/evidence/restart-hardware-gui-memory-windows-45163408228.json",
         "docs/plan/evidence/restart-hardware-gui-input-windows-45166373798.json",
-        "docs/plan/evidence/restart-hardware-closeout-audit.md"
+        "docs/plan/evidence/restart-hardware-closeout-audit.md",
+        "docs/HARDWARE.md",
+        "tests/test_hardware_preflight.py",
+        "tests/test_pipeline_hardware_preflight.py",
+        "tests/test_agent_preflight_transport.py",
+        "tests/test_acestep_integration.py",
+        "desktop/test/creation.test.js"
       ],
       "remaining": [
-        "Установленное приложение → общий рецепт → hardware preflight → Python pipeline: реальный наблюдаемый результат/отказ."
+        "Локальный shared-recipe/CLI/UI контракт и отказ/повтор установленного прогона проверены в Linux-репетиции (не Windows evidence); остаётся реальный установленный Windows artifact с наблюдаемым результатом/отказом через workflow_dispatch Windows NSIS job."
       ]
     },
+
     {
       "id": "T0026",
       "state": "in_progress",
@@ -1555,12 +1562,16 @@
         "docs/plan/evidence/restart-hardware-gui-windows-45161164359.json",
         "docs/plan/evidence/restart-hardware-gui-memory-windows-45163408228.json",
         "docs/plan/evidence/restart-hardware-gui-input-windows-45166373798.json",
-        "docs/plan/evidence/restart-hardware-closeout-audit.md"
+        "docs/plan/evidence/restart-hardware-closeout-audit.md",
+        "tests/test_pipeline_hardware_preflight.py",
+        "tests/test_agent_preflight_transport.py",
+        "desktop/test/creation.test.js"
       ],
       "remaining": [
-        "Hardware deny/retry через installed/shared-recipe путь T0025; JS GUI cancel не заменяет model-worker cancellation."
+        "Same-recipe RAM deny/retry и отмена model-stage worker пройдены в локальной репетиции прогона установленной проверки (Linux, не Windows evidence); Windows-реализация через NSIS workflow остаётся недоказанной."
       ]
     },
+
     {
       "id": "T0027",
       "state": "in_progress",
@@ -1584,7 +1595,7 @@
         "docs/plan/evidence/restart-hardware-closeout-audit.md"
       ],
       "remaining": [
-        "Регрессия недостающей installed hardware-интеграции после T0025/T0026; CPU contract/probe suite уже есть."
+        "Регрессия устранена: добавлены tools/windows_installed_hardware_preflight.py, desktop/scripts/check-nsis-install.ps1 и тесты T0025/T0026 с CPU контрактом; Windows-artifact evidence остаётся."
       ]
     },
     {
@@ -1610,7 +1621,7 @@
         "docs/plan/evidence/restart-hardware-closeout-audit.md"
       ],
       "remaining": [
-        "Windows installed/shared-recipe протокол; CUDA/AMD trials отдельно остаются непроведёнными."
+        "Протокол установлен: tools/windows_installed_hardware_preflight.py + desktop/scripts/check-nsis-install.ps1 + path filters в product-plan.yml; CUDA/AMD trials отдельно остаются непроведёнными."
       ]
     },
     {

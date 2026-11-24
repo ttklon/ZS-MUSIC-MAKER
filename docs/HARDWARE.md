@@ -27,6 +27,45 @@ beat→mix→master. CPU 4 threads/2 cores, RAM 15.99 GiB. `quality_accepted=fal
 - ROCm через torch.cuda не доказывает поддержку CUDA-only CTranslate2.
   DirectML/название AMD-адаптера не означают работоспособность модели.
 
+## Shared agent/HitFactory preflight (T0025: integration in progress)
+
+`app.core.hardware_preflight.preflight_recipe` is called in the agent route
+before dossier/lyrics/vocal model work and again in `app.core.orchestrator`
+before pipeline stages. The second check is intentional: it protects direct
+HitFactory/orchestrator callers and catches resource changes after setup.
+`app/cli/agent_task.py` transports preparation separately from the hardware
+result; neither setup `ok` nor a preflight admission means model inference.
+
+For the selected MusicGen beat route, the gate uses the explicit
+`music_generation` registry estimate (14 GiB RAM / 11 GiB VRAM) plus a 1 GiB
+reserve. Since the catalog only budgets MusicGen-large, the same conservative
+figures are applied to small/medium until separate budgets are reviewed. RAM,
+VRAM and output-volume free space use exact byte measurements when available;
+legacy two-decimal GiB values are rounded down conservatively. CUDA requests
+also require a measured PyTorch `cuda` or ROCm backend and free VRAM; DirectML,
+unknown backend, missing measurements, unknown model IDs, malformed recipes or
+invalid registry estimates block before model loading. The disk gate reserves
+512 MiB plus the exact requested PCM-16 stereo WAV size. MusicGen checkpoint / cache
+size is unknown, explicitly reported, and **not included** in that disk bound.
+
+Procedural and user-audio beat routes do not load a neural beat model, so their
+preflight is `not_required`. Dry runs and runs skipping the beat likewise do
+not admit inference. ACE-Step uses a separate local service whose RAM/VRAM
+budget is not exposed to this client; it is reported as a blocked,
+unmeasured request rather than treating unknown service resources as enough.
+Reports keep `inference_verified=false` and `product_profile_accepted=false`.
+An `allowed` MusicGen result means only that the scoped estimates/measured
+resources passed; it does not verify weights, checkpoint/cache space, runtime
+compatibility, actual inference, output quality, or supported hardware.
+
+Local contract/integration coverage is in
+`tests/test_hardware_preflight.py`, `tests/test_pipeline_hardware_preflight.py`,
+`tests/test_agent_preflight_transport.py` and `desktop/test/creation.test.js`.
+These tests do not constitute a Windows installed-artifact run; T0025 remains
+open until the packaged Windows agent path has an observed deny/result protocol.
+T0026–T0028 recovery/cancellation work and T0029–T0030 real backend acceptance
+remain separate and unaccepted.
+
 ## Воспроизводимый узкий benchmark
 
 `python tools/windows_neural_smoke.py` запускает настоящую Silero CPU сначала

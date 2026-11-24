@@ -215,6 +215,21 @@ def _voice(plan: dict[str, Any], work_dir: Path) -> dict[str, Any]:
         return {"ok": False, "source": "BLOCKED", "reason": f"{type(exc).__name__}: {exc}"}
 
 
+def _select_beat_route(plan: dict[str, Any]) -> None:
+    """Resolve adaptive engine choice into the exact recipe before model work."""
+    try:
+        from modules.hit_factory.adaptive import get_adaptive_config
+        from modules.hit_factory._state import _pick_beat_engine
+
+        adaptive = get_adaptive_config()
+        engine, extras = _pick_beat_engine(True, adaptive)
+    except Exception as exc:  # the safe, named fallback is procedural DSP
+        _LOG.warning("adaptive beat selection unavailable: %s", type(exc).__name__)
+        engine, extras = None, {}
+    plan["beat_engine"] = engine or "procedural"
+    plan.update(extras)
+
+
 def _run_pipeline(plan: dict[str, Any], output_root: str,
                   progress: Callable[[str], None] | None) -> dict[str, Any]:
     """Единственный прогон `HitFactory`: бит, микс, мастер, релиз — всё внутри."""
@@ -234,7 +249,8 @@ def _run_pipeline(plan: dict[str, Any], output_root: str,
 
 def run_conversation_hit(payload: dict[str, Any] | None = None,
                          output_root: str = "output/hits",
-                         progress: Callable[[str], None] | None = None) -> dict[str, Any]:
+                         progress: Callable[[str], None] | None = None,
+                         preparation: dict[str, Any] | None = None) -> dict[str, Any]:
     """Полный прогон агентика. Возвращает отчёт, а не «магический» bool.
 
     Ключ `master_path` есть всегда, когда трек получился; `blocked` перечисляет
@@ -249,7 +265,62 @@ def run_conversation_hit(payload: dict[str, Any] | None = None,
     trend = _trend(answers.get("mood") or "")
     style = _references(answers.get("refs") or [])
     plan = build_plan(answers, trend, style)
+    _select_beat_route(plan)
     say(f"Жанр выбран сам: {plan['genre']} · тема «{plan['theme']}»")
+
+    # Admit the shared, selected recipe before dossier/lyrics/vocal model work.
+    # The orchestrator repeats the same check immediately before its stages to
+    # catch resource changes and protect callers that bypass this agent route.
+    from app.core.hardware_preflight import preflight_recipe
+    from app.core.recipe import build_recipe
+
+    try:
+        Path(output_root).mkdir(parents=True, exist_ok=True)
+        hardware_preflight = preflight_recipe(build_recipe(plan), Path(output_root))
+    except Exception as exc:  # measurement or contract errors must not bypass the gate
+        hardware_preflight = {
+            "schema": 1, "status": "blocked", "scope": "selected_beat_engine",
+            "engine": plan.get("beat_engine", "unknown"), "request": None,
+            "measurements": {}, "reasons": [f"hardware preflight failed: {type(exc).__name__}"],
+            "checks": {}, "inference_verified": False, "product_profile_accepted": False,
+        }
+    if not isinstance(hardware_preflight, dict) or hardware_preflight.get("status") not in (
+        "not_required", "allowed", "blocked",
+    ):
+        hardware_preflight = {
+            "schema": 1, "status": "blocked", "scope": "selected_beat_engine",
+            "engine": plan.get("beat_engine", "unknown"), "request": None,
+            "measurements": {}, "reasons": ["hardware preflight returned a malformed result"],
+            "checks": {}, "inference_verified": False, "product_profile_accepted": False,
+        }
+    if hardware_preflight["status"] == "blocked":
+        reasons = hardware_preflight.get("reasons") or ["selected engine did not pass resource admission"]
+        reason = "; ".join(str(item) for item in reasons)
+        say(f"Hardware preflight отказал до загрузки моделей: {reason}")
+        report = {
+            "master_reported": False, "answers": answers, "plan": plan,
+            "preparation": preparation or {"ok": False, "blockers": ["setup result unavailable"]},
+            "trend": trend, "style": style,
+            "dossier": {"ok": False, "status": "NOT_RUN", "reason": "hardware preflight blocked"},
+            "samples": {"ok": False, "status": "NOT_RUN", "reason": "hardware preflight blocked"},
+            "lyrics": {"ok": False, "status": "BLOCKED", "reason": "hardware preflight blocked before model work"},
+            "voice": {"ok": False, "status": "BLOCKED", "reason": "hardware preflight blocked before model work"},
+            "hit": {"master_path": None, "hardware_preflight": hardware_preflight,
+                    "outcome": {"status": "blocked", "succeeded": False, "reasons": [reason]}},
+            "hardware_preflight": hardware_preflight,
+            "outcome": {"status": "blocked", "succeeded": False, "reasons": [reason]},
+            "master_path": None, "hit_score": None, "verdict": "BLOCKED",
+            "blocked": [{"stage": "hardware_preflight", "reason": reason}],
+            "elapsed_sec": round(time.time() - started, 1),
+            "output_root": str(Path(output_root)),
+            "agent_failed": "hardware preflight blocked before model work",
+        }
+        from app.pipeline.result import assess_result
+        report["result"] = assess_result(report, requested_kind="generated_singing")
+        report["ok"] = False
+        report["artifact_available"] = False
+        return report
+
     dossier = _dossier(answers.get("artist") or "")
     samples = _samples(plan["genre"])
     lyrics = _lyrics(plan, dossier)
@@ -259,12 +330,16 @@ def run_conversation_hit(payload: dict[str, Any] | None = None,
         plan["theme"] = plan["theme"] or str(lyrics["text"].splitlines()[0])[:60]
     voice = _voice(plan, Path(output_root))
     hit = _run_pipeline(plan, output_root, say)
+    pipeline_report = hit.get("report") if isinstance(hit.get("report"), dict) else {}
+    final_hardware_preflight = pipeline_report.get("hardware_preflight") or hardware_preflight
 
     blocked = _blocked_stages(lyrics, voice, samples, style, trend)
     report = {
         "master_reported": bool(hit.get("master_path")),
         "answers": answers,
         "plan": plan,
+        "preparation": preparation or {"ok": False, "blockers": ["setup result unavailable"]},
+        "hardware_preflight": final_hardware_preflight,
         "trend": trend,
         "style": style,
         "dossier": dossier,

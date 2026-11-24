@@ -70,6 +70,38 @@ print('Installed bundled Python isolated stage PASS; no model inference claimed'
         $pythonOutput | Write-Output
         if ($pythonCode -ne 0) { throw ("Installed isolated stage failed under read-only install ACL: " + (($pythonOutput | Select-Object -Last 25) -join "`n")) }
         $result.checks += 'installed-relocated-python-isolated-stage-read-only-install'
+
+        $preflightScript = Join-Path $project 'tools/windows_installed_hardware_preflight.py'
+        if (-not (Test-Path $preflightScript)) { throw 'Installed hardware preflight check is missing' }
+        $env:ZSMM_NSIS_INSTALL_CHECK = '1'
+        $preflightOutput = & $python -I -B $preflightScript $project $workspace 2>&1
+        $preflightCode = $LASTEXITCODE
+        $preflightOutput | Write-Output
+        $preflightReportPath = Join-Path $workspace 'hardware-preflight-installed.json'
+        if ($preflightCode -ne 0 -or -not (Test-Path $preflightReportPath)) {
+            throw ("Installed shared-recipe/preflight or model-worker cancellation failed: " + (($preflightOutput | Select-Object -Last 40) -join "`n"))
+        }
+        $result.hardwarePreflight = Get-Content $preflightReportPath -Raw | ConvertFrom-Json
+        if ($result.hardwarePreflight.host_os -ne 'Windows' -or
+            -not $result.hardwarePreflight.clean_nsis_install_context -or
+            $result.hardwarePreflight.inference_verified -ne $false -or
+            $result.hardwarePreflight.product_profile_accepted -ne $false -or
+            $result.hardwarePreflight.song_verified -ne $false -or
+            $result.hardwarePreflight.actual_measurement.status -notin @('allowed', 'blocked') -or
+            $result.hardwarePreflight.actual_measurement.inference_verified -ne $false -or
+            $result.hardwarePreflight.actual_measurement.product_profile_accepted -ne $false -or
+            $result.hardwarePreflight.same_recipe_retry.deny_status -ne 'blocked' -or
+            $result.hardwarePreflight.same_recipe_retry.retry_status -ne 'allowed' -or
+            $result.hardwarePreflight.same_recipe_retry.retry_renderer_calls -ne 1 -or
+            -not $result.hardwarePreflight.same_recipe_retry.prior_result_preserved -or
+            $result.hardwarePreflight.same_recipe_retry.inference_verified -ne $false -or
+            -not $result.hardwarePreflight.model_worker_cancellation.worker_started -or
+            -not $result.hardwarePreflight.model_worker_cancellation.late_side_effect_absent -or
+            $result.hardwarePreflight.model_worker_cancellation.inference_verified -ne $false) {
+            throw 'Installed hardware preflight report did not satisfy the deny/retry/cancellation contract'
+        }
+        $result.checks += 'installed-shared-recipe-real-measurement-and-deterministic-deny-retry'
+        $result.checks += 'installed-model-stage-worker-cancelled-after-timeout'
     } finally {
         Set-Acl -Path $project -AclObject $originalAcl
     }
@@ -89,4 +121,5 @@ print('Installed bundled Python isolated stage PASS; no model inference claimed'
 } finally {
     $result | ConvertTo-Json -Depth 8 | Set-Content -Encoding utf8 $Report
     Remove-Item Env:ZSMM_WORKSPACE -ErrorAction SilentlyContinue
+    Remove-Item Env:ZSMM_NSIS_INSTALL_CHECK -ErrorAction SilentlyContinue
 }

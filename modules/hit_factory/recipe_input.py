@@ -22,7 +22,8 @@ def factory_recipe(recipe: dict, build_state, rng, *, strict=True) -> dict:
 
 def validate_recipe_input(state: dict) -> None:
     """The new explicit API refuses ambiguous types; legacy UI normalization stays compatible."""
-    for key in ('genre', 'theme', 'artist', 'reference_lyrics', 'own_vocal_wav'):
+    for key in ('genre', 'theme', 'artist', 'reference_lyrics', 'own_vocal_wav',
+                'beat_engine', 'musicgen_model', 'musicgen_device'):
         if key in state and not isinstance(state[key], str):
             raise ValueError(f'{key} must be a string')
     for key, lo, hi in (('seed', 0, 2**32 - 1), ('bpm_override', 40, 300),

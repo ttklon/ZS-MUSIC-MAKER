@@ -30,6 +30,7 @@ from app.core.pipeline_blocks import (  # noqa: F401 - реэкспорт для
     _run_post_master_stages,
     _run_release_stage,
 )
+from app.core.hardware_preflight import preflight_recipe
 # Реэкспорт ради тестов и экспериментов: `pipeline_runtime._stage_callable`
 # ищет реализацию стадии в атрибутах этого модуля, поэтому подмена
 # `orchestrator._stage_*` остаётся рабочей.
@@ -65,7 +66,7 @@ from app.core.stages.prep import (  # noqa: F401
 from app.core.stages.release import _stage_release_pack  # noqa: F401
 from app.core.stages.texture import _stage_texture  # noqa: F401
 from app.core.stages.vocal_chain import _run_vocal_chain  # noqa: F401
-from app.pipeline import StageResult, summarize
+from app.pipeline import StageResult, StageStatus, summarize
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -213,6 +214,71 @@ def run_full_pipeline(
     )
     if dry_run:
         recipe["dry_run"] = True
+    try:
+        hardware_preflight = preflight_recipe(recipe, out_root, only=only, dry_run=dry_run)
+    except Exception as exc:  # preflight implementation failure is fail-closed
+        hardware_preflight = {
+            "schema": 1,
+            "status": "blocked",
+            "scope": "selected_beat_engine",
+            "engine": recipe.get("beat_engine", "unknown"),
+            "request": None,
+            "measurements": {},
+            "reasons": [f"hardware preflight failed: {type(exc).__name__}"],
+            "checks": {},
+            "inference_verified": False,
+            "product_profile_accepted": False,
+        }
+    if not isinstance(hardware_preflight, dict) or hardware_preflight.get("status") not in (
+        "not_required", "allowed", "blocked",
+    ):
+        hardware_preflight = {
+            "schema": 1,
+            "status": "blocked",
+            "scope": "selected_beat_engine",
+            "engine": recipe.get("beat_engine", "unknown"),
+            "request": None,
+            "measurements": {},
+            "reasons": ["hardware preflight returned a malformed result"],
+            "checks": {},
+            "inference_verified": False,
+            "product_profile_accepted": False,
+        }
+    if hardware_preflight["status"] == "blocked":
+        reasons = hardware_preflight.get("reasons") or ["selected engine did not pass resource admission"]
+        reason = "hardware preflight blocked: " + "; ".join(str(item) for item in reasons)
+        refused_stages = [StageResult(name=name, status=StageStatus.BLOCKED, reason=reason,
+                                      output={"skip_kind": "hardware_preflight"}) for name in STAGE_RECORDS]
+        stages: list[StageResult] = []
+        warnings: list[str] = [reason]
+        blocks._add_stage(stages, on_stage, warnings, *refused_stages)
+        summary = summarize(stages, dry_run=dry_run)
+        warnings.extend(summary.pop("warnings", []))
+        finished_at = time.time()
+        mix_stage = next(stage for stage in stages if stage.name == "_stage_mix_and_sidechain")
+        report = _build_report(
+            project_id=project_id,
+            recipe=recipe,
+            stages=stages,
+            summary=summary,
+            warnings=warnings,
+            quality_failures=[],
+            streaming_master=None,
+            started_at=started_at,
+            finished_at=finished_at,
+            dry_run=dry_run,
+            only=only,
+            resume=resume,
+            rebuild_info=rebuild_info,
+            out_root=out_root,
+            wizard_state=wizard_state,
+            input_capture=input_capture,
+            mix_stage=mix_stage,
+            initial_integrity={},
+            hardware_preflight=hardware_preflight,
+        )
+        _write_report(report, out_root, warnings)
+        return report
     # Все ИИ-агенты работают в каждом прогоне, а не только в hit_factory:
     # тренды дают тексту актуальные слова, sample_hunter проверяет банк.
     agent_context = _attach_agent_context(recipe)
@@ -324,6 +390,7 @@ def run_full_pipeline(
         input_capture=input_capture,
         mix_stage=mix_stage,
         initial_integrity=initial_integrity,
+        hardware_preflight=hardware_preflight,
     )
     _write_report(report, out_root, warnings)
     return report
@@ -349,9 +416,10 @@ def _build_report(
     input_capture: Any,
     mix_stage: StageResult,
     initial_integrity: dict[str, Any],
+    hardware_preflight: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Отчёт прогона: вердикт, стадии, предупреждения, снимок рецепта."""
-    return finalize_report(
+    report = finalize_report(
         project_id=project_id,
         recipe=recipe,
         stages=stages,
@@ -371,6 +439,9 @@ def _build_report(
         mix_stage=mix_stage,
         initial_integrity=initial_integrity,
     )
+    if hardware_preflight is not None:
+        report["hardware_preflight"] = hardware_preflight
+    return report
 
 
 def build_gradio_ui():

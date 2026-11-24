@@ -6,6 +6,8 @@ def test_real_measurement_does_not_advertise_unproven_profiles(tmp_path):
     report = measure_profile(tmp_path)
     assert report['kind'] == 'inventory_only'
     assert report['measurements']['disk_free_gib'] is not None
+    assert type(report['measurements']['ram_available_bytes']) is int
+    assert type(report['measurements']['disk_free_bytes']) is int
     assert not report['inference_verified'] and not report['product_profile_accepted']
     assert all(p['status'] == 'unverified' for p in report['profiles'])
     assert report['measurements']['gpu']['inference_verified'] is False

@@ -74,6 +74,23 @@ test('launch error is visible without changing to success', async () => {
   assert.match(f.root.textContent, /Python missing/);
 });
 
+test('creation UI exposes hardware refusal without implying acceptance', async () => {
+  const f = fixture(); await f.load(); await f.click('Далее — подготовить студию');
+  await f.click('Проверить и подготовить автоматически'); f.done({ ok: true });
+  await f.click('Создать трек');
+  const report = { master_path: null, verdict: 'BLOCKED', blocked: [{ stage: 'hardware_preflight', reason: 'Недостаточно свободной RAM' }],
+    preparation: { ok: false, blockers: ['MusicGen package unavailable'], inference_verified: false },
+    hardware_preflight: { status: 'blocked', reasons: ['Недостаточно свободной RAM'], inference_verified: false } };
+  f.event({ type: 'protocol', event: { type: 'done', report } });
+  f.done({ ok: false, report });
+  assert.match(f.root.textContent, /Подготовка неполная; это не подтверждение inference/);
+  assert.match(f.root.textContent, /MusicGen package unavailable/);
+  assert.match(f.root.textContent, /Проверка выбранного движка: Запуск остановлен до модели/);
+  assert.match(f.root.textContent, /Недостаточно свободной RAM/);
+  assert.match(f.root.textContent, /не подтверждает успешный inference/);
+  assert.match(f.root.textContent, /неполный результат/);
+});
+
 
 test('inline player releases its URL when result is left', async () => {
   const f = fixture();
